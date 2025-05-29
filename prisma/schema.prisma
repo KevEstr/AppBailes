@@ -1,0 +1,149 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Student {
+  id        String   @id @default(cuid())
+  name      String
+  email     String?  @unique
+  phone     String   @unique
+  avatar    String?
+  group     String
+  hasDebt   Boolean  @default(false)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  attendances    Attendance[]
+  receipts       Receipt[]
+  debts          Debt[]
+  messagesSent   MassiveMessage[] @relation("MessageRecipients")
+
+  @@map("students")
+}
+
+model Attendance {
+  id        String           @id @default(cuid())
+  studentId String
+  status    AttendanceStatus
+  date      DateTime         @default(now())
+  notes     String?
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  // Relations
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@map("attendances")
+}
+
+model Receipt {
+  id            String        @id @default(cuid())
+  studentId     String
+  amount        Float
+  concept       String
+  paymentMethod PaymentMethod
+  promotion     String?
+  notes         String?
+  whatsappSent  Boolean       @default(false)
+  sentAt        DateTime?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  // Relations
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@map("receipts")
+}
+
+model Debt {
+  id           String    @id @default(cuid())
+  studentId    String
+  amount       Float
+  concept      String
+  dueDate      DateTime
+  isPaid       Boolean   @default(false)
+  paidAt       DateTime?
+  lastReminder DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  // Relations
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@map("debts")
+}
+
+model MassiveMessage {
+  id          String      @id @default(cuid())
+  type        MessageType
+  message     String
+  targetGroup String
+  sentCount   Int         @default(0)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  // Relations
+  recipients Student[] @relation("MessageRecipients")
+
+  @@map("massive_messages")
+}
+
+model Trainer {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  phone     String   @unique
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  attendances TrainerAttendance[]
+
+  @@map("trainers")
+}
+
+model TrainerAttendance {
+  id        String           @id @default(cuid())
+  trainerId String
+  status    AttendanceStatus
+  date      DateTime         @default(now())
+  notes     String?
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  // Relations
+  trainer Trainer @relation(fields: [trainerId], references: [id], onDelete: Cascade)
+
+  @@map("trainer_attendances")
+}
+
+enum AttendanceStatus {
+  PRESENT
+  LATE
+  ABSENT
+  CHANGE_REQUEST
+}
+
+enum PaymentMethod {
+  CASH
+  TRANSFER
+  CARD
+}
+
+enum MessageType {
+  PAYMENT_REMINDER
+  TRAINING_REMINDER
+  ABSENCE_INQUIRY
+  GENERAL
+}
