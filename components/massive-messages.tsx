@@ -48,27 +48,27 @@ export function MassiveMessages() {
   const messageTemplates: MessageTemplate[] = [
     {
       id: "payment_reminder",
-      name: "Recordatorio de Pago",
+      name: "Recordatorio de Mensualidad",
       type: "PAYMENT_REMINDER",
-      message: "¡Hola! Este es un recordatorio amigable sobre tu pago pendiente en la academia de baile. Por favor, ponte al día para seguir disfrutando de nuestras clases. ¡Gracias! 💃🕺"
+      message: "¡Hola desde Paradise Dance Academy! 🌟 Te recordamos que tienes tu mensualidad pendiente. Para seguir disfrutando de nuestras increíbles clases de baile, por favor ponte al día. ¡Esperamos verte pronto en la pista! 💃🕺✨"
     },
     {
       id: "training_reminder",
-      name: "Recordatorio de Entrenamiento",
+      name: "Recordatorio de Clase",
       type: "TRAINING_REMINDER", 
-      message: "¡No olvides tu clase de baile hoy! Te esperamos para seguir mejorando juntos. ¡Nos vemos en la pista! 🎵✨"
+      message: "¡Paradise Dance Academy te espera! 🎵 No olvides tu clase de hoy. Prepárate para brillar en la pista y seguir mejorando con nosotros. ¡Nos vemos para crear magia bailando! ✨💫"
     },
     {
       id: "absence_inquiry",
-      name: "Consulta por Ausencia",
+      name: "Te extrañamos en Paradise",
       type: "ABSENCE_INQUIRY",
-      message: "¡Hola! Notamos que no has venido a clases últimamente. ¿Todo está bien? Nos encantaría saber de ti y ayudarte a retomar tus clases. 💖"
+      message: "¡Hola desde Paradise Dance Academy! 💖 Hemos notado tu ausencia y te extrañamos en nuestras clases. ¿Todo está bien? Estamos aquí para apoyarte y ayudarte a retomar tu pasión por el baile. ¡Paradise no es lo mismo sin ti! 🌟"
     },
     {
       id: "general",
-      name: "Mensaje General",
+      name: "Mensaje Paradise",
       type: "GENERAL",
-      message: "¡Hola! Esperamos que estés bien. Te escribimos desde la academia para mantenerte al tanto de nuestras novedades. ¡Gracias por ser parte de nuestra familia de baile! 🌟"
+      message: "¡Saludos desde Paradise Dance Academy! 🏆 Esperamos que estés bien y lleno de energía. Te escribimos para mantenerte conectado con tu familia de baile. ¡Gracias por ser parte de Paradise y hacer que cada día sea especial! 💃✨"
     }
   ]
 
@@ -180,15 +180,15 @@ export function MassiveMessages() {
   return (
     <div className="max-w-7xl mx-auto">
       {/* Header */}
-      <Card className="border-0 bg-gradient-to-r from-cyan-600 via-blue-600 to-cyan-700 text-white shadow-2xl mb-8 rounded-3xl">
+      <Card className="border-0 bg-gradient-to-r from-stone-200 via-amber-100 to-orange-150 text-slate-900 shadow-2xl mb-8 rounded-3xl border-2 border-stone-500">
         <CardHeader className="pb-6">
           <CardTitle className="flex items-center space-x-4">
-            <div className="rounded-2xl bg-white/20 p-3 backdrop-blur-sm">
-              <MessageCircle className="h-8 w-8" />
+            <div className="rounded-2xl bg-teal-300 p-3 backdrop-blur-sm border border-teal-600">
+              <MessageCircle className="h-8 w-8 text-teal-900" />
             </div>
             <div>
-              <span className="text-3xl font-bold">Mensajes Masivos</span>
-              <p className="text-cyan-200 mt-2 text-lg">Envía WhatsApp a múltiples estudiantes</p>
+              <span className="text-3xl font-bold bg-gradient-to-r from-teal-800 to-amber-800 bg-clip-text text-transparent">Notificaciones Paradise</span>
+              <p className="text-teal-900 mt-2 text-lg">Comunícate con tu familia de baile</p>
             </div>
           </CardTitle>
         </CardHeader>
@@ -196,14 +196,14 @@ export function MassiveMessages() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Panel de configuración */}
-        <Card className="border-0 shadow-2xl rounded-3xl">
+        <Card className="border-0 shadow-2xl rounded-3xl bg-stone-200/80 border-2 border-stone-500">
           <CardHeader>
-            <CardTitle className="text-2xl font-bold text-slate-800">Configurar Mensaje</CardTitle>
+            <CardTitle className="text-2xl font-bold text-slate-900">Configurar Mensaje</CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
             {/* Plantillas de mensaje */}
             <div>
-              <Label className="text-lg font-semibold text-slate-700">Plantilla de Mensaje</Label>
+              <Label className="text-lg font-semibold text-slate-800">Plantilla de Mensaje</Label>
               <Select value={messageType} onValueChange={(value) => {
                 setMessageType(value)
                 const template = messageTemplates.find(t => t.id === value)
@@ -211,7 +211,7 @@ export function MassiveMessages() {
                   setCustomMessage(template.message)
                 }
               }}>
-                <SelectTrigger className="border-2 border-slate-300 focus:border-cyan-500 rounded-2xl h-14 text-lg">
+                <SelectTrigger className="border-2 border-stone-500 focus:border-teal-600 rounded-2xl h-14 text-lg bg-stone-100 text-slate-900">
                   <SelectValue placeholder="Selecciona una plantilla" />
                 </SelectTrigger>
                 <SelectContent>
@@ -232,7 +232,7 @@ export function MassiveMessages() {
 
             {/* Mensaje personalizado */}
             <div>
-              <Label htmlFor="message" className="text-lg font-semibold text-slate-700">
+              <Label htmlFor="message" className="text-lg font-semibold text-slate-800">
                 Mensaje Personalizado
               </Label>
               <Textarea
@@ -240,10 +240,10 @@ export function MassiveMessages() {
                 value={customMessage}
                 onChange={(e) => setCustomMessage(e.target.value)}
                 placeholder="Escribe tu mensaje aquí..."
-                className="border-2 border-slate-300 focus:border-cyan-500 rounded-2xl resize-none"
+                className="border-2 border-stone-500 focus:border-teal-600 rounded-2xl resize-none bg-amber-50/50 text-slate-900"
                 rows={6}
               />
-              <p className="text-sm text-slate-500 mt-2">
+              <p className="text-sm text-slate-600 mt-2">
                 {customMessage.length}/500 caracteres
               </p>
             </div>
@@ -252,7 +252,7 @@ export function MassiveMessages() {
             <Button
               onClick={sendMassiveMessages}
               disabled={loading || selectedStudents.length === 0 || !customMessage.trim()}
-              className="w-full h-16 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 shadow-2xl rounded-2xl text-xl font-bold transition-all duration-500 hover:shadow-3xl transform hover:-translate-y-1"
+              className="w-full h-16 bg-gradient-to-r from-teal-600 to-yellow-500 hover:from-teal-700 hover:to-yellow-600 shadow-2xl rounded-2xl text-xl font-bold transition-all duration-500 hover:shadow-3xl transform hover:-translate-y-1 text-white shadow-teal-500/50"
             >
               {loading ? (
                 <div className="flex items-center space-x-3">
@@ -270,11 +270,11 @@ export function MassiveMessages() {
         </Card>
 
         {/* Panel de selección de estudiantes */}
-        <Card className="border-0 shadow-2xl rounded-3xl">
+        <Card className="border-0 shadow-2xl rounded-3xl bg-stone-200/80 border-2 border-stone-500">
           <CardHeader>
             <CardTitle className="flex items-center justify-between">
-              <span className="text-2xl font-bold text-slate-800">Seleccionar Estudiantes</span>
-              <Badge variant="outline" className="text-lg px-4 py-2">
+              <span className="text-2xl font-bold text-slate-900">Seleccionar Estudiantes</span>
+              <Badge variant="outline" className="text-lg px-4 py-2 border-amber-600 text-amber-900 bg-amber-200">
                 {selectedStudents.length} seleccionados
               </Badge>
             </CardTitle>
@@ -282,9 +282,9 @@ export function MassiveMessages() {
           <CardContent className="space-y-6">
             {/* Filtros */}
             <div className="space-y-3">
-              <Label className="text-lg font-semibold text-slate-700">Filtrar por</Label>
+              <Label className="text-lg font-semibold text-slate-800">Filtrar por</Label>
               <Select value={filterType} onValueChange={setFilterType}>
-                <SelectTrigger className="border-2 border-slate-300 focus:border-cyan-500 rounded-2xl h-14 text-lg">
+                <SelectTrigger className="border-2 border-stone-500 focus:border-teal-600 rounded-2xl h-14 text-lg bg-stone-100 text-slate-900">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -341,8 +341,8 @@ export function MassiveMessages() {
                     key={student.id}
                     className={`flex items-center space-x-4 p-4 rounded-2xl border-2 transition-all cursor-pointer hover:shadow-md ${
                       selectedStudents.includes(student.id)
-                        ? 'border-cyan-500 bg-cyan-50'
-                        : 'border-slate-200 bg-white hover:border-slate-300'
+                        ? 'border-teal-600 bg-teal-200'
+                        : 'border-stone-500 bg-stone-100 hover:border-stone-600'
                     }`}
                     onClick={() => toggleStudentSelection(student.id)}
                   >
@@ -354,7 +354,7 @@ export function MassiveMessages() {
                     
                     <Avatar className="w-12 h-12 ring-2 ring-white shadow-lg">
                       <AvatarImage src={student.avatar || "/placeholder.svg"} />
-                      <AvatarFallback className="bg-gradient-to-r from-cyan-500 to-blue-500 text-white font-bold">
+                      <AvatarFallback className="bg-gradient-to-r from-teal-500 to-blue-500 text-white font-bold">
                         {student.name
                           .split(" ")
                           .map((n) => n[0])

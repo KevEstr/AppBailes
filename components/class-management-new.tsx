@@ -312,31 +312,31 @@ export function ClassManagementNew() {
   return (
     <div className="max-w-7xl mx-auto">
       {/* Header */}
-      <Card className="border-0 bg-gradient-to-r from-purple-600 via-pink-600 to-purple-700 text-white shadow-2xl mb-8 rounded-3xl">
+      <Card className="border-0 bg-gradient-to-r from-black via-gray-900 to-black text-white shadow-2xl mb-8 rounded-3xl border border-cyan-400/30">
         <CardHeader className="pb-6">
           <CardTitle className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
-              <div className="rounded-2xl bg-white/20 p-3 backdrop-blur-sm">
-                <GraduationCap className="h-8 w-8" />
+              <div className="rounded-2xl bg-cyan-500/20 p-3 backdrop-blur-sm border border-cyan-400/50">
+                <GraduationCap className="h-8 w-8 text-cyan-400" />
               </div>
               <div>
-                <span className="text-3xl font-bold">Gestión de Clases</span>
-                <p className="text-purple-200 mt-2 text-lg">Administra clases, horarios e inscripciones</p>
+                <span className="text-3xl font-bold bg-gradient-to-r from-cyan-400 to-yellow-400 bg-clip-text text-transparent">Clases Paradise</span>
+                <p className="text-cyan-200 mt-2 text-lg">Administra grupos de baile e inscripciones</p>
               </div>
             </div>
             <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
               <DialogTrigger asChild>
                 <Button 
-                  className="bg-white/20 hover:bg-white/30 border-white/30 text-white text-lg px-6 py-3 rounded-2xl"
+                  className="bg-cyan-500/20 hover:bg-cyan-500/30 border-cyan-400/50 text-cyan-400 text-lg px-6 py-3 rounded-2xl hover:text-cyan-300"
                   size="lg"
                 >
                   <Plus className="h-5 w-5 mr-2" />
-                  Nueva Clase
+                  Nueva Clase Paradise
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+              <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-gray-900/95 border border-cyan-400/30">
                 <DialogHeader>
-                  <DialogTitle className="text-2xl font-bold">Crear Nueva Clase</DialogTitle>
+                  <DialogTitle className="text-2xl font-bold text-cyan-400">Crear Nueva Clase de Baile</DialogTitle>
                 </DialogHeader>
 
                 <div className="space-y-6">
@@ -348,11 +348,11 @@ export function ClassManagementNew() {
                         id="name"
                         value={newClass.name}
                         onChange={(e) => setNewClass({ ...newClass, name: e.target.value })}
-                        placeholder="ej: Salsa Básica"
+                        placeholder="ej: Salsa Avanzada Paradise"
                       />
                     </div>
                     <div>
-                      <Label htmlFor="capacity">Capacidad</Label>
+                      <Label htmlFor="capacity">Capacidad de Bailarines</Label>
                       <Input
                         id="capacity"
                         type="number"
@@ -364,13 +364,13 @@ export function ClassManagementNew() {
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <Label htmlFor="trainer">Entrenador *</Label>
+                      <Label htmlFor="trainer">Instructor Paradise *</Label>
                       <Select 
                         value={newClass.trainerId.toString()} 
                         onValueChange={(value) => setNewClass({ ...newClass, trainerId: parseInt(value) })}
                       >
                         <SelectTrigger>
-                          <SelectValue placeholder="Selecciona un entrenador" />
+                          <SelectValue placeholder="Selecciona un instructor" />
                         </SelectTrigger>
                         <SelectContent>
                           {trainers.map((trainer) => (
@@ -382,7 +382,7 @@ export function ClassManagementNew() {
                       </Select>
                     </div>
                     <div>
-                      <Label htmlFor="price">Precio por Clase</Label>
+                      <Label htmlFor="price">Valor por Clase</Label>
                       <Input
                         id="price"
                         type="number"
@@ -394,12 +394,12 @@ export function ClassManagementNew() {
                   </div>
 
                   <div>
-                    <Label htmlFor="description">Descripción</Label>
+                    <Label htmlFor="description">Descripción del Estilo de Baile</Label>
                     <Textarea
                       id="description"
                       value={newClass.description}
                       onChange={(e) => setNewClass({ ...newClass, description: e.target.value })}
-                      placeholder="Descripción de la clase..."
+                      placeholder="Describe el estilo de baile y nivel..."
                     />
                   </div>
 
@@ -483,20 +483,20 @@ export function ClassManagementNew() {
       {/* Lista de clases */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {classes.map((danceClass) => (
-          <Card key={danceClass.id} className="border-0 shadow-2xl rounded-3xl hover:shadow-3xl transition-all duration-300 hover:-translate-y-1">
+          <Card key={danceClass.id} className="border-0 shadow-2xl rounded-3xl hover:shadow-3xl transition-all duration-300 hover:-translate-y-1 bg-gray-700/70 border border-cyan-400/40">
             <CardContent className="p-8">
               {/* Header de la clase */}
               <div className="flex items-start justify-between mb-6">
                 <div className="flex-1">
-                  <h3 className="text-2xl font-bold text-slate-800 mb-2">{danceClass.name}</h3>
-                  <p className="text-slate-600 mb-3">{danceClass.description || "Sin descripción"}</p>
-                  <div className="flex items-center space-x-2 text-sm text-slate-500">
+                  <h3 className="text-2xl font-bold text-cyan-300 mb-2">{danceClass.name}</h3>
+                  <p className="text-gray-200 mb-3">{danceClass.description || "Sin descripción"}</p>
+                  <div className="flex items-center space-x-2 text-sm text-gray-300">
                     <GraduationCap className="h-4 w-4" />
                     <span>{danceClass.trainer.name}</span>
                   </div>
                 </div>
                 <div className="flex space-x-2">
-                  <Button variant="outline" size="sm" onClick={() => deleteClass(danceClass.id)}>
+                  <Button variant="outline" size="sm" onClick={() => deleteClass(danceClass.id)} className="border-red-400/60 text-red-300 hover:bg-red-400/15">
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
@@ -504,15 +504,15 @@ export function ClassManagementNew() {
 
               {/* Horarios */}
               <div className="mb-6">
-                <h4 className="font-semibold text-slate-700 mb-3 flex items-center">
+                <h4 className="font-semibold text-cyan-200 mb-3 flex items-center">
                   <Clock className="h-4 w-4 mr-2" />
                   Horarios
                 </h4>
                 <div className="space-y-2">
                   {danceClass.schedules.map((schedule, index) => (
-                    <div key={index} className="flex items-center justify-between p-2 bg-slate-50 rounded-lg">
-                      <span className="font-medium text-slate-700">{DAYS_OF_WEEK[schedule.dayOfWeek]}</span>
-                      <span className="text-slate-600">{schedule.startTime} - {schedule.endTime}</span>
+                    <div key={index} className="flex items-center justify-between p-2 bg-gray-600/40 rounded-lg border border-cyan-400/30">
+                      <span className="font-medium text-cyan-200">{DAYS_OF_WEEK[schedule.dayOfWeek]}</span>
+                      <span className="text-gray-200">{schedule.startTime} - {schedule.endTime}</span>
                     </div>
                   ))}
                 </div>
@@ -520,20 +520,20 @@ export function ClassManagementNew() {
 
               {/* Estadísticas */}
               <div className="grid grid-cols-2 gap-4 mb-6">
-                <div className="text-center p-3 bg-blue-50 rounded-lg">
-                  <div className="text-2xl font-bold text-blue-600">{danceClass._count.enrollments}</div>
-                  <div className="text-sm text-blue-600">Inscritos</div>
+                <div className="text-center p-3 bg-blue-400/15 rounded-lg border border-blue-400/40">
+                  <div className="text-2xl font-bold text-blue-300">{danceClass._count.enrollments}</div>
+                  <div className="text-sm text-blue-300">Inscritos</div>
                 </div>
-                <div className="text-center p-3 bg-green-50 rounded-lg">
-                  <div className="text-2xl font-bold text-green-600">{danceClass.capacity}</div>
-                  <div className="text-sm text-green-600">Capacidad</div>
+                <div className="text-center p-3 bg-green-400/15 rounded-lg border border-green-400/40">
+                  <div className="text-2xl font-bold text-green-300">{danceClass.capacity}</div>
+                  <div className="text-sm text-green-300">Capacidad</div>
                 </div>
               </div>
 
               {/* Estudiantes inscritos */}
               <div className="mb-6">
                 <div className="flex items-center justify-between mb-3">
-                  <h4 className="font-semibold text-slate-700 flex items-center">
+                  <h4 className="font-semibold text-cyan-200 flex items-center">
                     <Users className="h-4 w-4 mr-2" />
                     Estudiantes ({danceClass.enrollments.length})
                   </h4>
@@ -554,7 +554,7 @@ export function ClassManagementNew() {
                       </DialogHeader>
                       <div className="space-y-4">
                         {getAvailableStudents().length === 0 ? (
-                          <p className="text-slate-600">No hay estudiantes disponibles para inscribir</p>
+                          <p className="text-gray-400 text-sm">No hay estudiantes disponibles para inscribir</p>
                         ) : (
                           <div className="space-y-2 max-h-60 overflow-y-auto">
                             {getAvailableStudents().map((student) => (
@@ -583,14 +583,14 @@ export function ClassManagementNew() {
 
                 <div className="space-y-2 max-h-32 overflow-y-auto">
                   {danceClass.enrollments.length === 0 ? (
-                    <p className="text-slate-500 text-sm">No hay estudiantes inscritos</p>
+                    <p className="text-gray-300 text-sm">No hay estudiantes inscritos</p>
                   ) : (
                     danceClass.enrollments.map((enrollment) => (
-                      <div key={enrollment.student.id} className="flex items-center justify-between p-2 bg-slate-50 rounded-lg">
+                      <div key={enrollment.student.id} className="flex items-center justify-between p-2 bg-gray-600/40 rounded-lg border border-cyan-400/30">
                         <div className="flex items-center space-x-3">
                           <div>
-                            <span className="font-medium text-slate-700">{enrollment.student.name}</span>
-                            <div className="text-xs text-slate-500">Cédula: {enrollment.student.id}</div>
+                            <span className="font-medium text-cyan-200">{enrollment.student.name}</span>
+                            <div className="text-xs text-gray-300">Cédula: {enrollment.student.id}</div>
                           </div>
                           {enrollment.student.hasDebt && (
                             <Badge variant="destructive" className="text-xs">Deuda</Badge>
@@ -600,6 +600,7 @@ export function ClassManagementNew() {
                           variant="outline" 
                           size="sm" 
                           onClick={() => unenrollStudent(enrollment.student.id, danceClass.id)}
+                          className="border-red-400/60 text-red-300 hover:bg-red-400/15"
                         >
                           <Trash2 className="h-3 w-3" />
                         </Button>
@@ -611,10 +612,10 @@ export function ClassManagementNew() {
 
               {/* Información adicional */}
               {danceClass.price && (
-                <div className="pt-4 border-t border-slate-200">
+                <div className="pt-4 border-t border-cyan-400/40">
                   <div className="flex items-center justify-between">
-                    <span className="text-slate-600">Precio por clase:</span>
-                    <span className="text-lg font-bold text-green-600">${danceClass.price}</span>
+                    <span className="text-gray-200">Precio por clase:</span>
+                    <span className="text-lg font-bold text-green-300">${danceClass.price}</span>
                   </div>
                 </div>
               )}
@@ -624,13 +625,13 @@ export function ClassManagementNew() {
       </div>
 
       {classes.length === 0 && (
-        <Card className="border-0 shadow-2xl rounded-3xl">
+        <Card className="border-0 shadow-2xl rounded-3xl bg-gray-700/70 border border-cyan-400/40">
           <CardContent className="p-12 text-center">
-            <div className="w-24 h-24 mx-auto mb-8 bg-gradient-to-r from-purple-100 to-pink-100 rounded-full flex items-center justify-center">
-              <BookOpen className="w-12 h-12 text-purple-600" />
+            <div className="w-24 h-24 mx-auto mb-8 bg-gradient-to-r from-purple-400/25 to-pink-400/25 rounded-full flex items-center justify-center border border-purple-400/60">
+              <BookOpen className="w-12 h-12 text-purple-300" />
             </div>
-            <h3 className="text-3xl font-bold text-slate-800 mb-4">No hay clases creadas</h3>
-            <p className="text-slate-600 text-xl">Crea tu primera clase para comenzar</p>
+            <h3 className="text-3xl font-bold text-cyan-300 mb-4">No hay clases creadas</h3>
+            <p className="text-gray-200 text-xl">Crea tu primera clase para comenzar</p>
           </CardContent>
         </Card>
       )}

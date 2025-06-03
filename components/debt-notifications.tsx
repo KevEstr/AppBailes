@@ -127,20 +127,20 @@ export function DebtNotifications() {
   return (
     <div className="max-w-6xl mx-auto">
       {/* Header */}
-      <Card className="border-0 bg-gradient-to-r from-red-600 via-pink-600 to-red-700 text-white shadow-2xl mb-8 rounded-3xl">
+      <Card className="border-0 bg-gradient-to-r from-stone-200 via-amber-100 to-orange-150 text-slate-900 shadow-2xl mb-8 rounded-3xl border-2 border-stone-500">
         <CardHeader className="pb-6">
           <CardTitle className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
-              <div className="rounded-2xl bg-white/20 p-3 backdrop-blur-sm">
-                <Bell className="h-8 w-8" />
+              <div className="rounded-2xl bg-teal-300 p-3 backdrop-blur-sm border border-teal-600">
+                <Bell className="h-8 w-8 text-teal-900" />
               </div>
               <div>
-                <span className="text-3xl font-bold">Notificaciones de Deuda</span>
-                <p className="text-red-200 mt-2 text-lg">Control de pagos pendientes</p>
+                <span className="text-3xl font-bold bg-gradient-to-r from-teal-800 to-amber-800 bg-clip-text text-transparent">Control Paradise</span>
+                <p className="text-teal-900 mt-2 text-lg">Seguimiento de mensualidades pendientes</p>
               </div>
             </div>
-            <Badge className="bg-white/20 text-white border-white/30 text-lg px-4 py-2">
-              {debts.length} pendientes
+            <Badge className="bg-teal-300 text-teal-900 border-teal-600 text-lg px-4 py-2">
+              {debts.length} estudiantes
             </Badge>
           </CardTitle>
         </CardHeader>
@@ -148,14 +148,14 @@ export function DebtNotifications() {
 
       {/* Botón de envío masivo */}
       {debts.length > 0 && (
-        <Card className="border-0 shadow-2xl mb-8 rounded-3xl">
+        <Card className="border-0 shadow-2xl mb-8 rounded-3xl bg-stone-200/80 border-2 border-stone-500">
           <CardContent className="p-6">
             <Button
               onClick={sendMassiveReminders}
-              className="w-full h-16 bg-gradient-to-r from-red-600 to-pink-600 hover:from-red-700 hover:to-pink-700 shadow-2xl rounded-2xl text-xl font-bold transition-all duration-500 hover:shadow-3xl transform hover:-translate-y-1"
+              className="w-full h-16 bg-gradient-to-r from-teal-600 to-amber-600 hover:from-teal-700 hover:to-amber-700 shadow-2xl rounded-2xl text-xl font-bold transition-all duration-500 hover:shadow-3xl transform hover:-translate-y-1 text-white"
             >
               <Send className="w-6 h-6 mr-4" />
-              Enviar Recordatorios Masivos ({debts.length})
+              Recordatorios Paradise ({debts.length})
             </Button>
           </CardContent>
         </Card>
@@ -164,14 +164,14 @@ export function DebtNotifications() {
       {/* Lista de deudas */}
       <div className="space-y-6">
         {debts.length === 0 ? (
-          <Card className="border-0 shadow-2xl rounded-3xl">
+          <Card className="border-0 shadow-2xl rounded-3xl bg-stone-200/80 border-2 border-stone-500">
             <CardContent className="p-12 text-center">
-              <div className="w-24 h-24 mx-auto mb-8 bg-gradient-to-r from-emerald-100 to-teal-100 rounded-full flex items-center justify-center">
-                <DollarSign className="w-12 h-12 text-emerald-600" />
+              <div className="w-24 h-24 mx-auto mb-8 bg-gradient-to-r from-emerald-300 to-teal-300 rounded-full flex items-center justify-center border-2 border-emerald-600">
+                <DollarSign className="w-12 h-12 text-emerald-800" />
               </div>
-              <h3 className="text-3xl font-bold text-slate-800 mb-4">¡Excelente!</h3>
-              <p className="text-slate-600 text-xl">No hay deudas pendientes</p>
-              <p className="text-lg text-slate-500 mt-3">Todos los estudiantes están al día</p>
+              <h3 className="text-3xl font-bold text-slate-900 mb-4">¡Excelente Paradise!</h3>
+              <p className="text-teal-900 text-xl">No hay mensualidades pendientes</p>
+              <p className="text-lg text-slate-700 mt-3">Todos nuestros bailarines están al día</p>
             </CardContent>
           </Card>
         ) : (
@@ -181,14 +181,14 @@ export function DebtNotifications() {
               return (
                 <Card
                   key={debt.id}
-                  className={`border-0 shadow-2xl transition-all duration-500 hover:shadow-3xl hover:-translate-y-1 rounded-3xl ${getUrgencyColor(debt.daysOverdue)}`}
+                  className="border-0 shadow-2xl transition-all duration-500 hover:shadow-3xl hover:-translate-y-1 rounded-3xl bg-stone-200/80 border-2 border-stone-500 hover:border-red-500"
                 >
                   <CardContent className="p-8">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-6">
-                        <Avatar className="w-16 h-16 ring-4 ring-white shadow-xl">
+                        <Avatar className="w-16 h-16 ring-4 ring-stone-500 shadow-xl">
                           <AvatarImage src={debt.avatar || "/placeholder.svg"} />
-                          <AvatarFallback className="bg-gradient-to-r from-red-600 to-pink-600 text-white font-bold text-lg">
+                          <AvatarFallback className="bg-gradient-to-r from-red-500 to-pink-500 text-white font-bold text-lg">
                             {debt.studentName
                               .split(" ")
                               .map((n) => n[0])
@@ -196,7 +196,7 @@ export function DebtNotifications() {
                           </AvatarFallback>
                         </Avatar>
                         <div>
-                          <h4 className="font-bold text-slate-800 flex items-center space-x-3 mb-3 text-xl">
+                          <h4 className="font-bold text-slate-900 flex items-center space-x-3 mb-3 text-xl">
                             <span>{debt.studentName}</span>
                             <Badge variant={urgency.variant} className="text-sm px-3 py-1">
                               {urgency.label}
@@ -204,13 +204,13 @@ export function DebtNotifications() {
                           </h4>
                           <div className="space-y-2">
                             <div className="flex items-center space-x-2">
-                              <DollarSign className="w-4 h-4 text-slate-600" />
+                              <DollarSign className="w-4 h-4 text-slate-700" />
                               <span className="text-2xl font-bold text-red-600">
                                 ${debt.amount.toLocaleString()}
                               </span>
                             </div>
-                            <p className="text-slate-600 font-medium">{debt.concept}</p>
-                            <div className="flex items-center space-x-2 text-sm text-slate-500">
+                            <p className="text-slate-700 font-medium">{debt.concept}</p>
+                            <div className="flex items-center space-x-2 text-sm text-slate-600">
                               <Calendar className="w-4 h-4" />
                               <span>
                                 {debt.daysOverdue > 0 
@@ -224,10 +224,10 @@ export function DebtNotifications() {
                       </div>
                     </div>
 
-                    <div className="mt-6 pt-6 border-t border-white/50">
+                    <div className="mt-6 pt-6 border-t border-stone-500">
                       <Button
                         onClick={() => sendDebtReminder(debt.id)}
-                        className="w-full h-12 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 shadow-xl rounded-xl text-lg font-semibold transition-all duration-300 hover:shadow-2xl"
+                        className="w-full h-12 bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 shadow-xl rounded-xl text-lg font-semibold transition-all duration-300 hover:shadow-2xl text-white"
                       >
                         <MessageSquare className="w-5 h-5 mr-3" />
                         Enviar Recordatorio WhatsApp

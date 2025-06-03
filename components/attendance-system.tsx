@@ -280,32 +280,32 @@ export function AttendanceSystem() {
   return (
     <div className="max-w-2xl mx-auto">
       {/* Header */}
-      <Card className="border-0 bg-gradient-to-r from-purple-600 via-pink-600 to-purple-700 text-white shadow-2xl mb-8 rounded-3xl">
+      <Card className="border-0 bg-gradient-to-r from-black via-gray-900 to-black text-white shadow-2xl mb-8 rounded-3xl border border-cyan-400/30">
         <CardHeader className="pb-6">
           <CardTitle className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
-              <div className="rounded-2xl bg-white/20 p-3 backdrop-blur-sm">
-                <Zap className="h-8 w-8" />
+              <div className="rounded-2xl bg-cyan-500/20 p-3 backdrop-blur-sm border border-cyan-400/50">
+                <Zap className="h-8 w-8 text-cyan-400" />
               </div>
               <div>
-                <span className="text-3xl font-bold">Asistencia por Clases</span>
-                <p className="text-purple-200 mt-2">Sistema mejorado con horarios</p>
+                <span className="text-3xl font-bold bg-gradient-to-r from-cyan-400 to-yellow-400 bg-clip-text text-transparent">Asistencia Paradise</span>
+                <p className="text-cyan-200 mt-2">Control rápido y visual de estudiantes</p>
               </div>
             </div>
             <div className="text-right text-lg">
-              <div className="text-white font-mono text-2xl">{currentTime.toLocaleTimeString()}</div>
-              <div className="text-purple-200">{currentTime.toLocaleDateString()}</div>
+              <div className="text-cyan-400 font-mono text-2xl">{currentTime.toLocaleTimeString()}</div>
+              <div className="text-yellow-400">{currentTime.toLocaleDateString()}</div>
             </div>
           </CardTitle>
         </CardHeader>
       </Card>
 
       {/* Selector de Clase */}
-      <Card className="border-0 shadow-xl mb-8 rounded-2xl">
+      <Card className="border-0 shadow-2xl mb-8 rounded-2xl bg-gray-900/50 border border-cyan-400/20">
         <CardHeader>
           <CardTitle className="flex items-center space-x-2">
-            <BookOpen className="h-6 w-6 text-purple-600" />
-            <span>Seleccionar Clase</span>
+            <BookOpen className="h-6 w-6 text-cyan-400" />
+            <span className="text-cyan-100">Seleccionar Clase de Baile</span>
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -313,16 +313,16 @@ export function AttendanceSystem() {
             value={selectedClass?.toString() || ""} 
             onValueChange={(value) => setSelectedClass(parseInt(value))}
           >
-            <SelectTrigger className="h-14 text-lg rounded-xl border-2">
-              <SelectValue placeholder="Selecciona una clase..." />
+            <SelectTrigger className="h-14 text-lg rounded-xl border-2 border-cyan-400/30 bg-black/50 text-cyan-100 focus:border-cyan-400">
+              <SelectValue placeholder="Selecciona una clase de Paradise..." />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="bg-gray-900 border-cyan-400/30">
               {classes.map((danceClass) => (
-                <SelectItem key={danceClass.id} value={danceClass.id.toString()} className="h-16 py-4">
+                <SelectItem key={danceClass.id} value={danceClass.id.toString()} className="h-16 py-4 text-cyan-100 hover:bg-cyan-500/20">
                   <div className="flex flex-col">
-                    <span className="font-semibold">{danceClass.name}</span>
-                    <span className="text-sm text-slate-500">
-                      Entrenador: {danceClass.trainer.name} • {danceClass.enrollments.length} estudiantes
+                    <span className="font-semibold text-cyan-400">{danceClass.name}</span>
+                    <span className="text-sm text-gray-400">
+                      Instructor: {danceClass.trainer.name} • {danceClass.enrollments.length} bailarines inscritos
                     </span>
                   </div>
                 </SelectItem>
@@ -331,13 +331,13 @@ export function AttendanceSystem() {
           </Select>
 
           {currentSession && (
-            <div className="mt-4 p-4 bg-slate-50 rounded-xl">
+            <div className="mt-4 p-4 bg-cyan-500/10 rounded-xl border border-cyan-400/30">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
-                  <Calendar className="h-5 w-5 text-slate-600" />
-                  <span className="text-sm font-medium text-slate-600">Sesión de Hoy</span>
+                  <Calendar className="h-5 w-5 text-cyan-400" />
+                  <span className="text-sm font-medium text-cyan-400">Clase de Hoy en Paradise</span>
                 </div>
-                <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                <Badge variant="outline" className="bg-yellow-400/20 text-yellow-400 border-yellow-400/50">
                   {new Date(currentSession.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - 
                   {new Date(currentSession.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </Badge>
@@ -348,46 +348,46 @@ export function AttendanceSystem() {
       </Card>
 
       {!selectedClass ? (
-        <Card className="border-0 shadow-xl rounded-2xl">
+        <Card className="border-0 shadow-xl rounded-2xl bg-gray-900/50 border border-cyan-400/20">
           <CardContent className="p-12 text-center space-y-4">
-            <div className="w-24 h-24 mx-auto bg-gradient-to-r from-purple-600 to-pink-600 rounded-full flex items-center justify-center shadow-xl">
-              <GraduationCap className="w-12 h-12 text-white" />
+            <div className="w-24 h-24 mx-auto bg-gradient-to-r from-cyan-500 to-yellow-400 rounded-full flex items-center justify-center shadow-xl shadow-cyan-400/50">
+              <GraduationCap className="w-12 h-12 text-black" />
             </div>
-            <h3 className="text-2xl font-bold text-slate-800">Selecciona una Clase</h3>
-            <p className="text-slate-600">Elige la clase para tomar asistencia</p>
+            <h3 className="text-2xl font-bold text-cyan-400">Selecciona una Clase Paradise</h3>
+            <p className="text-gray-300">Elige la clase de baile para tomar asistencia</p>
           </CardContent>
         </Card>
       ) : !currentSession ? (
-        <Card className="border-0 shadow-xl rounded-2xl">
+        <Card className="border-0 shadow-xl rounded-2xl bg-gray-900/50 border border-cyan-400/20">
           <CardContent className="p-12 text-center space-y-4">
-            <div className="w-24 h-24 mx-auto bg-gradient-to-r from-amber-500 to-orange-500 rounded-full flex items-center justify-center shadow-xl">
-              <Calendar className="w-12 h-12 text-white" />
+            <div className="w-24 h-24 mx-auto bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full flex items-center justify-center shadow-xl shadow-yellow-400/50">
+              <Calendar className="w-12 h-12 text-black" />
             </div>
-            <h3 className="text-2xl font-bold text-slate-800">No hay clase hoy</h3>
-            <p className="text-slate-600">No hay sesión programada para la fecha actual</p>
+            <h3 className="text-2xl font-bold text-yellow-400">No hay clase hoy</h3>
+            <p className="text-gray-300">No hay sesión de baile programada para la fecha actual</p>
           </CardContent>
         </Card>
       ) : students.length === 0 ? (
-        <Card className="border-0 shadow-xl rounded-2xl">
+        <Card className="border-0 shadow-xl rounded-2xl bg-gray-900/50 border border-cyan-400/20">
           <CardContent className="p-12 text-center space-y-4">
-            <div className="w-24 h-24 mx-auto bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full flex items-center justify-center shadow-xl">
-              <Users className="w-12 h-12 text-white" />
+            <div className="w-24 h-24 mx-auto bg-gradient-to-r from-cyan-500 to-blue-500 rounded-full flex items-center justify-center shadow-xl shadow-cyan-400/50">
+              <Users className="w-12 h-12 text-black" />
             </div>
-            <h3 className="text-2xl font-bold text-slate-800">Sin estudiantes inscritos</h3>
-            <p className="text-slate-600">No hay estudiantes inscritos en esta clase</p>
+            <h3 className="text-2xl font-bold text-cyan-400">Sin bailarines inscritos</h3>
+            <p className="text-gray-300">No hay estudiantes inscritos en esta clase de Paradise</p>
           </CardContent>
         </Card>
       ) : (
-        /* Modo TikTok - Un estudiante a la vez */
+        /* Modo Visual - Un estudiante a la vez */
         <div className="space-y-6">
           {currentStudent && (
-            <Card className="border-0 shadow-2xl rounded-3xl overflow-hidden">
+            <Card className="border-0 shadow-2xl rounded-3xl overflow-hidden bg-gray-900/50 border border-cyan-400/30">
               <CardContent className="p-0">
                 {/* Imagen grande del estudiante */}
-                <div className="relative h-96 bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center">
-                  <Avatar className="w-64 h-64 ring-8 ring-white shadow-2xl">
+                <div className="relative h-96 bg-gradient-to-br from-cyan-500/20 to-yellow-400/20 flex items-center justify-center">
+                  <Avatar className="w-64 h-64 ring-8 ring-cyan-400/50 shadow-2xl shadow-cyan-400/30">
                     <AvatarImage src={currentStudent.avatar || "/placeholder.svg"} className="object-cover" />
-                    <AvatarFallback className="bg-gradient-to-r from-purple-600 to-pink-600 text-white text-6xl font-bold">
+                    <AvatarFallback className="bg-gradient-to-r from-cyan-500 to-yellow-400 text-black text-6xl font-bold">
                       {currentStudent.name
                         .split(" ")
                         .map((n) => n[0])
@@ -403,13 +403,13 @@ export function AttendanceSystem() {
                         variant="secondary"
                         className={`text-lg px-4 py-2 font-bold rounded-full ${
                           currentStudent.status === "present"
-                            ? "bg-green-100 text-green-700 border-green-300"
+                            ? "bg-green-500/80 text-white border-green-400 shadow-green-400/50"
                             : currentStudent.status === "late"
-                            ? "bg-yellow-100 text-yellow-700 border-yellow-300"
+                            ? "bg-yellow-500/80 text-black border-yellow-400 shadow-yellow-400/50"
                             : currentStudent.status === "absent"
-                            ? "bg-red-100 text-red-700 border-red-300"
-                            : "bg-blue-100 text-blue-700 border-blue-300"
-                        }`}
+                            ? "bg-red-500/80 text-white border-red-400 shadow-red-400/50"
+                            : "bg-cyan-500/80 text-black border-cyan-400 shadow-cyan-400/50"
+                        } shadow-lg`}
                       >
                         {currentStudent.status === "present" && "✅ Presente"}
                         {currentStudent.status === "late" && "⏰ Tarde"}
@@ -422,8 +422,8 @@ export function AttendanceSystem() {
                   {/* Indicador de deuda */}
                   {currentStudent.hasDebt && (
                     <div className="absolute top-6 left-6">
-                      <Badge variant="destructive" className="text-lg px-4 py-2 font-bold rounded-full">
-                        💰 Deuda Pendiente
+                      <Badge variant="destructive" className="text-lg px-4 py-2 font-bold rounded-full bg-red-500/80 shadow-lg shadow-red-400/50">
+                        💰 Mensualidad Pendiente
                       </Badge>
                     </div>
                   )}
@@ -432,7 +432,7 @@ export function AttendanceSystem() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="absolute left-4 top-1/2 transform -translate-y-1/2 bg-white/80 hover:bg-white rounded-full w-16 h-16 shadow-lg"
+                    className="absolute left-4 top-1/2 transform -translate-y-1/2 bg-cyan-500/20 hover:bg-cyan-500/30 rounded-full w-16 h-16 shadow-lg border border-cyan-400/30 text-cyan-400"
                     onClick={prevStudent}
                     disabled={currentStudentIndex === 0}
                   >
@@ -442,7 +442,7 @@ export function AttendanceSystem() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="absolute right-4 top-1/2 transform -translate-y-1/2 bg-white/80 hover:bg-white rounded-full w-16 h-16 shadow-lg"
+                    className="absolute right-4 top-1/2 transform -translate-y-1/2 bg-cyan-500/20 hover:bg-cyan-500/30 rounded-full w-16 h-16 shadow-lg border border-cyan-400/30 text-cyan-400"
                     onClick={nextStudent}
                     disabled={currentStudentIndex === students.length - 1}
                   >
@@ -451,13 +451,13 @@ export function AttendanceSystem() {
                 </div>
 
                 {/* Información del estudiante */}
-                <div className="p-8 bg-white">
+                <div className="p-8 bg-black/80">
                   <div className="text-center mb-6">
-                    <h2 className="text-4xl font-bold text-slate-800 mb-2">{currentStudent.name}</h2>
-                    <div className="flex items-center justify-center space-x-4 text-slate-600">
+                    <h2 className="text-4xl font-bold text-cyan-400 mb-2">{currentStudent.name}</h2>
+                    <div className="flex items-center justify-center space-x-4 text-gray-300">
                       <span className="text-lg">Cédula: {currentStudent.id}</span>
                       <span className="text-lg">
-                        Estudiante {currentStudentIndex + 1} de {students.length}
+                        Bailarín {currentStudentIndex + 1} de {students.length}
                       </span>
                     </div>
                   </div>
@@ -466,7 +466,7 @@ export function AttendanceSystem() {
                   <div className="grid grid-cols-2 gap-6">
                     <Button
                       onClick={() => markAttendance(currentStudent.id, "present")}
-                      className="h-20 text-xl font-bold bg-green-500 hover:bg-green-600 rounded-2xl shadow-lg"
+                      className="h-20 text-xl font-bold bg-green-500 hover:bg-green-600 rounded-2xl shadow-lg shadow-green-400/50"
                       disabled={currentStudent.status === "present"}
                     >
                       <CheckCircle className="h-8 w-8 mr-3" />
@@ -475,7 +475,7 @@ export function AttendanceSystem() {
 
                     <Button
                       onClick={() => markAttendance(currentStudent.id, "late")}
-                      className="h-20 text-xl font-bold bg-yellow-500 hover:bg-yellow-600 rounded-2xl shadow-lg"
+                      className="h-20 text-xl font-bold bg-yellow-500 hover:bg-yellow-600 rounded-2xl shadow-lg shadow-yellow-400/50 text-black"
                       disabled={currentStudent.status === "late"}
                     >
                       <Clock className="h-8 w-8 mr-3" />
@@ -485,7 +485,7 @@ export function AttendanceSystem() {
                     <Button
                       onClick={() => markAttendance(currentStudent.id, "absent")}
                       variant="destructive"
-                      className="h-20 text-xl font-bold rounded-2xl shadow-lg"
+                      className="h-20 text-xl font-bold rounded-2xl shadow-lg shadow-red-400/50"
                       disabled={currentStudent.status === "absent"}
                     >
                       <XCircle className="h-8 w-8 mr-3" />
@@ -494,7 +494,7 @@ export function AttendanceSystem() {
 
                     <Button
                       onClick={() => markAttendance(currentStudent.id, "change_request")}
-                      className="h-20 text-xl font-bold bg-blue-500 hover:bg-blue-600 rounded-2xl shadow-lg"
+                      className="h-20 text-xl font-bold bg-cyan-500 hover:bg-cyan-600 rounded-2xl shadow-lg shadow-cyan-400/50 text-black"
                       disabled={currentStudent.status === "change_request"}
                     >
                       <RotateCcw className="h-8 w-8 mr-3" />
