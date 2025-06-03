@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import {
   Clock,
   CheckCircle,
@@ -15,6 +16,9 @@ import {
   Zap,
   ChevronLeft,
   ChevronRight,
+  Calendar,
+  BookOpen,
+  GraduationCap,
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 
@@ -22,43 +26,196 @@ interface Student {
   id: string
   name: string
   avatar: string
-  group: string
   hasDebt: boolean
   status?: "present" | "late" | "absent" | "change_request"
 }
 
+interface DanceClass {
+  id: string
+  name: string
+  description?: string
+  trainer: {
+    id: string
+    name: string
+  }
+  enrollments: {
+    student: {
+      id: string
+      name: string
+      avatar: string
+      hasDebt: boolean
+    }
+  }[]
+}
+
+interface ClassSession {
+  id: string
+  date: string
+  startTime: string
+  endTime: string
+  status: string
+  danceClass: DanceClass
+  attendances: {
+    id: string
+    status: string
+    student: {
+      id: string
+      name: string
+      avatar: string
+    }
+  }[]
+}
+
 export function AttendanceSystem() {
   const { toast } = useToast()
+  const [classes, setClasses] = useState<DanceClass[]>([])
+  const [selectedClass, setSelectedClass] = useState<string>("")
+  const [currentSession, setCurrentSession] = useState<ClassSession | null>(null)
   const [students, setStudents] = useState<Student[]>([])
   const [currentStudentIndex, setCurrentStudentIndex] = useState(0)
   const [currentTime, setCurrentTime] = useState(new Date())
   const [isTrainerMode, setIsTrainerMode] = useState(false)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const loadStudents = async () => {
-      const response = await fetch("/api/students")
-      const data = await response.json()
-      setStudents(data.students)
+    const loadClasses = async () => {
+      try {
+        const response = await fetch("/api/classes?active=true")
+        const data = await response.json()
+        if (data.success) {
+          setClasses(data.classes)
+        }
+      } catch (error) {
+        console.error("Error loading classes:", error)
+      }
     }
-    loadStudents()
+    
+    loadClasses()
+    setLoading(false)
 
     const timer = setInterval(() => setCurrentTime(new Date()), 1000)
     return () => clearInterval(timer)
   }, [])
 
+  useEffect(() => {
+    if (selectedClass) {
+      loadTodaySession()
+    }
+  }, [selectedClass])
+
+  const loadTodaySession = async () => {
+    if (!selectedClass) return
+
+    try {
+      const today = new Date().toISOString().split('T')[0]
+      const response = await fetch(`/api/class-sessions?classId=${selectedClass}&date=${today}`)
+      const data = await response.json()
+      
+      if (data.success && data.sessions.length > 0) {
+        const session = data.sessions[0]
+        setCurrentSession(session)
+        
+        // Cargar estudiantes inscritos con su estado de asistencia
+        const enrolledStudents = session.danceClass.enrollments.map((enrollment: any) => ({
+          id: enrollment.student.id,
+          name: enrollment.student.name,
+          avatar: enrollment.student.avatar || "/placeholder.svg",
+          hasDebt: enrollment.student.hasDebt,
+          status: session.attendances.find((att: any) => att.student.id === enrollment.student.id)?.status?.toLowerCase() || undefined
+        }))
+        
+        setStudents(enrolledStudents)
+        setCurrentStudentIndex(0)
+      } else {
+        // No hay sesión para hoy, crear una automáticamente si es día de clase
+        await createTodaySession()
+      }
+    } catch (error) {
+      console.error("Error loading session:", error)
+      toast({
+        title: "❌ Error",
+        description: "No se pudo cargar la sesión",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const createTodaySession = async () => {
+    if (!selectedClass) return
+
+    try {
+      const selectedClassData = classes.find(c => c.id === selectedClass)
+      if (!selectedClassData) return
+
+      const today = new Date()
+      const dayOfWeek = today.getDay()
+      
+      // Buscar si hay horario para hoy
+      const response = await fetch(`/api/classes/${selectedClass}`)
+      const classData = await response.json()
+      
+      if (classData.success && classData.class.schedules) {
+        const todaySchedule = classData.class.schedules.find((schedule: any) => schedule.dayOfWeek === dayOfWeek)
+        
+        if (todaySchedule) {
+          // Crear sesión para hoy
+          const sessionResponse = await fetch("/api/class-sessions", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              classId: selectedClass,
+              date: today.toISOString().split('T')[0],
+              startTime: todaySchedule.startTime,
+              endTime: todaySchedule.endTime
+            })
+          })
+
+          if (sessionResponse.ok) {
+            await loadTodaySession() // Recargar
+          }
+        } else {
+          toast({
+            title: "ℹ️ Sin clase hoy",
+            description: "No hay clase programada para hoy",
+          })
+        }
+      }
+    } catch (error) {
+      console.error("Error creating session:", error)
+    }
+  }
+
   const markAttendance = async (studentId: string, status: string) => {
+    if (!currentSession) {
+      toast({
+        title: "❌ Error",
+        description: "No hay sesión activa",
+        variant: "destructive",
+      })
+      return
+    }
+
     try {
       const response = await fetch("/api/attendance", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ studentId, status, timestamp: new Date() }),
+        body: JSON.stringify({ 
+          studentId, 
+          status, 
+          sessionId: currentSession.id,
+          timestamp: new Date() 
+        }),
       })
 
       const result = await response.json()
 
       if (result.success) {
         setStudents((prev) =>
-          prev.map((student) => (student.id === studentId ? { ...student, status: status as any } : student)),
+          prev.map((student) => 
+            student.id === studentId 
+              ? { ...student, status: status as any } 
+              : student
+          ),
         )
 
         const statusMessages = {
@@ -77,6 +234,12 @@ export function AttendanceSystem() {
         if (currentStudentIndex < students.length - 1) {
           setCurrentStudentIndex(currentStudentIndex + 1)
         }
+      } else {
+        toast({
+          title: "❌ Error",
+          description: result.error || "No se pudo registrar",
+          variant: "destructive",
+        })
       }
     } catch (error) {
       toast({
@@ -101,6 +264,19 @@ export function AttendanceSystem() {
 
   const currentStudent = students[currentStudentIndex]
 
+  if (loading) {
+    return (
+      <div className="max-w-2xl mx-auto">
+        <Card className="border-0 shadow-xl rounded-2xl">
+          <CardContent className="p-12 text-center">
+            <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-purple-600 mx-auto mb-4"></div>
+            <p className="text-slate-600">Cargando sistema de asistencias...</p>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
   return (
     <div className="max-w-2xl mx-auto">
       {/* Header */}
@@ -112,8 +288,8 @@ export function AttendanceSystem() {
                 <Zap className="h-8 w-8" />
               </div>
               <div>
-                <span className="text-3xl font-bold">Asistencia TikTok</span>
-                <p className="text-purple-200 mt-2">Desliza para marcar asistencia</p>
+                <span className="text-3xl font-bold">Asistencia por Clases</span>
+                <p className="text-purple-200 mt-2">Sistema mejorado con horarios</p>
               </div>
             </div>
             <div className="text-right text-lg">
@@ -124,65 +300,78 @@ export function AttendanceSystem() {
         </CardHeader>
       </Card>
 
-      {/* Selector de Modo */}
+      {/* Selector de Clase */}
       <Card className="border-0 shadow-xl mb-8 rounded-2xl">
-        <CardContent className="p-6">
-          <div className="flex space-x-3">
-            <Button
-              variant={!isTrainerMode ? "default" : "outline"}
-              onClick={() => setIsTrainerMode(false)}
-              className={`flex-1 h-14 rounded-2xl transition-all duration-500 text-lg font-semibold ${
-                !isTrainerMode
-                  ? "bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-xl"
-                  : "border-2 border-slate-300 text-slate-600 hover:bg-slate-50"
-              }`}
-            >
-              <Users className="w-5 h-5 mr-3" />
-              Estudiantes
-            </Button>
-            <Button
-              variant={isTrainerMode ? "default" : "outline"}
-              onClick={() => setIsTrainerMode(true)}
-              className={`flex-1 h-14 rounded-2xl transition-all duration-500 text-lg font-semibold ${
-                isTrainerMode
-                  ? "bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-xl"
-                  : "border-2 border-slate-300 text-slate-600 hover:bg-slate-50"
-              }`}
-            >
-              <CheckCircle className="w-5 h-5 mr-3" />
-              Entrenador
-            </Button>
-          </div>
+        <CardHeader>
+          <CardTitle className="flex items-center space-x-2">
+            <BookOpen className="h-6 w-6 text-purple-600" />
+            <span>Seleccionar Clase</span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Select value={selectedClass} onValueChange={setSelectedClass}>
+            <SelectTrigger className="h-14 text-lg rounded-xl border-2">
+              <SelectValue placeholder="Selecciona una clase..." />
+            </SelectTrigger>
+            <SelectContent>
+              {classes.map((danceClass) => (
+                <SelectItem key={danceClass.id} value={danceClass.id} className="h-16 py-4">
+                  <div className="flex flex-col">
+                    <span className="font-semibold">{danceClass.name}</span>
+                    <span className="text-sm text-slate-500">
+                      Entrenador: {danceClass.trainer.name} • {danceClass.enrollments.length} estudiantes
+                    </span>
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {currentSession && (
+            <div className="mt-4 p-4 bg-slate-50 rounded-xl">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <Calendar className="h-5 w-5 text-slate-600" />
+                  <span className="text-sm font-medium text-slate-600">Sesión de Hoy</span>
+                </div>
+                <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                  {new Date(currentSession.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - 
+                  {new Date(currentSession.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </Badge>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
-      {isTrainerMode ? (
-        /* Modo Entrenador */
-        <Card className="border-0 shadow-2xl rounded-3xl">
-          <CardContent className="p-12 text-center space-y-8">
-            <div className="w-32 h-32 mx-auto bg-gradient-to-r from-purple-600 to-pink-600 rounded-full flex items-center justify-center shadow-2xl">
-              <Users className="w-16 h-16 text-white" />
+      {!selectedClass ? (
+        <Card className="border-0 shadow-xl rounded-2xl">
+          <CardContent className="p-12 text-center space-y-4">
+            <div className="w-24 h-24 mx-auto bg-gradient-to-r from-purple-600 to-pink-600 rounded-full flex items-center justify-center shadow-xl">
+              <GraduationCap className="w-12 h-12 text-white" />
             </div>
-            <div>
-              <h3 className="text-3xl font-bold text-slate-800 mb-4">Registro de Entrenador</h3>
-              <p className="text-slate-600 text-lg">Marca tu asistencia como entrenador</p>
+            <h3 className="text-2xl font-bold text-slate-800">Selecciona una Clase</h3>
+            <p className="text-slate-600">Elige la clase para tomar asistencia</p>
+          </CardContent>
+        </Card>
+      ) : !currentSession ? (
+        <Card className="border-0 shadow-xl rounded-2xl">
+          <CardContent className="p-12 text-center space-y-4">
+            <div className="w-24 h-24 mx-auto bg-gradient-to-r from-amber-500 to-orange-500 rounded-full flex items-center justify-center shadow-xl">
+              <Calendar className="w-12 h-12 text-white" />
             </div>
-            <div className="flex justify-center space-x-6">
-              <Button
-                onClick={() => markAttendance("trainer", "present")}
-                className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 h-16 px-8 rounded-2xl shadow-xl text-lg font-semibold"
-              >
-                <CheckCircle className="w-6 h-6 mr-3" />
-                Llegada a Tiempo
-              </Button>
-              <Button
-                onClick={() => markAttendance("trainer", "late")}
-                className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 h-16 px-8 rounded-2xl shadow-xl text-white text-lg font-semibold"
-              >
-                <Clock className="w-6 h-6 mr-3" />
-                Llegada Tarde
-              </Button>
+            <h3 className="text-2xl font-bold text-slate-800">No hay clase hoy</h3>
+            <p className="text-slate-600">No hay sesión programada para la fecha actual</p>
+          </CardContent>
+        </Card>
+      ) : students.length === 0 ? (
+        <Card className="border-0 shadow-xl rounded-2xl">
+          <CardContent className="p-12 text-center space-y-4">
+            <div className="w-24 h-24 mx-auto bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full flex items-center justify-center shadow-xl">
+              <Users className="w-12 h-12 text-white" />
             </div>
+            <h3 className="text-2xl font-bold text-slate-800">Sin estudiantes inscritos</h3>
+            <p className="text-slate-600">No hay estudiantes inscritos en esta clase</p>
           </CardContent>
         </Card>
       ) : (
@@ -199,122 +388,116 @@ export function AttendanceSystem() {
                       {currentStudent.name
                         .split(" ")
                         .map((n) => n[0])
-                        .join("")}
+                        .join("")
+                        .slice(0, 2)}
                     </AvatarFallback>
                   </Avatar>
 
+                  {/* Indicador de estado actual */}
+                  {currentStudent.status && (
+                    <div className="absolute top-6 right-6">
+                      <Badge
+                        variant="secondary"
+                        className={`px-4 py-2 text-lg font-semibold ${
+                          currentStudent.status === "present"
+                            ? "bg-emerald-100 text-emerald-700 border-emerald-200"
+                            : currentStudent.status === "late"
+                            ? "bg-amber-100 text-amber-700 border-amber-200"
+                            : currentStudent.status === "absent"
+                            ? "bg-red-100 text-red-700 border-red-200"
+                            : "bg-blue-100 text-blue-700 border-blue-200"
+                        }`}
+                      >
+                        {currentStudent.status === "present" && "✅ Presente"}
+                        {currentStudent.status === "late" && "⏰ Tarde"}
+                        {currentStudent.status === "absent" && "❌ Ausente"}
+                        {currentStudent.status === "change_request" && "🔄 Cambio"}
+                      </Badge>
+                    </div>
+                  )}
+
+                  {/* Indicador de deuda */}
+                  {currentStudent.hasDebt && (
+                    <div className="absolute top-6 left-6">
+                      <Badge className="bg-red-500 text-white px-4 py-2 text-lg">
+                        <AlertTriangle className="w-5 h-5 mr-2" />
+                        Deuda Pendiente
+                      </Badge>
+                    </div>
+                  )}
+
                   {/* Navegación */}
-                  <Button
-                    variant="ghost"
-                    onClick={prevStudent}
-                    disabled={currentStudentIndex === 0}
-                    className="absolute left-4 top-1/2 transform -translate-y-1/2 w-12 h-12 rounded-full bg-white/80 hover:bg-white shadow-lg disabled:opacity-50"
-                  >
-                    <ChevronLeft className="w-6 h-6" />
-                  </Button>
+                  <div className="absolute bottom-6 left-6 right-6 flex justify-between">
+                    <Button
+                      variant="outline"
+                      size="lg"
+                      onClick={prevStudent}
+                      disabled={currentStudentIndex === 0}
+                      className="rounded-2xl bg-white/90 backdrop-blur-sm border-2 border-white/50 hover:bg-white"
+                    >
+                      <ChevronLeft className="w-6 h-6" />
+                    </Button>
+                    
+                    <div className="bg-white/90 backdrop-blur-sm rounded-2xl px-6 py-3 border-2 border-white/50">
+                      <span className="text-lg font-bold text-slate-800">
+                        {currentStudentIndex + 1} / {students.length}
+                      </span>
+                    </div>
 
-                  <Button
-                    variant="ghost"
-                    onClick={nextStudent}
-                    disabled={currentStudentIndex === students.length - 1}
-                    className="absolute right-4 top-1/2 transform -translate-y-1/2 w-12 h-12 rounded-full bg-white/80 hover:bg-white shadow-lg disabled:opacity-50"
-                  >
-                    <ChevronRight className="w-6 h-6" />
-                  </Button>
-
-                  {/* Contador */}
-                  <div className="absolute top-4 right-4 bg-black/50 text-white px-4 py-2 rounded-full backdrop-blur-sm">
-                    <span className="font-mono text-lg">
-                      {currentStudentIndex + 1} / {students.length}
-                    </span>
+                    <Button
+                      variant="outline"
+                      size="lg"
+                      onClick={nextStudent}
+                      disabled={currentStudentIndex === students.length - 1}
+                      className="rounded-2xl bg-white/90 backdrop-blur-sm border-2 border-white/50 hover:bg-white"
+                    >
+                      <ChevronRight className="w-6 h-6" />
+                    </Button>
                   </div>
                 </div>
 
                 {/* Información del estudiante */}
-                <div className="p-8 bg-white">
-                  <div className="text-center mb-6">
-                    <h2 className="text-3xl font-bold text-slate-800 mb-2">{currentStudent.name}</h2>
-                    <p className="text-xl text-slate-600 mb-3">{currentStudent.group}</p>
-                    {currentStudent.hasDebt && (
-                      <div className="flex items-center justify-center space-x-2">
-                        <AlertTriangle className="w-5 h-5 text-red-500" />
-                        <Badge variant="destructive" className="text-sm">
-                          Tiene deuda pendiente
-                        </Badge>
-                      </div>
-                    )}
+                <div className="p-8 space-y-6">
+                  <div className="text-center">
+                    <h2 className="text-4xl font-bold text-slate-800 mb-2">{currentStudent.name}</h2>
+                    <p className="text-slate-600 text-lg">Estudiante de {currentSession.danceClass.name}</p>
                   </div>
 
                   {/* Botones de asistencia */}
-                  {currentStudent.status ? (
-                    <div className="text-center">
-                      <div className="inline-flex items-center space-x-3 bg-slate-100 px-6 py-3 rounded-2xl">
-                        {currentStudent.status === "present" && <CheckCircle className="w-6 h-6 text-green-500" />}
-                        {currentStudent.status === "late" && <Clock className="w-6 h-6 text-amber-500" />}
-                        {currentStudent.status === "absent" && <XCircle className="w-6 h-6 text-red-500" />}
-                        {currentStudent.status === "change_request" && <RotateCcw className="w-6 h-6 text-blue-500" />}
-                        <span className="text-lg font-semibold text-slate-700">
-                          {currentStudent.status === "present" && "Presente"}
-                          {currentStudent.status === "late" && "Llegó Tarde"}
-                          {currentStudent.status === "absent" && "Ausente"}
-                          {currentStudent.status === "change_request" && "Cambio de Grupo"}
-                        </span>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-2 gap-4">
-                      <Button
-                        onClick={() => markAttendance(currentStudent.id, "present")}
-                        className="h-16 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 rounded-2xl shadow-xl text-lg font-semibold"
-                      >
-                        <CheckCircle className="w-6 h-6 mr-3" />
-                        Presente
-                      </Button>
-                      <Button
-                        onClick={() => markAttendance(currentStudent.id, "late")}
-                        className="h-16 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 rounded-2xl shadow-xl text-white text-lg font-semibold"
-                      >
-                        <Clock className="w-6 h-6 mr-3" />
-                        Tarde
-                      </Button>
-                      <Button
-                        onClick={() => markAttendance(currentStudent.id, "absent")}
-                        className="h-16 bg-gradient-to-r from-red-500 to-pink-600 hover:from-red-600 hover:to-pink-700 rounded-2xl shadow-xl text-lg font-semibold"
-                      >
-                        <XCircle className="w-6 h-6 mr-3" />
-                        Ausente
-                      </Button>
-                      <Button
-                        onClick={() => markAttendance(currentStudent.id, "change_request")}
-                        className="h-16 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 rounded-2xl shadow-xl text-lg font-semibold"
-                      >
-                        <RotateCcw className="w-6 h-6 mr-3" />
-                        Cambio
-                      </Button>
-                    </div>
-                  )}
+                  <div className="grid grid-cols-2 gap-4">
+                    <Button
+                      onClick={() => markAttendance(currentStudent.id, "present")}
+                      className="h-20 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 rounded-2xl shadow-xl text-xl font-semibold"
+                    >
+                      <CheckCircle className="w-8 h-8 mr-3" />
+                      Presente
+                    </Button>
+                    <Button
+                      onClick={() => markAttendance(currentStudent.id, "late")}
+                      className="h-20 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 rounded-2xl shadow-xl text-white text-xl font-semibold"
+                    >
+                      <Clock className="w-8 h-8 mr-3" />
+                      Tarde
+                    </Button>
+                    <Button
+                      onClick={() => markAttendance(currentStudent.id, "absent")}
+                      className="h-20 bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700 rounded-2xl shadow-xl text-white text-xl font-semibold"
+                    >
+                      <XCircle className="w-8 h-8 mr-3" />
+                      Ausente
+                    </Button>
+                    <Button
+                      onClick={() => markAttendance(currentStudent.id, "change_request")}
+                      className="h-20 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 rounded-2xl shadow-xl text-white text-xl font-semibold"
+                    >
+                      <RotateCcw className="w-8 h-8 mr-3" />
+                      Cambio
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
           )}
-
-          {/* Progreso */}
-          <Card className="border-0 shadow-xl rounded-2xl">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <span className="text-lg font-semibold text-slate-700">Progreso de Asistencia</span>
-                <span className="text-sm text-slate-500">
-                  {students.filter((s) => s.status).length} de {students.length} completados
-                </span>
-              </div>
-              <div className="w-full bg-slate-200 rounded-full h-3">
-                <div
-                  className="bg-gradient-to-r from-purple-600 to-pink-600 h-3 rounded-full transition-all duration-500"
-                  style={{ width: `${(students.filter((s) => s.status).length / students.length) * 100}%` }}
-                ></div>
-              </div>
-            </CardContent>
-          </Card>
         </div>
       )}
     </div>

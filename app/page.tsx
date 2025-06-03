@@ -4,12 +4,13 @@ import { useState, useEffect } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Receipt, MessageSquare, Clock, BarChart3, AlertTriangle, Sparkles, ArrowRight } from "lucide-react"
+import { Receipt, MessageSquare, Clock, BarChart3, AlertTriangle, Sparkles, ArrowRight, GraduationCap } from "lucide-react"
 import { ReceiptSystem } from "@/components/receipt-system"
 import { MassiveMessages } from "@/components/massive-messages"
 import { AttendanceSystem } from "@/components/attendance-system"
 import { AttendanceHistory } from "@/components/attendance-history"
 import { DebtNotifications } from "@/components/debt-notifications"
+import { ClassManagementNew } from "@/components/class-management-new"
 
 export default function DanceAcademyApp() {
   const [activeSection, setActiveSection] = useState("home")
@@ -26,6 +27,20 @@ export default function DanceAcademyApp() {
 
   const menuItems = [
     {
+      id: "classes",
+      label: "Gestión de Clases",
+      icon: GraduationCap,
+      description: "Crear clases y horarios",
+      color: "from-violet-500 to-purple-600",
+    },
+    {
+      id: "attendance",
+      label: "Asistencia TikTok",
+      icon: Clock,
+      description: "Registro rápido visual",
+      color: "from-purple-500 to-pink-600",
+    },
+    {
       id: "receipts",
       label: "Recibos WhatsApp",
       icon: Receipt,
@@ -38,13 +53,6 @@ export default function DanceAcademyApp() {
       icon: MessageSquare,
       description: "Comunicación grupal",
       color: "from-blue-500 to-indigo-600",
-    },
-    {
-      id: "attendance",
-      label: "Asistencia TikTok",
-      icon: Clock,
-      description: "Registro rápido visual",
-      color: "from-purple-500 to-pink-600",
     },
     {
       id: "history",
@@ -64,6 +72,8 @@ export default function DanceAcademyApp() {
 
   const renderContent = () => {
     switch (activeSection) {
+      case "classes":
+        return <ClassManagementNew />
       case "receipts":
         return <ReceiptSystem />
       case "messages":

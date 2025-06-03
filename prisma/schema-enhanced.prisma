@@ -1,0 +1,22 @@
+// SCHEMA MEJORADO PARA HORARIOS CON FECHAS
+
+model ClassSchedule {
+  id        String    @id @default(cuid())
+  classId   String
+  dayOfWeek Int       // 0 = Domingo, 1 = Lunes, etc.
+  startTime String    // HH:MM formato 24h
+  endTime   String    // HH:MM formato 24h
+  
+  // 🆕 NUEVOS CAMPOS PARA PERÍODOS
+  startDate DateTime? // Fecha de inicio del horario (opcional)
+  endDate   DateTime? // Fecha de fin del horario (opcional)
+  
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  // Relations
+  danceClass DanceClass @relation(fields: [classId], references: [id], onDelete: Cascade)
+
+  @@map("class_schedules")
+} 
