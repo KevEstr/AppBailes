@@ -23,7 +23,7 @@ import {
 import { useToast } from "@/hooks/use-toast"
 
 interface Student {
-  id: string
+  id: number // Cédula del estudiante
   name: string
   avatar: string
   hasDebt: boolean
@@ -31,16 +31,16 @@ interface Student {
 }
 
 interface DanceClass {
-  id: string
+  id: number
   name: string
   description?: string
   trainer: {
-    id: string
+    id: number
     name: string
   }
   enrollments: {
     student: {
-      id: string
+      id: number
       name: string
       avatar: string
       hasDebt: boolean
@@ -49,17 +49,17 @@ interface DanceClass {
 }
 
 interface ClassSession {
-  id: string
+  id: number
   date: string
   startTime: string
   endTime: string
   status: string
   danceClass: DanceClass
   attendances: {
-    id: string
+    id: number
     status: string
     student: {
-      id: string
+      id: number
       name: string
       avatar: string
     }
@@ -69,7 +69,7 @@ interface ClassSession {
 export function AttendanceSystem() {
   const { toast } = useToast()
   const [classes, setClasses] = useState<DanceClass[]>([])
-  const [selectedClass, setSelectedClass] = useState<string>("")
+  const [selectedClass, setSelectedClass] = useState<number | null>(null)
   const [currentSession, setCurrentSession] = useState<ClassSession | null>(null)
   const [students, setStudents] = useState<Student[]>([])
   const [currentStudentIndex, setCurrentStudentIndex] = useState(0)
@@ -185,7 +185,7 @@ export function AttendanceSystem() {
     }
   }
 
-  const markAttendance = async (studentId: string, status: string) => {
+  const markAttendance = async (studentId: number, status: string) => {
     if (!currentSession) {
       toast({
         title: "❌ Error",
@@ -309,13 +309,16 @@ export function AttendanceSystem() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <Select value={selectedClass} onValueChange={setSelectedClass}>
+          <Select 
+            value={selectedClass?.toString() || ""} 
+            onValueChange={(value) => setSelectedClass(parseInt(value))}
+          >
             <SelectTrigger className="h-14 text-lg rounded-xl border-2">
               <SelectValue placeholder="Selecciona una clase..." />
             </SelectTrigger>
             <SelectContent>
               {classes.map((danceClass) => (
-                <SelectItem key={danceClass.id} value={danceClass.id} className="h-16 py-4">
+                <SelectItem key={danceClass.id} value={danceClass.id.toString()} className="h-16 py-4">
                   <div className="flex flex-col">
                     <span className="font-semibold">{danceClass.name}</span>
                     <span className="text-sm text-slate-500">
@@ -398,14 +401,14 @@ export function AttendanceSystem() {
                     <div className="absolute top-6 right-6">
                       <Badge
                         variant="secondary"
-                        className={`px-4 py-2 text-lg font-semibold ${
+                        className={`text-lg px-4 py-2 font-bold rounded-full ${
                           currentStudent.status === "present"
-                            ? "bg-emerald-100 text-emerald-700 border-emerald-200"
+                            ? "bg-green-100 text-green-700 border-green-300"
                             : currentStudent.status === "late"
-                            ? "bg-amber-100 text-amber-700 border-amber-200"
+                            ? "bg-yellow-100 text-yellow-700 border-yellow-300"
                             : currentStudent.status === "absent"
-                            ? "bg-red-100 text-red-700 border-red-200"
-                            : "bg-blue-100 text-blue-700 border-blue-200"
+                            ? "bg-red-100 text-red-700 border-red-300"
+                            : "bg-blue-100 text-blue-700 border-blue-300"
                         }`}
                       >
                         {currentStudent.status === "present" && "✅ Presente"}
@@ -419,78 +422,82 @@ export function AttendanceSystem() {
                   {/* Indicador de deuda */}
                   {currentStudent.hasDebt && (
                     <div className="absolute top-6 left-6">
-                      <Badge className="bg-red-500 text-white px-4 py-2 text-lg">
-                        <AlertTriangle className="w-5 h-5 mr-2" />
-                        Deuda Pendiente
+                      <Badge variant="destructive" className="text-lg px-4 py-2 font-bold rounded-full">
+                        💰 Deuda Pendiente
                       </Badge>
                     </div>
                   )}
 
                   {/* Navegación */}
-                  <div className="absolute bottom-6 left-6 right-6 flex justify-between">
-                    <Button
-                      variant="outline"
-                      size="lg"
-                      onClick={prevStudent}
-                      disabled={currentStudentIndex === 0}
-                      className="rounded-2xl bg-white/90 backdrop-blur-sm border-2 border-white/50 hover:bg-white"
-                    >
-                      <ChevronLeft className="w-6 h-6" />
-                    </Button>
-                    
-                    <div className="bg-white/90 backdrop-blur-sm rounded-2xl px-6 py-3 border-2 border-white/50">
-                      <span className="text-lg font-bold text-slate-800">
-                        {currentStudentIndex + 1} / {students.length}
-                      </span>
-                    </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="absolute left-4 top-1/2 transform -translate-y-1/2 bg-white/80 hover:bg-white rounded-full w-16 h-16 shadow-lg"
+                    onClick={prevStudent}
+                    disabled={currentStudentIndex === 0}
+                  >
+                    <ChevronLeft className="h-8 w-8" />
+                  </Button>
 
-                    <Button
-                      variant="outline"
-                      size="lg"
-                      onClick={nextStudent}
-                      disabled={currentStudentIndex === students.length - 1}
-                      className="rounded-2xl bg-white/90 backdrop-blur-sm border-2 border-white/50 hover:bg-white"
-                    >
-                      <ChevronRight className="w-6 h-6" />
-                    </Button>
-                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="absolute right-4 top-1/2 transform -translate-y-1/2 bg-white/80 hover:bg-white rounded-full w-16 h-16 shadow-lg"
+                    onClick={nextStudent}
+                    disabled={currentStudentIndex === students.length - 1}
+                  >
+                    <ChevronRight className="h-8 w-8" />
+                  </Button>
                 </div>
 
                 {/* Información del estudiante */}
-                <div className="p-8 space-y-6">
-                  <div className="text-center">
+                <div className="p-8 bg-white">
+                  <div className="text-center mb-6">
                     <h2 className="text-4xl font-bold text-slate-800 mb-2">{currentStudent.name}</h2>
-                    <p className="text-slate-600 text-lg">Estudiante de {currentSession.danceClass.name}</p>
+                    <div className="flex items-center justify-center space-x-4 text-slate-600">
+                      <span className="text-lg">Cédula: {currentStudent.id}</span>
+                      <span className="text-lg">
+                        Estudiante {currentStudentIndex + 1} de {students.length}
+                      </span>
+                    </div>
                   </div>
 
                   {/* Botones de asistencia */}
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-2 gap-6">
                     <Button
                       onClick={() => markAttendance(currentStudent.id, "present")}
-                      className="h-20 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 rounded-2xl shadow-xl text-xl font-semibold"
+                      className="h-20 text-xl font-bold bg-green-500 hover:bg-green-600 rounded-2xl shadow-lg"
+                      disabled={currentStudent.status === "present"}
                     >
-                      <CheckCircle className="w-8 h-8 mr-3" />
+                      <CheckCircle className="h-8 w-8 mr-3" />
                       Presente
                     </Button>
+
                     <Button
                       onClick={() => markAttendance(currentStudent.id, "late")}
-                      className="h-20 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 rounded-2xl shadow-xl text-white text-xl font-semibold"
+                      className="h-20 text-xl font-bold bg-yellow-500 hover:bg-yellow-600 rounded-2xl shadow-lg"
+                      disabled={currentStudent.status === "late"}
                     >
-                      <Clock className="w-8 h-8 mr-3" />
+                      <Clock className="h-8 w-8 mr-3" />
                       Tarde
                     </Button>
+
                     <Button
                       onClick={() => markAttendance(currentStudent.id, "absent")}
-                      className="h-20 bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700 rounded-2xl shadow-xl text-white text-xl font-semibold"
+                      variant="destructive"
+                      className="h-20 text-xl font-bold rounded-2xl shadow-lg"
+                      disabled={currentStudent.status === "absent"}
                     >
-                      <XCircle className="w-8 h-8 mr-3" />
+                      <XCircle className="h-8 w-8 mr-3" />
                       Ausente
                     </Button>
+
                     <Button
                       onClick={() => markAttendance(currentStudent.id, "change_request")}
-                      className="h-20 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 rounded-2xl shadow-xl text-white text-xl font-semibold"
+                      className="h-20 text-xl font-bold bg-blue-500 hover:bg-blue-600 rounded-2xl shadow-lg"
+                      disabled={currentStudent.status === "change_request"}
                     >
-                      <RotateCcw className="w-8 h-8 mr-3" />
+                      <RotateCcw className="h-8 w-8 mr-3" />
                       Cambio
                     </Button>
                   </div>

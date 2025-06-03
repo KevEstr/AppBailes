@@ -16,7 +16,7 @@ interface AttendanceData {
 }
 
 interface StudentStats {
-  id: string
+  id: number // Cédula del estudiante
   name: string
   avatar: string
   totalClasses: number
@@ -28,7 +28,7 @@ interface StudentStats {
 
 export function AttendanceHistory() {
   const [selectedPeriod, setSelectedPeriod] = useState("month")
-  const [selectedStudent, setSelectedStudent] = useState("all")
+  const [selectedStudent, setSelectedStudent] = useState<string>("all")
   const [attendanceData, setAttendanceData] = useState<AttendanceData[]>([])
   const [studentStats, setStudentStats] = useState<StudentStats[]>([])
 
@@ -120,8 +120,8 @@ export function AttendanceHistory() {
                     Todos
                   </SelectItem>
                   {studentStats.map((student) => (
-                    <SelectItem key={student.id} value={student.id} className="text-lg">
-                      {student.name}
+                    <SelectItem key={student.id} value={student.id.toString()} className="text-lg">
+                      {student.name} (Cédula: {student.id})
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -200,7 +200,7 @@ export function AttendanceHistory() {
         </Card>
       </div>
 
-      {/* Estadísticas por estudiante */}
+      {/* Tabla de estudiantes */}
       <Card className="border-0 shadow-2xl rounded-3xl">
         <CardHeader className="pb-6">
           <CardTitle className="flex items-center space-x-3 text-slate-800">
@@ -209,50 +209,81 @@ export function AttendanceHistory() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-            {studentStats.map((student) => (
-              <div
-                key={student.id}
-                className="p-6 bg-gradient-to-r from-slate-50 to-white rounded-2xl border-2 border-slate-200 hover:border-orange-300 transition-all duration-300 hover:shadow-lg"
-              >
-                <div className="flex items-center space-x-4 mb-4">
-                  <Avatar className="w-16 h-16 ring-4 ring-white shadow-xl">
-                    <AvatarImage src={student.avatar || "/placeholder.svg"} />
-                    <AvatarFallback className="bg-gradient-to-r from-orange-600 to-red-600 text-white font-bold text-lg">
-                      {student.name
-                        .split(" ")
-                        .map((n) => n[0])
-                        .join("")}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <h4 className="font-bold text-slate-800 text-lg">{student.name}</h4>
-                    <div className="flex items-center space-x-4 text-slate-600 mt-2">
-                      <div className="flex items-center space-x-1">
-                        <CheckCircle className="w-4 h-4 text-emerald-500" />
-                        <span className="font-medium">{student.present}</span>
+          <div className="space-y-6">
+            {studentStats.length === 0 ? (
+              <div className="text-center py-12">
+                <div className="w-24 h-24 mx-auto mb-6 bg-gradient-to-r from-slate-100 to-slate-200 rounded-full flex items-center justify-center">
+                  <BarChart3 className="w-12 h-12 text-slate-400" />
+                </div>
+                <h3 className="text-2xl font-bold text-slate-800 mb-2">Sin datos disponibles</h3>
+                <p className="text-slate-600">No hay estadísticas para el período seleccionado</p>
+              </div>
+            ) : (
+              studentStats.map((student) => (
+                <Card key={student.id} className="bg-gradient-to-r from-slate-50 to-white border border-slate-200 rounded-2xl overflow-hidden hover:shadow-lg transition-shadow">
+                  <CardContent className="p-6">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-6">
+                        <Avatar className="w-16 h-16 ring-4 ring-white shadow-lg">
+                          <AvatarImage src={student.avatar || "/placeholder.svg"} />
+                          <AvatarFallback className="bg-gradient-to-r from-orange-500 to-red-500 text-white font-bold text-lg">
+                            {student.name
+                              .split(" ")
+                              .map((n) => n[0])
+                              .join("")
+                              .slice(0, 2)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <h4 className="text-xl font-bold text-slate-800">{student.name}</h4>
+                          <p className="text-slate-600 mt-1">
+                            Cédula: {student.id} • {student.totalClasses} clases totales
+                          </p>
+                        </div>
                       </div>
-                      <div className="flex items-center space-x-1">
-                        <Clock className="w-4 h-4 text-amber-500" />
-                        <span className="font-medium">{student.late}</span>
-                      </div>
-                      <div className="flex items-center space-x-1">
-                        <XCircle className="w-4 h-4 text-red-500" />
-                        <span className="font-medium">{student.absent}</span>
+
+                      <div className="text-right">
+                        <div className={`text-4xl font-bold mb-2 ${getPercentageColor(student.percentage)}`}>
+                          {student.percentage.toFixed(1)}%
+                        </div>
+                        <Badge
+                          variant={getPercentageBadge(student.percentage) as any}
+                          className="text-sm px-3 py-1"
+                        >
+                          {student.percentage >= 90 ? "Excelente" : student.percentage >= 75 ? "Regular" : "Necesita mejorar"}
+                        </Badge>
                       </div>
                     </div>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className={`text-3xl font-bold ${getPercentageColor(student.percentage)}`}>
-                    {student.percentage}%
-                  </div>
-                  <Badge variant={getPercentageBadge(student.percentage)} className="text-sm px-3 py-1">
-                    {student.totalClasses} clases
-                  </Badge>
-                </div>
-              </div>
-            ))}
+
+                    <div className="mt-6 grid grid-cols-3 gap-6">
+                      <div className="text-center p-4 bg-emerald-50 rounded-xl border border-emerald-200">
+                        <div className="flex items-center justify-center space-x-2 mb-2">
+                          <CheckCircle className="w-5 h-5 text-emerald-600" />
+                          <span className="text-sm font-medium text-emerald-700">Presentes</span>
+                        </div>
+                        <div className="text-3xl font-bold text-emerald-600">{student.present}</div>
+                      </div>
+
+                      <div className="text-center p-4 bg-amber-50 rounded-xl border border-amber-200">
+                        <div className="flex items-center justify-center space-x-2 mb-2">
+                          <Clock className="w-5 h-5 text-amber-600" />
+                          <span className="text-sm font-medium text-amber-700">Tarde</span>
+                        </div>
+                        <div className="text-3xl font-bold text-amber-600">{student.late}</div>
+                      </div>
+
+                      <div className="text-center p-4 bg-red-50 rounded-xl border border-red-200">
+                        <div className="flex items-center justify-center space-x-2 mb-2">
+                          <XCircle className="w-5 h-5 text-red-600" />
+                          <span className="text-sm font-medium text-red-700">Ausentes</span>
+                        </div>
+                        <div className="text-3xl font-bold text-red-600">{student.absent}</div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            )}
           </div>
         </CardContent>
       </Card>

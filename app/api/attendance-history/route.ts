@@ -1,12 +1,11 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { AttendanceStatus } from "@prisma/client"
 
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
     const period = searchParams.get("period") || "month"
-    const studentId = searchParams.get("student") || "all"
+    const studentIdParam = searchParams.get("student") || "all"
 
     // Calcular fechas según el período
     const endDate = new Date()
@@ -35,8 +34,11 @@ export async function GET(request: Request) {
       },
     }
 
-    if (studentId !== "all") {
-      whereClause.studentId = studentId
+    if (studentIdParam !== "all") {
+      const studentId = parseInt(studentIdParam)
+      if (studentId) {
+        whereClause.studentId = studentId
+      }
     }
 
     const attendances = await prisma.attendance.findMany({
@@ -58,16 +60,16 @@ export async function GET(request: Request) {
       date.setDate(date.getDate() - i)
       const dateStr = date.toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit" })
 
-      const dayAttendances = attendances.filter((att) => {
+      const dayAttendances = attendances.filter((att: any) => {
         const attDate = new Date(att.date)
         return attDate.toDateString() === date.toDateString()
       })
 
       chartData.push({
         date: dateStr,
-        present: dayAttendances.filter((att) => att.status === AttendanceStatus.PRESENT).length,
-        late: dayAttendances.filter((att) => att.status === AttendanceStatus.LATE).length,
-        absent: dayAttendances.filter((att) => att.status === AttendanceStatus.ABSENT).length,
+        present: dayAttendances.filter((att: any) => att.status === 'PRESENT').length,
+        late: dayAttendances.filter((att: any) => att.status === 'LATE').length,
+        absent: dayAttendances.filter((att: any) => att.status === 'ABSENT').length,
       })
     }
 
@@ -86,12 +88,12 @@ export async function GET(request: Request) {
       },
     })
 
-    const studentStats = students.map((student) => {
+    const studentStats = students.map((student: any) => {
       const studentAttendances = student.attendances
       const totalClasses = studentAttendances.length
-      const present = studentAttendances.filter((att) => att.status === AttendanceStatus.PRESENT).length
-      const late = studentAttendances.filter((att) => att.status === AttendanceStatus.LATE).length
-      const absent = studentAttendances.filter((att) => att.status === AttendanceStatus.ABSENT).length
+      const present = studentAttendances.filter((att: any) => att.status === 'PRESENT').length
+      const late = studentAttendances.filter((att: any) => att.status === 'LATE').length
+      const absent = studentAttendances.filter((att: any) => att.status === 'ABSENT').length
       const percentage = totalClasses > 0 ? Math.round((present / totalClasses) * 100) : 0
 
       return {

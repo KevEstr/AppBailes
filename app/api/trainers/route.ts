@@ -112,10 +112,17 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const url = new URL(request.url)
-    const trainerId = url.searchParams.get('id')
+    const trainerIdParam = url.searchParams.get('id')
     
-    if (!trainerId) {
+    if (!trainerIdParam) {
       return NextResponse.json({ error: 'ID de entrenador requerido' }, { status: 400 })
+    }
+
+    const trainerId = parseInt(trainerIdParam)
+    if (!trainerId || trainerId <= 0) {
+      return NextResponse.json({ 
+        error: 'ID de entrenador debe ser un número válido' 
+      }, { status: 400 })
     }
 
     const body = await request.json()
@@ -175,15 +182,22 @@ export async function PUT(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   try {
     const url = new URL(request.url)
-    const trainerId = url.searchParams.get('id')
+    const trainerIdParam = url.searchParams.get('id')
     
-    if (!trainerId) {
+    if (!trainerIdParam) {
       return NextResponse.json({ error: 'ID de entrenador requerido' }, { status: 400 })
+    }
+
+    const trainerId = parseInt(trainerIdParam)
+    if (!trainerId || trainerId <= 0) {
+      return NextResponse.json({ 
+        error: 'ID de entrenador debe ser un número válido' 
+      }, { status: 400 })
     }
 
     // Verificar si el entrenador tiene clases activas
     const activeClasses = await prisma.danceClass.count({
-      where: { trainerId, isActive: true }
+      where: { trainerId: trainerId, isActive: true }
     })
 
     if (activeClasses > 0) {

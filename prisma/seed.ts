@@ -31,10 +31,11 @@ async function main() {
     },
   })
 
-  // Create students
+  // Create students with Colombian cedulas
   console.log('🎓 Creando estudiantes...')
   const student1 = await prisma.student.create({
     data: {
+      id: 1036689216, // Cédula colombiana
       name: 'Ana Martínez',
       email: 'ana@example.com',
       phone: '5551234567',
@@ -44,6 +45,7 @@ async function main() {
 
   const student2 = await prisma.student.create({
     data: {
+      id: 1075234567, // Cédula colombiana
       name: 'Juan Pérez',
       email: 'juan@example.com',
       phone: '5559876543',
@@ -53,6 +55,7 @@ async function main() {
 
   const student3 = await prisma.student.create({
     data: {
+      id: 1088345678, // Cédula colombiana
       name: 'Carmen Delgado',
       email: 'carmen@example.com',
       phone: '5555678901',
@@ -62,6 +65,7 @@ async function main() {
 
   const student4 = await prisma.student.create({
     data: {
+      id: 1052456789, // Cédula colombiana
       name: 'Roberto Silva',
       email: 'roberto@example.com',
       phone: '5554321098',

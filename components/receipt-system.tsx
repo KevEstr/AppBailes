@@ -9,12 +9,13 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
-import { Send, DollarSign, CreditCard, Gift, Smartphone } from "lucide-react"
+import { Send, DollarSign, CreditCard, Gift, Smartphone, User } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 
 export function ReceiptSystem() {
   const { toast } = useToast()
   const [formData, setFormData] = useState({
+    studentId: "", // Cédula del estudiante
     studentName: "",
     phone: "",
     amount: "",
@@ -38,10 +39,16 @@ export function ReceiptSystem() {
     e.preventDefault()
 
     try {
+      const submitData = {
+        ...formData,
+        // Si se proporciona studentId (cédula), convertir a número
+        ...(formData.studentId && { studentId: parseInt(formData.studentId) })
+      }
+
       const response = await fetch("/api/receipts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(submitData),
       })
 
       const result = await response.json()
@@ -52,6 +59,7 @@ export function ReceiptSystem() {
           description: `WhatsApp enviado a ${formData.studentName}`,
         })
         setFormData({
+          studentId: "",
           studentName: "",
           phone: "",
           amount: "",
@@ -59,6 +67,12 @@ export function ReceiptSystem() {
           paymentMethod: "",
           promotion: "",
           notes: "",
+        })
+      } else {
+        toast({
+          title: "❌ Error",
+          description: result.error || "No se pudo procesar el recibo",
+          variant: "destructive",
         })
       }
     } catch (error) {
@@ -101,6 +115,23 @@ export function ReceiptSystem() {
                 </h3>
 
                 <div className="space-y-3">
+                  <Label htmlFor="studentId" className="text-slate-700 font-semibold text-lg">
+                    Cédula (opcional)
+                  </Label>
+                  <Input
+                    id="studentId"
+                    type="number"
+                    value={formData.studentId}
+                    onChange={(e) => setFormData({ ...formData, studentId: e.target.value })}
+                    placeholder="Ej: 12345678"
+                    className="border-2 border-slate-300 focus:border-emerald-500 rounded-2xl h-14 text-lg"
+                  />
+                  <p className="text-sm text-slate-500">
+                    💡 Si el estudiante ya existe, se usarán sus datos automáticamente
+                  </p>
+                </div>
+
+                <div className="space-y-3">
                   <Label htmlFor="studentName" className="text-slate-700 font-semibold text-lg">
                     Nombre Completo
                   </Label>
@@ -122,7 +153,7 @@ export function ReceiptSystem() {
                     id="phone"
                     value={formData.phone}
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    placeholder="+58 414 123 4567"
+                    placeholder="+57 300 123 4567"
                     className="border-2 border-slate-300 focus:border-emerald-500 rounded-2xl h-14 text-lg"
                     required
                   />
@@ -145,7 +176,7 @@ export function ReceiptSystem() {
                       type="number"
                       value={formData.amount}
                       onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-                      placeholder="0.00"
+                      placeholder="0"
                       className="border-2 border-slate-300 focus:border-emerald-500 rounded-2xl h-14 text-lg"
                       required
                     />
@@ -197,6 +228,12 @@ export function ReceiptSystem() {
                           <span className="text-lg">Transferencia</span>
                         </div>
                       </SelectItem>
+                      <SelectItem value="tarjeta">
+                        <div className="flex items-center space-x-3">
+                          <CreditCard className="w-5 h-5 text-purple-600" />
+                          <span className="text-lg">Tarjeta</span>
+                        </div>
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -204,86 +241,128 @@ export function ReceiptSystem() {
             </CardContent>
           </Card>
 
-          <Card className="border-0 shadow-2xl rounded-3xl">
-            <CardContent className="p-8 space-y-8">
-              {/* Promociones */}
-              <div className="space-y-6">
-                <h3 className="text-2xl font-bold text-slate-800 border-b-2 border-emerald-200 pb-3">Promociones</h3>
+          {/* Columna derecha - Promociones y Vista Previa */}
+          <div className="space-y-8">
+            {/* Promociones */}
+            <Card className="border-0 shadow-2xl rounded-3xl">
+              <CardContent className="p-8">
+                <div className="space-y-6">
+                  <h3 className="text-2xl font-bold text-slate-800 border-b-2 border-emerald-200 pb-3">
+                    Promociones
+                  </h3>
 
-                <div className="space-y-3">
-                  <Label htmlFor="promotion" className="text-slate-700 font-semibold text-lg">
-                    Promoción Aplicada
-                  </Label>
-                  <Select
-                    value={formData.promotion}
-                    onValueChange={(value) => setFormData({ ...formData, promotion: value })}
-                  >
-                    <SelectTrigger className="border-2 border-slate-300 focus:border-emerald-500 rounded-2xl h-14 text-lg">
-                      <SelectValue placeholder="Seleccionar promoción" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {promotions.map((promo) => (
-                        <SelectItem key={promo.id} value={promo.id}>
-                          <div className="flex items-center space-x-3">
-                            <Gift className="w-5 h-5 text-amber-600" />
-                            <span className="text-lg">{promo.label}</span>
-                            {promo.type !== "normal" && (
-                              <Badge variant={promo.type === "academia" ? "default" : "secondary"} className="text-sm">
-                                {promo.type === "academia" ? "Academia" : "Club"}
-                              </Badge>
-                            )}
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                  <div className="space-y-3">
+                    <Label className="text-slate-700 font-semibold text-lg">Promoción Aplicada</Label>
+                    <Select
+                      value={formData.promotion}
+                      onValueChange={(value) => setFormData({ ...formData, promotion: value })}
+                    >
+                      <SelectTrigger className="border-2 border-slate-300 focus:border-emerald-500 rounded-2xl h-14 text-lg">
+                        <SelectValue placeholder="Seleccionar promoción" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {promotions.map((promo) => (
+                          <SelectItem key={promo.id} value={promo.id} className="text-lg">
+                            <div className="flex items-center space-x-3">
+                              <Gift className="w-5 h-5 text-pink-600" />
+                              <span>{promo.label}</span>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-                {selectedPromotion && selectedPromotion.id !== "none" && (
-                  <Card className="bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-200 rounded-2xl">
-                    <CardContent className="p-6">
-                      <div className="flex items-center space-x-4">
-                        <Gift className="w-6 h-6 text-amber-600" />
-                        <span className="font-bold text-amber-800 text-lg">Promoción: {selectedPromotion.label}</span>
-                        <Badge
-                          variant={selectedPromotion.type === "academia" ? "default" : "secondary"}
-                          className="bg-amber-100 text-amber-800"
-                        >
-                          {selectedPromotion.type === "academia" ? "Academia" : "Club"}
-                        </Badge>
+                  {selectedPromotion && selectedPromotion.id !== "none" && (
+                    <div className="p-4 bg-gradient-to-r from-pink-50 to-purple-50 rounded-2xl border-2 border-pink-200">
+                      <div className="flex items-center space-x-3">
+                        <Gift className="w-6 h-6 text-pink-600" />
+                        <div>
+                          <h4 className="font-bold text-slate-800">{selectedPromotion.label}</h4>
+                          <Badge 
+                            variant={selectedPromotion.type === "academia" ? "default" : "secondary"}
+                            className="mt-2"
+                          >
+                            {selectedPromotion.type === "academia" ? "Academia" : "Club"}
+                          </Badge>
+                        </div>
                       </div>
-                    </CardContent>
-                  </Card>
-                )}
-              </div>
+                    </div>
+                  )}
 
-              {/* Notas */}
-              <div className="space-y-3">
-                <Label htmlFor="notes" className="text-slate-700 font-semibold text-lg">
-                  Notas Adicionales
-                </Label>
-                <Textarea
-                  id="notes"
-                  value={formData.notes}
-                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                  placeholder="Información adicional para el recibo..."
-                  rows={6}
-                  className="border-2 border-slate-300 focus:border-emerald-500 rounded-2xl text-lg"
-                />
-              </div>
-            </CardContent>
-          </Card>
+                  <div className="space-y-3">
+                    <Label htmlFor="notes" className="text-slate-700 font-semibold text-lg">
+                      Notas Adicionales
+                    </Label>
+                    <Textarea
+                      id="notes"
+                      value={formData.notes}
+                      onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                      placeholder="Notas opcionales..."
+                      className="border-2 border-slate-300 focus:border-emerald-500 rounded-2xl resize-none"
+                      rows={4}
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Vista Previa */}
+            <Card className="border-0 shadow-2xl rounded-3xl bg-gradient-to-br from-emerald-50 to-teal-50">
+              <CardContent className="p-8">
+                <h3 className="text-2xl font-bold text-slate-800 mb-6 border-b-2 border-emerald-200 pb-3">
+                  Vista Previa del Recibo
+                </h3>
+
+                <div className="space-y-4 text-slate-700">
+                  <div className="flex justify-between">
+                    <span className="font-semibold">Estudiante:</span>
+                    <span>{formData.studentName || "---"}</span>
+                  </div>
+                  {formData.studentId && (
+                    <div className="flex justify-between">
+                      <span className="font-semibold">Cédula:</span>
+                      <span>{formData.studentId}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between">
+                    <span className="font-semibold">WhatsApp:</span>
+                    <span>{formData.phone || "---"}</span>
+                  </div>
+                  <div className="flex justify-between text-2xl font-bold text-emerald-600">
+                    <span>Monto:</span>
+                    <span>${formData.amount || "0"}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="font-semibold">Concepto:</span>
+                    <span>{formData.concept || "---"}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="font-semibold">Método:</span>
+                    <span>{formData.paymentMethod || "---"}</span>
+                  </div>
+                  {selectedPromotion && selectedPromotion.id !== "none" && (
+                    <div className="flex justify-between">
+                      <span className="font-semibold">Promoción:</span>
+                      <Badge variant="outline" className="text-pink-600 border-pink-300">
+                        {selectedPromotion.label}
+                      </Badge>
+                    </div>
+                  )}
+                </div>
+
+                <Button
+                  type="submit"
+                  className="w-full mt-8 h-16 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 shadow-2xl rounded-2xl text-xl font-bold transition-all duration-500 hover:shadow-3xl transform hover:-translate-y-1"
+                  disabled={!formData.studentName || !formData.phone || !formData.amount || !formData.concept || !formData.paymentMethod}
+                >
+                  <Send className="w-6 h-6 mr-4" />
+                  Enviar Recibo por WhatsApp
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
         </div>
-
-        {/* Botón de Envío */}
-        <Button
-          type="submit"
-          className="w-full h-16 text-xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 shadow-2xl rounded-2xl transition-all duration-500 hover:shadow-3xl transform hover:-translate-y-1"
-          size="lg"
-        >
-          <Send className="w-6 h-6 mr-4" />
-          Enviar Recibo por WhatsApp
-        </Button>
       </form>
     </div>
   )

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -23,14 +23,23 @@ interface Schedule {
   endDate?: string
 }
 
+interface Trainer {
+  id: number
+  name: string
+  email: string
+}
+
 export function ClassCreationEnhanced() {
   const [classData, setClassData] = useState({
     name: '',
     description: '',
-    trainerId: '',
+    trainerId: 0,
     capacity: 20,
     price: 0
   })
+
+  const [trainers, setTrainers] = useState<Trainer[]>([])
+  const [loading, setLoading] = useState(false)
 
   const [schedules, setSchedules] = useState<Schedule[]>([
     { 
@@ -40,6 +49,22 @@ export function ClassCreationEnhanced() {
       hasPeriod: false 
     }
   ])
+
+  // Cargar entrenadores al montar el componente
+  useEffect(() => {
+    const fetchTrainers = async () => {
+      try {
+        const response = await fetch('/api/trainers?active=true')
+        const data = await response.json()
+        if (data.success) {
+          setTrainers(data.trainers)
+        }
+      } catch (error) {
+        console.error('Error loading trainers:', error)
+      }
+    }
+    fetchTrainers()
+  }, [])
 
   const addSchedule = () => {
     setSchedules([...schedules, { 
@@ -61,12 +86,19 @@ export function ClassCreationEnhanced() {
   }
 
   const createClass = async () => {
+    if (!classData.name || !classData.trainerId) {
+      alert('Por favor completa todos los campos requeridos')
+      return
+    }
+
+    setLoading(true)
     try {
       const response = await fetch('/api/classes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...classData,
+          trainerId: Number(classData.trainerId), // Asegurar que sea número
           schedules: schedules.map(schedule => ({
             dayOfWeek: schedule.dayOfWeek,
             startTime: schedule.startTime,
@@ -79,14 +111,32 @@ export function ClassCreationEnhanced() {
         })
       })
 
+      const result = await response.json()
+
       if (response.ok) {
         alert('¡Clase creada exitosamente!')
         // Reset form
+        setClassData({
+          name: '',
+          description: '',
+          trainerId: 0,
+          capacity: 20,
+          price: 0
+        })
+        setSchedules([{ 
+          dayOfWeek: 1, 
+          startTime: '18:00', 
+          endTime: '19:00', 
+          hasPeriod: false 
+        }])
       } else {
-        alert('Error al crear la clase')
+        alert(`Error al crear la clase: ${result.error}`)
       }
     } catch (error) {
+      console.error('Error creating class:', error)
       alert('Error al crear la clase')
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -102,7 +152,7 @@ export function ClassCreationEnhanced() {
         {/* Información básica */}
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <Label htmlFor="name">Nombre de la Clase</Label>
+            <Label htmlFor="name">Nombre de la Clase *</Label>
             <Input
               id="name"
               value={classData.name}
@@ -116,7 +166,38 @@ export function ClassCreationEnhanced() {
               id="capacity"
               type="number"
               value={classData.capacity}
-              onChange={(e) => setClassData({...classData, capacity: parseInt(e.target.value)})}
+              onChange={(e) => setClassData({...classData, capacity: parseInt(e.target.value) || 20})}
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <Label htmlFor="trainer">Entrenador *</Label>
+            <Select 
+              value={classData.trainerId.toString()} 
+              onValueChange={(value) => setClassData({...classData, trainerId: parseInt(value)})}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Selecciona un entrenador" />
+              </SelectTrigger>
+              <SelectContent>
+                {trainers.map((trainer) => (
+                  <SelectItem key={trainer.id} value={trainer.id.toString()}>
+                    {trainer.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label htmlFor="price">Precio por Clase</Label>
+            <Input
+              id="price"
+              type="number"
+              value={classData.price}
+              onChange={(e) => setClassData({...classData, price: parseFloat(e.target.value) || 0})}
+              placeholder="0"
             />
           </div>
         </div>
@@ -264,8 +345,12 @@ export function ClassCreationEnhanced() {
 
         {/* Botón crear */}
         <div className="flex justify-end">
-          <Button onClick={createClass} className="px-8" disabled={!classData.name}>
-            Crear Clase con Períodos
+          <Button 
+            onClick={createClass} 
+            className="px-8" 
+            disabled={!classData.name || !classData.trainerId || loading}
+          >
+            {loading ? 'Creando...' : 'Crear Clase con Períodos'}
           </Button>
         </div>
       </CardContent>

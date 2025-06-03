@@ -5,26 +5,32 @@ import { z } from 'zod'
 const prisma = new PrismaClient()
 
 const createEnrollmentSchema = z.object({
-  studentId: z.string().min(1, 'ID de estudiante requerido'),
-  classId: z.string().min(1, 'ID de clase requerido')
+  studentId: z.number().int().positive('ID de estudiante debe ser un número positivo'),
+  classId: z.number().int().positive('ID de clase debe ser un número positivo')
 })
 
 // GET - Obtener inscripciones
 export async function GET(request: NextRequest) {
   try {
     const url = new URL(request.url)
-    const studentId = url.searchParams.get('studentId')
-    const classId = url.searchParams.get('classId')
+    const studentIdParam = url.searchParams.get('studentId')
+    const classIdParam = url.searchParams.get('classId')
     const isActive = url.searchParams.get('active') !== 'false'
 
     let where: any = { isActive }
 
-    if (studentId) {
-      where.studentId = studentId
+    if (studentIdParam) {
+      const studentId = parseInt(studentIdParam)
+      if (studentId) {
+        where.studentId = studentId
+      }
     }
 
-    if (classId) {
-      where.classId = classId
+    if (classIdParam) {
+      const classId = parseInt(classIdParam)
+      if (classId) {
+        where.classId = classId
+      }
     }
 
     const enrollments = await prisma.classEnrollment.findMany({
@@ -201,7 +207,7 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       )
     }
-
+    
     console.error('Error creating enrollment:', error)
     return NextResponse.json(
       { error: 'Error interno del servidor' },
@@ -214,23 +220,38 @@ export async function POST(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   try {
     const url = new URL(request.url)
-    const enrollmentId = url.searchParams.get('id')
-    const studentId = url.searchParams.get('studentId')
-    const classId = url.searchParams.get('classId')
+    const enrollmentIdParam = url.searchParams.get('id')
+    const studentIdParam = url.searchParams.get('studentId')
+    const classIdParam = url.searchParams.get('classId')
     
-    if (!enrollmentId && (!studentId || !classId)) {
+    if (!enrollmentIdParam && (!studentIdParam || !classIdParam)) {
       return NextResponse.json({ 
         error: 'ID de inscripción o combinación studentId/classId requeridos' 
       }, { status: 400 })
     }
 
     let where: any = {}
-    if (enrollmentId) {
+    if (enrollmentIdParam) {
+      const enrollmentId = parseInt(enrollmentIdParam)
+      if (!enrollmentId) {
+        return NextResponse.json({ 
+          error: 'ID de inscripción debe ser un número válido' 
+        }, { status: 400 })
+      }
       where.id = enrollmentId
     } else {
+      const studentId = parseInt(studentIdParam!)
+      const classId = parseInt(classIdParam!)
+      
+      if (!studentId || !classId) {
+        return NextResponse.json({ 
+          error: 'IDs de estudiante y clase deben ser números válidos' 
+        }, { status: 400 })
+      }
+      
       where.studentId_classId = {
-        studentId: studentId!,
-        classId: classId!
+        studentId: studentId,
+        classId: classId
       }
     }
 

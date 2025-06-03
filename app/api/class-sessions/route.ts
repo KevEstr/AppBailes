@@ -5,7 +5,7 @@ import { z } from 'zod'
 const prisma = new PrismaClient()
 
 const createSessionSchema = z.object({
-  classId: z.string().min(1, 'ID de clase requerido'),
+  classId: z.number().int().positive('ID de clase debe ser un número positivo'),
   date: z.string().min(1, 'Fecha requerida'),
   startTime: z.string().min(1, 'Hora de inicio requerida'),
   endTime: z.string().min(1, 'Hora de fin requerida'),
@@ -21,15 +21,18 @@ const updateSessionSchema = z.object({
 export async function GET(request: NextRequest) {
   try {
     const url = new URL(request.url)
-    const classId = url.searchParams.get('classId')
+    const classIdParam = url.searchParams.get('classId')
     const date = url.searchParams.get('date')
     const status = url.searchParams.get('status')
     const upcoming = url.searchParams.get('upcoming') === 'true'
 
     let where: any = {}
 
-    if (classId) {
-      where.classId = classId
+    if (classIdParam) {
+      const classId = parseInt(classIdParam)
+      if (classId) {
+        where.classId = classId
+      }
     }
 
     if (date) {
@@ -185,10 +188,17 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const url = new URL(request.url)
-    const sessionId = url.searchParams.get('id')
+    const sessionIdParam = url.searchParams.get('id')
     
-    if (!sessionId) {
+    if (!sessionIdParam) {
       return NextResponse.json({ error: 'ID de sesión requerido' }, { status: 400 })
+    }
+
+    const sessionId = parseInt(sessionIdParam)
+    if (!sessionId || sessionId <= 0) {
+      return NextResponse.json({ 
+        error: 'ID de sesión debe ser un número válido' 
+      }, { status: 400 })
     }
 
     const body = await request.json()
@@ -228,24 +238,44 @@ export async function PUT(request: NextRequest) {
   }
 }
 
-// DELETE - Cancelar sesión
+// DELETE - Eliminar sesión
 export async function DELETE(request: NextRequest) {
   try {
     const url = new URL(request.url)
-    const sessionId = url.searchParams.get('id')
+    const sessionIdParam = url.searchParams.get('id')
     
-    if (!sessionId) {
+    if (!sessionIdParam) {
       return NextResponse.json({ error: 'ID de sesión requerido' }, { status: 400 })
     }
 
-    const cancelledSession = await prisma.classSession.update({
-      where: { id: sessionId },
-      data: { status: 'CANCELLED' }
+    const sessionId = parseInt(sessionIdParam)
+    if (!sessionId || sessionId <= 0) {
+      return NextResponse.json({ 
+        error: 'ID de sesión debe ser un número válido' 
+      }, { status: 400 })
+    }
+
+    // Verificar si la sesión tiene asistencias
+    const attendanceCount = await prisma.attendance.count({
+      where: { sessionId: sessionId }
     })
 
-    return NextResponse.json({ success: true, session: cancelledSession })
+    if (attendanceCount > 0) {
+      return NextResponse.json(
+        { 
+          error: `No se puede eliminar la sesión porque tiene ${attendanceCount} asistencia(s) registrada(s)` 
+        },
+        { status: 400 }
+      )
+    }
+
+    await prisma.classSession.delete({
+      where: { id: sessionId }
+    })
+
+    return NextResponse.json({ success: true, message: 'Sesión eliminada exitosamente' })
   } catch (error) {
-    console.error('Error cancelling session:', error)
+    console.error('Error deleting session:', error)
     return NextResponse.json(
       { error: 'Error interno del servidor' },
       { status: 500 }

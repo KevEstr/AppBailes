@@ -7,7 +7,7 @@ const prisma = new PrismaClient()
 const createClassSchema = z.object({
   name: z.string().min(1, 'El nombre es requerido'),
   description: z.string().optional(),
-  trainerId: z.string().min(1, 'El entrenador es requerido'),
+  trainerId: z.number().int().positive('El ID del entrenador debe ser un número positivo'),
   capacity: z.number().min(1, 'La capacidad debe ser mayor a 0').optional(),
   price: z.number().min(0, 'El precio debe ser mayor o igual a 0').optional(),
   schedules: z.array(z.object({
@@ -24,14 +24,17 @@ export async function GET(request: NextRequest) {
   try {
     const url = new URL(request.url)
     const isActive = url.searchParams.get('active') === 'true'
-    const trainerId = url.searchParams.get('trainerId')
+    const trainerIdParam = url.searchParams.get('trainerId')
 
     const where: any = {}
     if (isActive !== null) {
       where.isActive = isActive
     }
-    if (trainerId) {
-      where.trainerId = trainerId
+    if (trainerIdParam) {
+      const trainerId = parseInt(trainerIdParam)
+      if (trainerId) {
+        where.trainerId = trainerId
+      }
     }
 
     const classes = await prisma.danceClass.findMany({
@@ -168,10 +171,17 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const url = new URL(request.url)
-    const classId = url.searchParams.get('id')
+    const classIdParam = url.searchParams.get('id')
     
-    if (!classId) {
+    if (!classIdParam) {
       return NextResponse.json({ error: 'ID de clase requerido' }, { status: 400 })
+    }
+
+    const classId = parseInt(classIdParam)
+    if (!classId || classId <= 0) {
+      return NextResponse.json({ 
+        error: 'ID de clase debe ser un número válido' 
+      }, { status: 400 })
     }
 
     const body = await request.json()

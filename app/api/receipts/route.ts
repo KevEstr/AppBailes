@@ -1,37 +1,54 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { WhatsAppService } from "@/lib/whatsapp"
-import { PaymentMethod } from "@prisma/client"
 
 export async function POST(request: Request) {
   try {
     const data = await request.json()
 
-    // Buscar o crear estudiante
-    let student = await prisma.student.findFirst({
-      where: {
-        OR: [{ phone: data.phone }, { name: data.studentName }],
-      },
-    })
-
-    if (!student) {
-      student = await prisma.student.create({
-        data: {
-          name: data.studentName,
-          phone: data.phone,
-          group: "Sin Grupo",
+    let student
+    
+    // Si se proporciona un studentId (cédula), usarlo para buscar el estudiante
+    if (data.studentId) {
+      const studentId = parseInt(data.studentId)
+      if (!studentId || studentId <= 0) {
+        return NextResponse.json({ 
+          error: "ID de estudiante (cédula) debe ser un número válido" 
+        }, { status: 400 })
+      }
+      
+      student = await prisma.student.findUnique({
+        where: { id: studentId },
+      })
+      
+      if (!student) {
+        return NextResponse.json({ 
+          error: "Estudiante no encontrado con esa cédula" 
+        }, { status: 404 })
+      }
+    } else {
+      // Buscar estudiante por teléfono o nombre
+      student = await prisma.student.findFirst({
+        where: {
+          OR: [{ phone: data.phone }, { name: data.studentName }],
         },
       })
+
+      if (!student) {
+        return NextResponse.json({ 
+          error: "Estudiante no encontrado. Debe crear el estudiante primero con su cédula." 
+        }, { status: 404 })
+      }
     }
 
     // Convertir método de pago
-    const paymentMethodMap: Record<string, PaymentMethod> = {
-      efectivo: PaymentMethod.CASH,
-      transferencia: PaymentMethod.TRANSFER,
-      tarjeta: PaymentMethod.CARD,
+    const paymentMethodMap: Record<string, string> = {
+      efectivo: 'CASH',
+      transferencia: 'TRANSFER',
+      tarjeta: 'CARD',
     }
 
-    const paymentMethod = paymentMethodMap[data.paymentMethod] || PaymentMethod.CASH
+    const paymentMethod = paymentMethodMap[data.paymentMethod] || 'CASH'
 
     // Crear recibo
     const receipt = await prisma.receipt.create({
@@ -39,7 +56,7 @@ export async function POST(request: Request) {
         studentId: student.id,
         amount: Number.parseFloat(data.amount),
         concept: data.concept,
-        paymentMethod,
+        paymentMethod: paymentMethod as any,
         promotion: data.promotion !== "none" ? data.promotion : null,
         notes: data.notes,
       },
@@ -48,7 +65,7 @@ export async function POST(request: Request) {
     // Enviar WhatsApp
     const whatsappService = WhatsAppService.getInstance()
     const message = whatsappService.generateReceiptMessage(
-      data.studentName,
+      student.name,
       Number.parseFloat(data.amount),
       data.concept,
       data.paymentMethod,
@@ -56,14 +73,14 @@ export async function POST(request: Request) {
     )
 
     const whatsappSent = await whatsappService.sendMessage({
-      to: data.phone,
+      to: student.phone,
       message,
       type: "receipt",
     })
 
     // Log del estado del envío
     if (whatsappSent) {
-      console.log(`✅ Recibo procesado para ${data.studentName} - Monto: $${data.amount}`)
+      console.log(`✅ Recibo procesado para ${student.name} - Monto: $${data.amount}`)
     }
 
     // Actualizar recibo con estado de WhatsApp

@@ -9,7 +9,7 @@ import { DollarSign, MessageSquare, Calendar, Send, Bell } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 
 interface DebtInfo {
-  id: string
+  id: number
   studentName: string
   avatar: string
   phone: string
@@ -40,7 +40,7 @@ export function DebtNotifications() {
     }
   }
 
-  const sendDebtReminder = async (debtId: string) => {
+  const sendDebtReminder = async (debtId: number) => {
     try {
       const response = await fetch("/api/debt-reminder", {
         method: "POST",
@@ -198,33 +198,39 @@ export function DebtNotifications() {
                         <div>
                           <h4 className="font-bold text-slate-800 flex items-center space-x-3 mb-3 text-xl">
                             <span>{debt.studentName}</span>
-                            <Badge variant={urgency.variant} className="text-sm">
+                            <Badge variant={urgency.variant} className="text-sm px-3 py-1">
                               {urgency.label}
                             </Badge>
                           </h4>
                           <div className="space-y-2">
-                            <div className="flex items-center space-x-3 text-slate-600">
-                              <DollarSign className="w-4 h-4" />
-                              <span className="font-semibold text-lg">
-                                ${debt.amount} - {debt.concept}
+                            <div className="flex items-center space-x-2">
+                              <DollarSign className="w-4 h-4 text-slate-600" />
+                              <span className="text-2xl font-bold text-red-600">
+                                ${debt.amount.toLocaleString()}
                               </span>
                             </div>
-                            <div className="flex items-center space-x-3 text-slate-600">
+                            <p className="text-slate-600 font-medium">{debt.concept}</p>
+                            <div className="flex items-center space-x-2 text-sm text-slate-500">
                               <Calendar className="w-4 h-4" />
-                              <span className="font-medium">{debt.daysOverdue} días de retraso</span>
+                              <span>
+                                {debt.daysOverdue > 0 
+                                  ? `${debt.daysOverdue} días de retraso`
+                                  : "Vence hoy"
+                                }
+                              </span>
                             </div>
-                            <div className="text-sm text-slate-500">Último pago: {debt.lastPayment}</div>
                           </div>
                         </div>
                       </div>
+                    </div>
 
+                    <div className="mt-6 pt-6 border-t border-white/50">
                       <Button
-                        size="sm"
                         onClick={() => sendDebtReminder(debt.id)}
-                        className="bg-gradient-to-r from-slate-700 to-slate-800 hover:from-slate-800 hover:to-slate-900 h-12 px-6 rounded-2xl shadow-xl font-semibold"
+                        className="w-full h-12 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 shadow-xl rounded-xl text-lg font-semibold transition-all duration-300 hover:shadow-2xl"
                       >
-                        <MessageSquare className="w-5 h-5 mr-2" />
-                        Recordar
+                        <MessageSquare className="w-5 h-5 mr-3" />
+                        Enviar Recordatorio WhatsApp
                       </Button>
                     </div>
                   </CardContent>

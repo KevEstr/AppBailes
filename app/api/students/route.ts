@@ -54,6 +54,25 @@ export async function POST(request: Request) {
   try {
     const data = await request.json()
 
+    // Validar que la cédula sea un número válido
+    const cedula = parseInt(data.id)
+    if (!cedula || cedula <= 0) {
+      return NextResponse.json({ 
+        error: "La cédula debe ser un número válido" 
+      }, { status: 400 })
+    }
+
+    // Verificar que no existe un estudiante con la misma cédula
+    const existingStudentById = await prisma.student.findUnique({
+      where: { id: cedula }
+    })
+
+    if (existingStudentById) {
+      return NextResponse.json({ 
+        error: "Ya existe un estudiante con esta cédula" 
+      }, { status: 400 })
+    }
+
     // Verificar que no existe un estudiante con el mismo email o teléfono
     const existingStudent = await prisma.student.findFirst({
       where: {
@@ -72,6 +91,7 @@ export async function POST(request: Request) {
 
     const student = await prisma.student.create({
       data: {
+        id: cedula, // Usar la cédula como ID
         name: data.name,
         email: data.email,
         phone: data.phone,

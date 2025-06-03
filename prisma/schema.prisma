@@ -11,7 +11,7 @@ datasource db {
 }
 
 model Student {
-  id        String   @id @default(cuid())
+  id        Int      @id // Cédula colombiana (sin autoincrement)
   name      String
   email     String?  @unique
   phone     String   @unique
@@ -32,10 +32,10 @@ model Student {
 }
 
 model DanceClass {
-  id          String    @id @default(cuid())
+  id          Int       @id @default(autoincrement())
   name        String    // Ej: "Salsa Básica", "Bachata Intermedio"
   description String?
-  trainerId   String
+  trainerId   Int
   capacity    Int       @default(20)
   price       Float?
   isActive    Boolean   @default(true)
@@ -52,8 +52,8 @@ model DanceClass {
 }
 
 model ClassSchedule {
-  id        String    @id @default(cuid())
-  classId   String
+  id        Int       @id @default(autoincrement())
+  classId   Int
   dayOfWeek Int       // 0 = Domingo, 1 = Lunes, etc.
   startTime String    // HH:MM formato 24h
   endTime   String    // HH:MM formato 24h
@@ -68,8 +68,8 @@ model ClassSchedule {
 }
 
 model ClassSession {
-  id          String   @id @default(cuid())
-  classId     String
+  id          Int      @id @default(autoincrement())
+  classId     Int
   date        DateTime // Fecha específica de la sesión
   startTime   DateTime
   endTime     DateTime
@@ -86,9 +86,9 @@ model ClassSession {
 }
 
 model ClassEnrollment {
-  id         String   @id @default(cuid())
-  studentId  String
-  classId    String
+  id         Int      @id @default(autoincrement())
+  studentId  Int
+  classId    Int
   enrolledAt DateTime @default(now())
   isActive   Boolean  @default(true)
   createdAt  DateTime @default(now())
@@ -103,9 +103,9 @@ model ClassEnrollment {
 }
 
 model Attendance {
-  id        String           @id @default(cuid())
-  studentId String
-  sessionId String?          // Nueva relación con sesión de clase
+  id        Int              @id @default(autoincrement())
+  studentId Int
+  sessionId Int?             // Nueva relación con sesión de clase
   status    AttendanceStatus
   date      DateTime         @default(now())
   notes     String?
@@ -120,8 +120,8 @@ model Attendance {
 }
 
 model Receipt {
-  id            String        @id @default(cuid())
-  studentId     String
+  id            Int           @id @default(autoincrement())
+  studentId     Int
   amount        Float
   concept       String
   paymentMethod PaymentMethod
@@ -139,8 +139,8 @@ model Receipt {
 }
 
 model Debt {
-  id           String    @id @default(cuid())
-  studentId    String
+  id           Int       @id @default(autoincrement())
+  studentId    Int
   amount       Float
   concept      String
   dueDate      DateTime
@@ -157,7 +157,7 @@ model Debt {
 }
 
 model MassiveMessage {
-  id          String      @id @default(cuid())
+  id          Int         @id @default(autoincrement())
   type        MessageType
   message     String
   targetGroup String
@@ -172,7 +172,7 @@ model MassiveMessage {
 }
 
 model Trainer {
-  id        String   @id @default(cuid())
+  id        Int      @id @default(autoincrement())
   name      String
   email     String   @unique
   phone     String   @unique
@@ -188,8 +188,8 @@ model Trainer {
 }
 
 model TrainerAttendance {
-  id        String           @id @default(cuid())
-  trainerId String
+  id        Int              @id @default(autoincrement())
+  trainerId Int
   status    AttendanceStatus
   date      DateTime         @default(now())
   notes     String?
