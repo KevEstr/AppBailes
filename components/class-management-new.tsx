@@ -312,69 +312,71 @@ export function ClassManagementNew() {
   return (
     <div className="max-w-7xl mx-auto">
       {/* Header */}
-      <Card className="border-0 bg-gradient-to-r from-black via-gray-900 to-black text-white shadow-2xl mb-8 rounded-3xl border border-cyan-400/30">
+      <Card className="border-0 bg-gradient-to-r from-stone-200 via-amber-100 to-orange-150 text-slate-900 shadow-2xl mb-8 rounded-3xl border-2 border-stone-500">
         <CardHeader className="pb-6">
           <CardTitle className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
-              <div className="rounded-2xl bg-cyan-500/20 p-3 backdrop-blur-sm border border-cyan-400/50">
-                <GraduationCap className="h-8 w-8 text-cyan-400" />
+              <div className="rounded-2xl bg-teal-300 p-3 backdrop-blur-sm border border-teal-600">
+                <GraduationCap className="h-8 w-8 text-teal-900" />
               </div>
               <div>
-                <span className="text-3xl font-bold bg-gradient-to-r from-cyan-400 to-yellow-400 bg-clip-text text-transparent">Clases Paradise</span>
-                <p className="text-cyan-200 mt-2 text-lg">Administra grupos de baile e inscripciones</p>
+                <span className="text-3xl font-bold bg-gradient-to-r from-teal-800 to-amber-800 bg-clip-text text-transparent">Gestión Paradise</span>
+                <p className="text-teal-900 mt-2">Administra clases de baile y estudiantes</p>
               </div>
             </div>
             <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
               <DialogTrigger asChild>
                 <Button 
-                  className="bg-cyan-500/20 hover:bg-cyan-500/30 border-cyan-400/50 text-cyan-400 text-lg px-6 py-3 rounded-2xl hover:text-cyan-300"
-                  size="lg"
+                  onClick={() => setShowCreateDialog(true)}
+                  className="bg-teal-300/60 hover:bg-teal-400/60 border-2 border-teal-600 text-teal-900 text-lg px-6 py-3 rounded-2xl hover:text-teal-900"
                 >
-                  <Plus className="h-5 w-5 mr-2" />
+                  <Plus className="w-6 h-6 mr-2" />
                   Nueva Clase Paradise
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-gray-900/95 border border-cyan-400/30">
+              <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-stone-100 border-2 border-stone-500">
                 <DialogHeader>
-                  <DialogTitle className="text-2xl font-bold text-cyan-400">Crear Nueva Clase de Baile</DialogTitle>
+                  <DialogTitle className="text-2xl font-bold text-slate-900">Crear Nueva Clase de Baile</DialogTitle>
                 </DialogHeader>
 
                 <div className="space-y-6">
                   {/* Información básica */}
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <Label htmlFor="name">Nombre de la Clase *</Label>
+                      <Label htmlFor="name" className="text-slate-800 font-semibold">Nombre de la Clase *</Label>
                       <Input
                         id="name"
                         value={newClass.name}
                         onChange={(e) => setNewClass({ ...newClass, name: e.target.value })}
                         placeholder="ej: Salsa Avanzada Paradise"
+                        className="border-2 border-stone-400 focus:border-teal-600 bg-stone-50 text-slate-900"
                       />
                     </div>
                     <div>
-                      <Label htmlFor="capacity">Capacidad de Bailarines</Label>
+                      <Label htmlFor="capacity" className="text-slate-800 font-semibold">Capacidad de Bailarines</Label>
                       <Input
                         id="capacity"
                         type="number"
                         value={newClass.capacity}
                         onChange={(e) => setNewClass({ ...newClass, capacity: parseInt(e.target.value) || 20 })}
+                        className="border-2 border-stone-400 focus:border-teal-600 bg-stone-50 text-slate-900"
                       />
                     </div>
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <Label htmlFor="trainer">Instructor Paradise *</Label>
+                      <Label htmlFor="trainer" className="text-slate-800 font-semibold">Instructor Paradise *</Label>
                       <Select 
                         value={newClass.trainerId.toString()} 
                         onValueChange={(value) => setNewClass({ ...newClass, trainerId: parseInt(value) })}
                       >
-                        <SelectTrigger>
+                        <SelectTrigger className="border-2 border-stone-400 focus:border-teal-600 bg-stone-50 text-slate-900">
                           <SelectValue placeholder="Selecciona un instructor" />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className="bg-stone-50 border-stone-400">
                           {trainers.map((trainer) => (
-                            <SelectItem key={trainer.id} value={trainer.id.toString()}>
+                            <SelectItem key={trainer.id} value={trainer.id.toString()} className="text-slate-900 hover:bg-teal-100">
                               {trainer.name}
                             </SelectItem>
                           ))}
@@ -382,52 +384,54 @@ export function ClassManagementNew() {
                       </Select>
                     </div>
                     <div>
-                      <Label htmlFor="price">Valor por Clase</Label>
+                      <Label htmlFor="price" className="text-slate-800 font-semibold">Valor por Clase</Label>
                       <Input
                         id="price"
                         type="number"
                         value={newClass.price}
                         onChange={(e) => setNewClass({ ...newClass, price: parseFloat(e.target.value) || 0 })}
                         placeholder="0"
+                        className="border-2 border-stone-400 focus:border-teal-600 bg-stone-50 text-slate-900"
                       />
                     </div>
                   </div>
 
                   <div>
-                    <Label htmlFor="description">Descripción del Estilo de Baile</Label>
+                    <Label htmlFor="description" className="text-slate-800 font-semibold">Descripción del Estilo de Baile</Label>
                     <Textarea
                       id="description"
                       value={newClass.description}
                       onChange={(e) => setNewClass({ ...newClass, description: e.target.value })}
                       placeholder="Describe el estilo de baile y nivel..."
+                      className="border-2 border-stone-400 focus:border-teal-600 bg-stone-50 text-slate-900"
                     />
                   </div>
 
                   {/* Horarios */}
                   <div>
                     <div className="flex items-center justify-between mb-4">
-                      <Label className="text-lg font-semibold">Horarios</Label>
-                      <Button onClick={addSchedule} variant="outline" size="sm">
+                      <Label className="text-lg font-semibold text-slate-800">Horarios</Label>
+                      <Button onClick={addSchedule} variant="outline" size="sm" className="border-stone-400 text-slate-800 hover:bg-stone-200">
                         <Plus className="h-4 w-4 mr-2" />
                         Agregar Horario
                       </Button>
                     </div>
 
                     {newClass.schedules.map((schedule, index) => (
-                      <Card key={index} className="mb-4 p-4">
+                      <Card key={index} className="mb-4 p-4 bg-stone-50 border-2 border-stone-400">
                         <div className="grid grid-cols-12 gap-3 items-end">
                           <div className="col-span-5">
-                            <Label>Día de la semana</Label>
+                            <Label className="text-slate-800 font-medium">Día de la semana</Label>
                             <Select 
                               value={schedule.dayOfWeek.toString()} 
                               onValueChange={(value) => updateSchedule(index, 'dayOfWeek', parseInt(value))}
                             >
-                              <SelectTrigger>
+                              <SelectTrigger className="border-2 border-stone-400 focus:border-teal-600 bg-white text-slate-900">
                                 <SelectValue />
                               </SelectTrigger>
-                              <SelectContent>
+                              <SelectContent className="bg-white border-stone-400">
                                 {DAYS_OF_WEEK.map((day, dayIndex) => (
-                                  <SelectItem key={dayIndex} value={dayIndex.toString()}>
+                                  <SelectItem key={dayIndex} value={dayIndex.toString()} className="text-slate-900 hover:bg-teal-100">
                                     {day}
                                   </SelectItem>
                                 ))}
@@ -435,19 +439,21 @@ export function ClassManagementNew() {
                             </Select>
                           </div>
                           <div className="col-span-3">
-                            <Label>Hora inicio</Label>
+                            <Label className="text-slate-800 font-medium">Hora inicio</Label>
                             <Input
                               type="time"
                               value={schedule.startTime}
                               onChange={(e) => updateSchedule(index, 'startTime', e.target.value)}
+                              className="border-2 border-stone-400 focus:border-teal-600 bg-white text-slate-900"
                             />
                           </div>
                           <div className="col-span-3">
-                            <Label>Hora fin</Label>
+                            <Label className="text-slate-800 font-medium">Hora fin</Label>
                             <Input
                               type="time"
                               value={schedule.endTime}
                               onChange={(e) => updateSchedule(index, 'endTime', e.target.value)}
+                              className="border-2 border-stone-400 focus:border-teal-600 bg-white text-slate-900"
                             />
                           </div>
                           <div className="col-span-1">
@@ -466,10 +472,10 @@ export function ClassManagementNew() {
                   </div>
 
                   <div className="flex justify-end space-x-4">
-                    <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
+                    <Button variant="outline" onClick={() => setShowCreateDialog(false)} className="border-stone-400 text-slate-800 hover:bg-stone-200">
                       Cancelar
                     </Button>
-                    <Button onClick={createClass} disabled={!newClass.name || !newClass.trainerId}>
+                    <Button onClick={createClass} disabled={!newClass.name || !newClass.trainerId} className="bg-teal-600 hover:bg-teal-700 text-white">
                       Crear Clase
                     </Button>
                   </div>
@@ -483,20 +489,20 @@ export function ClassManagementNew() {
       {/* Lista de clases */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {classes.map((danceClass) => (
-          <Card key={danceClass.id} className="border-0 shadow-2xl rounded-3xl hover:shadow-3xl transition-all duration-300 hover:-translate-y-1 bg-gray-700/70 border border-cyan-400/40">
+          <Card key={danceClass.id} className="border-0 shadow-2xl rounded-3xl hover:shadow-3xl transition-all duration-300 hover:-translate-y-1 bg-stone-200/80 border-2 border-stone-500">
             <CardContent className="p-8">
               {/* Header de la clase */}
               <div className="flex items-start justify-between mb-6">
                 <div className="flex-1">
-                  <h3 className="text-2xl font-bold text-cyan-300 mb-2">{danceClass.name}</h3>
-                  <p className="text-gray-200 mb-3">{danceClass.description || "Sin descripción"}</p>
-                  <div className="flex items-center space-x-2 text-sm text-gray-300">
+                  <h3 className="text-2xl font-bold text-teal-800 mb-2">{danceClass.name}</h3>
+                  <p className="text-slate-700 mb-3">{danceClass.description || "Sin descripción"}</p>
+                  <div className="flex items-center space-x-2 text-sm text-slate-600">
                     <GraduationCap className="h-4 w-4" />
                     <span>{danceClass.trainer.name}</span>
                   </div>
                 </div>
                 <div className="flex space-x-2">
-                  <Button variant="outline" size="sm" onClick={() => deleteClass(danceClass.id)} className="border-red-400/60 text-red-300 hover:bg-red-400/15">
+                  <Button variant="outline" size="sm" onClick={() => deleteClass(danceClass.id)} className="border-red-500 text-red-600 hover:bg-red-100">
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
@@ -504,15 +510,15 @@ export function ClassManagementNew() {
 
               {/* Horarios */}
               <div className="mb-6">
-                <h4 className="font-semibold text-cyan-200 mb-3 flex items-center">
+                <h4 className="font-semibold text-teal-700 mb-3 flex items-center">
                   <Clock className="h-4 w-4 mr-2" />
                   Horarios
                 </h4>
                 <div className="space-y-2">
                   {danceClass.schedules.map((schedule, index) => (
-                    <div key={index} className="flex items-center justify-between p-2 bg-gray-600/40 rounded-lg border border-cyan-400/30">
-                      <span className="font-medium text-cyan-200">{DAYS_OF_WEEK[schedule.dayOfWeek]}</span>
-                      <span className="text-gray-200">{schedule.startTime} - {schedule.endTime}</span>
+                    <div key={index} className="flex items-center justify-between p-2 bg-stone-100 rounded-lg border-2 border-stone-400">
+                      <span className="font-medium text-teal-700">{DAYS_OF_WEEK[schedule.dayOfWeek]}</span>
+                      <span className="text-slate-600">{schedule.startTime} - {schedule.endTime}</span>
                     </div>
                   ))}
                 </div>
@@ -520,20 +526,20 @@ export function ClassManagementNew() {
 
               {/* Estadísticas */}
               <div className="grid grid-cols-2 gap-4 mb-6">
-                <div className="text-center p-3 bg-blue-400/15 rounded-lg border border-blue-400/40">
-                  <div className="text-2xl font-bold text-blue-300">{danceClass._count.enrollments}</div>
-                  <div className="text-sm text-blue-300">Inscritos</div>
+                <div className="text-center p-3 bg-blue-100 rounded-lg border-2 border-blue-400">
+                  <div className="text-2xl font-bold text-blue-700">{danceClass._count.enrollments}</div>
+                  <div className="text-sm text-blue-600">Inscritos</div>
                 </div>
-                <div className="text-center p-3 bg-green-400/15 rounded-lg border border-green-400/40">
-                  <div className="text-2xl font-bold text-green-300">{danceClass.capacity}</div>
-                  <div className="text-sm text-green-300">Capacidad</div>
+                <div className="text-center p-3 bg-green-100 rounded-lg border-2 border-green-400">
+                  <div className="text-2xl font-bold text-green-700">{danceClass.capacity}</div>
+                  <div className="text-sm text-green-600">Capacidad</div>
                 </div>
               </div>
 
               {/* Estudiantes inscritos */}
               <div className="mb-6">
                 <div className="flex items-center justify-between mb-3">
-                  <h4 className="font-semibold text-cyan-200 flex items-center">
+                  <h4 className="font-semibold text-teal-700 flex items-center">
                     <Users className="h-4 w-4 mr-2" />
                     Estudiantes ({danceClass.enrollments.length})
                   </h4>
@@ -543,25 +549,26 @@ export function ClassManagementNew() {
                         variant="outline" 
                         size="sm"
                         onClick={() => setSelectedClass(danceClass)}
+                        className="border-stone-400 text-slate-800 hover:bg-stone-200"
                       >
                         <UserPlus className="h-4 w-4 mr-1" />
                         Inscribir
                       </Button>
                     </DialogTrigger>
-                    <DialogContent>
+                    <DialogContent className="bg-stone-100 border-2 border-stone-500">
                       <DialogHeader>
-                        <DialogTitle>Inscribir Estudiante en {danceClass.name}</DialogTitle>
+                        <DialogTitle className="text-slate-900">Inscribir Estudiante en {danceClass.name}</DialogTitle>
                       </DialogHeader>
                       <div className="space-y-4">
                         {getAvailableStudents().length === 0 ? (
-                          <p className="text-gray-400 text-sm">No hay estudiantes disponibles para inscribir</p>
+                          <p className="text-slate-600 text-sm">No hay estudiantes disponibles para inscribir</p>
                         ) : (
                           <div className="space-y-2 max-h-60 overflow-y-auto">
                             {getAvailableStudents().map((student) => (
-                              <div key={student.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                              <div key={student.id} className="flex items-center justify-between p-3 bg-stone-50 rounded-lg border border-stone-400">
                                 <div>
-                                  <span className="font-medium">{student.name}</span>
-                                  <div className="text-sm text-slate-500">Cédula: {student.id}</div>
+                                  <span className="font-medium text-slate-800">{student.name}</span>
+                                  <div className="text-sm text-slate-600">Cédula: {student.id}</div>
                                   {student.hasDebt && (
                                     <Badge variant="destructive" className="text-xs">Tiene deuda</Badge>
                                   )}
@@ -569,6 +576,7 @@ export function ClassManagementNew() {
                                 <Button 
                                   size="sm" 
                                   onClick={() => enrollStudent(student.id, danceClass.id)}
+                                  className="bg-teal-600 hover:bg-teal-700 text-white"
                                 >
                                   Inscribir
                                 </Button>
@@ -583,14 +591,14 @@ export function ClassManagementNew() {
 
                 <div className="space-y-2 max-h-32 overflow-y-auto">
                   {danceClass.enrollments.length === 0 ? (
-                    <p className="text-gray-300 text-sm">No hay estudiantes inscritos</p>
+                    <p className="text-slate-600 text-sm">No hay estudiantes inscritos</p>
                   ) : (
                     danceClass.enrollments.map((enrollment) => (
-                      <div key={enrollment.student.id} className="flex items-center justify-between p-2 bg-gray-600/40 rounded-lg border border-cyan-400/30">
+                      <div key={enrollment.student.id} className="flex items-center justify-between p-2 bg-stone-100 rounded-lg border-2 border-stone-400">
                         <div className="flex items-center space-x-3">
                           <div>
-                            <span className="font-medium text-cyan-200">{enrollment.student.name}</span>
-                            <div className="text-xs text-gray-300">Cédula: {enrollment.student.id}</div>
+                            <span className="font-medium text-teal-700">{enrollment.student.name}</span>
+                            <div className="text-xs text-slate-600">Cédula: {enrollment.student.id}</div>
                           </div>
                           {enrollment.student.hasDebt && (
                             <Badge variant="destructive" className="text-xs">Deuda</Badge>
@@ -600,7 +608,7 @@ export function ClassManagementNew() {
                           variant="outline" 
                           size="sm" 
                           onClick={() => unenrollStudent(enrollment.student.id, danceClass.id)}
-                          className="border-red-400/60 text-red-300 hover:bg-red-400/15"
+                          className="border-red-500 text-red-600 hover:bg-red-100"
                         >
                           <Trash2 className="h-3 w-3" />
                         </Button>
@@ -612,10 +620,10 @@ export function ClassManagementNew() {
 
               {/* Información adicional */}
               {danceClass.price && (
-                <div className="pt-4 border-t border-cyan-400/40">
+                <div className="pt-4 border-t border-stone-500">
                   <div className="flex items-center justify-between">
-                    <span className="text-gray-200">Precio por clase:</span>
-                    <span className="text-lg font-bold text-green-300">${danceClass.price}</span>
+                    <span className="text-slate-700">Precio por clase:</span>
+                    <span className="text-lg font-bold text-green-700">${danceClass.price}</span>
                   </div>
                 </div>
               )}
@@ -625,13 +633,13 @@ export function ClassManagementNew() {
       </div>
 
       {classes.length === 0 && (
-        <Card className="border-0 shadow-2xl rounded-3xl bg-gray-700/70 border border-cyan-400/40">
+        <Card className="border-0 shadow-2xl rounded-3xl bg-stone-200/80 border-2 border-stone-500">
           <CardContent className="p-12 text-center">
-            <div className="w-24 h-24 mx-auto mb-8 bg-gradient-to-r from-purple-400/25 to-pink-400/25 rounded-full flex items-center justify-center border border-purple-400/60">
-              <BookOpen className="w-12 h-12 text-purple-300" />
+            <div className="w-24 h-24 mx-auto mb-8 bg-gradient-to-r from-purple-300 to-pink-300 rounded-full flex items-center justify-center border-2 border-purple-500">
+              <BookOpen className="w-12 h-12 text-purple-700" />
             </div>
-            <h3 className="text-3xl font-bold text-cyan-300 mb-4">No hay clases creadas</h3>
-            <p className="text-gray-200 text-xl">Crea tu primera clase para comenzar</p>
+            <h3 className="text-3xl font-bold text-teal-800 mb-4">No hay clases creadas</h3>
+            <p className="text-slate-700 text-xl">Crea tu primera clase para comenzar</p>
           </CardContent>
         </Card>
       )}

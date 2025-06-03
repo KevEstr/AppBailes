@@ -68,41 +68,41 @@ export function AttendanceHistory() {
   return (
     <div className="max-w-7xl mx-auto">
       {/* Header */}
-      <Card className="border-0 bg-gradient-to-r from-black via-gray-900 to-black text-white shadow-2xl mb-8 rounded-3xl border border-cyan-400/30">
+      <Card className="border-0 bg-gradient-to-r from-stone-200 via-amber-100 to-orange-150 text-slate-900 shadow-2xl mb-8 rounded-3xl border-2 border-stone-500">
         <CardHeader className="pb-6">
           <CardTitle className="flex items-center space-x-4">
-            <div className="rounded-2xl bg-cyan-500/20 p-3 backdrop-blur-sm border border-cyan-400/50">
-              <BarChart3 className="h-8 w-8 text-cyan-400" />
+            <div className="rounded-2xl bg-teal-300 p-3 backdrop-blur-sm border border-teal-600">
+              <BarChart3 className="h-8 w-8 text-teal-900" />
             </div>
             <div>
-              <span className="text-3xl font-bold bg-gradient-to-r from-cyan-400 to-yellow-400 bg-clip-text text-transparent">Análisis Paradise</span>
-              <p className="text-cyan-200 mt-2 text-lg">Estadísticas de asistencia de bailarines</p>
+              <span className="text-3xl font-bold bg-gradient-to-r from-teal-800 to-amber-800 bg-clip-text text-transparent">Análisis Paradise</span>
+              <p className="text-teal-900 mt-2 text-lg">Estadísticas de asistencia de bailarines</p>
             </div>
           </CardTitle>
         </CardHeader>
       </Card>
 
       {/* Filtros */}
-      <Card className="border-0 shadow-2xl mb-8 rounded-3xl bg-gray-700/70 border border-cyan-400/40">
+      <Card className="border-0 shadow-2xl mb-8 rounded-3xl bg-stone-200/80 border-2 border-stone-500">
         <CardContent className="p-8">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div className="space-y-3">
-              <label className="text-lg font-bold text-cyan-200">Período</label>
+              <label className="text-lg font-bold text-slate-800">Período</label>
               <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
-                <SelectTrigger className="border-2 border-cyan-400/40 focus:border-cyan-400 rounded-2xl h-14 text-lg bg-gray-600/50 text-cyan-100">
+                <SelectTrigger className="border-2 border-stone-500 focus:border-teal-600 rounded-2xl h-14 text-lg bg-stone-100 text-slate-900">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="bg-gray-700 border-cyan-400/40">
-                  <SelectItem value="week" className="text-lg text-cyan-100 hover:bg-cyan-500/20">
+                <SelectContent className="bg-stone-100 border-stone-500">
+                  <SelectItem value="week" className="text-lg text-slate-900 hover:bg-teal-200">
                     Esta semana
                   </SelectItem>
-                  <SelectItem value="month" className="text-lg text-cyan-100 hover:bg-cyan-500/20">
+                  <SelectItem value="month" className="text-lg text-slate-900 hover:bg-teal-200">
                     Este mes
                   </SelectItem>
-                  <SelectItem value="quarter" className="text-lg text-cyan-100 hover:bg-cyan-500/20">
+                  <SelectItem value="quarter" className="text-lg text-slate-900 hover:bg-teal-200">
                     Trimestre
                   </SelectItem>
-                  <SelectItem value="year" className="text-lg text-cyan-100 hover:bg-cyan-500/20">
+                  <SelectItem value="year" className="text-lg text-slate-900 hover:bg-teal-200">
                     Este año
                   </SelectItem>
                 </SelectContent>
@@ -110,17 +110,17 @@ export function AttendanceHistory() {
             </div>
 
             <div className="space-y-3">
-              <label className="text-lg font-bold text-cyan-200">Estudiante</label>
+              <label className="text-lg font-bold text-slate-800">Estudiante</label>
               <Select value={selectedStudent} onValueChange={setSelectedStudent}>
-                <SelectTrigger className="border-2 border-cyan-400/40 focus:border-cyan-400 rounded-2xl h-14 text-lg bg-gray-600/50 text-cyan-100">
+                <SelectTrigger className="border-2 border-stone-500 focus:border-teal-600 rounded-2xl h-14 text-lg bg-stone-100 text-slate-900">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="bg-gray-700 border-cyan-400/40">
-                  <SelectItem value="all" className="text-lg text-cyan-100 hover:bg-cyan-500/20">
+                <SelectContent className="bg-stone-100 border-stone-500">
+                  <SelectItem value="all" className="text-lg text-slate-900 hover:bg-teal-200">
                     Todos
                   </SelectItem>
                   {studentStats.map((student) => (
-                    <SelectItem key={student.id} value={student.id.toString()} className="text-lg text-cyan-100 hover:bg-cyan-500/20">
+                    <SelectItem key={student.id} value={student.id.toString()} className="text-lg text-slate-900 hover:bg-teal-200">
                       {student.name} (Cédula: {student.id})
                     </SelectItem>
                   ))}
@@ -133,9 +133,9 @@ export function AttendanceHistory() {
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 mb-8">
         {/* Gráfico de barras */}
-        <Card className="border-0 shadow-2xl rounded-3xl bg-gray-700/70 border border-cyan-400/40">
+        <Card className="border-0 shadow-2xl rounded-3xl bg-stone-200/80 border-2 border-stone-500">
           <CardHeader className="pb-6">
-            <CardTitle className="flex items-center space-x-3 text-cyan-300">
+            <CardTitle className="flex items-center space-x-3 text-teal-800">
               <Calendar className="w-6 h-6" />
               <span className="text-2xl font-bold">Asistencia por Día</span>
             </CardTitle>
@@ -143,12 +143,12 @@ export function AttendanceHistory() {
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={attendanceData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                <XAxis dataKey="date" stroke="#64748b" />
-                <YAxis stroke="#64748b" />
+                <CartesianGrid strokeDasharray="3 3" stroke="#64748b" />
+                <XAxis dataKey="date" stroke="#475569" />
+                <YAxis stroke="#475569" />
                 <Tooltip
                   contentStyle={{
-                    backgroundColor: "#1e293b",
+                    backgroundColor: "#44403c",
                     border: "none",
                     borderRadius: "16px",
                     color: "white",
@@ -163,9 +163,9 @@ export function AttendanceHistory() {
         </Card>
 
         {/* Gráfico circular */}
-        <Card className="border-0 shadow-2xl rounded-3xl bg-gray-700/70 border border-cyan-400/40">
+        <Card className="border-0 shadow-2xl rounded-3xl bg-stone-200/80 border-2 border-stone-500">
           <CardHeader className="pb-6">
-            <CardTitle className="flex items-center space-x-3 text-cyan-300">
+            <CardTitle className="flex items-center space-x-3 text-teal-800">
               <TrendingUp className="w-6 h-6" />
               <span className="text-2xl font-bold">Distribución General</span>
             </CardTitle>
@@ -188,7 +188,7 @@ export function AttendanceHistory() {
                 </Pie>
                 <Tooltip
                   contentStyle={{
-                    backgroundColor: "#1e293b",
+                    backgroundColor: "#44403c",
                     border: "none",
                     borderRadius: "16px",
                     color: "white",
@@ -201,9 +201,9 @@ export function AttendanceHistory() {
       </div>
 
       {/* Tabla de estudiantes */}
-      <Card className="border-0 shadow-2xl rounded-3xl bg-gray-700/70 border border-cyan-400/40">
+      <Card className="border-0 shadow-2xl rounded-3xl bg-stone-200/80 border-2 border-stone-500">
         <CardHeader className="pb-6">
-          <CardTitle className="flex items-center space-x-3 text-cyan-300">
+          <CardTitle className="flex items-center space-x-3 text-teal-800">
             <CheckCircle className="w-6 h-6" />
             <span className="text-2xl font-bold">Estadísticas por Estudiante</span>
           </CardTitle>
@@ -212,19 +212,19 @@ export function AttendanceHistory() {
           <div className="space-y-6">
             {studentStats.length === 0 ? (
               <div className="text-center py-12">
-                <div className="w-24 h-24 mx-auto mb-6 bg-gradient-to-r from-cyan-400/25 to-yellow-400/25 rounded-full flex items-center justify-center border border-cyan-400/60">
-                  <BarChart3 className="w-12 h-12 text-cyan-300" />
+                <div className="w-24 h-24 mx-auto mb-6 bg-gradient-to-r from-teal-300 to-amber-300 rounded-full flex items-center justify-center border-2 border-teal-600">
+                  <BarChart3 className="w-12 h-12 text-teal-800" />
                 </div>
-                <h3 className="text-2xl font-bold text-cyan-300 mb-2">Sin datos disponibles</h3>
-                <p className="text-gray-200">No hay estadísticas para el período seleccionado</p>
+                <h3 className="text-2xl font-bold text-teal-800 mb-2">Sin datos disponibles</h3>
+                <p className="text-slate-700">No hay estadísticas para el período seleccionado</p>
               </div>
             ) : (
               studentStats.map((student) => (
-                <Card key={student.id} className="bg-gray-600/60 border border-cyan-400/40 rounded-2xl overflow-hidden hover:shadow-lg transition-shadow shadow-cyan-400/30">
+                <Card key={student.id} className="bg-stone-100 border-2 border-stone-400 rounded-2xl overflow-hidden hover:shadow-lg transition-shadow shadow-stone-500/30">
                   <CardContent className="p-6">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-6">
-                        <Avatar className="w-16 h-16 ring-4 ring-cyan-400/60 shadow-lg">
+                        <Avatar className="w-16 h-16 ring-4 ring-teal-600/60 shadow-lg">
                           <AvatarImage src={student.avatar || "/placeholder.svg"} />
                           <AvatarFallback className="bg-gradient-to-r from-orange-500 to-red-500 text-white font-bold text-lg">
                             {student.name
@@ -235,8 +235,8 @@ export function AttendanceHistory() {
                           </AvatarFallback>
                         </Avatar>
                         <div>
-                          <h4 className="text-xl font-bold text-cyan-300">{student.name}</h4>
-                          <p className="text-gray-200 mt-1">
+                          <h4 className="text-xl font-bold text-teal-800">{student.name}</h4>
+                          <p className="text-slate-700 mt-1">
                             Cédula: {student.id} • {student.totalClasses} clases totales
                           </p>
                         </div>
@@ -256,28 +256,28 @@ export function AttendanceHistory() {
                     </div>
 
                     <div className="mt-6 grid grid-cols-3 gap-6">
-                      <div className="text-center p-4 bg-emerald-400/15 rounded-xl border border-emerald-400/40">
+                      <div className="text-center p-4 bg-emerald-100 rounded-xl border-2 border-emerald-400">
                         <div className="flex items-center justify-center space-x-2 mb-2">
-                          <CheckCircle className="w-5 h-5 text-emerald-300" />
-                          <span className="text-sm font-medium text-emerald-300">Presentes</span>
+                          <CheckCircle className="w-5 h-5 text-emerald-700" />
+                          <span className="text-sm font-medium text-emerald-700">Presentes</span>
                         </div>
-                        <div className="text-3xl font-bold text-emerald-300">{student.present}</div>
+                        <div className="text-3xl font-bold text-emerald-700">{student.present}</div>
                       </div>
 
-                      <div className="text-center p-4 bg-amber-400/15 rounded-xl border border-amber-400/40">
+                      <div className="text-center p-4 bg-amber-100 rounded-xl border-2 border-amber-400">
                         <div className="flex items-center justify-center space-x-2 mb-2">
-                          <Clock className="w-5 h-5 text-amber-300" />
-                          <span className="text-sm font-medium text-amber-300">Tarde</span>
+                          <Clock className="w-5 h-5 text-amber-700" />
+                          <span className="text-sm font-medium text-amber-700">Tarde</span>
                         </div>
-                        <div className="text-3xl font-bold text-amber-300">{student.late}</div>
+                        <div className="text-3xl font-bold text-amber-700">{student.late}</div>
                       </div>
 
-                      <div className="text-center p-4 bg-red-400/15 rounded-xl border border-red-400/40">
+                      <div className="text-center p-4 bg-red-100 rounded-xl border-2 border-red-400">
                         <div className="flex items-center justify-center space-x-2 mb-2">
-                          <XCircle className="w-5 h-5 text-red-300" />
-                          <span className="text-sm font-medium text-red-300">Ausentes</span>
+                          <XCircle className="w-5 h-5 text-red-700" />
+                          <span className="text-sm font-medium text-red-700">Ausentes</span>
                         </div>
-                        <div className="text-3xl font-bold text-red-300">{student.absent}</div>
+                        <div className="text-3xl font-bold text-red-700">{student.absent}</div>
                       </div>
                     </div>
                   </CardContent>
