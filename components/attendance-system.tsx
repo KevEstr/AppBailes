@@ -288,8 +288,8 @@ export function AttendanceSystem() {
                 <Zap className="h-8 w-8 text-teal-900" />
               </div>
               <div>
-                <span className="text-3xl font-bold bg-gradient-to-r from-teal-800 to-amber-800 bg-clip-text text-transparent">Asistencia Paradise</span>
-                <p className="text-teal-900 mt-2">Control rápido y visual de estudiantes</p>
+                <span className="text-3xl font-bold bg-gradient-to-r from-teal-800 to-amber-800 bg-clip-text text-transparent">Asistencias</span>
+                <p className="text-teal-900 mt-2">Control de estudiantes</p>
               </div>
             </div>
             <div className="text-right text-lg">

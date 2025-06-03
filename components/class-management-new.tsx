@@ -320,7 +320,7 @@ export function ClassManagementNew() {
                 <GraduationCap className="h-8 w-8 text-teal-900" />
               </div>
               <div>
-                <span className="text-3xl font-bold bg-gradient-to-r from-teal-800 to-amber-800 bg-clip-text text-transparent">Gestión Paradise</span>
+                <span className="text-3xl font-bold bg-gradient-to-r from-teal-800 to-amber-800 bg-clip-text text-transparent">Gestión</span>
                 <p className="text-teal-900 mt-2">Administra clases de baile y estudiantes</p>
               </div>
             </div>
@@ -331,7 +331,7 @@ export function ClassManagementNew() {
                   className="bg-teal-300/60 hover:bg-teal-400/60 border-2 border-teal-600 text-teal-900 text-lg px-6 py-3 rounded-2xl hover:text-teal-900"
                 >
                   <Plus className="w-6 h-6 mr-2" />
-                  Nueva Clase Paradise
+                  Nueva Clase
                 </Button>
               </DialogTrigger>
               <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-stone-100 border-2 border-stone-500">

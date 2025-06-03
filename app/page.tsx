@@ -36,28 +36,28 @@ export default function DanceAcademyApp() {
     },
     {
       id: "attendance",
-      label: "Asistencia Rápida",
+      label: "Asistencia de Estudiantes",
       icon: Clock,
       description: "Control visual de asistencias",
       color: "from-purple-500 to-pink-600",
     },
     {
       id: "receipts",
-      label: "Recibos Paradise",
+      label: "Recibos",
       icon: Receipt,
       description: "Recibos digitales automáticos",
       color: "from-emerald-500 to-teal-600",
     },
     {
       id: "messages",
-      label: "Notificaciones Paradise",
+      label: "Notificaciones",
       icon: MessageSquare,
       description: "Comunicación con estudiantes",
       color: "from-blue-500 to-indigo-600",
     },
     {
       id: "history",
-      label: "Análisis Paradise",
+      label: "Análisis",
       icon: BarChart3,
       description: "Reportes de asistencia",
       color: "from-orange-500 to-red-600",
@@ -152,7 +152,7 @@ export default function DanceAcademyApp() {
                       <p className="text-slate-700 text-lg leading-relaxed">{item.description}</p>
                     </div>
                     <div className="mt-6 flex items-center text-amber-800 group-hover:text-amber-900 transition-colors duration-300">
-                      <span className="text-sm font-medium">Acceder a Paradise</span>
+                      <span className="text-sm font-medium">Acceder a la sección</span>
                       <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform duration-300" />
                     </div>
                   </CardContent>
@@ -186,7 +186,7 @@ export default function DanceAcademyApp() {
               onClick={() => setActiveSection("home")}
               className="rounded-xl bg-teal-300 text-teal-900 hover:bg-teal-400 hover:text-teal-900 px-6 py-3 font-medium transition-all duration-300 border border-teal-500"
             >
-              ← Volver a Paradise
+              ← Volver
             </Button>
             <h2 className="text-2xl font-bold bg-gradient-to-r from-teal-800 to-amber-800 bg-clip-text text-transparent">
               {menuItems.find((item) => item.id === activeSection)?.label}
