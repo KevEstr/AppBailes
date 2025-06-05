@@ -4,12 +4,42 @@ import { Inter } from "next/font/google"
 import "./globals.css"
 import { Toaster } from "@/components/toaster"
 
-const inter = Inter({ subsets: ["latin"] })
+const inter = Inter({ 
+  subsets: ["latin"],
+  display: 'swap',
+  variable: '--font-inter'
+})
 
 export const metadata: Metadata = {
-  title: "Academia de Bailes - Gestión Profesional",
-  description: "Sistema de gestión completo para academias de baile",
-    generator: 'v0.dev'
+  title: {
+    default: "Paradise Dance Academy - Sistema de Gestión",
+    template: "%s | Paradise Dance Academy"
+  },
+  description: "Sistema completo de gestión para academias de baile. Controla asistencias, pagos, recibos, comunicaciones y análisis de estudiantes.",
+  keywords: ["academia de baile", "gestión", "asistencias", "pagos", "recibos", "Paradise Dance Academy"],
+  authors: [{ name: "Paradise Dance Academy" }],
+  creator: "Paradise Dance Academy",
+  publisher: "Paradise Dance Academy",
+  formatDetection: {
+    email: false,
+    address: false,
+    telephone: false,
+  },
+  metadataBase: new URL('http://localhost:3000'),
+  openGraph: {
+    title: "Paradise Dance Academy - Sistema de Gestión",
+    description: "Sistema completo de gestión para academias de baile",
+    type: "website",
+    locale: "es_ES",
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+    },
+  },
 }
 
 export default function RootLayout({
@@ -18,8 +48,8 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="es">
-      <body className={inter.className}>
+    <html lang="es" className={inter.variable}>
+      <body className="font-sans antialiased">
         {children}
         <Toaster />
       </body>
