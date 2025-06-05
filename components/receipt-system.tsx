@@ -35,6 +35,32 @@ export function ReceiptSystem() {
     { id: "estudiante", label: "Descuento Estudiante", type: "club" },
   ]
 
+  // Función para obtener el descuento de la promoción
+  const getPromotionDiscount = (promotionId: string) => {
+    switch (promotionId) {
+      case "academia_50":
+        return 50
+      case "club_30":
+        return 30
+      case "referido":
+        return 15
+      case "estudiante":
+        return 10
+      default:
+        return 0
+    }
+  }
+
+  // Función para aplicar promoción
+  const applyPromotion = (promotionId: string) => {
+    // Lógica adicional si es necesaria para aplicar la promoción
+    console.log(`Promoción aplicada: ${promotionId}`)
+  }
+
+  // Calcular el monto final con descuento
+  const discount = formData.promotion !== 'none' ? getPromotionDiscount(formData.promotion) : 0
+  const finalAmount = formData.amount - ((formData.amount * discount) / 100)
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 

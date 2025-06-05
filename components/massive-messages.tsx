@@ -342,7 +342,7 @@ export function MassiveMessages() {
                         </div>
                       </div>
                       <div className="flex items-center space-x-2">
-                        {student.classes.length > 0 && (
+                        {student.classes && student.classes.length > 0 && (
                           <Badge variant="outline" className="border-gray-500 text-gray-300">
                             {student.classes.length} clases
                           </Badge>
