@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -74,7 +74,7 @@ export function ClassManagementNew() {
   const [selectedClass, setSelectedClass] = useState<DanceClass | null>(null)
   const [showEnrollDialog, setShowEnrollDialog] = useState(false)
 
-  // Formulario para nueva clase
+  // Formulario para nueva clase - memoizado
   const [newClass, setNewClass] = useState({
     name: '',
     description: '',
@@ -84,11 +84,8 @@ export function ClassManagementNew() {
     schedules: [{ dayOfWeek: 1, startTime: '18:00', endTime: '19:00' }]
   })
 
-  useEffect(() => {
-    loadData()
-  }, [])
-
-  const loadData = async () => {
+  // ✅ OPTIMIZACIÓN: useCallback para loadData
+  const loadData = useCallback(async () => {
     try {
       const [classesRes, trainersRes, studentsRes] = await Promise.all([
         fetch('/api/classes?active=true'),
@@ -111,9 +108,14 @@ export function ClassManagementNew() {
       console.error('Error loading data:', error)
       setLoading(false)
     }
-  }
+  }, [])
 
-  const createClass = async () => {
+  useEffect(() => {
+    loadData()
+  }, [loadData])
+
+  // ✅ OPTIMIZACIÓN: createClass sin recargar todo
+  const createClass = useCallback(async () => {
     if (!newClass.name || !newClass.trainerId) {
       toast({
         title: "❌ Error",
@@ -129,7 +131,7 @@ export function ClassManagementNew() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...newClass,
-          trainerId: Number(newClass.trainerId) // Asegurar que sea número
+          trainerId: Number(newClass.trainerId)
         })
       })
 
@@ -141,6 +143,17 @@ export function ClassManagementNew() {
           description: `${newClass.name} ha sido creada exitosamente`
         })
         setShowCreateDialog(false)
+        
+        // ✅ OPTIMIZACIÓN: Solo agregar la nueva clase sin recargar
+        const newClassWithTrainer = {
+          ...data.class,
+          trainer: trainers.find(t => t.id === Number(newClass.trainerId))!,
+          enrollments: [],
+          _count: { enrollments: 0 }
+        }
+        setClasses(prev => [...prev, newClassWithTrainer])
+        
+        // Reset form
         setNewClass({
           name: '',
           description: '',
@@ -149,7 +162,6 @@ export function ClassManagementNew() {
           price: 0,
           schedules: [{ dayOfWeek: 1, startTime: '18:00', endTime: '19:00' }]
         })
-        loadData()
       } else {
         toast({
           title: "❌ Error",
@@ -164,9 +176,10 @@ export function ClassManagementNew() {
         variant: "destructive"
       })
     }
-  }
+  }, [newClass, trainers, toast])
 
-  const enrollStudent = async (studentId: number, classId: number) => {
+  // ✅ OPTIMIZACIÓN: enrollStudent sin recargar todo
+  const enrollStudent = useCallback(async (studentId: number, classId: number) => {
     try {
       const response = await fetch('/api/enrollments', {
         method: 'POST',
@@ -182,7 +195,18 @@ export function ClassManagementNew() {
           title: "✅ Inscripción exitosa",
           description: `${student?.name} ha sido inscrito en la clase`
         })
-        loadData()
+        
+        // ✅ OPTIMIZACIÓN: Solo actualizar la clase específica
+        setClasses(prev => prev.map(cls => 
+          cls.id === classId 
+            ? {
+                ...cls,
+                enrollments: [...cls.enrollments, { student: student! }],
+                _count: { enrollments: cls._count.enrollments + 1 }
+              }
+            : cls
+        ))
+        
         setShowEnrollDialog(false)
       } else {
         toast({
@@ -198,9 +222,10 @@ export function ClassManagementNew() {
         variant: "destructive"
       })
     }
-  }
+  }, [students, toast])
 
-  const unenrollStudent = async (studentId: number, classId: number) => {
+  // ✅ OPTIMIZACIÓN: unenrollStudent sin recargar todo
+  const unenrollStudent = useCallback(async (studentId: number, classId: number) => {
     try {
       const response = await fetch(`/api/enrollments?studentId=${studentId}&classId=${classId}`, {
         method: 'DELETE'
@@ -209,30 +234,40 @@ export function ClassManagementNew() {
       const data = await response.json()
 
       if (data.success) {
+        const student = students.find(s => s.id === studentId)
         toast({
-          title: "✅ Inscripción cancelada",
-          description: "El estudiante ha sido removido de la clase"
+          title: "✅ Estudiante desinscrito",
+          description: `${student?.name} ha sido desinscrito de la clase`
         })
-        loadData()
+        
+        // ✅ OPTIMIZACIÓN: Solo actualizar la clase específica
+        setClasses(prev => prev.map(cls => 
+          cls.id === classId 
+            ? {
+                ...cls,
+                enrollments: cls.enrollments.filter(e => e.student.id !== studentId),
+                _count: { enrollments: cls._count.enrollments - 1 }
+              }
+            : cls
+        ))
       } else {
         toast({
           title: "❌ Error",
-          description: data.error || "No se pudo cancelar la inscripción",
+          description: data.error || "No se pudo desinscribir al estudiante",
           variant: "destructive"
         })
       }
     } catch (error) {
       toast({
         title: "❌ Error",
-        description: "Error al cancelar inscripción",
+        description: "Error al desinscribir estudiante",
         variant: "destructive"
       })
     }
-  }
+  }, [students, toast])
 
-  const deleteClass = async (classId: number) => {
-    if (!confirm('¿Estás seguro de que quieres eliminar esta clase?')) return
-
+  // ✅ OPTIMIZACIÓN: deleteClass sin recargar todo
+  const deleteClass = useCallback(async (classId: number) => {
     try {
       const response = await fetch(`/api/classes?id=${classId}`, {
         method: 'DELETE'
@@ -245,7 +280,9 @@ export function ClassManagementNew() {
           title: "✅ Clase eliminada",
           description: "La clase ha sido eliminada exitosamente"
         })
-        loadData()
+        
+        // ✅ OPTIMIZACIÓN: Solo remover la clase del estado
+        setClasses(prev => prev.filter(cls => cls.id !== classId))
       } else {
         toast({
           title: "❌ Error",
@@ -260,34 +297,38 @@ export function ClassManagementNew() {
         variant: "destructive"
       })
     }
-  }
+  }, [toast])
 
-  const addSchedule = () => {
-    setNewClass({
-      ...newClass,
-      schedules: [...newClass.schedules, { dayOfWeek: 1, startTime: '18:00', endTime: '19:00' }]
-    })
-  }
+  // ✅ OPTIMIZACIÓN: Funciones memoizadas
+  const addSchedule = useCallback(() => {
+    setNewClass(prev => ({
+      ...prev,
+      schedules: [...prev.schedules, { dayOfWeek: 1, startTime: '18:00', endTime: '19:00' }]
+    }))
+  }, [])
 
-  const removeSchedule = (index: number) => {
-    if (newClass.schedules.length === 1) return
-    setNewClass({
-      ...newClass,
-      schedules: newClass.schedules.filter((_, i) => i !== index)
-    })
-  }
+  const removeSchedule = useCallback((index: number) => {
+    setNewClass(prev => ({
+      ...prev,
+      schedules: prev.schedules.filter((_, i) => i !== index)
+    }))
+  }, [])
 
-  const updateSchedule = (index: number, field: string, value: any) => {
-    const newSchedules = [...newClass.schedules]
-    newSchedules[index] = { ...newSchedules[index], [field]: value }
-    setNewClass({ ...newClass, schedules: newSchedules })
-  }
+  const updateSchedule = useCallback((index: number, field: string, value: any) => {
+    setNewClass(prev => ({
+      ...prev,
+      schedules: prev.schedules.map((schedule, i) => 
+        i === index ? { ...schedule, [field]: value } : schedule
+      )
+    }))
+  }, [])
 
-  const getAvailableStudents = () => {
+  // ✅ OPTIMIZACIÓN: Estudiantes disponibles memoizados
+  const availableStudents = useMemo(() => {
     if (!selectedClass) return students
     const enrolledIds = selectedClass.enrollments.map(e => e.student.id)
-    return students.filter(s => !enrolledIds.includes(s.id))
-  }
+    return students.filter(student => !enrolledIds.includes(student.id))
+  }, [selectedClass, students])
 
   if (loading) {
     return (
@@ -561,11 +602,11 @@ export function ClassManagementNew() {
                         <DialogTitle className="text-white">Inscribir Estudiante en {danceClass.name}</DialogTitle>
                       </DialogHeader>
                       <div className="space-y-4">
-                        {getAvailableStudents().length === 0 ? (
+                        {availableStudents.length === 0 ? (
                           <p className="text-gray-400 text-sm">No hay estudiantes disponibles para inscribir</p>
                         ) : (
                           <div className="space-y-2 max-h-60 overflow-y-auto">
-                            {getAvailableStudents().map((student) => (
+                            {availableStudents.map((student) => (
                               <div key={student.id} className="flex items-center justify-between p-3 bg-gray-700 rounded-lg border border-gray-600">
                                 <div>
                                   <span className="font-medium text-white">{student.name}</span>

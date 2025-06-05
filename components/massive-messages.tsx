@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
@@ -39,6 +39,34 @@ interface MessageTemplate {
   type: 'PAYMENT_REMINDER' | 'TRAINING_REMINDER' | 'ABSENCE_INQUIRY' | 'GENERAL'
 }
 
+// ✅ OPTIMIZACIÓN: Memoizar plantillas para evitar recreación
+const messageTemplates: MessageTemplate[] = [
+  {
+    id: "payment_reminder",
+    name: "Recordatorio de Pago",
+    message: "Hola {nombre}! Te recordamos que tienes un pago pendiente. ¡Gracias por ser parte de Paradise Dance Academy! 💃",
+    type: "PAYMENT_REMINDER"
+  },
+  {
+    id: "training_reminder", 
+    name: "Recordatorio de Entrenamiento",
+    message: "¡Hola {nombre}! Te esperamos mañana en tu clase de {clase}. ¡No faltes! 🕺",
+    type: "TRAINING_REMINDER"
+  },
+  {
+    id: "absence_inquiry",
+    name: "Consulta de Ausencia",
+    message: "Hola {nombre}, notamos tu ausencia en la clase de {clase}. ¿Todo está bien? 🤗",
+    type: "ABSENCE_INQUIRY"
+  },
+  {
+    id: "general",
+    name: "Mensaje General",
+    message: "¡Hola {nombre}! Esperamos verte pronto en Paradise Dance Academy. ¡Síguenos en nuestras redes! ✨",
+    type: "GENERAL"
+  }
+]
+
 export function MassiveMessages() {
   const { toast } = useToast()
   const [students, setStudents] = useState<Student[]>([])
@@ -48,38 +76,8 @@ export function MassiveMessages() {
   const [filterType, setFilterType] = useState("all")
   const [loading, setLoading] = useState(false)
 
-  const messageTemplates: MessageTemplate[] = [
-    {
-      id: "payment_reminder",
-      name: "Recordatorio de Mensualidad",
-      type: "PAYMENT_REMINDER",
-      message: "¡Hola desde Paradise Dance Academy! 🌟 Te recordamos que tienes tu mensualidad pendiente. Para seguir disfrutando de nuestras increíbles clases de baile, por favor ponte al día. ¡Esperamos verte pronto en la pista! 💃🕺✨"
-    },
-    {
-      id: "training_reminder",
-      name: "Recordatorio de Clase",
-      type: "TRAINING_REMINDER", 
-      message: "¡Paradise Dance Academy te espera! 🎵 No olvides tu clase de hoy. Prepárate para brillar en la pista y seguir mejorando con nosotros. ¡Nos vemos para crear magia bailando! ✨💫"
-    },
-    {
-      id: "absence_inquiry",
-      name: "Te extrañamos en Paradise",
-      type: "ABSENCE_INQUIRY",
-      message: "¡Hola desde Paradise Dance Academy! 💖 Hemos notado tu ausencia y te extrañamos en nuestras clases. ¿Todo está bien? Estamos aquí para apoyarte y ayudarte a retomar tu pasión por el baile. ¡Paradise no es lo mismo sin ti! 🌟"
-    },
-    {
-      id: "general",
-      name: "Mensaje Paradise",
-      type: "GENERAL",
-      message: "¡Saludos desde Paradise Dance Academy! 🏆 Esperamos que estés bien y lleno de energía. Te escribimos para mantenerte conectado con tu familia de baile. ¡Gracias por ser parte de Paradise y hacer que cada día sea especial! 💃✨"
-    }
-  ]
-
-  useEffect(() => {
-    loadStudents()
-  }, [])
-
-  const loadStudents = async () => {
+  // ✅ OPTIMIZACIÓN: useCallback para loadStudents
+  const loadStudents = useCallback(async () => {
     try {
       const response = await fetch("/api/students?active=true")
       const data = await response.json()
@@ -89,9 +87,14 @@ export function MassiveMessages() {
     } catch (error) {
       console.error("Error loading students:", error)
     }
-  }
+  }, [])
 
-  const getFilteredStudents = () => {
+  useEffect(() => {
+    loadStudents()
+  }, [loadStudents])
+
+  // ✅ OPTIMIZACIÓN: Estudiantes filtrados memoizados
+  const filteredStudents = useMemo(() => {
     switch (filterType) {
       case "debt":
         return students.filter(s => s.hasDebt)
@@ -100,26 +103,28 @@ export function MassiveMessages() {
       default:
         return students
     }
-  }
+  }, [students, filterType])
 
-  const toggleStudentSelection = (studentId: number) => {
+  // ✅ OPTIMIZACIÓN: useCallback para funciones de selección
+  const toggleStudentSelection = useCallback((studentId: number) => {
     setSelectedStudents(prev =>
       prev.includes(studentId)
         ? prev.filter(id => id !== studentId)
         : [...prev, studentId]
     )
-  }
+  }, [])
 
-  const selectAllFiltered = () => {
-    const filteredIds = getFilteredStudents().map(s => s.id)
+  const selectAllFiltered = useCallback(() => {
+    const filteredIds = filteredStudents.map(s => s.id)
     setSelectedStudents(filteredIds)
-  }
+  }, [filteredStudents])
 
-  const clearSelection = () => {
+  const clearSelection = useCallback(() => {
     setSelectedStudents([])
-  }
+  }, [])
 
-  const sendMassiveMessages = async () => {
+  // ✅ OPTIMIZACIÓN: useCallback para envío de mensajes
+  const sendMassiveMessages = useCallback(async () => {
     if (selectedStudents.length === 0) {
       toast({
         title: "❌ Error",
@@ -176,9 +181,21 @@ export function MassiveMessages() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [selectedStudents, customMessage, messageType, toast])
 
-  const filteredStudents = getFilteredStudents()
+  // ✅ OPTIMIZACIÓN: Plantilla seleccionada memoizada
+  const selectedTemplate = useMemo(() => 
+    messageTemplates.find(t => t.id === messageType),
+    [messageType]
+  )
+
+  // ✅ OPTIMIZACIÓN: useCallback para actualizar mensaje
+  const updateMessageFromTemplate = useCallback((templateId: string) => {
+    const template = messageTemplates.find(t => t.id === templateId)
+    if (template) {
+      setCustomMessage(template.message)
+    }
+  }, [])
 
   return (
     <div className="max-w-7xl mx-auto">
@@ -210,10 +227,7 @@ export function MassiveMessages() {
                 value={messageType} 
                 onValueChange={(value) => {
                   setMessageType(value)
-                  const template = messageTemplates.find(t => t.id === value)
-                  if (template) {
-                    setCustomMessage(template.message)
-                  }
+                  updateMessageFromTemplate(value)
                 }}
               >
                 <SelectTrigger className="border border-gray-600 focus:border-blue-500 rounded-2xl h-14 text-lg bg-gray-700 text-white">

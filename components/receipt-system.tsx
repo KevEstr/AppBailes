@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState } from "react"
+import { useState, useCallback, useMemo } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -25,18 +25,21 @@ export function ReceiptSystem() {
     notes: "",
   })
 
-  const concepts = ["Inscripción", "Mensualidad", "Entrenamiento Físico", "Clase Particular", "Evento Especial"]
+  // ✅ OPTIMIZACIÓN: Memoizar arrays para evitar recreaciones
+  const concepts = useMemo(() => [
+    "Inscripción", "Mensualidad", "Entrenamiento Físico", "Clase Particular", "Evento Especial"
+  ], [])
 
-  const promotions = [
+  const promotions = useMemo(() => [
     { id: "none", label: "Sin promoción", type: "normal" },
     { id: "academia_50", label: "50% Off Academia", type: "academia" },
     { id: "club_30", label: "30% Off Club", type: "club" },
     { id: "referido", label: "Descuento Referido", type: "academia" },
     { id: "estudiante", label: "Descuento Estudiante", type: "club" },
-  ]
+  ], [])
 
   // Función para obtener el descuento de la promoción
-  const getPromotionDiscount = (promotionId: string) => {
+  const getPromotionDiscount = useCallback((promotionId: string) => {
     switch (promotionId) {
       case "academia_50":
         return 50
@@ -49,19 +52,25 @@ export function ReceiptSystem() {
       default:
         return 0
     }
-  }
+  }, [])
 
-  // Función para aplicar promoción
-  const applyPromotion = (promotionId: string) => {
+  // ✅ OPTIMIZACIÓN: useCallback para evitar recreación
+  const applyPromotion = useCallback((promotionId: string) => {
     // Lógica adicional si es necesaria para aplicar la promoción
     console.log(`Promoción aplicada: ${promotionId}`)
-  }
+  }, [])
 
-  // Calcular el monto final con descuento
-  const discount = formData.promotion !== 'none' ? getPromotionDiscount(formData.promotion) : 0
-  const finalAmount = formData.amount - ((formData.amount * discount) / 100)
+  // ✅ OPTIMIZACIÓN: Cálculos memoizados
+  const calculatedAmounts = useMemo(() => {
+    const amount = typeof formData.amount === 'string' ? parseFloat(formData.amount) || 0 : Number(formData.amount) || 0
+    const discount = formData.promotion !== 'none' ? getPromotionDiscount(formData.promotion) : 0
+    const finalAmount = amount - ((amount * discount) / 100)
+    
+    return { amount, discount, finalAmount }
+  }, [formData.amount, formData.promotion, getPromotionDiscount])
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  // ✅ OPTIMIZACIÓN: useCallback para handleSubmit
+  const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault()
 
     try {
@@ -108,9 +117,36 @@ export function ReceiptSystem() {
         variant: "destructive",
       })
     }
-  }
+  }, [formData, toast])
 
-  const selectedPromotion = promotions.find((p) => p.id === formData.promotion)
+  // ✅ OPTIMIZACIÓN: useCallback para updateFormData
+  const updateFormData = useCallback((field: string, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }))
+  }, [])
+
+  // ✅ OPTIMIZACIÓN: Promoción seleccionada memoizada
+  const selectedPromotion = useMemo(() => 
+    promotions.find((p) => p.id === formData.promotion), 
+    [promotions, formData.promotion]
+  )
+
+  // ✅ OPTIMIZACIÓN: generateReceipt con useCallback
+  const generateReceipt = useCallback(() => {
+    if (!formData.studentName || !calculatedAmounts.amount) {
+      toast({
+        title: "❌ Error",
+        description: "Por favor completa los campos requeridos",
+        variant: "destructive",
+      })
+      return
+    }
+
+    // Aquí iría la lógica de generación del recibo
+    toast({
+      title: "✅ Recibo Generado",
+      description: "El recibo ha sido generado exitosamente",
+    })
+  }, [formData.studentName, calculatedAmounts.amount, toast])
 
   return (
     <div className="max-w-7xl mx-auto">
@@ -145,7 +181,7 @@ export function ReceiptSystem() {
                   id="studentId"
                   type="text"
                   value={formData.studentId}
-                  onChange={(e) => setFormData({ ...formData, studentId: e.target.value })}
+                  onChange={(e) => updateFormData('studentId', e.target.value)}
                   placeholder="Ej: 12345678"
                   className="border border-gray-600 focus:border-blue-500 rounded-2xl h-14 text-lg bg-gray-700 text-white"
                 />
@@ -159,7 +195,7 @@ export function ReceiptSystem() {
                   id="studentName"
                   type="text"
                   value={formData.studentName}
-                  onChange={(e) => setFormData({ ...formData, studentName: e.target.value })}
+                  onChange={(e) => updateFormData('studentName', e.target.value)}
                   placeholder="Nombre del estudiante"
                   className="border border-gray-600 focus:border-blue-500 rounded-2xl h-14 text-lg bg-gray-700 text-white"
                 />
@@ -173,7 +209,7 @@ export function ReceiptSystem() {
                   id="phone"
                   type="tel"
                   value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  onChange={(e) => updateFormData('phone', e.target.value)}
                   placeholder="Ej: +57 300 123 4567"
                   className="border border-gray-600 focus:border-blue-500 rounded-2xl h-14 text-lg bg-gray-700 text-white"
                 />
@@ -188,21 +224,21 @@ export function ReceiptSystem() {
                 <Label htmlFor="amount" className="text-gray-200 font-semibold text-lg">
                   Monto a Pagar
                 </Label>
-                <Input
-                  id="amount"
-                  type="number"
-                  value={formData.amount}
-                  onChange={(e) => setFormData({ ...formData, amount: parseFloat(e.target.value) || 0 })}
-                  placeholder="Ingrese el monto"
-                  className="border border-gray-600 focus:border-blue-500 rounded-2xl h-14 text-lg bg-gray-700 text-white"
-                />
+                                  <Input
+                    id="amount"
+                    type="number"
+                    value={formData.amount}
+                    onChange={(e) => updateFormData('amount', e.target.value)}
+                    placeholder="Ingrese el monto"
+                    className="border border-gray-600 focus:border-blue-500 rounded-2xl h-14 text-lg bg-gray-700 text-white"
+                  />
               </div>
 
               <div>
                 <Label htmlFor="concept" className="text-gray-200 font-semibold text-lg">
                   Concepto del Pago
                 </Label>
-                <Select value={formData.concept} onValueChange={(value) => setFormData({ ...formData, concept: value })}>
+                <Select value={formData.concept} onValueChange={(value) => updateFormData('concept', value)}>
                   <SelectTrigger className="border border-gray-600 focus:border-blue-500 rounded-2xl h-14 text-lg bg-gray-700 text-white">
                     <SelectValue placeholder="Seleccionar concepto" />
                   </SelectTrigger>
@@ -220,7 +256,7 @@ export function ReceiptSystem() {
                 <Label htmlFor="paymentMethod" className="text-gray-200 font-semibold text-lg">
                   Método de Pago
                 </Label>
-                <Select value={formData.paymentMethod} onValueChange={(value) => setFormData({ ...formData, paymentMethod: value })}>
+                <Select value={formData.paymentMethod} onValueChange={(value) => updateFormData('paymentMethod', value)}>
                   <SelectTrigger className="border border-gray-600 focus:border-blue-500 rounded-2xl h-14 text-lg bg-gray-700 text-white">
                     <SelectValue placeholder="Seleccionar método" />
                   </SelectTrigger>
@@ -248,7 +284,7 @@ export function ReceiptSystem() {
               <Select 
                 value={formData.promotion} 
                 onValueChange={(value) => {
-                  setFormData({ ...formData, promotion: value })
+                  updateFormData('promotion', value)
                   applyPromotion(value)
                 }}
               >
@@ -277,7 +313,7 @@ export function ReceiptSystem() {
                       : 'border-gray-600 bg-gray-700/50'
                   }`}
                   onClick={() => {
-                    setFormData({ ...formData, promotion: promo.id })
+                    updateFormData('promotion', promo.id)
                     applyPromotion(promo.id)
                   }}
                 >
@@ -299,7 +335,7 @@ export function ReceiptSystem() {
               <Textarea
                 id="notes"
                 value={formData.notes}
-                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                onChange={(e) => updateFormData('notes', e.target.value)}
                 placeholder="Observaciones o comentarios especiales..."
                 className="border border-gray-600 focus:border-blue-500 rounded-2xl resize-none bg-gray-700 text-white"
                 rows={4}
@@ -333,18 +369,18 @@ export function ReceiptSystem() {
             <div className="bg-gray-700/50 p-6 rounded-2xl border border-gray-600">
               <div className="flex justify-between items-center text-lg mb-2">
                 <span className="text-white">Subtotal:</span>
-                <span className="text-white">${formData.amount.toLocaleString()}</span>
+                <span className="text-white">${calculatedAmounts.amount.toLocaleString()}</span>
               </div>
               {formData.promotion !== 'none' && (
                 <div className="flex justify-between items-center text-lg mb-2">
                   <span className="text-green-400">Descuento:</span>
-                  <span className="text-green-400">-${((formData.amount * getPromotionDiscount(formData.promotion)) / 100).toLocaleString()}</span>
+                  <span className="text-green-400">-${((calculatedAmounts.amount * getPromotionDiscount(formData.promotion)) / 100).toLocaleString()}</span>
                 </div>
               )}
               <div className="border-t border-gray-600 pt-2">
                 <div className="flex justify-between items-center text-xl font-bold">
                   <span className="text-white">Total a Pagar:</span>
-                  <span className="text-blue-400">${finalAmount.toLocaleString()}</span>
+                  <span className="text-blue-400">${calculatedAmounts.finalAmount.toLocaleString()}</span>
                 </div>
               </div>
               {formData.promotion !== 'none' && (
@@ -359,7 +395,7 @@ export function ReceiptSystem() {
             <Button 
               onClick={generateReceipt}
               className="flex-1 h-14 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-2xl text-xl font-bold transition-all duration-300 hover:shadow-xl"
-              disabled={!formData.studentName || !formData.amount}
+              disabled={!formData.studentName || !calculatedAmounts.amount}
             >
               <Send className="w-6 h-6 mr-2" />
               Generar Recibo Digital

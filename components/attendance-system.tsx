@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -68,33 +68,26 @@ export function AttendanceSystem() {
   const [currentSession, setCurrentSession] = useState<ClassSession | null>(null)
   const [students, setStudents] = useState<Student[]>([])
   const [loading, setLoading] = useState(true)
-  const [presentCount, setPresentCount] = useState(0)
-  const [absentCount, setAbsentCount] = useState(0)
 
-  useEffect(() => {
-    const loadClasses = async () => {
-      try {
-        const response = await fetch("/api/classes?active=true")
-        const data = await response.json()
-        if (data.success) {
-          setClasses(data.classes)
-        }
-      } catch (error) {
-        console.error("Error loading classes:", error)
+  const loadClasses = useCallback(async () => {
+    try {
+      const response = await fetch("/api/classes?active=true")
+      const data = await response.json()
+      if (data.success) {
+        setClasses(data.classes)
       }
+    } catch (error) {
+      console.error("Error loading classes:", error)
+    } finally {
+      setLoading(false)
     }
-    
-    loadClasses()
-    setLoading(false)
   }, [])
 
   useEffect(() => {
-    if (selectedClass) {
-      loadTodaySession()
-    }
-  }, [selectedClass])
+    loadClasses()
+  }, [loadClasses])
 
-  const loadTodaySession = async () => {
+  const loadTodaySession = useCallback(async () => {
     if (!selectedClass) return
 
     try {
@@ -115,7 +108,6 @@ export function AttendanceSystem() {
         }))
         
         setStudents(enrolledStudents)
-        updateCounts(enrolledStudents)
       }
     } catch (error) {
       console.error("Error loading session:", error)
@@ -125,9 +117,15 @@ export function AttendanceSystem() {
         variant: "destructive",
       })
     }
-  }
+  }, [selectedClass, toast])
 
-  const markAttendance = async (studentId: number, status: string) => {
+  useEffect(() => {
+    if (selectedClass) {
+      loadTodaySession()
+    }
+  }, [selectedClass, loadTodaySession])
+
+  const markAttendance = useCallback(async (studentId: number, status: string) => {
     if (!currentSession) {
       toast({
         title: "❌ Error",
@@ -152,24 +150,23 @@ export function AttendanceSystem() {
       const result = await response.json()
 
       if (result.success) {
-        const updatedStudents = students.map((student) => 
+        setStudents(prev => prev.map(student => 
           student.id === studentId 
             ? { ...student, status: status as any } 
             : student
-        )
-        setStudents(updatedStudents)
-        updateCounts(updatedStudents)
+        ))
 
         const statusMessages = {
           present: "✅ Presente",
-          late: "⏰ Llegada Tarde",
+          late: "⏰ Llegada Tarde", 
           absent: "❌ Ausente",
           change_request: "🔄 Cambio de Grupo",
         }
 
+        const studentName = students.find((s) => s.id === studentId)?.name
         toast({
           title: statusMessages[status as keyof typeof statusMessages],
-          description: `${students.find((s) => s.id === studentId)?.name}`,
+          description: studentName,
         })
       } else {
         toast({
@@ -185,29 +182,38 @@ export function AttendanceSystem() {
         variant: "destructive",
       })
     }
-  }
+  }, [currentSession, students, toast])
 
-  const updateCounts = (studentList: Student[] = students) => {
-    const present = studentList.filter(s => s.status === "present").length
-    const absent = studentList.filter(s => s.status === "absent").length
-    setPresentCount(present)
-    setAbsentCount(absent)
-  }
+  const attendanceStats = useMemo(() => {
+    const present = students.filter(s => s.status === "present").length
+    const late = students.filter(s => s.status === "late").length
+    const absent = students.filter(s => s.status === "absent").length
+    const pending = students.filter(s => !s.status).length
+    const total = students.length
+    const percentage = total > 0 ? Math.round(((present + late) / total) * 100) : 0
+
+    return { present, late, absent, pending, total, percentage }
+  }, [students])
+
+  const selectedClassData = useMemo(() => 
+    classes.find(c => c.id === selectedClass), 
+    [classes, selectedClass]
+  )
 
   if (loading) {
     return (
       <div className="max-w-2xl mx-auto">
         <Card className="border-0 shadow-xl rounded-2xl bg-gray-800/90 border border-gray-600">
-          <CardContent className="p-12 text-center">
-            <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-4"></div>
-            <p className="text-gray-300">Cargando sistema de asistencias...</p>
+          <CardContent className="p-8 text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
+            <p className="text-gray-400 mt-4">Cargando clases...</p>
           </CardContent>
         </Card>
       </div>
     )
   }
 
-  const attendancePercentage = students.length > 0 ? Math.round((presentCount / students.length) * 100) : 0
+  const attendancePercentage = attendanceStats.percentage
 
   return (
     <div className="max-w-7xl mx-auto">
@@ -308,14 +314,14 @@ export function AttendanceSystem() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <Card className="border-0 shadow-xl rounded-2xl bg-gray-800/90 border border-gray-600 backdrop-blur-sm">
               <CardContent className="p-6 text-center">
-                <div className="text-3xl font-bold text-green-400 mb-2">{presentCount}</div>
+                <div className="text-3xl font-bold text-green-400 mb-2">{attendanceStats.present}</div>
                 <div className="text-gray-300 font-medium">Presentes</div>
               </CardContent>
             </Card>
 
             <Card className="border-0 shadow-xl rounded-2xl bg-gray-800/90 border border-gray-600 backdrop-blur-sm">
               <CardContent className="p-6 text-center">
-                <div className="text-3xl font-bold text-red-400 mb-2">{absentCount}</div>
+                <div className="text-3xl font-bold text-red-400 mb-2">{attendanceStats.absent}</div>
                 <div className="text-gray-300 font-medium">Ausentes</div>
               </CardContent>
             </Card>
@@ -399,9 +405,9 @@ export function AttendanceSystem() {
                 <div className="flex justify-between items-center text-lg font-semibold">
                   <span className="text-white">Total: {students.length} estudiantes</span>
                   <div className="flex space-x-4">
-                    <span className="text-green-400">✅ {presentCount}</span>
-                    <span className="text-red-400">❌ {absentCount}</span>
-                    <span className="text-gray-400">⏸️ {students.length - presentCount - absentCount}</span>
+                    <span className="text-green-400">✅ {attendanceStats.present}</span>
+                    <span className="text-red-400">❌ {attendanceStats.absent}</span>
+                    <span className="text-gray-400">⏸️ {attendanceStats.pending}</span>
                   </div>
                 </div>
               </div>

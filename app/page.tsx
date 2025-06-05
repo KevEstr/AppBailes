@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { Card, CardContent } from "@/components/ui/card"
@@ -8,23 +8,42 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Receipt, MessageSquare, Clock, BarChart3, AlertTriangle, Sparkles, ArrowRight, GraduationCap } from "lucide-react"
 
+// ✅ OPTIMIZACIÓN: Cache para evitar llamadas duplicadas
+let debtsCache: { count: number; timestamp: number } | null = null
+const CACHE_DURATION = 5 * 60 * 1000 // 5 minutos
+
 export default function HomePage() {
   const [pendingDebts, setPendingDebts] = useState(0)
 
-  useEffect(() => {
-    const checkDebts = async () => {
-      try {
-        const response = await fetch("/api/debts")
-        const data = await response.json()
-        setPendingDebts(data.count)
-      } catch (error) {
-        console.error("Error fetching debts:", error)
-      }
+  // ✅ OPTIMIZACIÓN: useCallback para checkDebts con cache
+  const checkDebts = useCallback(async () => {
+    const now = Date.now()
+    
+    // ✅ Verificar cache primero
+    if (debtsCache && (now - debtsCache.timestamp) < CACHE_DURATION) {
+      setPendingDebts(debtsCache.count)
+      return // No hacer API call si hay cache válido
     }
-    checkDebts()
+
+    try {
+      const response = await fetch("/api/debts")
+      const data = await response.json()
+      
+      // ✅ Actualizar cache
+      const count = data.count || 0
+      debtsCache = { count, timestamp: now }
+      setPendingDebts(count)
+    } catch (error) {
+      console.error("Error fetching debts:", error)
+    }
   }, [])
 
-  const menuItems = [
+  useEffect(() => {
+    checkDebts()
+  }, [checkDebts])
+
+  // ✅ OPTIMIZACIÓN: Memoizar menuItems para evitar recreación
+  const menuItems = useMemo(() => [
     {
       id: "classes",
       href: "/classes",
@@ -73,7 +92,7 @@ export default function HomePage() {
       description: "Seguimiento de mensualidades",
       color: "from-red-500 to-pink-600",
     },
-  ]
+  ], [])
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-slate-900 to-gray-800">
