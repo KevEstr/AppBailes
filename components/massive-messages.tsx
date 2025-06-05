@@ -17,6 +17,8 @@ import {
   DollarSign,
   CheckCircle,
   Zap,
+  Check,
+  Loader2,
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 
@@ -27,6 +29,7 @@ interface Student {
   email: string
   hasDebt: boolean
   avatar?: string
+  classes: { id: number; name: string }[]
 }
 
 interface MessageTemplate {
@@ -180,49 +183,53 @@ export function MassiveMessages() {
   return (
     <div className="max-w-7xl mx-auto">
       {/* Header */}
-      <Card className="border-0 bg-gradient-to-r from-stone-200 via-amber-100 to-orange-150 text-slate-900 shadow-2xl mb-8 rounded-3xl border-2 border-stone-500">
+      <Card className="border-0 bg-gradient-to-r from-gray-800/90 via-slate-800/90 to-gray-700/90 text-white shadow-2xl mb-8 rounded-3xl border border-gray-600 backdrop-blur-sm">
         <CardHeader className="pb-6">
           <CardTitle className="flex items-center space-x-4">
-            <div className="rounded-2xl bg-teal-300 p-3 backdrop-blur-sm border border-teal-600">
-              <MessageCircle className="h-8 w-8 text-teal-900" />
+            <div className="rounded-2xl bg-blue-600 p-3 backdrop-blur-sm border border-blue-500">
+              <MessageCircle className="h-8 w-8 text-white" />
             </div>
             <div>
-              <span className="text-3xl font-bold bg-gradient-to-r from-teal-800 to-amber-800 bg-clip-text text-transparent">Notificaciones Paradise</span>
-              <p className="text-teal-900 mt-2 text-lg">Comunícate con tu familia de baile</p>
+              <span className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">Notificaciones Paradise</span>
+              <p className="text-blue-300 mt-2 text-lg">Comunícate con tu familia de baile</p>
             </div>
           </CardTitle>
         </CardHeader>
       </Card>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Panel de configuración */}
-        <Card className="border-0 shadow-2xl rounded-3xl bg-stone-200/80 border-2 border-stone-500">
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+        {/* Panel de configuración de mensaje */}
+        <Card className="border-0 shadow-2xl rounded-3xl bg-gray-800/90 border border-gray-600 backdrop-blur-sm">
           <CardHeader>
-            <CardTitle className="text-2xl font-bold text-slate-900">Configurar Mensaje</CardTitle>
+            <CardTitle className="text-2xl font-bold text-white">Configurar Mensaje</CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
-            {/* Plantillas de mensaje */}
             <div>
-              <Label className="text-lg font-semibold text-slate-800">Plantilla de Mensaje</Label>
-              <Select value={messageType} onValueChange={(value) => {
-                setMessageType(value)
-                const template = messageTemplates.find(t => t.id === value)
-                if (template) {
-                  setCustomMessage(template.message)
-                }
-              }}>
-                <SelectTrigger className="border-2 border-stone-500 focus:border-teal-600 rounded-2xl h-14 text-lg bg-stone-100 text-slate-900">
+              <Label className="text-lg font-semibold text-gray-200">Plantilla de Mensaje</Label>
+              <Select 
+                value={messageType} 
+                onValueChange={(value) => {
+                  setMessageType(value)
+                  const template = messageTemplates.find(t => t.id === value)
+                  if (template) {
+                    setCustomMessage(template.message)
+                  }
+                }}
+              >
+                <SelectTrigger className="border border-gray-600 focus:border-blue-500 rounded-2xl h-14 text-lg bg-gray-700 text-white">
                   <SelectValue placeholder="Selecciona una plantilla" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="bg-gray-700 border-gray-600">
                   {messageTemplates.map((template) => (
-                    <SelectItem key={template.id} value={template.id} className="text-lg">
+                    <SelectItem key={template.id} value={template.id} className="text-white hover:bg-blue-600">
                       <div className="flex items-center space-x-3">
                         {template.type === 'PAYMENT_REMINDER' && <DollarSign className="w-5 h-5 text-red-600" />}
                         {template.type === 'TRAINING_REMINDER' && <Zap className="w-5 h-5 text-blue-600" />}
                         {template.type === 'ABSENCE_INQUIRY' && <AlertTriangle className="w-5 h-5 text-amber-600" />}
                         {template.type === 'GENERAL' && <MessageCircle className="w-5 h-5 text-green-600" />}
-                        <span>{template.name}</span>
+                        <div>
+                          <div className="font-medium">{template.name}</div>
+                        </div>
                       </div>
                     </SelectItem>
                   ))}
@@ -230,9 +237,8 @@ export function MassiveMessages() {
               </Select>
             </div>
 
-            {/* Mensaje personalizado */}
             <div>
-              <Label htmlFor="message" className="text-lg font-semibold text-slate-800">
+              <Label htmlFor="message" className="text-lg font-semibold text-gray-200">
                 Mensaje Personalizado
               </Label>
               <Textarea
@@ -240,147 +246,175 @@ export function MassiveMessages() {
                 value={customMessage}
                 onChange={(e) => setCustomMessage(e.target.value)}
                 placeholder="Escribe tu mensaje aquí..."
-                className="border-2 border-stone-500 focus:border-teal-600 rounded-2xl resize-none bg-amber-50/50 text-slate-900"
+                className="border border-gray-600 focus:border-blue-500 rounded-2xl resize-none bg-gray-700 text-white"
                 rows={6}
               />
-              <p className="text-sm text-slate-600 mt-2">
-                {customMessage.length}/500 caracteres
-              </p>
+              <div className="flex items-center justify-between mt-2">
+                <span className="text-sm text-gray-400">
+                  Variables: {'{'}nombre{'}'}, {'{'}clase{'}'}, {'{'}fecha{'}'}
+                </span>
+                <span className="text-sm text-gray-400">
+                  {customMessage.length}/500 caracteres
+                </span>
+              </div>
             </div>
 
-            {/* Botón de envío */}
-            <Button
-              onClick={sendMassiveMessages}
-              disabled={loading || selectedStudents.length === 0 || !customMessage.trim()}
-              className="w-full h-16 bg-gradient-to-r from-teal-600 to-yellow-500 hover:from-teal-700 hover:to-yellow-600 shadow-2xl rounded-2xl text-xl font-bold transition-all duration-500 hover:shadow-3xl transform hover:-translate-y-1 text-white shadow-teal-500/50"
-            >
-              {loading ? (
-                <div className="flex items-center space-x-3">
-                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
-                  <span>Enviando...</span>
-                </div>
-              ) : (
-                <div className="flex items-center space-x-3">
-                  <Send className="w-6 h-6" />
-                  <span>Enviar a {selectedStudents.length} estudiantes</span>
-                </div>
-              )}
-            </Button>
+            {customMessage && (
+              <Card className="bg-gray-700/50 border border-gray-600">
+                <CardContent className="p-4">
+                  <h4 className="font-semibold text-white mb-2">Vista Previa:</h4>
+                  <div className="bg-gray-600/50 p-3 rounded-lg border border-gray-500">
+                    <p className="text-gray-300 whitespace-pre-line">{customMessage}</p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </CardContent>
         </Card>
 
         {/* Panel de selección de estudiantes */}
-        <Card className="border-0 shadow-2xl rounded-3xl bg-stone-200/80 border-2 border-stone-500">
+        <Card className="border-0 shadow-2xl rounded-3xl bg-gray-800/90 border border-gray-600 backdrop-blur-sm">
           <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              <span className="text-2xl font-bold text-slate-900">Seleccionar Estudiantes</span>
-              <Badge variant="outline" className="text-lg px-4 py-2 border-amber-600 text-amber-900 bg-amber-200">
+            <div className="flex items-center justify-between">
+              <span className="text-2xl font-bold text-white">Seleccionar Estudiantes</span>
+              <Badge variant="outline" className="text-lg px-4 py-2 border-purple-500 text-purple-400 bg-purple-950/50">
                 {selectedStudents.length} seleccionados
               </Badge>
-            </CardTitle>
+            </div>
           </CardHeader>
           <CardContent className="space-y-6">
-            {/* Filtros */}
-            <div className="space-y-3">
-              <Label className="text-lg font-semibold text-slate-800">Filtrar por</Label>
-              <Select value={filterType} onValueChange={setFilterType}>
-                <SelectTrigger className="border-2 border-stone-500 focus:border-teal-600 rounded-2xl h-14 text-lg bg-stone-100 text-slate-900">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all" className="text-lg">
-                    <div className="flex items-center space-x-3">
-                      <Users className="w-5 h-5 text-slate-600" />
-                      <span>Todos los estudiantes</span>
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="debt" className="text-lg">
-                    <div className="flex items-center space-x-3">
-                      <DollarSign className="w-5 h-5 text-red-600" />
-                      <span>Con deudas</span>
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="no_debt" className="text-lg">
-                    <div className="flex items-center space-x-3">
-                      <CheckCircle className="w-5 h-5 text-green-600" />
-                      <span>Sin deudas</span>
-                    </div>
-                  </SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="flex items-center space-x-4">
+              <div className="flex-1">
+                <Label className="text-lg font-semibold text-gray-200">Filtrar por</Label>
+                <Select value={filterType} onValueChange={setFilterType}>
+                  <SelectTrigger className="border border-gray-600 focus:border-blue-500 rounded-2xl h-14 text-lg bg-gray-700 text-white">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-gray-700 border-gray-600">
+                    <SelectItem value="all" className="text-white hover:bg-blue-600">👥 Todos los estudiantes</SelectItem>
+                    <SelectItem value="debt" className="text-white hover:bg-blue-600">💰 Con deudas</SelectItem>
+                    <SelectItem value="no_debt" className="text-white hover:bg-blue-600">✨ Sin deudas</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="flex items-center space-x-2">
+                <Button 
+                  onClick={selectAllFiltered}
+                  variant="outline"
+                  className="border-gray-600 text-gray-300 hover:bg-gray-700 hover:text-white"
+                >
+                  Todos
+                </Button>
+                <Button 
+                  onClick={clearSelection}
+                  variant="outline"
+                  className="border-gray-600 text-gray-300 hover:bg-gray-700 hover:text-white"
+                >
+                  Limpiar
+                </Button>
+              </div>
             </div>
 
-            {/* Botones de selección */}
-            <div className="flex space-x-4">
-              <Button 
-                variant="outline" 
-                onClick={selectAllFiltered}
-                className="flex-1 h-12 rounded-xl"
-              >
-                Seleccionar Todos ({filteredStudents.length})
-              </Button>
-              <Button 
-                variant="outline" 
-                onClick={clearSelection}
-                className="flex-1 h-12 rounded-xl"
-              >
-                Limpiar Selección
-              </Button>
-            </div>
-
-            {/* Lista de estudiantes */}
-            <div className="space-y-3 max-h-96 overflow-y-auto">
-              {filteredStudents.length === 0 ? (
-                <div className="text-center py-8">
-                  <Users className="w-16 h-16 mx-auto text-slate-400 mb-4" />
-                  <p className="text-slate-600">No hay estudiantes disponibles</p>
-                </div>
-              ) : (
-                filteredStudents.map((student) => (
-                  <div 
-                    key={student.id}
-                    className={`flex items-center space-x-4 p-4 rounded-2xl border-2 transition-all cursor-pointer hover:shadow-md ${
-                      selectedStudents.includes(student.id)
-                        ? 'border-teal-600 bg-teal-200'
-                        : 'border-stone-500 bg-stone-100 hover:border-stone-600'
-                    }`}
-                    onClick={() => toggleStudentSelection(student.id)}
-                  >
-                    <Checkbox
-                      checked={selectedStudents.includes(student.id)}
-                      onCheckedChange={() => toggleStudentSelection(student.id)}
-                      className="w-5 h-5"
-                    />
-                    
-                    <Avatar className="w-12 h-12 ring-2 ring-white shadow-lg">
-                      <AvatarImage src={student.avatar || "/placeholder.svg"} />
-                      <AvatarFallback className="bg-gradient-to-r from-teal-500 to-blue-500 text-white font-bold">
-                        {student.name
-                          .split(" ")
-                          .map((n) => n[0])
-                          .join("")
-                          .slice(0, 2)}
-                      </AvatarFallback>
-                    </Avatar>
-
-                    <div className="flex-1">
-                      <h4 className="font-semibold text-slate-800">{student.name}</h4>
-                      <div className="text-sm text-slate-600">
-                        Cédula: {student.id} • {student.phone}
+            <div className="max-h-96 overflow-y-auto space-y-3">
+              {filteredStudents.map((student) => (
+                <Card 
+                  key={student.id} 
+                  className={`cursor-pointer transition-all duration-300 hover:scale-105 border ${
+                    selectedStudents.includes(student.id) 
+                      ? 'border-blue-500 bg-blue-950/50' 
+                      : 'border-gray-600 bg-gray-700/50 hover:border-gray-500'
+                  }`}
+                  onClick={() => toggleStudentSelection(student.id)}
+                >
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-12 h-12 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full flex items-center justify-center border border-blue-500">
+                          <span className="text-white font-bold text-lg">{student.name.charAt(0)}</span>
+                        </div>
+                        <div>
+                          <h4 className="font-semibold text-white">{student.name}</h4>
+                          <div className="flex items-center space-x-2 text-sm text-gray-400">
+                            <span>📱 {student.phone}</span>
+                            {student.hasDebt && <Badge variant="destructive" className="text-xs">Deuda</Badge>}
+                          </div>
+                        </div>
                       </div>
-                      {student.hasDebt && (
-                        <Badge variant="destructive" className="text-xs mt-1">
-                          Deuda Pendiente
-                        </Badge>
-                      )}
+                      <div className="flex items-center space-x-2">
+                        {student.classes.length > 0 && (
+                          <Badge variant="outline" className="border-gray-500 text-gray-300">
+                            {student.classes.length} clases
+                          </Badge>
+                        )}
+                        <div className={`w-5 h-5 rounded-full border-2 ${
+                          selectedStudents.includes(student.id) 
+                            ? 'bg-blue-500 border-blue-500' 
+                            : 'border-gray-500'
+                        }`}>
+                          {selectedStudents.includes(student.id) && (
+                            <Check className="w-3 h-3 text-white m-0.5" />
+                          )}
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                ))
-              )}
+                  </CardContent>
+                </Card>
+              ))}
             </div>
           </CardContent>
         </Card>
       </div>
+
+      {/* Panel de envío */}
+      {selectedStudents.length > 0 && customMessage && (
+        <Card className="border-0 shadow-2xl rounded-3xl bg-gray-800/90 border border-gray-600 backdrop-blur-sm mt-8">
+          <CardContent className="p-8">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h3 className="text-2xl font-bold text-white">¿Listo para enviar?</h3>
+                <p className="text-gray-300">
+                  Mensaje será enviado a {selectedStudents.length} estudiante{selectedStudents.length !== 1 ? 's' : ''}
+                </p>
+              </div>
+              <Button 
+                onClick={sendMassiveMessages}
+                disabled={loading}
+                className="h-14 px-8 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-2xl text-lg font-bold transition-all duration-300 hover:shadow-xl"
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                    Enviando...
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-5 h-5 mr-2" />
+                    Enviar Mensajes
+                  </>
+                )}
+              </Button>
+            </div>
+            
+            <div className="bg-gray-700/50 p-4 rounded-2xl border border-gray-600">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
+                <div>
+                  <div className="text-2xl font-bold text-blue-400">{selectedStudents.length}</div>
+                  <div className="text-sm text-gray-400">Destinatarios</div>
+                </div>
+                <div>
+                  <div className="text-2xl font-bold text-purple-400">{customMessage.length}</div>
+                  <div className="text-sm text-gray-400">Caracteres</div>
+                </div>
+                <div>
+                  <div className="text-2xl font-bold text-green-400">WhatsApp</div>
+                  <div className="text-sm text-gray-400">Plataforma</div>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }

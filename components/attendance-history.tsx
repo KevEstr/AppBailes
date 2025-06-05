@@ -68,60 +68,60 @@ export function AttendanceHistory() {
   return (
     <div className="max-w-7xl mx-auto">
       {/* Header */}
-      <Card className="border-0 bg-gradient-to-r from-stone-200 via-amber-100 to-orange-150 text-slate-900 shadow-2xl mb-8 rounded-3xl border-2 border-stone-500">
+      <Card className="border-0 bg-gradient-to-r from-gray-800/90 via-slate-800/90 to-gray-700/90 text-white shadow-2xl mb-8 rounded-3xl border border-gray-600 backdrop-blur-sm">
         <CardHeader className="pb-6">
           <CardTitle className="flex items-center space-x-4">
-            <div className="rounded-2xl bg-teal-300 p-3 backdrop-blur-sm border border-teal-600">
-              <BarChart3 className="h-8 w-8 text-teal-900" />
+            <div className="rounded-2xl bg-blue-600 p-3 backdrop-blur-sm border border-blue-500">
+              <BarChart3 className="h-8 w-8 text-white" />
             </div>
             <div>
-              <span className="text-3xl font-bold bg-gradient-to-r from-teal-800 to-amber-800 bg-clip-text text-transparent">Análisis Paradise</span>
-              <p className="text-teal-900 mt-2 text-lg">Estadísticas de asistencia de bailarines</p>
+              <span className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">Análisis Paradise</span>
+              <p className="text-blue-300 mt-2 text-lg">Estadísticas de asistencia de bailarines</p>
             </div>
           </CardTitle>
         </CardHeader>
       </Card>
 
       {/* Filtros */}
-      <Card className="border-0 shadow-2xl mb-8 rounded-3xl bg-stone-200/80 border-2 border-stone-500">
+      <Card className="border-0 shadow-2xl mb-8 rounded-3xl bg-gray-800/90 border border-gray-600 backdrop-blur-sm">
         <CardContent className="p-8">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div className="space-y-3">
-              <label className="text-lg font-bold text-slate-800">Período</label>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="text-lg font-bold text-gray-200">Período</label>
               <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
-                <SelectTrigger className="border-2 border-stone-500 focus:border-teal-600 rounded-2xl h-14 text-lg bg-stone-100 text-slate-900">
+                <SelectTrigger className="border border-gray-600 focus:border-blue-500 rounded-2xl h-14 text-lg bg-gray-700 text-white">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="bg-stone-100 border-stone-500">
-                  <SelectItem value="week" className="text-lg text-slate-900 hover:bg-teal-200">
-                    Esta semana
+                <SelectContent className="bg-gray-700 border-gray-600">
+                  <SelectItem value="week" className="text-lg text-white hover:bg-blue-600">
+                    📅 Última semana
                   </SelectItem>
-                  <SelectItem value="month" className="text-lg text-slate-900 hover:bg-teal-200">
-                    Este mes
+                  <SelectItem value="month" className="text-lg text-white hover:bg-blue-600">
+                    📅 Último mes
                   </SelectItem>
-                  <SelectItem value="quarter" className="text-lg text-slate-900 hover:bg-teal-200">
-                    Trimestre
+                  <SelectItem value="quarter" className="text-lg text-white hover:bg-blue-600">
+                    📅 Último trimestre
                   </SelectItem>
-                  <SelectItem value="year" className="text-lg text-slate-900 hover:bg-teal-200">
-                    Este año
+                  <SelectItem value="year" className="text-lg text-white hover:bg-blue-600">
+                    📅 Último año
                   </SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
-            <div className="space-y-3">
-              <label className="text-lg font-bold text-slate-800">Estudiante</label>
+            <div>
+              <label className="text-lg font-bold text-gray-200">Estudiante</label>
               <Select value={selectedStudent} onValueChange={setSelectedStudent}>
-                <SelectTrigger className="border-2 border-stone-500 focus:border-teal-600 rounded-2xl h-14 text-lg bg-stone-100 text-slate-900">
+                <SelectTrigger className="border border-gray-600 focus:border-blue-500 rounded-2xl h-14 text-lg bg-gray-700 text-white">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="bg-stone-100 border-stone-500">
-                  <SelectItem value="all" className="text-lg text-slate-900 hover:bg-teal-200">
-                    Todos
+                <SelectContent className="bg-gray-700 border-gray-600">
+                  <SelectItem value="all" className="text-lg text-white hover:bg-blue-600">
+                    👥 Todos los estudiantes
                   </SelectItem>
                   {studentStats.map((student) => (
-                    <SelectItem key={student.id} value={student.id.toString()} className="text-lg text-slate-900 hover:bg-teal-200">
-                      {student.name} (Cédula: {student.id})
+                    <SelectItem key={student.id} value={student.id.toString()} className="text-lg text-white hover:bg-blue-600">
+                      {student.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -133,9 +133,9 @@ export function AttendanceHistory() {
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 mb-8">
         {/* Gráfico de barras */}
-        <Card className="border-0 shadow-2xl rounded-3xl bg-stone-200/80 border-2 border-stone-500">
+        <Card className="border-0 shadow-2xl rounded-3xl bg-gray-800/90 border border-gray-600 backdrop-blur-sm">
           <CardHeader className="pb-6">
-            <CardTitle className="flex items-center space-x-3 text-teal-800">
+            <CardTitle className="flex items-center space-x-3 text-white">
               <Calendar className="w-6 h-6" />
               <span className="text-2xl font-bold">Asistencia por Día</span>
             </CardTitle>
@@ -163,9 +163,9 @@ export function AttendanceHistory() {
         </Card>
 
         {/* Gráfico circular */}
-        <Card className="border-0 shadow-2xl rounded-3xl bg-stone-200/80 border-2 border-stone-500">
+        <Card className="border-0 shadow-2xl rounded-3xl bg-gray-800/90 border border-gray-600 backdrop-blur-sm">
           <CardHeader className="pb-6">
-            <CardTitle className="flex items-center space-x-3 text-teal-800">
+            <CardTitle className="flex items-center space-x-3 text-white">
               <TrendingUp className="w-6 h-6" />
               <span className="text-2xl font-bold">Distribución General</span>
             </CardTitle>
@@ -201,9 +201,9 @@ export function AttendanceHistory() {
       </div>
 
       {/* Tabla de estudiantes */}
-      <Card className="border-0 shadow-2xl rounded-3xl bg-stone-200/80 border-2 border-stone-500">
+      <Card className="border-0 shadow-2xl rounded-3xl bg-gray-800/90 border border-gray-600 backdrop-blur-sm">
         <CardHeader className="pb-6">
-          <CardTitle className="flex items-center space-x-3 text-teal-800">
+          <CardTitle className="flex items-center space-x-3 text-white">
             <CheckCircle className="w-6 h-6" />
             <span className="text-2xl font-bold">Estadísticas por Estudiante</span>
           </CardTitle>
@@ -220,7 +220,7 @@ export function AttendanceHistory() {
               </div>
             ) : (
               studentStats.map((student) => (
-                <Card key={student.id} className="bg-stone-100 border-2 border-stone-400 rounded-2xl overflow-hidden hover:shadow-lg transition-shadow shadow-stone-500/30">
+                <Card key={student.id} className="bg-gray-700/80 border border-gray-600 rounded-2xl overflow-hidden hover:shadow-lg transition-shadow">
                   <CardContent className="p-6">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-6">

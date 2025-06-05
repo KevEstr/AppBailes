@@ -185,18 +185,10 @@ export default function ClassAttendanceTikTok() {
 
   if (!activeClass) {
     return (
-      <div className="flex flex-col items-center justify-center p-8 text-center">
-        <div className="w-24 h-24 bg-gradient-to-r from-purple-100 to-pink-100 rounded-full flex items-center justify-center mb-4">
-          <Play className="h-12 w-12 text-purple-500" />
-        </div>
-        <h3 className="text-xl font-bold text-slate-800 mb-2">No hay clases activas</h3>
-        <p className="text-slate-600 mb-4">
-          Para tomar asistencia, primero debes activar una clase desde la gestión de clases.
-        </p>
-        <Button className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white rounded-xl">
-          <Play className="h-4 w-4 mr-2" />
-          Ir a Gestión de Clases
-        </Button>
+      <div className="text-center py-12">
+        <Clock className="w-20 h-20 mx-auto text-gray-500 mb-6" />
+        <h3 className="text-xl font-bold text-white mb-2">No hay clases activas</h3>
+        <p className="text-gray-300">Selecciona una clase para empezar a tomar asistencia</p>
       </div>
     )
   }
@@ -274,7 +266,7 @@ export default function ClassAttendanceTikTok() {
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex-1">
-                    <h3 className="font-bold text-slate-800">{student.name}</h3>
+                    <h3 className="font-bold text-white">{student.name}</h3>
                     <p className="text-sm text-slate-600">{student.group}</p>
                   </div>
                   {status && (

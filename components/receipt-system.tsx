@@ -87,283 +87,260 @@ export function ReceiptSystem() {
   const selectedPromotion = promotions.find((p) => p.id === formData.promotion)
 
   return (
-    <div className="max-w-5xl mx-auto">
+    <div className="max-w-7xl mx-auto">
       {/* Header */}
-      <Card className="border-0 bg-gradient-to-r from-stone-200 via-amber-100 to-orange-150 text-slate-900 shadow-2xl mb-8 rounded-3xl border-2 border-stone-500">
+      <Card className="border-0 bg-gradient-to-r from-gray-800/90 via-slate-800/90 to-gray-700/90 text-white shadow-2xl mb-8 rounded-3xl border border-gray-600 backdrop-blur-sm">
         <CardHeader className="pb-6">
           <CardTitle className="flex items-center space-x-4">
-            <div className="rounded-2xl bg-teal-300 p-3 backdrop-blur-sm border border-teal-600">
-              <Smartphone className="h-8 w-8 text-teal-900" />
+            <div className="rounded-2xl bg-blue-600 p-3 backdrop-blur-sm border border-blue-500">
+              <Smartphone className="h-8 w-8 text-white" />
             </div>
             <div>
-              <span className="text-3xl font-bold bg-gradient-to-r from-teal-800 to-amber-800 bg-clip-text text-transparent">Recibos Paradise</span>
-              <p className="text-teal-900 mt-2 text-lg">Recibos digitales para estudiantes de baile</p>
+              <span className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">Recibos Paradise</span>
+              <p className="text-blue-300 mt-2 text-lg">Sistema de recibos digitales automáticos</p>
             </div>
           </CardTitle>
         </CardHeader>
       </Card>
 
-      {/* Formulario */}
-      <form onSubmit={handleSubmit} className="space-y-8">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <Card className="border-0 shadow-2xl rounded-3xl bg-stone-200/80 border-2 border-stone-500">
-            <CardContent className="p-8 space-y-8">
-              {/* Datos del Estudiante */}
-              <div className="space-y-6">
-                <h3 className="text-2xl font-bold text-slate-900 border-b-2 border-stone-500 pb-3">
-                  Datos del Estudiante
-                </h3>
-
-                <div className="space-y-3">
-                  <Label htmlFor="studentId" className="text-slate-800 font-semibold text-lg">
-                    Cédula (opcional)
-                  </Label>
-                  <Input
-                    id="studentId"
-                    type="number"
-                    value={formData.studentId}
-                    onChange={(e) => setFormData({ ...formData, studentId: e.target.value })}
-                    placeholder="Ej: 12345678"
-                    className="border-2 border-stone-500 focus:border-teal-600 rounded-2xl h-14 text-lg bg-stone-100 text-slate-900"
-                  />
-                  <p className="text-sm text-slate-600">
-                    💡 Si el estudiante ya existe, se usarán sus datos automáticamente
-                  </p>
-                </div>
-
-                <div className="space-y-3">
-                  <Label htmlFor="studentName" className="text-slate-800 font-semibold text-lg">
-                    Nombre Completo
-                  </Label>
-                  <Input
-                    id="studentName"
-                    value={formData.studentName}
-                    onChange={(e) => setFormData({ ...formData, studentName: e.target.value })}
-                    placeholder="Ej: María González"
-                    className="border-2 border-stone-500 focus:border-teal-600 rounded-2xl h-14 text-lg bg-stone-100 text-slate-900"
-                    required
-                  />
-                </div>
-
-                <div className="space-y-3">
-                  <Label htmlFor="phone" className="text-slate-800 font-semibold text-lg">
-                    WhatsApp
-                  </Label>
-                  <Input
-                    id="phone"
-                    value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    placeholder="+57 300 123 4567"
-                    className="border-2 border-stone-500 focus:border-teal-600 rounded-2xl h-14 text-lg bg-stone-100 text-slate-900"
-                    required
-                  />
-                </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* Formulario */}
+        <Card className="border-0 shadow-2xl rounded-3xl bg-gray-800/90 border border-gray-600 backdrop-blur-sm">
+          <CardContent className="p-8">
+            <h3 className="text-2xl font-bold text-white border-b border-gray-600 pb-3">
+              💰 Datos del Estudiante
+            </h3>
+            <div className="space-y-6">
+              <div>
+                <Label htmlFor="studentId" className="text-gray-200 font-semibold text-lg">
+                  Cédula del Estudiante
+                </Label>
+                <Input
+                  id="studentId"
+                  type="text"
+                  value={formData.studentId}
+                  onChange={(e) => setFormData({ ...formData, studentId: e.target.value })}
+                  placeholder="Ej: 12345678"
+                  className="border border-gray-600 focus:border-blue-500 rounded-2xl h-14 text-lg bg-gray-700 text-white"
+                />
               </div>
 
-              {/* Datos del Pago */}
-              <div className="space-y-6">
-                <h3 className="text-2xl font-bold text-slate-900 border-b-2 border-stone-500 pb-3">
-                  Información del Pago
-                </h3>
-
-                <div className="grid grid-cols-2 gap-6">
-                  <div className="space-y-3">
-                    <Label htmlFor="amount" className="text-slate-800 font-semibold text-lg">
-                      Monto ($)
-                    </Label>
-                    <Input
-                      id="amount"
-                      type="number"
-                      value={formData.amount}
-                      onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-                      placeholder="0"
-                      className="border-2 border-stone-500 focus:border-teal-600 rounded-2xl h-14 text-lg bg-stone-100 text-slate-900"
-                      required
-                    />
-                  </div>
-
-                  <div className="space-y-3">
-                    <Label htmlFor="concept" className="text-slate-800 font-semibold text-lg">
-                      Concepto
-                    </Label>
-                    <Select
-                      value={formData.concept}
-                      onValueChange={(value) => setFormData({ ...formData, concept: value })}
-                    >
-                      <SelectTrigger className="border-2 border-stone-500 focus:border-teal-600 rounded-2xl h-14 text-lg bg-stone-100 text-slate-900">
-                        <SelectValue placeholder="Seleccionar" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {concepts.map((concept) => (
-                          <SelectItem key={concept} value={concept} className="text-lg">
-                            {concept}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  <Label htmlFor="paymentMethod" className="text-slate-800 font-semibold text-lg">
-                    Método de Pago
-                  </Label>
-                  <Select
-                    value={formData.paymentMethod}
-                    onValueChange={(value) => setFormData({ ...formData, paymentMethod: value })}
-                  >
-                    <SelectTrigger className="border-2 border-stone-500 focus:border-teal-600 rounded-2xl h-14 text-lg bg-stone-100 text-slate-900">
-                      <SelectValue placeholder="Seleccionar método" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="efectivo">
-                        <div className="flex items-center space-x-3">
-                          <DollarSign className="w-5 h-5 text-green-600" />
-                          <span className="text-lg">Efectivo</span>
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="transferencia">
-                        <div className="flex items-center space-x-3">
-                          <CreditCard className="w-5 h-5 text-blue-600" />
-                          <span className="text-lg">Transferencia</span>
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="tarjeta">
-                        <div className="flex items-center space-x-3">
-                          <CreditCard className="w-5 h-5 text-purple-600" />
-                          <span className="text-lg">Tarjeta</span>
-                        </div>
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+              <div>
+                <Label htmlFor="studentName" className="text-gray-200 font-semibold text-lg">
+                  Nombre Completo
+                </Label>
+                <Input
+                  id="studentName"
+                  type="text"
+                  value={formData.studentName}
+                  onChange={(e) => setFormData({ ...formData, studentName: e.target.value })}
+                  placeholder="Nombre del estudiante"
+                  className="border border-gray-600 focus:border-blue-500 rounded-2xl h-14 text-lg bg-gray-700 text-white"
+                />
               </div>
-            </CardContent>
-          </Card>
 
-          {/* Columna derecha - Promociones y Vista Previa */}
-          <div className="space-y-8">
-            {/* Promociones */}
-            <Card className="border-0 shadow-2xl rounded-3xl bg-stone-200/80 border-2 border-stone-500">
-              <CardContent className="p-8">
-                <div className="space-y-6">
-                  <h3 className="text-2xl font-bold text-slate-900 border-b-2 border-stone-500 pb-3">
-                    Promociones
-                  </h3>
+              <div>
+                <Label htmlFor="phone" className="text-gray-200 font-semibold text-lg">
+                  Teléfono de Contacto
+                </Label>
+                <Input
+                  id="phone"
+                  type="tel"
+                  value={formData.phone}
+                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  placeholder="Ej: +57 300 123 4567"
+                  className="border border-gray-600 focus:border-blue-500 rounded-2xl h-14 text-lg bg-gray-700 text-white"
+                />
+              </div>
+            </div>
 
-                  <div className="space-y-3">
-                    <Label className="text-slate-800 font-semibold text-lg">Promoción Aplicada</Label>
-                    <Select
-                      value={formData.promotion}
-                      onValueChange={(value) => setFormData({ ...formData, promotion: value })}
-                    >
-                      <SelectTrigger className="border-2 border-stone-500 focus:border-teal-600 rounded-2xl h-14 text-lg bg-stone-100 text-slate-900">
-                        <SelectValue placeholder="Seleccionar promoción" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {promotions.map((promo) => (
-                          <SelectItem key={promo.id} value={promo.id} className="text-lg">
-                            <div className="flex items-center space-x-3">
-                              <Gift className="w-5 h-5 text-pink-600" />
-                              <span>{promo.label}</span>
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+            <h3 className="text-2xl font-bold text-white border-b border-gray-600 pb-3 mt-8">
+              💳 Detalles del Pago
+            </h3>
+            <div className="space-y-6">
+              <div>
+                <Label htmlFor="amount" className="text-gray-200 font-semibold text-lg">
+                  Monto a Pagar
+                </Label>
+                <Input
+                  id="amount"
+                  type="number"
+                  value={formData.amount}
+                  onChange={(e) => setFormData({ ...formData, amount: parseFloat(e.target.value) || 0 })}
+                  placeholder="Ingrese el monto"
+                  className="border border-gray-600 focus:border-blue-500 rounded-2xl h-14 text-lg bg-gray-700 text-white"
+                />
+              </div>
 
-                  {selectedPromotion && selectedPromotion.id !== "none" && (
-                    <div className="p-4 bg-gradient-to-r from-pink-100 to-purple-100 rounded-2xl border-2 border-pink-300">
-                      <div className="flex items-center space-x-3">
-                        <Gift className="w-6 h-6 text-pink-600" />
-                        <div>
-                          <h4 className="font-bold text-gray-800">{selectedPromotion.label}</h4>
-                          <Badge 
-                            variant={selectedPromotion.type === "academia" ? "default" : "secondary"}
-                            className="mt-2 bg-cyan-100 text-cyan-700 border-cyan-300"
-                          >
-                            {selectedPromotion.type === "academia" ? "Academia" : "Club"}
-                          </Badge>
-                        </div>
+              <div>
+                <Label htmlFor="concept" className="text-gray-200 font-semibold text-lg">
+                  Concepto del Pago
+                </Label>
+                <Select value={formData.concept} onValueChange={(value) => setFormData({ ...formData, concept: value })}>
+                  <SelectTrigger className="border border-gray-600 focus:border-blue-500 rounded-2xl h-14 text-lg bg-gray-700 text-white">
+                    <SelectValue placeholder="Seleccionar concepto" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-gray-700 border-gray-600">
+                    <SelectItem value="mensualidad" className="text-white hover:bg-blue-600">Mensualidad</SelectItem>
+                    <SelectItem value="inscripcion" className="text-white hover:bg-blue-600">Inscripción</SelectItem>
+                    <SelectItem value="clase-particular" className="text-white hover:bg-blue-600">Clase Particular</SelectItem>
+                    <SelectItem value="evento" className="text-white hover:bg-blue-600">Evento Especial</SelectItem>
+                    <SelectItem value="otro" className="text-white hover:bg-blue-600">Otro</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label htmlFor="paymentMethod" className="text-gray-200 font-semibold text-lg">
+                  Método de Pago
+                </Label>
+                <Select value={formData.paymentMethod} onValueChange={(value) => setFormData({ ...formData, paymentMethod: value })}>
+                  <SelectTrigger className="border border-gray-600 focus:border-blue-500 rounded-2xl h-14 text-lg bg-gray-700 text-white">
+                    <SelectValue placeholder="Seleccionar método" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-gray-700 border-gray-600">
+                    <SelectItem value="efectivo" className="text-white hover:bg-blue-600">💵 Efectivo</SelectItem>
+                    <SelectItem value="transferencia" className="text-white hover:bg-blue-600">🏦 Transferencia Bancaria</SelectItem>
+                    <SelectItem value="nequi" className="text-white hover:bg-blue-600">📱 Nequi</SelectItem>
+                    <SelectItem value="daviplata" className="text-white hover:bg-blue-600">📱 Daviplata</SelectItem>
+                    <SelectItem value="tarjeta" className="text-white hover:bg-blue-600">💳 Tarjeta</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Promociones y notas */}
+        <Card className="border-0 shadow-2xl rounded-3xl bg-gray-800/90 border border-gray-600 backdrop-blur-sm">
+          <CardContent className="p-8">
+            <h3 className="text-2xl font-bold text-white border-b border-gray-600 pb-3">
+              🎉 Promociones Disponibles
+            </h3>
+            <div className="mb-6">
+              <Label className="text-gray-200 font-semibold text-lg">Promoción Aplicada</Label>
+              <Select 
+                value={formData.promotion} 
+                onValueChange={(value) => {
+                  setFormData({ ...formData, promotion: value })
+                  applyPromotion(value)
+                }}
+              >
+                <SelectTrigger className="border border-gray-600 focus:border-blue-500 rounded-2xl h-14 text-lg bg-gray-700 text-white">
+                  <SelectValue placeholder="Seleccionar promoción" />
+                </SelectTrigger>
+                <SelectContent className="bg-gray-700 border-gray-600">
+                  <SelectItem value="none" className="text-white hover:bg-blue-600">Sin promoción</SelectItem>
+                  {promotions.map((promo) => (
+                    <SelectItem key={promo.id} value={promo.id} className="text-white hover:bg-blue-600">
+                      {promo.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Promociones destacadas */}
+            <div className="grid grid-cols-1 gap-4 mb-6">
+              {promotions.slice(0, 3).map((promo) => (
+                <Card 
+                  key={promo.id} 
+                  className={`cursor-pointer transition-all duration-300 hover:scale-105 border ${
+                    formData.promotion === promo.id 
+                      ? 'border-purple-500 bg-purple-950/50' 
+                      : 'border-gray-600 bg-gray-700/50'
+                  }`}
+                  onClick={() => {
+                    setFormData({ ...formData, promotion: promo.id })
+                    applyPromotion(promo.id)
+                  }}
+                >
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="font-bold text-white">{promo.label}</h4>
                       </div>
                     </div>
-                  )}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
 
-                  <div className="space-y-3">
-                    <Label htmlFor="notes" className="text-slate-800 font-semibold text-lg">
-                      Notas Adicionales
-                    </Label>
-                    <Textarea
-                      id="notes"
-                      value={formData.notes}
-                      onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                      placeholder="Notas opcionales..."
-                      className="border-2 border-stone-500 focus:border-teal-600 rounded-2xl resize-none bg-amber-50/50 text-slate-900"
-                      rows={4}
-                    />
-                  </div>
+            <div>
+              <Label htmlFor="notes" className="text-gray-200 font-semibold text-lg">
+                Notas Adicionales
+              </Label>
+              <Textarea
+                id="notes"
+                value={formData.notes}
+                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                placeholder="Observaciones o comentarios especiales..."
+                className="border border-gray-600 focus:border-blue-500 rounded-2xl resize-none bg-gray-700 text-white"
+                rows={4}
+              />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Vista previa del recibo */}
+      <Card className="border-0 shadow-2xl rounded-3xl bg-gray-800/90 border border-gray-600 backdrop-blur-sm mt-8">
+        <CardContent className="p-8">
+          <h3 className="text-2xl font-bold text-white mb-6 border-b border-gray-600 pb-3">
+            📄 Vista Previa del Recibo
+          </h3>
+          
+          <div className="space-y-4 text-gray-300">
+            <div className="grid grid-cols-2 gap-6">
+              <div>
+                <p><strong className="text-white">Estudiante:</strong> {formData.studentName || 'No especificado'}</p>
+                <p><strong className="text-white">Cédula:</strong> {formData.studentId || 'No especificado'}</p>
+                <p><strong className="text-white">Teléfono:</strong> {formData.phone || 'No especificado'}</p>
+              </div>
+              <div>
+                <p><strong className="text-white">Concepto:</strong> {formData.concept || 'No especificado'}</p>
+                <p><strong className="text-white">Método:</strong> {formData.paymentMethod || 'No especificado'}</p>
+                <p><strong className="text-white">Fecha:</strong> {new Date().toLocaleDateString()}</p>
+              </div>
+            </div>
+            
+            <div className="bg-gray-700/50 p-6 rounded-2xl border border-gray-600">
+              <div className="flex justify-between items-center text-lg mb-2">
+                <span className="text-white">Subtotal:</span>
+                <span className="text-white">${formData.amount.toLocaleString()}</span>
+              </div>
+              {formData.promotion !== 'none' && (
+                <div className="flex justify-between items-center text-lg mb-2">
+                  <span className="text-green-400">Descuento:</span>
+                  <span className="text-green-400">-${((formData.amount * getPromotionDiscount(formData.promotion)) / 100).toLocaleString()}</span>
                 </div>
-              </CardContent>
-            </Card>
-
-            {/* Vista Previa */}
-            <Card className="border-0 shadow-2xl rounded-3xl bg-gradient-to-br from-stone-150/90 to-amber-100/90 border-2 border-stone-500">
-              <CardContent className="p-8">
-                <h3 className="text-2xl font-bold text-slate-900 mb-6 border-b-2 border-stone-500 pb-3">
-                  Vista Previa del Recibo
-                </h3>
-
-                <div className="space-y-4 text-slate-800">
-                  <div className="flex justify-between">
-                    <span className="font-semibold text-slate-700">Estudiante:</span>
-                    <span>{formData.studentName || "---"}</span>
-                  </div>
-                  {formData.studentId && (
-                    <div className="flex justify-between">
-                      <span className="font-semibold text-slate-700">Cédula:</span>
-                      <span>{formData.studentId}</span>
-                    </div>
-                  )}
-                  <div className="flex justify-between">
-                    <span className="font-semibold text-slate-700">WhatsApp:</span>
-                    <span>{formData.phone || "---"}</span>
-                  </div>
-                  <div className="flex justify-between text-2xl font-bold text-amber-900">
-                    <span>Monto:</span>
-                    <span>${formData.amount || "0"}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="font-semibold text-slate-700">Concepto:</span>
-                    <span>{formData.concept || "---"}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="font-semibold text-slate-700">Método:</span>
-                    <span>{formData.paymentMethod || "---"}</span>
-                  </div>
-                  {selectedPromotion && selectedPromotion.id !== "none" && (
-                    <div className="flex justify-between">
-                      <span className="font-semibold text-slate-700">Promoción:</span>
-                      <Badge variant="outline" className="text-amber-900 border-amber-600 bg-amber-200">
-                        {selectedPromotion.label}
-                      </Badge>
-                    </div>
-                  )}
+              )}
+              <div className="border-t border-gray-600 pt-2">
+                <div className="flex justify-between items-center text-xl font-bold">
+                  <span className="text-white">Total a Pagar:</span>
+                  <span className="text-blue-400">${finalAmount.toLocaleString()}</span>
                 </div>
-
-                <Button
-                  type="submit"
-                  className="w-full mt-8 h-16 bg-gradient-to-r from-teal-600 to-amber-600 hover:from-teal-700 hover:to-amber-700 shadow-2xl rounded-2xl text-xl font-bold transition-all duration-500 hover:shadow-3xl transform hover:-translate-y-1 text-white"
-                  disabled={!formData.studentName || !formData.phone || !formData.amount || !formData.concept || !formData.paymentMethod}
-                >
-                  <Send className="w-6 h-6 mr-4" />
-                  Enviar Recibo por WhatsApp
-                </Button>
-              </CardContent>
-            </Card>
+              </div>
+              {formData.promotion !== 'none' && (
+                <Badge className="bg-purple-600 text-white mt-2">
+                  Promoción aplicada: {getPromotionDiscount(formData.promotion)}% descuento
+                </Badge>
+              )}
+            </div>
           </div>
-        </div>
-      </form>
+
+          <div className="flex space-x-4 mt-8">
+            <Button 
+              onClick={generateReceipt}
+              className="flex-1 h-14 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-2xl text-xl font-bold transition-all duration-300 hover:shadow-xl"
+              disabled={!formData.studentName || !formData.amount}
+            >
+              <Send className="w-6 h-6 mr-2" />
+              Generar Recibo Digital
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   )
 }

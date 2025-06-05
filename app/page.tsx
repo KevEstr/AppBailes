@@ -89,15 +89,15 @@ export default function DanceAcademyApp() {
         return (
           <div className="space-y-12">
             {/* Header Principal */}
-            <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-stone-200 via-amber-100 to-orange-150 p-12 text-center border-2 border-stone-500 shadow-2xl">
-              <div className="absolute inset-0 bg-gradient-to-r from-teal-300/20 to-amber-300/20"></div>
+            <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-gray-800/90 via-slate-800/90 to-gray-700/90 p-12 text-center border border-gray-600 shadow-2xl backdrop-blur-sm">
+              <div className="absolute inset-0 bg-gradient-to-r from-blue-300/20 to-purple-300/20"></div>
               <div className="absolute top-0 left-0 w-full h-full">
-                <div className="absolute top-10 left-10 w-32 h-32 bg-gradient-to-r from-teal-400/30 to-amber-400/30 rounded-full blur-xl"></div>
-                <div className="absolute bottom-10 right-10 w-40 h-40 bg-gradient-to-r from-amber-400/30 to-teal-400/30 rounded-full blur-xl"></div>
+                <div className="absolute top-10 left-10 w-32 h-32 bg-gradient-to-r from-blue-400/30 to-purple-400/30 rounded-full blur-xl"></div>
+                <div className="absolute bottom-10 right-10 w-40 h-40 bg-gradient-to-r from-purple-400/30 to-blue-400/30 rounded-full blur-xl"></div>
               </div>
               <div className="relative z-10">
                 {/* Logo Paradise Dance Academy */}
-                <div className="mb-8 inline-flex h-32 w-32 items-center justify-center rounded-full bg-stone-100 shadow-2xl border-4 border-teal-600 relative overflow-hidden">
+                <div className="mb-8 inline-flex h-32 w-32 items-center justify-center rounded-full bg-gray-700 shadow-2xl border-4 border-blue-500 relative overflow-hidden">
                   <Image
                     src="/logo.jpg"
                     alt="Paradise Dance Academy Logo"
@@ -107,23 +107,23 @@ export default function DanceAcademyApp() {
                     priority
                   />
                   {/* Fallback si no hay logo */}
-                  <div className="absolute inset-0 bg-gradient-to-r from-teal-400 to-amber-400 opacity-20"></div>
+                  <div className="absolute inset-0 bg-gradient-to-r from-blue-400 to-purple-400 opacity-20"></div>
                 </div>
-                <h1 className="mb-4 text-5xl font-bold text-slate-900">Paradise Dance Academy</h1>
-                <p className="text-xl text-teal-900 mb-6">Tu pasión por el baile, nuestro compromiso con la excelencia</p>
-                <div className="inline-flex items-center space-x-3 rounded-full bg-stone-100/80 px-6 py-3 backdrop-blur-sm border border-teal-500 shadow-lg">
-                  <div className="h-3 w-3 rounded-full bg-teal-600 animate-pulse shadow-lg shadow-teal-500/50"></div>
-                  <span className="text-slate-900 font-medium">Sistema Paradise Activo</span>
+                <h1 className="mb-4 text-5xl font-bold text-white">Paradise Dance Academy</h1>
+                <p className="text-xl text-blue-300 mb-6">Tu pasión por el baile, nuestro compromiso con la excelencia</p>
+                <div className="inline-flex items-center space-x-3 rounded-full bg-gray-700/80 px-6 py-3 backdrop-blur-sm border border-blue-500 shadow-lg">
+                  <div className="h-3 w-3 rounded-full bg-blue-500 animate-pulse shadow-lg shadow-blue-500/50"></div>
+                  <span className="text-white font-medium">Sistema Paradise Activo</span>
                 </div>
               </div>
             </div>
 
             {/* Grid de Funcionalidades */}
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               {menuItems.map((item, index) => (
                 <Card
                   key={item.id}
-                  className="group relative overflow-hidden border-0 bg-stone-200/80 shadow-2xl transition-all duration-700 hover:shadow-3xl hover:-translate-y-3 cursor-pointer rounded-2xl border-2 border-stone-500 hover:border-teal-600"
+                  className="group relative overflow-hidden border-0 bg-gray-800/90 shadow-2xl transition-all duration-700 hover:shadow-3xl hover:-translate-y-3 cursor-pointer rounded-2xl border border-gray-600 hover:border-blue-500 backdrop-blur-sm"
                   onClick={() => setActiveSection(item.id)}
                 >
                   <div
@@ -137,38 +137,34 @@ export default function DanceAcademyApp() {
                         <item.icon className="h-8 w-8 text-white" />
                       </div>
                       <div className="flex flex-col items-end space-y-2">
-                        <div className="h-10 w-10 rounded-full bg-gradient-to-r from-teal-300 to-amber-300 flex items-center justify-center shadow-lg group-hover:shadow-xl transition-shadow duration-300 border border-teal-600">
-                          <span className="text-sm font-bold text-teal-900">{index + 1}</span>
+                        <div className="h-10 w-10 rounded-full bg-gradient-to-r from-blue-400 to-purple-400 flex items-center justify-center shadow-lg group-hover:shadow-xl transition-shadow duration-300 border border-blue-500">
+                          <span className="text-sm font-bold text-white">{index + 1}</span>
                         </div>
                         {item.id === "debts" && pendingDebts > 0 && (
                           <Badge className="bg-red-500 text-white shadow-lg animate-pulse">{pendingDebts}</Badge>
                         )}
                       </div>
                     </div>
-                    <div className="space-y-3">
-                      <h3 className="text-2xl font-bold text-slate-900 group-hover:text-teal-900 transition-colors duration-300">
-                        {item.label}
-                      </h3>
-                      <p className="text-slate-700 text-lg leading-relaxed">{item.description}</p>
-                    </div>
-                    <div className="mt-6 flex items-center text-amber-800 group-hover:text-amber-900 transition-colors duration-300">
-                      <span className="text-sm font-medium">Acceder a la sección</span>
-                      <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform duration-300" />
-                    </div>
+                    <h3 className="text-2xl font-bold text-white group-hover:text-blue-300 transition-colors duration-300">
+                      {item.label}
+                    </h3>
+                    <p className="text-gray-400 mt-3 group-hover:text-gray-300 transition-colors duration-300">
+                      {item.description}
+                    </p>
                   </CardContent>
                 </Card>
               ))}
             </div>
 
             {/* Footer Info */}
-            <Card className="border-0 bg-gradient-to-r from-stone-200/90 via-amber-100/90 to-orange-150/90 shadow-xl rounded-2xl border-2 border-stone-500">
+            <Card className="border-0 bg-gradient-to-r from-gray-800/90 via-slate-800/90 to-gray-700/90 shadow-xl rounded-2xl border-2 border-gray-600">
               <CardContent className="p-8 text-center">
                 <div className="flex items-center justify-center space-x-4 mb-4">
-                  <div className="h-4 w-4 rounded-full bg-gradient-to-r from-teal-600 to-teal-700 animate-pulse shadow-lg shadow-teal-500/50"></div>
-                  <span className="text-2xl font-bold bg-gradient-to-r from-teal-800 to-amber-800 bg-clip-text text-transparent">Paradise Dance Academy</span>
-                  <div className="h-4 w-4 rounded-full bg-gradient-to-r from-amber-600 to-amber-700 animate-pulse shadow-lg shadow-amber-500/50"></div>
+                  <div className="h-4 w-4 rounded-full bg-gradient-to-r from-blue-600 to-blue-700 animate-pulse shadow-lg shadow-blue-500/50"></div>
+                  <span className="text-2xl font-bold bg-gradient-to-r from-blue-800 to-purple-800 bg-clip-text text-transparent">Paradise Dance Academy</span>
+                  <div className="h-4 w-4 rounded-full bg-gradient-to-r from-purple-600 to-purple-700 animate-pulse shadow-lg shadow-purple-500/50"></div>
                 </div>
-                <p className="text-slate-700 text-lg">Donde cada paso cuenta y cada sueño se hace realidad</p>
+                <p className="text-gray-400 text-lg">Donde cada paso cuenta y cada sueño se hace realidad</p>
               </CardContent>
             </Card>
           </div>
@@ -177,18 +173,18 @@ export default function DanceAcademyApp() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-stone-400 via-amber-200 to-orange-200">
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-slate-900 to-gray-800">
       <div className="container mx-auto px-6 py-8">
         {activeSection !== "home" && (
-          <div className="mb-10 flex items-center justify-between rounded-2xl bg-stone-300/90 p-6 shadow-xl border border-stone-500 backdrop-blur-sm">
+          <div className="mb-10 flex items-center justify-between rounded-2xl bg-gray-800/90 p-6 shadow-xl border border-gray-600 backdrop-blur-sm">
             <Button
               variant="ghost"
               onClick={() => setActiveSection("home")}
-              className="rounded-xl bg-teal-300 text-teal-900 hover:bg-teal-400 hover:text-teal-900 px-6 py-3 font-medium transition-all duration-300 border border-teal-500"
+              className="rounded-xl bg-blue-600 text-white hover:bg-blue-700 hover:text-white px-6 py-3 font-medium transition-all duration-300 border border-blue-500"
             >
               ← Volver
             </Button>
-            <h2 className="text-2xl font-bold bg-gradient-to-r from-teal-800 to-amber-800 bg-clip-text text-transparent">
+            <h2 className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
               {menuItems.find((item) => item.id === activeSection)?.label}
             </h2>
             <div className="w-32"></div>

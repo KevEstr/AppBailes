@@ -210,55 +210,56 @@ export default function ClassManagement() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-3xl font-bold text-slate-800">Gestión de Clases</h2>
-          <p className="text-slate-600">Control de clases y asistencia en tiempo real</p>
+          <h2 className="text-3xl font-bold text-white">Gestión de Clases</h2>
+          <p className="text-gray-300">Control de clases y asistencia en tiempo real</p>
         </div>
         
         <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
           <DialogTrigger asChild>
-            <Button className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white rounded-xl">
-              <Plus className="h-4 w-4 mr-2" />
+            <Button className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-xl">
+              <Plus className="h-4 w-4 mr-2 text-white" />
               Nueva Clase
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-md">
+          <DialogContent className="max-w-md bg-gray-800 border border-gray-600 text-white">
             <DialogHeader>
-              <DialogTitle>Crear Nueva Clase</DialogTitle>
+              <DialogTitle className="text-white">Crear Nueva Clase</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
               <div>
-                <Label htmlFor="name">Nombre de la Clase</Label>
+                <Label htmlFor="name" className="text-gray-200">Nombre de la Clase</Label>
                 <Input
                   id="name"
                   value={newClass.name}
                   onChange={(e) => setNewClass({...newClass, name: e.target.value})}
                   placeholder="Ej: Salsa Principiantes - Lunes"
+                  className="border border-gray-600 focus:border-blue-500 bg-gray-700 text-white placeholder:text-gray-400"
                 />
               </div>
               
               <div>
-                <Label htmlFor="group">Grupo</Label>
+                <Label htmlFor="group" className="text-gray-200">Grupo</Label>
                 <Select value={newClass.group} onValueChange={(value) => setNewClass({...newClass, group: value})}>
-                  <SelectTrigger>
+                  <SelectTrigger className="border border-gray-600 focus:border-blue-500 bg-gray-700 text-white">
                     <SelectValue placeholder="Seleccionar grupo" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="bg-gray-700 border-gray-600">
                     {groups.map(group => (
-                      <SelectItem key={group} value={group}>{group}</SelectItem>
+                      <SelectItem key={group} value={group} className="text-white hover:bg-blue-600">{group}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
 
               <div>
-                <Label htmlFor="trainer">Instructor</Label>
+                <Label htmlFor="trainer" className="text-gray-200">Instructor</Label>
                 <Select value={newClass.trainerId} onValueChange={(value) => setNewClass({...newClass, trainerId: value})}>
-                  <SelectTrigger>
+                  <SelectTrigger className="border border-gray-600 focus:border-blue-500 bg-gray-700 text-white">
                     <SelectValue placeholder="Seleccionar instructor" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="bg-gray-700 border-gray-600">
                     {trainers.map(trainer => (
-                      <SelectItem key={trainer.id} value={trainer.id}>{trainer.name}</SelectItem>
+                      <SelectItem key={trainer.id} value={trainer.id} className="text-white hover:bg-blue-600">{trainer.name}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -266,37 +267,40 @@ export default function ClassManagement() {
 
               <div className="grid grid-cols-3 gap-2">
                 <div>
-                  <Label htmlFor="date">Fecha</Label>
+                  <Label htmlFor="date" className="text-gray-200">Fecha</Label>
                   <Input
                     id="date"
                     type="date"
                     value={newClass.date}
                     onChange={(e) => setNewClass({...newClass, date: e.target.value})}
+                    className="border border-gray-600 focus:border-blue-500 bg-gray-700 text-white"
                   />
                 </div>
                 <div>
-                  <Label htmlFor="startTime">Inicio</Label>
+                  <Label htmlFor="startTime" className="text-gray-200">Inicio</Label>
                   <Input
                     id="startTime"
                     type="time"
                     value={newClass.startTime}
                     onChange={(e) => setNewClass({...newClass, startTime: e.target.value})}
+                    className="border border-gray-600 focus:border-blue-500 bg-gray-700 text-white"
                   />
                 </div>
                 <div>
-                  <Label htmlFor="endTime">Fin</Label>
+                  <Label htmlFor="endTime" className="text-gray-200">Fin</Label>
                   <Input
                     id="endTime"
                     type="time"
                     value={newClass.endTime}
                     onChange={(e) => setNewClass({...newClass, endTime: e.target.value})}
+                    className="border border-gray-600 focus:border-blue-500 bg-gray-700 text-white"
                   />
                 </div>
               </div>
 
               <Button 
                 onClick={createClass} 
-                className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+                className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
                 disabled={!newClass.name || !newClass.group || !newClass.trainerId || !newClass.date || !newClass.startTime || !newClass.endTime}
               >
                 Crear Clase
@@ -308,14 +312,14 @@ export default function ClassManagement() {
 
       {/* Clase Activa */}
       {classes.find(c => c.isActive) && (
-        <Card className="border-2 border-green-500 bg-gradient-to-r from-green-50 to-emerald-50">
+        <Card className="border-2 border-green-500 bg-gradient-to-r from-green-950/50 to-emerald-950/50 border border-green-500">
           <CardHeader>
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-3">
                 <div className="h-4 w-4 rounded-full bg-green-500 animate-pulse"></div>
-                <CardTitle className="text-green-700">Clase en Curso</CardTitle>
+                <CardTitle className="text-green-400">Clase en Curso</CardTitle>
               </div>
-              <Badge className="bg-green-500 text-white">ACTIVA</Badge>
+              <Badge className="bg-green-600 text-white border-green-500">ACTIVA</Badge>
             </div>
           </CardHeader>
           <CardContent>
@@ -324,9 +328,9 @@ export default function ClassManagement() {
               return (
                 <div className="space-y-4">
                   <div>
-                    <h3 className="text-xl font-bold text-green-800">{activeClass.name}</h3>
-                    <p className="text-green-700">Instructor: {activeClass.trainer.name}</p>
-                    <p className="text-green-600">
+                    <h3 className="text-xl font-bold text-green-300">{activeClass.name}</h3>
+                    <p className="text-green-400">Instructor: {activeClass.trainer.name}</p>
+                    <p className="text-green-500">
                       {format(new Date(activeClass.date), 'dd MMMM yyyy', { locale: es })} • 
                       {format(new Date(activeClass.startTime), 'HH:mm')} - 
                       {format(new Date(activeClass.endTime), 'HH:mm')}
@@ -337,7 +341,7 @@ export default function ClassManagement() {
                       onClick={() => deactivateClass(activeClass.id)}
                       variant="outline"
                       size="sm"
-                      className="border-green-500 text-green-700 hover:bg-green-50"
+                      className="border-green-500 text-green-400 hover:bg-green-950 hover:text-green-300"
                     >
                       <Pause className="h-4 w-4 mr-2" />
                       Finalizar Clase
@@ -361,11 +365,11 @@ export default function ClassManagement() {
       {/* Lista de Clases */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {classes.filter(c => !c.isActive).map((classItem) => (
-          <Card key={classItem.id} className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 rounded-2xl overflow-hidden">
+          <Card key={classItem.id} className="border-0 shadow-2xl hover:shadow-3xl transition-all duration-300 rounded-2xl overflow-hidden bg-gray-800/90 border border-gray-600 backdrop-blur-sm">
             <div className={`h-2 ${getStatusColor(classItem)}`}></div>
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-lg">{classItem.name}</CardTitle>
+                <CardTitle className="text-lg text-white">{classItem.name}</CardTitle>
                 <Badge className={`${getStatusColor(classItem)} text-white text-xs`}>
                   {getStatusText(classItem)}
                 </Badge>
@@ -373,19 +377,19 @@ export default function ClassManagement() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2 text-sm">
-                <div className="flex items-center text-slate-600">
+                <div className="flex items-center text-gray-300">
                   <Users className="h-4 w-4 mr-2" />
                   {classItem.group}
                 </div>
-                <div className="flex items-center text-slate-600">
+                <div className="flex items-center text-gray-300">
                   <BookOpen className="h-4 w-4 mr-2" />
                   {classItem.trainer.name}
                 </div>
-                <div className="flex items-center text-slate-600">
+                <div className="flex items-center text-gray-300">
                   <Calendar className="h-4 w-4 mr-2" />
                   {format(new Date(classItem.date), 'dd MMM yyyy', { locale: es })}
                 </div>
-                <div className="flex items-center text-slate-600">
+                <div className="flex items-center text-gray-300">
                   <Clock className="h-4 w-4 mr-2" />
                   {format(new Date(classItem.startTime), 'HH:mm')} - {format(new Date(classItem.endTime), 'HH:mm')}
                 </div>
@@ -396,7 +400,7 @@ export default function ClassManagement() {
                   <Button
                     onClick={() => activateClass(classItem.id)}
                     size="sm"
-                    className="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white rounded-xl"
+                    className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-xl"
                   >
                     <Play className="h-4 w-4 mr-2" />
                     Iniciar
@@ -405,7 +409,7 @@ export default function ClassManagement() {
                     onClick={() => setSelectedClass(classItem)}
                     variant="outline"
                     size="sm"
-                    className="rounded-xl"
+                    className="rounded-xl border-gray-600 text-gray-300 hover:bg-gray-700 hover:text-white"
                   >
                     <Eye className="h-4 w-4" />
                   </Button>
@@ -419,29 +423,29 @@ export default function ClassManagement() {
       {/* Dialog de Detalles de Clase */}
       {selectedClass && (
         <Dialog open={!!selectedClass} onOpenChange={() => setSelectedClass(null)}>
-          <DialogContent className="max-w-2xl">
+          <DialogContent className="max-w-2xl bg-gray-800 border border-gray-600 text-white">
             <DialogHeader>
-              <DialogTitle>{selectedClass.name}</DialogTitle>
+              <DialogTitle className="text-white">{selectedClass.name}</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
-                  <strong>Grupo:</strong> {selectedClass.group}
+                  <strong className="text-gray-200">Grupo:</strong> <span className="text-gray-300">{selectedClass.group}</span>
                 </div>
                 <div>
-                  <strong>Instructor:</strong> {selectedClass.trainer.name}
+                  <strong className="text-gray-200">Instructor:</strong> <span className="text-gray-300">{selectedClass.trainer.name}</span>
                 </div>
                 <div>
-                  <strong>Fecha:</strong> {format(new Date(selectedClass.date), 'dd MMMM yyyy', { locale: es })}
+                  <strong className="text-gray-200">Fecha:</strong> <span className="text-gray-300">{format(new Date(selectedClass.date), 'dd MMMM yyyy', { locale: es })}</span>
                 </div>
                 <div>
-                  <strong>Horario:</strong> {format(new Date(selectedClass.startTime), 'HH:mm')} - {format(new Date(selectedClass.endTime), 'HH:mm')}
+                  <strong className="text-gray-200">Horario:</strong> <span className="text-gray-300">{format(new Date(selectedClass.startTime), 'HH:mm')} - {format(new Date(selectedClass.endTime), 'HH:mm')}</span>
                 </div>
               </div>
               
               {selectedClass.isActive && (
-                <div className="bg-green-50 border border-green-200 rounded-xl p-4">
-                  <p className="text-green-800 font-medium">
+                <div className="bg-green-950/50 border border-green-500 rounded-xl p-4">
+                  <p className="text-green-300 font-medium">
                     🟢 Esta clase está activa. Los estudiantes pueden marcar su asistencia.
                   </p>
                 </div>

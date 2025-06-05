@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { DollarSign, MessageSquare, Calendar, Send, Bell } from "lucide-react"
+import { DollarSign, MessageSquare, Calendar, Send, Bell, AlertTriangle, CheckCircle, Clock, Receipt, MessageCircle } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 
 interface DebtInfo {
@@ -91,10 +91,10 @@ export function DebtNotifications() {
   }
 
   const getUrgencyColor = (daysOverdue: number) => {
-    if (daysOverdue >= 30) return "border-red-500 bg-gradient-to-r from-red-50 to-pink-50"
-    if (daysOverdue >= 15) return "border-orange-500 bg-gradient-to-r from-orange-50 to-amber-50"
-    if (daysOverdue >= 7) return "border-amber-500 bg-gradient-to-r from-amber-50 to-yellow-50"
-    return "border-blue-500 bg-gradient-to-r from-blue-50 to-cyan-50"
+    if (daysOverdue >= 30) return "border-red-500 bg-gradient-to-r from-red-950/50 to-pink-950/50"
+    if (daysOverdue >= 15) return "border-orange-500 bg-gradient-to-r from-orange-950/50 to-amber-950/50"
+    if (daysOverdue >= 7) return "border-amber-500 bg-gradient-to-r from-amber-950/50 to-yellow-950/50"
+    return "border-blue-500 bg-gradient-to-r from-blue-950/50 to-cyan-950/50"
   }
 
   const getUrgencyBadge = (daysOverdue: number) => {
@@ -108,13 +108,13 @@ export function DebtNotifications() {
     return (
       <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-6">
         {[1, 2, 3, 4].map((i) => (
-          <Card key={i} className="animate-pulse border-0 shadow-xl rounded-3xl">
+          <Card key={i} className="animate-pulse border-0 shadow-xl rounded-3xl bg-gray-800/90 border border-gray-600">
             <CardContent className="p-8">
               <div className="flex items-center space-x-6">
-                <div className="w-16 h-16 bg-slate-200 rounded-full"></div>
+                <div className="w-16 h-16 bg-gray-600 rounded-full"></div>
                 <div className="flex-1 space-y-3">
-                  <div className="h-5 bg-slate-200 rounded w-3/4"></div>
-                  <div className="h-4 bg-slate-200 rounded w-1/2"></div>
+                  <div className="h-5 bg-gray-600 rounded w-3/4"></div>
+                  <div className="h-4 bg-gray-600 rounded w-1/2"></div>
                 </div>
               </div>
             </CardContent>
@@ -125,34 +125,29 @@ export function DebtNotifications() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto">
+    <div className="max-w-7xl mx-auto">
       {/* Header */}
-      <Card className="border-0 bg-gradient-to-r from-stone-200 via-amber-100 to-orange-150 text-slate-900 shadow-2xl mb-8 rounded-3xl border-2 border-stone-500">
+      <Card className="border-0 bg-gradient-to-r from-gray-800/90 via-slate-800/90 to-gray-700/90 text-white shadow-2xl mb-8 rounded-3xl border border-gray-600 backdrop-blur-sm">
         <CardHeader className="pb-6">
-          <CardTitle className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <div className="rounded-2xl bg-teal-300 p-3 backdrop-blur-sm border border-teal-600">
-                <Bell className="h-8 w-8 text-teal-900" />
-              </div>
-              <div>
-                <span className="text-3xl font-bold bg-gradient-to-r from-teal-800 to-amber-800 bg-clip-text text-transparent">Control Paradise</span>
-                <p className="text-teal-900 mt-2 text-lg">Seguimiento de mensualidades pendientes</p>
-              </div>
+          <CardTitle className="flex items-center space-x-4">
+            <div className="rounded-2xl bg-blue-600 p-3 backdrop-blur-sm border border-blue-500">
+              <AlertTriangle className="h-8 w-8 text-white" />
             </div>
-            <Badge className="bg-teal-300 text-teal-900 border-teal-600 text-lg px-4 py-2">
-              {debts.length} estudiantes
-            </Badge>
+            <div>
+              <span className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">Control Pagos Paradise</span>
+              <p className="text-blue-300 mt-2 text-lg">Seguimiento de mensualidades pendientes</p>
+            </div>
           </CardTitle>
         </CardHeader>
       </Card>
 
       {/* Botón de envío masivo */}
       {debts.length > 0 && (
-        <Card className="border-0 shadow-2xl mb-8 rounded-3xl bg-stone-200/80 border-2 border-stone-500">
+        <Card className="border-0 shadow-2xl mb-8 rounded-3xl bg-gray-800/90 border border-gray-600 backdrop-blur-sm">
           <CardContent className="p-6">
             <Button
               onClick={sendMassiveReminders}
-              className="w-full h-16 bg-gradient-to-r from-teal-600 to-amber-600 hover:from-teal-700 hover:to-amber-700 shadow-2xl rounded-2xl text-xl font-bold transition-all duration-500 hover:shadow-3xl transform hover:-translate-y-1 text-white"
+              className="w-full h-16 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 shadow-2xl rounded-2xl text-xl font-bold transition-all duration-500 hover:shadow-3xl transform hover:-translate-y-1 text-white"
             >
               <Send className="w-6 h-6 mr-4" />
               Recordatorios Paradise ({debts.length})
@@ -164,14 +159,13 @@ export function DebtNotifications() {
       {/* Lista de deudas */}
       <div className="space-y-6">
         {debts.length === 0 ? (
-          <Card className="border-0 shadow-2xl rounded-3xl bg-stone-200/80 border-2 border-stone-500">
+          <Card className="border-0 shadow-2xl rounded-3xl bg-gray-800/90 border border-gray-600 backdrop-blur-sm">
             <CardContent className="p-12 text-center">
-              <div className="w-24 h-24 mx-auto mb-8 bg-gradient-to-r from-emerald-300 to-teal-300 rounded-full flex items-center justify-center border-2 border-emerald-600">
-                <DollarSign className="w-12 h-12 text-emerald-800" />
+              <div className="w-24 h-24 mx-auto mb-8 bg-gradient-to-r from-green-600 to-emerald-600 rounded-full flex items-center justify-center border border-green-500">
+                <CheckCircle className="w-12 h-12 text-white" />
               </div>
-              <h3 className="text-3xl font-bold text-slate-900 mb-4">¡Excelente Paradise!</h3>
-              <p className="text-teal-900 text-xl">No hay mensualidades pendientes</p>
-              <p className="text-lg text-slate-700 mt-3">Todos nuestros bailarines están al día</p>
+              <h3 className="text-3xl font-bold text-white mb-4">¡Excelente Paradise!</h3>
+              <p className="text-gray-300 text-xl">Todos los estudiantes están al día con sus pagos</p>
             </CardContent>
           </Card>
         ) : (
@@ -181,56 +175,46 @@ export function DebtNotifications() {
               return (
                 <Card
                   key={debt.id}
-                  className="border-0 shadow-2xl transition-all duration-500 hover:shadow-3xl hover:-translate-y-1 rounded-3xl bg-stone-200/80 border-2 border-stone-500 hover:border-red-500"
+                  className={`border-0 shadow-2xl transition-all duration-500 hover:shadow-3xl hover:-translate-y-1 rounded-3xl bg-gray-800/90 border border-gray-600 hover:border-red-500 backdrop-blur-sm ${getUrgencyColor(debt.daysOverdue)}`}
                 >
                   <CardContent className="p-8">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-6">
-                        <Avatar className="w-16 h-16 ring-4 ring-stone-500 shadow-xl">
-                          <AvatarImage src={debt.avatar || "/placeholder.svg"} />
-                          <AvatarFallback className="bg-gradient-to-r from-red-500 to-pink-500 text-white font-bold text-lg">
-                            {debt.studentName
-                              .split(" ")
-                              .map((n) => n[0])
-                              .join("")}
-                          </AvatarFallback>
-                        </Avatar>
+                    <div className="flex items-start justify-between mb-6">
+                      <div className="flex items-center space-x-4">
+                        <div className="w-16 h-16 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full flex items-center justify-center border border-blue-500">
+                          <span className="text-white font-bold text-lg">{debt.studentName.charAt(0)}</span>
+                        </div>
                         <div>
-                          <h4 className="font-bold text-slate-900 flex items-center space-x-3 mb-3 text-xl">
+                          <h4 className="font-bold text-white flex items-center space-x-3 mb-3 text-xl">
                             <span>{debt.studentName}</span>
-                            <Badge variant={urgency.variant} className="text-sm px-3 py-1">
+                            <Badge {...urgency}>
                               {urgency.label}
                             </Badge>
                           </h4>
-                          <div className="space-y-2">
-                            <div className="flex items-center space-x-2">
-                              <DollarSign className="w-4 h-4 text-slate-700" />
-                              <span className="text-2xl font-bold text-red-600">
-                                ${debt.amount.toLocaleString()}
-                              </span>
-                            </div>
-                            <p className="text-slate-700 font-medium">{debt.concept}</p>
-                            <div className="flex items-center space-x-2 text-sm text-slate-600">
-                              <Calendar className="w-4 h-4" />
-                              <span>
-                                {debt.daysOverdue > 0 
-                                  ? `${debt.daysOverdue} días de retraso`
-                                  : "Vence hoy"
-                                }
-                              </span>
-                            </div>
+                          <div className="space-y-2 text-gray-300">
+                            <p className="flex items-center space-x-2">
+                              <Calendar className="w-4 h-4 text-blue-400" />
+                              <span>Vence: {new Date(debt.lastPayment).toLocaleDateString()}</span>
+                            </p>
+                            <p className="flex items-center space-x-2">
+                              <Clock className="w-4 h-4 text-orange-400" />
+                              <span>{debt.daysOverdue} días vencido</span>
+                            </p>
+                            <p className="flex items-center space-x-2">
+                              <DollarSign className="w-4 h-4 text-green-400" />
+                              <span className="text-xl font-bold text-red-400">${debt.amount.toLocaleString()}</span>
+                            </p>
                           </div>
                         </div>
                       </div>
                     </div>
 
-                    <div className="mt-6 pt-6 border-t border-stone-500">
+                    <div className="space-y-4">
                       <Button
                         onClick={() => sendDebtReminder(debt.id)}
-                        className="w-full h-12 bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 shadow-xl rounded-xl text-lg font-semibold transition-all duration-300 hover:shadow-2xl text-white"
+                        className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-xl text-lg py-3"
                       >
-                        <MessageSquare className="w-5 h-5 mr-3" />
-                        Enviar Recordatorio WhatsApp
+                        <MessageCircle className="w-5 h-5 mr-2" />
+                        Enviar Recordatorio
                       </Button>
                     </div>
                   </CardContent>
