@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -11,117 +8,105 @@ datasource db {
 }
 
 model Student {
-  id        Int      @id // Cédula colombiana (sin autoincrement)
-  name      String
-  email     String?  @unique
-  phone     String   @unique
-  avatar    String?
-  hasDebt   Boolean  @default(false)
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relations
+  name             String
+  email            String?           @unique
+  phone            String            @unique
+  avatar           String?
+  hasDebt          Boolean           @default(false)
+  isActive         Boolean           @default(true)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  id               Int               @id
   attendances      Attendance[]
-  receipts         Receipt[]
-  debts            Debt[]
-  messagesSent     MassiveMessage[] @relation("MessageRecipients")
   classEnrollments ClassEnrollment[]
+  debts            Debt[]
+  monthlyPayments  MonthlyPayment[]
+  paymentForms     PaymentForm[]
+  receipts         Receipt[]
+  messagesSent     MassiveMessage[]  @relation("MessageRecipients")
 
   @@map("students")
 }
 
 model DanceClass {
-  id          Int       @id @default(autoincrement())
-  name        String    // Ej: "Salsa Básica", "Bachata Intermedio"
+  name        String
+  isActive    Boolean           @default(true)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  capacity    Int               @default(20)
   description String?
-  trainerId   Int
-  capacity    Int       @default(20)
   price       Float?
-  isActive    Boolean   @default(true)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-
-  // Relations
-  trainer     Trainer           @relation(fields: [trainerId], references: [id])
+  id          Int               @id @default(autoincrement())
+  trainerId   Int
+  enrollments ClassEnrollment[]
   schedules   ClassSchedule[]
   sessions    ClassSession[]
-  enrollments ClassEnrollment[]
+  trainer     Trainer           @relation(fields: [trainerId], references: [id])
 
   @@map("classes")
 }
 
 model ClassSchedule {
-  id        Int       @id @default(autoincrement())
-  classId   Int
-  dayOfWeek Int       // 0 = Domingo, 1 = Lunes, etc.
-  startTime String    // HH:MM formato 24h
-  endTime   String    // HH:MM formato 24h
-  isActive  Boolean   @default(true)
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-
-  // Relations
+  id         Int        @id @default(autoincrement())
+  classId    Int
+  dayOfWeek  Int
+  startTime  String
+  endTime    String
+  isActive   Boolean    @default(true)
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
   danceClass DanceClass @relation(fields: [classId], references: [id], onDelete: Cascade)
 
   @@map("class_schedules")
 }
 
 model ClassSession {
-  id          Int      @id @default(autoincrement())
+  id          Int           @id @default(autoincrement())
   classId     Int
-  date        DateTime // Fecha específica de la sesión
+  date        DateTime
   startTime   DateTime
   endTime     DateTime
   status      SessionStatus @default(SCHEDULED)
   notes       String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  // Relations
-  danceClass  DanceClass @relation(fields: [classId], references: [id], onDelete: Cascade)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
   attendances Attendance[]
+  danceClass  DanceClass    @relation(fields: [classId], references: [id], onDelete: Cascade)
 
   @@map("class_sessions")
 }
 
 model ClassEnrollment {
-  id         Int      @id @default(autoincrement())
+  id         Int        @id @default(autoincrement())
   studentId  Int
   classId    Int
-  enrolledAt DateTime @default(now())
-  isActive   Boolean  @default(true)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-
-  // Relations
-  student    Student    @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  enrolledAt DateTime   @default(now())
+  isActive   Boolean    @default(true)
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
   danceClass DanceClass @relation(fields: [classId], references: [id], onDelete: Cascade)
+  student    Student    @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
   @@unique([studentId, classId])
   @@map("class_enrollments")
 }
 
 model Attendance {
-  id        Int              @id @default(autoincrement())
-  studentId Int
-  sessionId Int?             // Nueva relación con sesión de clase
   status    AttendanceStatus
   date      DateTime         @default(now())
   notes     String?
   createdAt DateTime         @default(now())
   updatedAt DateTime         @updatedAt
-
-  // Relations
-  student Student       @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  session ClassSession? @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  sessionId Int?
+  id        Int              @id @default(autoincrement())
+  studentId Int
+  session   ClassSession?    @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  student   Student          @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
   @@map("attendances")
 }
 
 model Receipt {
-  id            Int           @id @default(autoincrement())
-  studentId     Int
   amount        Float
   concept       String
   paymentMethod PaymentMethod
@@ -131,16 +116,14 @@ model Receipt {
   sentAt        DateTime?
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
-
-  // Relations
-  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  id            Int           @id @default(autoincrement())
+  studentId     Int
+  student       Student       @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
   @@map("receipts")
 }
 
 model Debt {
-  id           Int       @id @default(autoincrement())
-  studentId    Int
   amount       Float
   concept      String
   dueDate      DateTime
@@ -149,57 +132,145 @@ model Debt {
   lastReminder DateTime?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
-
-  // Relations
-  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  id           Int       @id @default(autoincrement())
+  studentId    Int
+  student      Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
   @@map("debts")
 }
 
 model MassiveMessage {
-  id          Int         @id @default(autoincrement())
   type        MessageType
   message     String
   targetGroup String
   sentCount   Int         @default(0)
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
-
-  // Relations
-  recipients Student[] @relation("MessageRecipients")
+  id          Int         @id @default(autoincrement())
+  recipients  Student[]   @relation("MessageRecipients")
 
   @@map("massive_messages")
 }
 
 model Trainer {
-  id        Int      @id @default(autoincrement())
-  name      String
-  email     String   @unique
-  phone     String   @unique
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relations
-  attendances TrainerAttendance[]
+  name        String
+  email       String              @unique
+  phone       String              @unique
+  isActive    Boolean             @default(true)
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  id          Int                 @id @default(autoincrement())
   classes     DanceClass[]
+  attendances TrainerAttendance[]
 
   @@map("trainers")
 }
 
 model TrainerAttendance {
-  id        Int              @id @default(autoincrement())
-  trainerId Int
   status    AttendanceStatus
   date      DateTime         @default(now())
   notes     String?
   createdAt DateTime         @default(now())
   updatedAt DateTime         @updatedAt
-
-  // Relations
-  trainer Trainer @relation(fields: [trainerId], references: [id], onDelete: Cascade)
+  id        Int              @id @default(autoincrement())
+  trainerId Int
+  trainer   Trainer          @relation(fields: [trainerId], references: [id], onDelete: Cascade)
 
   @@map("trainer_attendances")
+}
+
+model MonthlyFeeConfig {
+  id              Int              @id @default(autoincrement())
+  amount          Float
+  description     String?
+  isActive        Boolean          @default(true)
+  validFrom       DateTime         @default(now())
+  validUntil      DateTime?
+  createdBy       String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  monthlyPayments MonthlyPayment[]
+
+  @@map("monthly_fee_configs")
+}
+
+model PaymentPeriod {
+  id              Int              @id @default(autoincrement())
+  year            Int
+  month           Int
+  name            String
+  dueDate         DateTime
+  isActive        Boolean          @default(true)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  monthlyPayments MonthlyPayment[]
+  paymentForms    PaymentForm[]
+
+  @@unique([year, month])
+  @@map("payment_periods")
+}
+
+model MonthlyPayment {
+  id             Int                  @id @default(autoincrement())
+  studentId      Int
+  periodId       Int
+  feeConfigId    Int
+  expectedAmount Float
+  paidAmount     Float?
+  status         MonthlyPaymentStatus @default(PENDING)
+  paymentDate    DateTime?
+  approvedBy     String?
+  notes          String?
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+  feeConfig      MonthlyFeeConfig     @relation(fields: [feeConfigId], references: [id])
+  period         PaymentPeriod        @relation(fields: [periodId], references: [id], onDelete: Cascade)
+  student        Student              @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  paymentForms   PaymentForm[]
+
+  @@unique([studentId, periodId])
+  @@map("monthly_payments")
+}
+
+model PaymentForm {
+  id               String            @id @default(cuid())
+  studentId        Int
+  periodId         Int
+  monthlyPaymentId Int
+  studentName      String
+  amount           Float
+  status           PaymentFormStatus @default(ACTIVE)
+  expiresAt        DateTime?
+  usedAt           DateTime?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  monthlyPayment   MonthlyPayment    @relation(fields: [monthlyPaymentId], references: [id], onDelete: Cascade)
+  period           PaymentPeriod     @relation(fields: [periodId], references: [id], onDelete: Cascade)
+  student          Student           @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  paymentProofs    PaymentProof[]
+
+  @@map("payment_forms")
+}
+
+model PaymentProof {
+  id            Int                @id @default(autoincrement())
+  formId        String
+  payerName     String
+  payerPhone    String?
+  payerEmail    String?
+  amount        Float
+  paymentMethod PaymentMethod
+  proofImageUrl String
+  uploadedAt    DateTime           @default(now())
+  status        PaymentProofStatus @default(PENDING)
+  reviewedAt    DateTime?
+  reviewedBy    String?
+  reviewNotes   String?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  paymentForm   PaymentForm        @relation(fields: [formId], references: [id], onDelete: Cascade)
+
+  @@map("payment_proofs")
 }
 
 enum AttendanceStatus {
@@ -227,4 +298,27 @@ enum MessageType {
   TRAINING_REMINDER
   ABSENCE_INQUIRY
   GENERAL
+}
+
+enum MonthlyPaymentStatus {
+  PENDING
+  PARTIAL_PAID
+  PAID
+  OVERDUE
+  CANCELLED
+  PENDING_REVIEW
+}
+
+enum PaymentFormStatus {
+  ACTIVE
+  USED
+  EXPIRED
+  CANCELLED
+}
+
+enum PaymentProofStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  NEEDS_REVIEW
 }

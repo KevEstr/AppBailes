@@ -6,7 +6,7 @@ import Link from "next/link"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Receipt, MessageSquare, Clock, BarChart3, AlertTriangle, Sparkles, ArrowRight, GraduationCap } from "lucide-react"
+import { Receipt, MessageSquare, Clock, BarChart3, AlertTriangle, Sparkles, ArrowRight, GraduationCap, CreditCard } from "lucide-react"
 
 // ✅ OPTIMIZACIÓN: Cache para evitar llamadas duplicadas
 let debtsCache: { count: number; timestamp: number } | null = null
@@ -85,12 +85,20 @@ export default function HomePage() {
       color: "from-orange-500 to-red-600",
     },
     {
-      id: "debts",
+      id: "debts", 
       href: "/debts",
       label: "Control Pagos",
       icon: AlertTriangle,
       description: "Seguimiento de mensualidades",
       color: "from-red-500 to-pink-600",
+    },
+    {
+      id: "monthly-payments",
+      href: "/admin/monthly-payments",
+      label: "Sistema de Mensualidades",
+      icon: CreditCard,
+      description: "Gestión moderna de pagos mensuales",
+      color: "from-emerald-500 to-green-600",
     },
   ], [])
 

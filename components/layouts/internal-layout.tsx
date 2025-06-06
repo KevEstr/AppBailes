@@ -22,7 +22,10 @@ export const InternalLayout = memo(function InternalLayout({ children, title, de
     'receipts': 'Recibos',
     'messages': 'Notificaciones',
     'history': 'Análisis',
-    'debts': 'Control Pagos'
+    'debts': 'Control Pagos',
+    'admin': 'Administración',
+    'monthly-payments': 'Sistema de Mensualidades',
+    'review': 'Revisión de Comprobantes'
   }), [])
 
   const getSegmentName = useMemo(() => (segment: string) => {

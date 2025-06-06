@@ -12,7 +12,7 @@ export async function GET(
     const { id } = params
 
     const danceClass = await prisma.danceClass.findUnique({
-      where: { id },
+      where: { id: parseInt(id) },
       include: {
         trainer: {
           select: {
