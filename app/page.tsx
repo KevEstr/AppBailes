@@ -6,7 +6,7 @@ import Link from "next/link"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Receipt, MessageSquare, Clock, BarChart3, AlertTriangle, Sparkles, ArrowRight, GraduationCap } from "lucide-react"
+import { Receipt, MessageSquare, Clock, BarChart3, AlertTriangle, Sparkles, ArrowRight, GraduationCap, UserPlus, Users } from "lucide-react"
 
 // ✅ OPTIMIZACIÓN: Cache para evitar llamadas duplicadas
 let debtsCache: { count: number; timestamp: number } | null = null
@@ -44,6 +44,14 @@ export default function HomePage() {
 
   // ✅ OPTIMIZACIÓN: Memoizar menuItems para evitar recreación
   const menuItems = useMemo(() => [
+    {
+      id: "students",
+      href: "/students",
+      label: "Gestión de Estudiantes",
+      icon: Users,
+      description: "Administrar e inscribir estudiantes",
+      color: "from-cyan-500 to-blue-600",
+    },
     {
       id: "classes",
       href: "/classes",

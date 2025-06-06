@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { PrismaClient } from '@prisma/client'
+import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
-
-const prisma = new PrismaClient()
 
 const createEnrollmentSchema = z.object({
   studentId: z.number().int().positive('ID de estudiante debe ser un número positivo'),
@@ -12,64 +10,62 @@ const createEnrollmentSchema = z.object({
 // GET - Obtener inscripciones
 export async function GET(request: NextRequest) {
   try {
-    const url = new URL(request.url)
-    const studentIdParam = url.searchParams.get('studentId')
-    const classIdParam = url.searchParams.get('classId')
-    const isActive = url.searchParams.get('active') !== 'false'
+    const searchParams = request.nextUrl.searchParams
+    const status = searchParams.get('status')
+    const page = parseInt(searchParams.get('page') || '1')
+    const limit = parseInt(searchParams.get('limit') || '10')
+    const search = searchParams.get('search')
 
-    let where: any = { isActive }
+    const skip = (page - 1) * limit
 
-    if (studentIdParam) {
-      const studentId = parseInt(studentIdParam)
-      if (studentId) {
-        where.studentId = studentId
-      }
+    // Build where clause
+    const where: any = {}
+    
+    if (status && status !== 'all') {
+      where.isActive = status === 'active'
     }
+    
+         if (search) {
+       where.OR = [
+         { student: { name: { contains: search, mode: 'insensitive' } } },
+         { student: { phone: { contains: search, mode: 'insensitive' } } },
+         { student: { email: { contains: search, mode: 'insensitive' } } }
+       ]
+     }
 
-    if (classIdParam) {
-      const classId = parseInt(classIdParam)
-      if (classId) {
-        where.classId = classId
-      }
-    }
-
-    const enrollments = await prisma.classEnrollment.findMany({
-      where,
-      include: {
-        student: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            phone: true,
-            avatar: true,
-            hasDebt: true
-          }
-        },
-        danceClass: {
-          include: {
-            trainer: {
-              select: {
-                id: true,
-                name: true
-              }
-            },
-            schedules: {
-              where: { isActive: true }
+    const [enrollments, total] = await Promise.all([
+      prisma.classEnrollment.findMany({
+        where,
+        include: {
+          student: true,
+          danceClass: {
+            include: {
+              trainer: true,
+              location: true
             }
           }
-        }
-      },
-      orderBy: [
-        { enrolledAt: 'desc' }
-      ]
-    })
+        },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit
+      }),
+      prisma.classEnrollment.count({ where })
+    ])
 
-    return NextResponse.json({ success: true, enrollments })
+    return NextResponse.json({
+      success: true,
+      enrollments,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit)
+      }
+    })
   } catch (error) {
     console.error('Error fetching enrollments:', error)
     return NextResponse.json(
-      { error: 'Error interno del servidor' },
+      { success: false, error: 'Error interno del servidor' },
       { status: 500 }
     )
   }
@@ -123,7 +119,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Verificar si ya está inscrito
-    const existingEnrollment = await prisma.classEnrollment.findUnique({
+    const existingEnrollment = await prisma.enrollment.findUnique({
       where: {
         studentId_classId: {
           studentId: validatedData.studentId,
@@ -142,7 +138,7 @@ export async function POST(request: NextRequest) {
     let enrollment
     if (existingEnrollment && !existingEnrollment.isActive) {
       // Reactivar inscripción existente
-      enrollment = await prisma.classEnrollment.update({
+      enrollment = await prisma.enrollment.update({
         where: { id: existingEnrollment.id },
         data: { 
           isActive: true,
@@ -171,7 +167,7 @@ export async function POST(request: NextRequest) {
       })
     } else {
       // Crear nueva inscripción
-      enrollment = await prisma.classEnrollment.create({
+      enrollment = await prisma.enrollment.create({
         data: {
           studentId: validatedData.studentId,
           classId: validatedData.classId
@@ -216,69 +212,100 @@ export async function POST(request: NextRequest) {
   }
 }
 
+// PUT - Actualizar inscripción
+export async function PUT(request: NextRequest) {
+  try {
+    const { id, action, ...updateData } = await request.json()
+
+    if (!id) {
+      return NextResponse.json(
+        { success: false, error: 'ID de inscripción requerido' },
+        { status: 400 }
+      )
+    }
+
+    let updatedEnrollment
+
+    if (action === 'toggle-status') {
+      // Toggle active status
+             const currentEnrollment = await prisma.classEnrollment.findUnique({
+         where: { id }
+       })
+
+       if (!currentEnrollment) {
+         return NextResponse.json(
+           { success: false, error: 'Inscripción no encontrada' },
+           { status: 404 }
+         )
+       }
+
+       updatedEnrollment = await prisma.classEnrollment.update({
+         where: { id },
+         data: { isActive: !currentEnrollment.isActive },
+         include: {
+           student: true,
+           danceClass: {
+             include: {
+               trainer: true,
+               location: true
+             }
+           }
+         }
+       })
+         } else {
+       // Update enrollment data
+       updatedEnrollment = await prisma.classEnrollment.update({
+         where: { id },
+         data: updateData,
+         include: {
+           student: true,
+           danceClass: {
+             include: {
+               trainer: true,
+               location: true
+             }
+           }
+         }
+       })
+     }
+
+    return NextResponse.json({
+      success: true,
+      enrollment: updatedEnrollment
+    })
+  } catch (error) {
+    console.error('Error updating enrollment:', error)
+    return NextResponse.json(
+      { success: false, error: 'Error interno del servidor' },
+      { status: 500 }
+    )
+  }
+}
+
 // DELETE - Cancelar inscripción
 export async function DELETE(request: NextRequest) {
   try {
-    const url = new URL(request.url)
-    const enrollmentIdParam = url.searchParams.get('id')
-    const studentIdParam = url.searchParams.get('studentId')
-    const classIdParam = url.searchParams.get('classId')
-    
-    if (!enrollmentIdParam && (!studentIdParam || !classIdParam)) {
-      return NextResponse.json({ 
-        error: 'ID de inscripción o combinación studentId/classId requeridos' 
-      }, { status: 400 })
+    const { id } = await request.json()
+
+    if (!id) {
+      return NextResponse.json(
+        { success: false, error: 'ID de inscripción requerido' },
+        { status: 400 }
+      )
     }
 
-    let where: any = {}
-    if (enrollmentIdParam) {
-      const enrollmentId = parseInt(enrollmentIdParam)
-      if (!enrollmentId) {
-        return NextResponse.json({ 
-          error: 'ID de inscripción debe ser un número válido' 
-        }, { status: 400 })
-      }
-      where.id = enrollmentId
-    } else {
-      const studentId = parseInt(studentIdParam!)
-      const classId = parseInt(classIdParam!)
-      
-      if (!studentId || !classId) {
-        return NextResponse.json({ 
-          error: 'IDs de estudiante y clase deben ser números válidos' 
-        }, { status: 400 })
-      }
-      
-      where.studentId_classId = {
-        studentId: studentId,
-        classId: classId
-      }
-    }
+         await prisma.classEnrollment.delete({
+       where: { id }
+     })
 
-    const cancelledEnrollment = await prisma.classEnrollment.update({
-      where,
-      data: { isActive: false },
-      include: {
-        student: {
-          select: {
-            id: true,
-            name: true
-          }
-        },
-        danceClass: {
-          select: {
-            id: true,
-            name: true
-          }
-        }
-      }
+    return NextResponse.json({
+      success: true,
+      message: 'Inscripción eliminada correctamente'
     })
-
-    return NextResponse.json({ success: true, enrollment: cancelledEnrollment })
   } catch (error) {
-    console.error('Error cancelling enrollment:', error)
+    console.error('Error deleting enrollment:', error)
     return NextResponse.json(
-      { error: 'Error interno del servidor' },
+      { success: false, error: 'Error interno del servidor' },
       { status: 500 }
     )
   }

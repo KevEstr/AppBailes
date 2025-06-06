@@ -27,8 +27,50 @@ model Student {
   debts            Debt[]
   messagesSent     MassiveMessage[] @relation("MessageRecipients")
   classEnrollments ClassEnrollment[]
+  enrollmentData   StudentEnrollmentData?
 
   @@map("students")
+}
+
+model StudentEnrollmentData {
+  id                Int      @id @default(autoincrement())
+  studentId         Int      @unique
+  
+  // Información Personal Completa
+  documentType      String?
+  birthDate         String?
+  address           String?
+  neighborhood      String?
+  city              String?   @default("Itagüí")
+  hasSisben         Boolean   @default(false)
+  eps               String?
+  bloodType         String?
+  hasRestrictions   Boolean   @default(false)
+  restrictionsDescription String?
+  medicalConditions String?
+  isAdult           Boolean   @default(true)
+  
+  // Contacto de Emergencia
+  emergencyContactName     String?
+  emergencyContactRelation String?
+  emergencyContactPhone    String?
+  
+  // Información del Acudiente (si es menor)
+  guardianName      String?
+  guardianRelation  String?
+  guardianPhone     String?
+  
+  // Información de Pago
+  monthlyFee        Float?
+  
+  // Timestamps
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@map("student_enrollment_data")
 }
 
 model DanceClass {
@@ -38,17 +80,34 @@ model DanceClass {
   trainerId   Int
   capacity    Int       @default(20)
   price       Float?
+  type        ClassType @default(DANCE) // DANCE o SPORTS
+  locationId  Int?      // Para deportes, referencia a SportLocation
   isActive    Boolean   @default(true)
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
   // Relations
   trainer     Trainer           @relation(fields: [trainerId], references: [id])
+  location    SportLocation?    @relation(fields: [locationId], references: [id])
   schedules   ClassSchedule[]
   sessions    ClassSession[]
   enrollments ClassEnrollment[]
 
   @@map("classes")
+}
+
+model SportLocation {
+  id        Int          @id @default(autoincrement())
+  name      String       @unique
+  address   String?
+  isActive  Boolean      @default(true)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  // Relations
+  classes   DanceClass[]
+
+  @@map("sport_locations")
 }
 
 model ClassSchedule {
@@ -227,4 +286,9 @@ enum MessageType {
   TRAINING_REMINDER
   ABSENCE_INQUIRY
   GENERAL
+}
+
+enum ClassType {
+  DANCE
+  SPORTS
 }

@@ -7,7 +7,7 @@ const prisma = new PrismaClient()
 // POST - Activar una clase (iniciar la toma de asistencia)
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const user = await getUserFromRequest(request)
@@ -15,7 +15,8 @@ export async function POST(
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
     }
 
-    const classId = params.id
+    const { id } = await params
+    const classId = id
 
     // Primero desactivar todas las clases activas
     await prisma.class.updateMany({
@@ -54,7 +55,7 @@ export async function POST(
 // DELETE - Desactivar una clase
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const user = await getUserFromRequest(request)
@@ -62,7 +63,8 @@ export async function DELETE(
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
     }
 
-    const classId = params.id
+    const { id } = await params
+    const classId = id
 
     const deactivatedClass = await prisma.class.update({
       where: { id: classId },
