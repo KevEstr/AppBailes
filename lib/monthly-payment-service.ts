@@ -418,6 +418,20 @@ export class MonthlyPaymentService {
     });
   }
 
+  /**
+   * Obtiene formularios de pago por período para WhatsApp
+   */
+  async getPaymentFormsByPeriod(periodId: number) {
+    return await prisma.paymentForm.findMany({
+      where: { periodId },
+      include: {
+        student: true,
+        period: true,
+        monthlyPayment: true
+      }
+    });
+  }
+
   // ========== UTILIDADES ==========
 
   /**

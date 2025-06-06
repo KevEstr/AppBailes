@@ -16,6 +16,7 @@ import {
   ExternalLink
 } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
+import { WhatsAppSender } from './WhatsAppSender';
 
 interface PaymentDashboardProps {
   periodId: number;
@@ -191,6 +192,18 @@ export function PaymentDashboard({ periodId }: PaymentDashboardProps) {
           </CardContent>
         </Card>
       </div>
+
+      {/* Envío masivo de WhatsApp */}
+      <WhatsAppSender 
+        periodId={data.period.id}
+        periodName={data.period.name}
+        students={data.payments.map(p => ({
+          id: p.student.id,
+          name: p.student.name,
+          parentPhone: p.student.phone, // El phone del estudiante es el teléfono del acudiente
+          hasForm: !!p.paymentFormId
+        }))}
+      />
 
       {/* Enlaces de Formularios */}
       {data.payments.length > 0 && (
