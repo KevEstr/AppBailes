@@ -569,6 +569,446 @@ ${data.paymentLink}
     
     return { original: phone, formatted, isValid };
   }
+
+  // ========== NOTIFICACIONES DE COMPROBANTES ==========
+
+  /**
+   * Envía notificación de comprobante aprobado
+   */
+  async sendProofApprovedNotification(data: {
+    studentName: string;
+    parentPhone: string;
+    period: string;
+    amount: number;
+    paymentMethod: string;
+  }): Promise<WhatsAppResponse> {
+    try {
+      const formattedPhone = this.formatPhoneNumber(data.parentPhone);
+      
+      console.log('📤 Enviando notificación de comprobante APROBADO:');
+      console.log('   👤 Estudiante:', data.studentName);
+      console.log('   📱 Teléfono:', formattedPhone);
+      console.log('   💰 Monto:', data.amount);
+      
+      // PRIORIDAD 1: Intentar template personalizado
+      try {
+        console.log('🎯 Intentando template personalizado de aprobación...');
+        return await this.sendProofApprovedTemplate(data, formattedPhone);
+      } catch (templateError) {
+        console.log('⚠️ Template personalizado falló, usando fallback...');
+        console.error('Error con template personalizado:', templateError);
+      }
+      
+      // FALLBACK: Template hello_world + mensaje de seguimiento
+      console.log('🔄 Usando template hello_world + notificación de aprobación...');
+      return await this.sendProofApprovedWithHelloWorld(data, formattedPhone);
+      
+    } catch (error) {
+      console.error('💥 Error enviando notificación de aprobación:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Envía notificación de comprobante rechazado
+   */
+  async sendProofRejectedNotification(data: {
+    studentName: string;
+    parentPhone: string;
+    period: string;
+    amount: number;
+    paymentMethod: string;
+    rejectionReason: string;
+    paymentLink?: string;
+  }): Promise<WhatsAppResponse> {
+    try {
+      const formattedPhone = this.formatPhoneNumber(data.parentPhone);
+      
+      console.log('📤 Enviando notificación de comprobante RECHAZADO:');
+      console.log('   👤 Estudiante:', data.studentName);
+      console.log('   📱 Teléfono:', formattedPhone);
+      console.log('   ❌ Motivo:', data.rejectionReason);
+      
+      // PRIORIDAD 1: Intentar template personalizado
+      try {
+        console.log('🎯 Intentando template personalizado de rechazo...');
+        return await this.sendProofRejectedTemplate(data, formattedPhone);
+      } catch (templateError) {
+        console.log('⚠️ Template personalizado falló, usando fallback...');
+        console.error('Error con template personalizado:', templateError);
+      }
+      
+      // FALLBACK: Template hello_world + mensaje de seguimiento
+      console.log('🔄 Usando template hello_world + notificación de rechazo...');
+      return await this.sendProofRejectedWithHelloWorld(data, formattedPhone);
+      
+    } catch (error) {
+      console.error('💥 Error enviando notificación de rechazo:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Template personalizado para comprobante aprobado
+   */
+  private async sendProofApprovedTemplate(data: {
+    studentName: string;
+    period: string;
+    amount: number;
+    paymentMethod: string;
+  }, formattedPhone: string): Promise<WhatsAppResponse> {
+    const requestBody = {
+      messaging_product: 'whatsapp',
+      to: formattedPhone,
+      type: 'template',
+      template: {
+        name: 'proof_approved_paradise', // Template aprobado para notificaciones de aprobación
+        language: {
+          code: 'es'
+        },
+        components: [
+          {
+            type: 'body',
+            parameters: [
+              {
+                type: 'text',
+                text: data.studentName // {{1}} - Nombre del estudiante
+              },
+              {
+                type: 'text',
+                text: data.period // {{2}} - Período
+              },
+              {
+                type: 'text',
+                text: `$${data.amount.toLocaleString()}` // {{3}} - Monto
+              },
+              {
+                type: 'text',
+                text: data.paymentMethod // {{4}} - Método de pago
+              }
+            ]
+          }
+        ]
+      }
+    };
+    
+    console.log('📋 Template de aprobación:', JSON.stringify(requestBody, null, 2));
+    
+    const response = await fetch(this.baseUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${this.accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestBody)
+    });
+
+    const responseData = await response.json();
+    console.log('📨 Response (Proof Approved Template):', response.status, responseData);
+
+    if (!response.ok) {
+      throw new Error(`Proof approved template error: ${JSON.stringify(responseData)}`);
+    }
+
+    console.log('✅ Template de aprobación enviado exitosamente');
+    return responseData;
+  }
+
+  /**
+   * Template personalizado para comprobante rechazado
+   */
+  private async sendProofRejectedTemplate(data: {
+    studentName: string;
+    period: string;
+    amount: number;
+    paymentMethod: string;
+    rejectionReason: string;
+    paymentLink?: string;
+  }, formattedPhone: string): Promise<WhatsAppResponse> {
+    const requestBody = {
+      messaging_product: 'whatsapp',
+      to: formattedPhone,
+      type: 'template',
+      template: {
+        name: 'proof_rejected_paradise', // Template aprobado para notificaciones de rechazo
+        language: {
+          code: 'es'
+        },
+        components: [
+          {
+            type: 'body',
+            parameters: [
+              {
+                type: 'text',
+                text: data.studentName // {{1}} - Nombre del estudiante
+              },
+              {
+                type: 'text',
+                text: data.period // {{2}} - Período
+              },
+              {
+                type: 'text',
+                text: `$${data.amount.toLocaleString()}` // {{3}} - Monto
+              },
+              {
+                type: 'text',
+                text: data.paymentMethod // {{4}} - Método de pago
+              },
+              {
+                type: 'text',
+                text: data.rejectionReason // {{5}} - Motivo del rechazo
+              }
+            ]
+          }
+        ]
+      }
+    };
+    
+    console.log('📋 Template de rechazo:', JSON.stringify(requestBody, null, 2));
+    
+    const response = await fetch(this.baseUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${this.accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestBody)
+    });
+
+    const responseData = await response.json();
+    console.log('📨 Response (Proof Rejected Template):', response.status, responseData);
+
+    if (!response.ok) {
+      throw new Error(`Proof rejected template error: ${JSON.stringify(responseData)}`);
+    }
+
+    console.log('✅ Template de rechazo enviado exitosamente');
+    return responseData;
+  }
+
+  /**
+   * Fallback: Hello world + mensaje de aprobación
+   */
+  private async sendProofApprovedWithHelloWorld(data: {
+    studentName: string;
+    period: string;
+    amount: number;
+    paymentMethod: string;
+  }, formattedPhone: string): Promise<WhatsAppResponse> {
+    // 1. Enviar template hello_world
+    const helloWorldBody = {
+      messaging_product: 'whatsapp',
+      to: formattedPhone,
+      type: 'template',
+      template: {
+        name: 'hello_world',
+        language: {
+          code: 'en_US'
+        }
+      }
+    };
+    
+    console.log('📋 Enviando hello_world para aprobación...');
+    
+    const response = await fetch(this.baseUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${this.accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(helloWorldBody)
+    });
+
+    const responseData = await response.json();
+    console.log('📨 Response (Hello World - Approved):', response.status, responseData);
+
+    if (!response.ok) {
+      throw new Error(`Hello world template error: ${JSON.stringify(responseData)}`);
+    }
+
+    // 2. Programar mensaje de seguimiento
+    setTimeout(async () => {
+      try {
+        await this.sendProofApprovedFollowUp(data, formattedPhone);
+      } catch (error) {
+        console.error('Error en mensaje de aprobación:', error);
+      }
+    }, 2000);
+
+    console.log('✅ Hello world enviado, notificación de aprobación programada');
+    return responseData;
+  }
+
+  /**
+   * Fallback: Hello world + mensaje de rechazo
+   */
+  private async sendProofRejectedWithHelloWorld(data: {
+    studentName: string;
+    period: string;
+    amount: number;
+    paymentMethod: string;
+    rejectionReason: string;
+    paymentLink?: string;
+  }, formattedPhone: string): Promise<WhatsAppResponse> {
+    // 1. Enviar template hello_world
+    const helloWorldBody = {
+      messaging_product: 'whatsapp',
+      to: formattedPhone,
+      type: 'template',
+      template: {
+        name: 'hello_world',
+        language: {
+          code: 'en_US'
+        }
+      }
+    };
+    
+    console.log('📋 Enviando hello_world para rechazo...');
+    
+    const response = await fetch(this.baseUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${this.accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(helloWorldBody)
+    });
+
+    const responseData = await response.json();
+    console.log('📨 Response (Hello World - Rejected):', response.status, responseData);
+
+    if (!response.ok) {
+      throw new Error(`Hello world template error: ${JSON.stringify(responseData)}`);
+    }
+
+    // 2. Programar mensaje de seguimiento
+    setTimeout(async () => {
+      try {
+        await this.sendProofRejectedFollowUp(data, formattedPhone);
+      } catch (error) {
+        console.error('Error en mensaje de rechazo:', error);
+      }
+    }, 2000);
+
+    console.log('✅ Hello world enviado, notificación de rechazo programada');
+    return responseData;
+  }
+
+  /**
+   * Mensaje de seguimiento para aprobación
+   */
+  private async sendProofApprovedFollowUp(data: {
+    studentName: string;
+    period: string;
+    amount: number;
+    paymentMethod: string;
+  }, formattedPhone: string): Promise<void> {
+    const approvedMessage = `✅ *Comprobante Aprobado - Paradise Dance Academy*
+
+¡Hola! Te informamos que tu comprobante de pago ha sido *APROBADO*.
+
+👤 *Estudiante:* ${data.studentName}
+📅 *Período:* ${data.period}
+💰 *Monto:* $${data.amount.toLocaleString()}
+📋 *Método:* ${data.paymentMethod}
+✅ *Estado:* Pago confirmado
+
+🎉 *¡Perfecto!* El pago ha sido registrado exitosamente en nuestro sistema.
+
+*Paradise Dance Academy* ✨
+¡Gracias por ser parte de nuestra familia de baile! 🩰`;
+
+    const followUpBody = {
+      messaging_product: 'whatsapp',
+      to: formattedPhone,
+      type: 'text',
+      text: {
+        body: approvedMessage
+      }
+    };
+
+    console.log('📋 Enviando mensaje de aprobación...');
+
+    const response = await fetch(this.baseUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${this.accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(followUpBody)
+    });
+
+    const responseData = await response.json();
+    console.log('📨 Approved follow-up response:', response.status, responseData);
+
+    if (response.ok) {
+      console.log('✅ Mensaje de aprobación enviado exitosamente');
+    } else {
+      console.log('⚠️ Mensaje de aprobación falló (normal en modo desarrollo)');
+    }
+  }
+
+  /**
+   * Mensaje de seguimiento para rechazo
+   */
+  private async sendProofRejectedFollowUp(data: {
+    studentName: string;
+    period: string;
+    amount: number;
+    paymentMethod: string;
+    rejectionReason: string;
+    paymentLink?: string;
+  }, formattedPhone: string): Promise<void> {
+    const rejectedMessage = `❌ *Comprobante Rechazado - Paradise Dance Academy*
+
+Hola, te informamos que tu comprobante de pago ha sido *RECHAZADO*.
+
+👤 *Estudiante:* ${data.studentName}
+📅 *Período:* ${data.period}
+💰 *Monto enviado:* $${data.amount.toLocaleString()}
+📋 *Método:* ${data.paymentMethod}
+❌ *Estado:* Comprobante rechazado
+
+🔍 *Motivo del rechazo:*
+${data.rejectionReason}
+
+📱 *¿Qué hacer ahora?*
+1. Verifica que el comprobante sea claro y legible
+2. Asegúrate de que el monto sea correcto
+3. Vuelve a subir el comprobante corregido${data.paymentLink ? `\n   Enlace: ${data.paymentLink}` : ''}
+4. Si tienes dudas, contáctanos
+
+*Paradise Dance Academy* ✨`;
+
+    const followUpBody = {
+      messaging_product: 'whatsapp',
+      to: formattedPhone,
+      type: 'text',
+      text: {
+        body: rejectedMessage
+      }
+    };
+
+    console.log('📋 Enviando mensaje de rechazo...');
+
+    const response = await fetch(this.baseUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${this.accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(followUpBody)
+    });
+
+    const responseData = await response.json();
+    console.log('📨 Rejected follow-up response:', response.status, responseData);
+
+    if (response.ok) {
+      console.log('✅ Mensaje de rechazo enviado exitosamente');
+    } else {
+      console.log('⚠️ Mensaje de rechazo falló (normal en modo desarrollo)');
+    }
+  }
 }
 
 export const whatsappService = new WhatsAppService(); 

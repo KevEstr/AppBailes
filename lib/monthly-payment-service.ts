@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { generateId } from '@/lib/utils';
+import { whatsappService } from '@/lib/whatsapp-service';
 
 export class MonthlyPaymentService {
   
@@ -278,6 +279,8 @@ export class MonthlyPaymentService {
       include: {
         paymentForm: {
           include: {
+            student: true,
+            period: true,
             monthlyPayment: true
           }
         }
@@ -322,6 +325,63 @@ export class MonthlyPaymentService {
 
       // Actualizar estado de deuda del estudiante
       await this.updateStudentDebtStatus(monthlyPayment.studentId);
+    }
+
+    // ========== ENVIAR NOTIFICACIONES DE WHATSAPP ==========
+    
+    try {
+      const student = proof.paymentForm.student;
+      const period = proof.paymentForm.period;
+      
+      // Solo enviar si el estudiante tiene teléfono configurado
+      if (student.phone) {
+        const paymentMethodLabels = {
+          'TRANSFER': 'Transferencia',
+          'CASH': 'Efectivo',
+          'CARD': 'Tarjeta'
+        };
+        
+        const notificationData = {
+          studentName: student.name,
+          parentPhone: student.phone,
+          period: period.name,
+          amount: proof.amount,
+          paymentMethod: paymentMethodLabels[proof.paymentMethod] || proof.paymentMethod
+        };
+
+        if (data.status === 'APPROVED') {
+          console.log('📤 Enviando notificación de comprobante APROBADO...');
+          await whatsappService.sendProofApprovedNotification(notificationData);
+          console.log('✅ Notificación de aprobación enviada exitosamente');
+          
+        } else if (data.status === 'REJECTED') {
+          console.log('📤 Enviando notificación de comprobante RECHAZADO...');
+          
+          // Obtener el link del formulario de pago si existe un formulario activo
+          const activeForm = await prisma.paymentForm.findFirst({
+            where: {
+              studentId: student.id,
+              periodId: period.id,
+              status: 'ACTIVE'
+            }
+          });
+          
+          const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+          const paymentLink = activeForm ? `${baseUrl}/payment/${activeForm.id}` : undefined;
+          
+          await whatsappService.sendProofRejectedNotification({
+            ...notificationData,
+            rejectionReason: data.reviewNotes || 'No se especificó motivo del rechazo',
+            paymentLink
+          });
+          console.log('✅ Notificación de rechazo enviada exitosamente');
+        }
+      } else {
+        console.log('⚠️ Estudiante sin teléfono configurado, notificación no enviada');
+      }
+    } catch (whatsappError) {
+      console.error('❌ Error enviando notificación de WhatsApp:', whatsappError);
+      // No fallar la operación principal si falla WhatsApp
     }
 
     return updatedProof;
