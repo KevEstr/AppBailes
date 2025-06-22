@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { PrismaClient } from '@prisma/client'
 import { z } from 'zod'
+import { getServerSession } from "next-auth/next"
+import { authOptions } from "@/lib/nextauth"
 
 const prisma = new PrismaClient()
 
@@ -15,45 +17,31 @@ const updateTrainerSchema = createTrainerSchema.partial()
 // GET - Obtener entrenadores
 export async function GET(request: NextRequest) {
   try {
-    const url = new URL(request.url)
-    const isActive = url.searchParams.get('active') !== 'false'
+    const session = await getServerSession(authOptions)
+    
+    if (!session || session.user.role !== "ADMIN") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
 
     const trainers = await prisma.trainer.findMany({
-      where: { isActive },
-      include: {
-        classes: {
-          where: { isActive: true },
-          include: {
-            _count: {
-              select: {
-                enrollments: {
-                  where: { isActive: true }
-                }
-              }
-            }
-          }
-        },
-        _count: {
-          select: {
-            classes: {
-              where: { isActive: true }
-            }
-          }
-        }
+      where: {
+        isActive: true
       },
-      orderBy: [
-        { isActive: 'desc' },
-        { name: 'asc' }
-      ]
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phone: true
+      },
+      orderBy: {
+        name: "asc"
+      }
     })
 
-    return NextResponse.json({ success: true, trainers })
+    return NextResponse.json(trainers)
   } catch (error) {
-    console.error('Error fetching trainers:', error)
-    return NextResponse.json(
-      { error: 'Error interno del servidor' },
-      { status: 500 }
-    )
+    console.error("Error fetching trainers:", error)
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
   }
 }
 
