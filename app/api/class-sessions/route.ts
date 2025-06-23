@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { PrismaClient } from '@prisma/client'
 import { z } from 'zod'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
 
 const prisma = new PrismaClient()
 
@@ -20,6 +22,12 @@ const updateSessionSchema = z.object({
 // GET - Obtener sesiones
 export async function GET(request: NextRequest) {
   try {
+    // Verificar autenticación
+    const session = await getServerSession(authOptions)
+    if (!session) {
+      return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+    }
+
     const url = new URL(request.url)
     const classIdParam = url.searchParams.get('classId')
     const date = url.searchParams.get('date')
@@ -119,6 +127,17 @@ export async function GET(request: NextRequest) {
 // POST - Crear nueva sesión
 export async function POST(request: NextRequest) {
   try {
+    // Verificar autenticación y permisos
+    const session = await getServerSession(authOptions)
+    if (!session) {
+      return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+    }
+
+    // Solo ADMIN y TEACHER pueden crear sesiones
+    if (session.user.role !== 'ADMIN' && session.user.role !== 'TEACHER') {
+      return NextResponse.json({ error: 'Sin permisos' }, { status: 403 })
+    }
+
     const body = await request.json()
     const validatedData = createSessionSchema.parse(body)
 
@@ -187,6 +206,17 @@ export async function POST(request: NextRequest) {
 // PUT - Actualizar sesión
 export async function PUT(request: NextRequest) {
   try {
+    // Verificar autenticación y permisos
+    const session = await getServerSession(authOptions)
+    if (!session) {
+      return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+    }
+
+    // Solo ADMIN y TEACHER pueden actualizar sesiones
+    if (session.user.role !== 'ADMIN' && session.user.role !== 'TEACHER') {
+      return NextResponse.json({ error: 'Sin permisos' }, { status: 403 })
+    }
+
     const url = new URL(request.url)
     const sessionIdParam = url.searchParams.get('id')
     
@@ -241,6 +271,17 @@ export async function PUT(request: NextRequest) {
 // DELETE - Eliminar sesión
 export async function DELETE(request: NextRequest) {
   try {
+    // Verificar autenticación y permisos
+    const session = await getServerSession(authOptions)
+    if (!session) {
+      return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+    }
+
+    // Solo ADMIN puede eliminar sesiones
+    if (session.user.role !== 'ADMIN') {
+      return NextResponse.json({ error: 'Solo administradores pueden eliminar sesiones' }, { status: 403 })
+    }
+
     const url = new URL(request.url)
     const sessionIdParam = url.searchParams.get('id')
     

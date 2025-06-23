@@ -1,8 +1,21 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
 
 export async function POST(request: Request) {
   try {
+    // Verificar autenticación y permisos
+    const session = await getServerSession(authOptions)
+    if (!session) {
+      return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+    }
+
+    // Solo ADMIN y TEACHER pueden registrar asistencia
+    if (session.user.role !== 'ADMIN' && session.user.role !== 'TEACHER') {
+      return NextResponse.json({ error: 'Sin permisos para registrar asistencia' }, { status: 403 })
+    }
+
     const data = await request.json()
 
     // Validar que los IDs sean números válidos
@@ -31,7 +44,7 @@ export async function POST(request: Request) {
     }
 
     // Verificar que la sesión existe y está activa
-    const session = await prisma.classSession.findUnique({
+    const classSession = await prisma.classSession.findUnique({
       where: { id: sessionId },
       include: {
         danceClass: {
@@ -44,12 +57,12 @@ export async function POST(request: Request) {
       }
     })
 
-    if (!session) {
+    if (!classSession) {
       return NextResponse.json({ error: "Sesión no encontrada" }, { status: 404 })
     }
 
     // Verificar que el estudiante esté inscrito en la clase
-    if (session.danceClass.enrollments.length === 0) {
+    if (classSession.danceClass.enrollments.length === 0) {
       return NextResponse.json({ 
         error: "El estudiante no está inscrito en esta clase" 
       }, { status: 400 })
@@ -115,6 +128,12 @@ export async function POST(request: Request) {
 
 export async function GET(request: Request) {
   try {
+    // Verificar autenticación
+    const userSession = await getServerSession(authOptions)
+    if (!userSession) {
+      return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+    }
+
     const url = new URL(request.url)
     const sessionIdParam = url.searchParams.get('sessionId')
     const classIdParam = url.searchParams.get('classId')
@@ -137,7 +156,7 @@ export async function GET(request: Request) {
         const endOfDay = new Date(targetDate)
         endOfDay.setHours(23, 59, 59, 999)
 
-        const sessions = await prisma.classSession.findMany({
+        const classSessions = await prisma.classSession.findMany({
           where: {
             classId: classId,
             date: {
@@ -147,9 +166,9 @@ export async function GET(request: Request) {
           }
         })
 
-        if (sessions.length > 0) {
+        if (classSessions.length > 0) {
           whereCondition.sessionId = {
-            in: sessions.map((s: { id: number }) => s.id)
+            in: classSessions.map((s: { id: number }) => s.id)
           }
         } else {
           // No hay sesiones para esa fecha

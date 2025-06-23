@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { PrismaClient } from '@prisma/client'
 import { z } from 'zod'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
 
 const prisma = new PrismaClient()
 
@@ -29,6 +31,12 @@ const updateClassSchema = createClassSchema.partial()
 // GET - Obtener todas las clases
 export async function GET(request: NextRequest) {
   try {
+    // Verificar autenticación
+    const session = await getServerSession(authOptions)
+    if (!session) {
+      return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+    }
+
     const url = new URL(request.url)
     const isActive = url.searchParams.get('active') === 'true'
     const trainerIdParam = url.searchParams.get('trainerId')
