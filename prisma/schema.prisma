@@ -25,6 +25,8 @@ model Student {
   receipts                Receipt[]
   messagesSent            MassiveMessage[]          @relation("MessageRecipients")
   scheduledWhatsAppSends  ScheduledWhatsAppSend[]
+  serviceOrders           ServiceOrder[]
+  financialTransactions   FinancialTransaction[]
 
   @@map("students")
 }
@@ -333,6 +335,8 @@ model ScheduledWhatsAppSend {
   studentId       Int
   message         String
   scheduledFor    DateTime
+  scheduledDate   DateTime?               // Campo adicional para compatibilidad
+  name            String?                 // Campo para identificar el envío
   status          ScheduledMessageStatus  @default(PENDING)
   sentAt          DateTime?
   errorMessage    String?
@@ -349,7 +353,9 @@ model ScheduledWhatsAppSend {
 
 enum ScheduledMessageStatus {
   PENDING
+  RUNNING
   SENT
+  COMPLETED
   FAILED
   CANCELLED
 }
@@ -383,4 +389,198 @@ enum ClassLevel {
   BEGINNER
   INTERMEDIATE
   ADVANCED
+}
+
+// ===== NUEVOS MODELOS PARA SERVICIOS ADICIONALES =====
+
+model Service {
+  id          Int       @id @default(autoincrement())
+  name        String
+  description String?
+  basePrice   Float
+  category    ServiceCategory
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  // Relaciones
+  serviceRates ServiceRate[]
+  serviceOrders ServiceOrder[]
+
+  @@map("services")
+}
+
+model ServiceRate {
+  id        Int       @id @default(autoincrement())
+  serviceId Int
+  level     ClassLevel?
+  sportType SportType?
+  price     Float
+  isDefault Boolean   @default(false)
+  validFrom DateTime  @default(now())
+  validUntil DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  
+  // Relaciones
+  service Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  @@map("service_rates")
+}
+
+model ServiceOrder {
+  id            Int               @id @default(autoincrement())
+  studentId     Int
+  serviceId     Int
+  quantity      Int               @default(1)
+  unitPrice     Float
+  totalAmount   Float
+  status        ServiceOrderStatus @default(PENDING)
+  scheduledDate DateTime?
+  completedDate DateTime?
+  notes         String?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  
+  // Relaciones
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  service Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  payments ServicePayment[]
+
+  @@map("service_orders")
+}
+
+model ServicePayment {
+  id            Int           @id @default(autoincrement())
+  orderId       Int
+  amount        Float
+  paymentMethod PaymentMethod
+  status        PaymentStatus @default(PENDING)
+  paymentDate   DateTime?
+  reference     String?
+  notes         String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  
+  // Relaciones  
+  order ServiceOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@map("service_payments")
+}
+
+// ===== NUEVOS MODELOS PARA CONTABILIDAD =====
+
+model FinancialPeriod {
+  id        Int       @id @default(autoincrement())
+  year      Int
+  month     Int
+  startDate DateTime
+  endDate   DateTime
+  isClosed  Boolean   @default(false)
+  closedAt  DateTime?
+  closedBy  String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  
+  // Relaciones
+  transactions FinancialTransaction[]
+  reports      FinancialReport[]
+
+  @@unique([year, month])
+  @@map("financial_periods")
+}
+
+model FinancialTransaction {
+  id          Int                   @id @default(autoincrement())
+  periodId    Int
+  type        TransactionType
+  category    TransactionCategory
+  amount      Float
+  description String
+  reference   String?
+  date        DateTime              @default(now())
+  studentId   Int?
+  relatedId   Int?                  // ID relacionado (receipt, service_payment, etc)
+  relatedType String?               // Tipo de registro relacionado
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
+  
+  // Relaciones
+  period FinancialPeriod @relation(fields: [periodId], references: [id], onDelete: Cascade)
+  student Student? @relation(fields: [studentId], references: [id], onDelete: SetNull)
+
+  @@map("financial_transactions")
+}
+
+model FinancialReport {
+  id                Int             @id @default(autoincrement())
+  periodId          Int
+  reportType        ReportType
+  totalIncome       Float           @default(0)
+  totalExpenses     Float           @default(0)
+  netProfit         Float           @default(0)
+  monthlyPayments   Float           @default(0)
+  servicePayments   Float           @default(0)
+  otherIncome       Float           @default(0)
+  operatingExpenses Float           @default(0)
+  summary           Json?
+  generatedAt       DateTime        @default(now())
+  generatedBy       String?
+  
+  // Relaciones
+  period FinancialPeriod @relation(fields: [periodId], references: [id], onDelete: Cascade)
+
+  @@unique([periodId, reportType])
+  @@map("financial_reports")
+}
+
+// ===== NUEVOS ENUMS =====
+
+enum ServiceCategory {
+  TRAINING          // Entrenamiento físico
+  PRIVATE_CLASS     // Clases particulares  
+  WORKSHOP          // Talleres especiales
+  EVENT             // Eventos y presentaciones
+  EQUIPMENT         // Alquiler de equipos
+  OTHER             // Otros servicios
+}
+
+enum ServiceOrderStatus {
+  PENDING
+  CONFIRMED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  PARTIAL
+  FAILED
+  REFUNDED
+}
+
+enum TransactionType {
+  INCOME
+  EXPENSE
+}
+
+enum TransactionCategory {
+  MONTHLY_PAYMENT
+  SERVICE_PAYMENT
+  EQUIPMENT
+  MARKETING
+  RENT
+  UTILITIES
+  SALARIES
+  OTHER_INCOME
+  OTHER_EXPENSE
+}
+
+enum ReportType {
+  MONTHLY
+  QUARTERLY
+  ANNUAL
+  CUSTOM
 }

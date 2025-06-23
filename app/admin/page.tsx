@@ -134,6 +134,22 @@ export default function AdminPage() {
       description: "Gestión moderna de pagos mensuales",
       color: "from-emerald-500 to-green-600",
     },
+    {
+      id: "financial-reports",
+      href: "/admin/financial-reports",
+      label: "Consolidado Financiero",
+      icon: BarChart3,
+      description: "Reportes y análisis de ingresos",
+      color: "from-cyan-500 to-blue-600",
+    },
+    {
+      id: "services",
+      href: "/admin/services",
+      label: "Servicios Adicionales",
+      icon: Settings,
+      description: "Gestión de servicios y tarifas",
+      color: "from-indigo-500 to-purple-600",
+    },
   ]
 
   return (
