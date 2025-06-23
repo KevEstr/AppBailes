@@ -24,10 +24,10 @@ jobs:
       with:
         fetch-depth: 0  # Necesario para SonarQube
     
-    - name: 📦 Setup Node.js 18
+    - name: 📦 Setup Node.js 20
       uses: actions/setup-node@v4
       with:
-        node-version: '18'
+        node-version: '20'
         # Deshabilitamos cache para forzar instalación limpia
         # cache: 'npm'
     
@@ -43,10 +43,12 @@ jobs:
       run: |
         echo "Instalando dependencias con npm..."
         npm ci --prefer-offline --no-audit
+        echo "Instalando ESLint explícitamente..."
+        npm install --save-dev eslint eslint-config-next
         echo "Verificando instalación de ESLint..."
         npm list eslint
-        echo "Contenido de node_modules/.bin:"
-        ls -la node_modules/.bin/ | grep eslint || echo "No ESLint en .bin"
+        echo "Verificando binario de ESLint:"
+        npx eslint --version || echo "ESLint no funciona"
     
     - name: 🔍 ESLint Analysis
       run: |
@@ -93,10 +95,10 @@ jobs:
       with:
         fetch-depth: 0  # Necesario para análisis completo
     
-    - name: 📦 Setup Node.js 18
+    - name: 📦 Setup Node.js 20
       uses: actions/setup-node@v4
       with:
-        node-version: '18'
+        node-version: '20'
         # cache: 'npm'
     
     - name: 📦 Install Dependencies
@@ -124,10 +126,10 @@ jobs:
     - name: 📥 Checkout Repository
       uses: actions/checkout@v4
     
-    - name: 📦 Setup Node.js 18
+    - name: 📦 Setup Node.js 20
       uses: actions/setup-node@v4
       with:
-        node-version: '18'
+        node-version: '20'
         # cache: 'npm'
     
     - name: 📦 Install Dependencies
