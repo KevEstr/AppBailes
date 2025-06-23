@@ -1,4 +1,4 @@
-name: Paradise Dance Academy - Quality Check
+name: Paradise Dance Academy - Quality Assurance
 
 on:
   push:
@@ -6,59 +6,155 @@ on:
   pull_request:
     branches: [ main, develop ]
 
+env:
+  NODE_ENV: production
+  CI: true
+
 jobs:
-  quality-check:
-    name: Code Quality & Tests
+  quality-gate:
+    name: Quality Gate
     runs-on: ubuntu-latest
     
     steps:
-    - name: Checkout code
+    - name: 📥 Checkout Repository
       uses: actions/checkout@v4
     
-    - name: Setup Node.js
+    - name: 📦 Setup Node.js 18
       uses: actions/setup-node@v4
       with:
         node-version: '18'
         cache: 'npm'
     
-    - name: Install dependencies
-      run: npm ci
+    - name: 📦 Install Dependencies
+      run: npm ci --prefer-offline --no-audit
     
-    - name: Run ESLint
-      run: npm run lint
-    
-    - name: Run Type Check
-      run: npm run type-check || echo "⚠️ Type errors found but continuing..."
-      continue-on-error: true
-    
-    - name: Generate Prisma Client
-      run: npm run db:generate
-    
-    - name: Run Tests
-      run: npm run test:ci || echo "⚠️ Test errors found but continuing..."
-      continue-on-error: true
-    
-    - name: Basic Build Check (no database)
+    - name: 🔍 Code Linting (ESLint)
       run: |
-        echo "DATABASE_URL=postgresql://fake:fake@localhost:5432/fake" > .env.local
-        npm run build || echo "⚠️ Build has issues but pipeline continues..."
-      continue-on-error: true
+        echo "🔍 Running ESLint..."
+        npm run lint || exit 1
+    
+    - name: 🔧 TypeScript Type Checking
+      run: |
+        echo "🔧 Checking TypeScript types..."
+        npm run type-check || (echo "❌ Type errors found!" && exit 1)
+      continue-on-error: false
+    
+    - name: 🗄️ Generate Prisma Client
+      run: |
+        echo "🗄️ Generating Prisma client..."
+        npm run db:generate
+    
+    - name: 🧪 Run Test Suite
+      run: |
+        echo "🧪 Running tests..."
+        npm run test:ci || (echo "❌ Tests failed!" && exit 1)
+      env:
+        NODE_ENV: test
+    
+    - name: 🏗️ Production Build Test
+      run: |
+        echo "🏗️ Testing production build..."
+        # Set minimal env vars for build
+        echo "DATABASE_URL=postgresql://user:pass@localhost:5432/testdb" > .env.local
+        echo "NEXTAUTH_SECRET=test-secret-minimum-32-characters-long" >> .env.local
+        echo "NEXTAUTH_URL=http://localhost:3000" >> .env.local
+        
+        # Attempt build
+        npm run build || (echo "❌ Build failed!" && exit 1)
+        
+        # Check build output
+        if [ ! -d ".next" ]; then
+          echo "❌ Build directory not created!"
+          exit 1
+        fi
+        
+        echo "✅ Build successful!"
+    
+    - name: 📊 Build Size Analysis
+      run: |
+        echo "📊 Analyzing build size..."
+        du -sh .next/static/chunks/ || echo "No chunks found"
+        find .next/static -name "*.js" -type f | wc -l | xargs echo "JavaScript files:"
+        echo "Build analysis complete"
+    
+    - name: ✅ Quality Gate Passed
+      run: |
+        echo "🎉 All quality checks passed!"
+        echo "✅ Linting: OK"
+        echo "✅ Type Check: OK"
+        echo "✅ Tests: OK"
+        echo "✅ Build: OK"
+        echo "Ready for deployment! 🚀"
 
-  # Solo deploy si está en main y quality-check pasa
-  deploy:
-    name: Deploy to Vercel
-    needs: quality-check
+  security-audit:
+    name: Security Audit
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
     
     steps:
-    - name: Checkout code
+    - name: 📥 Checkout Repository
       uses: actions/checkout@v4
     
-    - name: Deploy to Vercel
+    - name: 📦 Setup Node.js 18
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+    
+    - name: 🔒 Security Vulnerability Scan
+      run: |
+        echo "🔒 Running security audit..."
+        npm audit --audit-level high || (echo "⚠️ Security vulnerabilities found!" && exit 1)
+    
+    - name: 📋 License Compliance Check
+      run: |
+        echo "📋 Checking license compliance..."
+        npx license-checker --onlyAllow "MIT;ISC;Apache-2.0;BSD-2-Clause;BSD-3-Clause;Unlicense" || echo "⚠️ License issues found"
+      continue-on-error: true
+
+  deploy:
+    name: Deploy to Production
+    needs: [quality-gate, security-audit]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && success()
+    
+    environment: production
+    
+    steps:
+    - name: 📥 Checkout Repository
+      uses: actions/checkout@v4
+    
+    - name: 🚀 Deploy to Vercel
       uses: amondnet/vercel-action@v25
       with:
         vercel-token: ${{ secrets.VERCEL_TOKEN }}
         vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
         vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
-        vercel-args: '--prod' 
+        vercel-args: '--prod'
+    
+    - name: 🎉 Deployment Success
+      run: |
+        echo "🎉 Paradise Dance Academy deployed successfully!"
+        echo "🔗 Production URL: https://your-app.vercel.app"
+        echo "📅 Deployed at: $(date)"
+
+  notify:
+    name: Notification
+    needs: [quality-gate, security-audit, deploy]
+    runs-on: ubuntu-latest
+    if: always()
+    
+    steps:
+    - name: 📢 Pipeline Status
+      run: |
+        if [ "${{ needs.quality-gate.result }}" == "success" ] && [ "${{ needs.security-audit.result }}" == "success" ]; then
+          echo "✅ All quality checks passed!"
+          if [ "${{ needs.deploy.result }}" == "success" ]; then
+            echo "🚀 Deployment successful!"
+          elif [ "${{ needs.deploy.result }}" == "skipped" ]; then
+            echo "⏭️ Deployment skipped (not main branch)"
+          fi
+        else
+          echo "❌ Quality gate failed!"
+          echo "Quality Gate: ${{ needs.quality-gate.result }}"
+          echo "Security Audit: ${{ needs.security-audit.result }}"
+        fi 

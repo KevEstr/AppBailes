@@ -1,10 +1,36 @@
-// Setup básico para Jest
+// Jest setup for Paradise Dance Academy
 require('@testing-library/jest-dom')
 
-// Variables de entorno para testing
+// Mock Next.js router
+jest.mock('next/navigation', () => ({
+  useRouter: () => ({
+    push: jest.fn(),
+    replace: jest.fn(),
+    back: jest.fn(),
+    forward: jest.fn(),
+    refresh: jest.fn(),
+    prefetch: jest.fn(),
+  }),
+  useSearchParams: () => new URLSearchParams(),
+  usePathname: () => '/',
+}))
+
+// Mock Next.js image
+jest.mock('next/image', () => ({
+  __esModule: true,
+  default: (props) => {
+    // eslint-disable-next-line @next/next/no-img-element
+    return <img {...props} />
+  },
+}))
+
+// Mock environment variables
+process.env.NODE_ENV = 'test'
 process.env.NEXTAUTH_SECRET = 'test-secret'
 process.env.NEXTAUTH_URL = 'http://localhost:3000'
-process.env.DATABASE_URL = 'test-database-url'
+
+// Global test timeout
+jest.setTimeout(10000)
 
 // Mock básico de fetch
 global.fetch = jest.fn()

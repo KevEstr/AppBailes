@@ -1,49 +1,42 @@
-/** @type {import('jest').Config} */
-const config = {
-  // Configuración de entorno
+const nextJest = require('next/jest')
+
+const createJestConfig = nextJest({
+  dir: './',
+})
+
+const customJestConfig = {
+  displayName: 'Paradise Dance Academy Tests',
   testEnvironment: 'jsdom',
-  
-  // Archivos de setup
   setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
-  
-  // Paths de módulos
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/$1',
   },
-  
-  // Patrones de archivos de prueba
   testMatch: [
-    '**/__tests__/**/*.test.(ts|tsx|js)',
-    '**/*.test.(ts|tsx|js)'
+    '**/__tests__/**/*.(js|jsx|ts|tsx)',
+    '**/*.(test|spec).(js|jsx|ts|tsx)'
   ],
-  
-  // Ignorar estos archivos
-  testPathIgnorePatterns: [
-    '<rootDir>/.next/',
-    '<rootDir>/node_modules/',
+  collectCoverageFrom: [
+    'app/**/*.{js,jsx,ts,tsx}',
+    'components/**/*.{js,jsx,ts,tsx}',
+    'lib/**/*.{js,jsx,ts,tsx}',
+    'hooks/**/*.{js,jsx,ts,tsx}',
+    '!**/*.d.ts',
+    '!**/node_modules/**',
+    '!**/.next/**',
   ],
-  
-  // Transform files
-  transform: {
-    '^.+\\.(ts|tsx)$': ['ts-jest', {
-      useESM: true
-    }],
+  coverageReporters: ['text', 'lcov', 'html'],
+  coverageThreshold: {
+    global: {
+      branches: 0,
+      functions: 0,
+      lines: 0,
+      statements: 0,
+    },
   },
-  
-  // Module file extensions
-  moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx'],
-  
-  // Clear mocks
-  clearMocks: true,
-  
-  // Test timeout
   testTimeout: 10000,
-  
-  // Preset para TypeScript
-  preset: 'ts-jest/presets/default-esm',
-  
-  // Extensiones de archivos
-  extensionsToTreatAsEsm: ['.ts', '.tsx'],
+  verbose: true,
+  silent: false,
+  passWithNoTests: true,
 }
 
-module.exports = config 
+module.exports = createJestConfig(customJestConfig) 
