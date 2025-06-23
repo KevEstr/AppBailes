@@ -9,6 +9,9 @@ on:
 env:
   NODE_ENV: production
   CI: true
+  # Forzar el uso de npm
+  npm_config_user_agent: npm
+  FORCE_COLOR: 0
 
 jobs:
   code-quality:
@@ -27,12 +30,23 @@ jobs:
         node-version: '18'
         cache: 'npm'
     
+    - name: 🔧 Configure npm
+      run: |
+        echo "Configurando npm para evitar conflictos..."
+        npm config set fund false
+        npm config set audit-level high
+        which npm
+        npm --version
+    
     - name: 📦 Install Dependencies
-      run: npm ci --prefer-offline --no-audit
+      run: |
+        echo "Instalando dependencias con npm..."
+        npm ci --prefer-offline --no-audit --silent
     
     - name: 🔍 ESLint Analysis
       run: |
         echo "🔍 Running ESLint..."
+        npx eslint --version
         npm run lint
     
     - name: 🔧 TypeScript Type Check
@@ -82,7 +96,7 @@ jobs:
         cache: 'npm'
     
     - name: 📦 Install Dependencies
-      run: npm ci --prefer-offline --no-audit
+      run: npm ci --prefer-offline --no-audit --silent
     
     - name: 🧪 Generate Test Coverage
       run: |
@@ -113,7 +127,7 @@ jobs:
         cache: 'npm'
     
     - name: 📦 Install Dependencies
-      run: npm ci --prefer-offline --no-audit
+      run: npm ci --prefer-offline --no-audit --silent
     
     - name: 🔒 Security Vulnerability Scan
       run: |
