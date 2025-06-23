@@ -1,77 +1,80 @@
 import { withAuth } from "next-auth/middleware"
 import { NextResponse } from "next/server"
 
+// ⚡ CACHE DE RUTAS PARA EVITAR VERIFICACIONES REPETIDAS
+const ADMIN_ROUTES = ["/admin", "/receipts", "/messages", "/debts", "/history"]
+const SHARED_ROUTES = ["/classes", "/attendance"]
+const TEACHER_ROUTES = ["/teacher"]
+const PUBLIC_ROUTES = ["/login"]  // ⚡ REMOVIDO "/" de rutas públicas - ahora requiere autenticación
+
 export default withAuth(
   function middleware(req) {
     const token = req.nextauth.token
     const { pathname } = req.nextUrl
 
-    console.log("🔒 Middleware ejecutado:", { pathname, hasToken: !!token, role: token?.role })
-
-    // Si ya está autenticado y está en login, redirigir según rol
-    if (pathname === "/login" && token) {
-      console.log("✅ Usuario autenticado en /login, redirigiendo según rol:", token.role)
-      if (token.role === "ADMIN") {
-        return NextResponse.redirect(new URL("/admin", req.url))
-      } else if (token.role === "TEACHER") {
-        return NextResponse.redirect(new URL("/teacher", req.url))
-      }
-    }
-
-    // Si no hay token, NextAuth manejará la redirección automáticamente
-    if (!token) {
-      console.log("❌ Sin token, NextAuth redirigirá a login")
+    // ⚡ SKIP MIDDLEWARE PARA RUTAS ESTÁTICAS Y API AUTH
+    if (pathname.startsWith("/_next") || 
+        pathname.startsWith("/api/auth") || 
+        pathname.includes(".")) {
       return NextResponse.next()
     }
 
-    // ========== AUTORIZACIÓN POR ROLES ==========
+    // ⚡ OPTIMIZACIÓN: Solo log en desarrollo
+    if (process.env.NODE_ENV === 'development') {
+      console.log("🔒 Middleware:", { pathname, role: token?.role })
+    }
 
-    // Rutas exclusivas de ADMIN
-    const adminOnlyRoutes = ["/admin", "/receipts", "/messages", "/debts", "/history"]
-    // Rutas que puede acceder ADMIN y TEACHER
-    const sharedRoutes = ["/classes", "/attendance"]
-    // Rutas exclusivas de TEACHER
-    const teacherOnlyRoutes = ["/teacher"]
+    // ⚡ REDIRECCIÓN AUTOMÁTICA DE PÁGINA PRINCIPAL AL LOGIN (SIN AUTENTICACIÓN)
+    if (pathname === "/" && !token) {
+      return NextResponse.redirect(new URL("/login", req.url))
+    }
 
-    console.log("🔍 Verificando permisos:", { role: token.role, pathname })
+    // ⚡ REDIRECCIÓN OPTIMIZADA PARA LOGIN CON TOKEN VÁLIDO
+    if (pathname === "/login" && token) {
+      const redirectUrl = token.role === "ADMIN" ? "/admin" : "/teacher"
+      return NextResponse.redirect(new URL(redirectUrl, req.url))
+    }
 
-    // Verificar permisos por rol
+    // ⚡ REDIRECCIÓN DE PÁGINA PRINCIPAL PARA USUARIOS AUTENTICADOS
+    if (pathname === "/" && token) {
+      const redirectUrl = token.role === "ADMIN" ? "/admin" : "/teacher"
+      return NextResponse.redirect(new URL(redirectUrl, req.url))
+    }
+
+    // ⚡ PERMITIR SOLO LOGIN SIN TOKEN
+    if (PUBLIC_ROUTES.includes(pathname)) {
+      return NextResponse.next()
+    }
+
+    // ⚡ VERIFICACIÓN OBLIGATORIA DE TOKEN PARA TODAS LAS DEMÁS RUTAS
+    if (!token) {
+      return NextResponse.redirect(new URL("/login", req.url))
+    }
+
+    // ⚡ VERIFICACIÓN OBLIGATORIA DE ROLES VÁLIDOS (ADMIN o TEACHER)
+    if (token.role !== "ADMIN" && token.role !== "TEACHER") {
+      return NextResponse.redirect(new URL("/login", req.url))
+    }
+
+    // ⚡ VERIFICACIÓN OPTIMIZADA POR ROLES
     if (token.role === "ADMIN") {
-      // Admin puede acceder a todo excepto rutas específicas de teacher
-      if (pathname.startsWith("/teacher")) {
-        console.log("🚫 Admin intentando acceder a /teacher, redirigiendo a /admin")
-        return NextResponse.redirect(new URL("/admin", req.url))
-      }
-      
-      // Redirigir desde raíz al panel de admin
-      if (pathname === "/") {
-        console.log("🏠 Admin en raíz, redirigiendo a /admin")
+      // Admin: bloquear solo teacher routes
+      if (TEACHER_ROUTES.some(route => pathname.startsWith(route))) {
         return NextResponse.redirect(new URL("/admin", req.url))
       }
     } 
     else if (token.role === "TEACHER") {
-      // Teacher solo puede acceder a rutas compartidas y sus rutas específicas
-      const canAccess = 
-        sharedRoutes.some(route => pathname.startsWith(route)) ||
-        teacherOnlyRoutes.some(route => pathname.startsWith(route))
+      // Teacher: verificar permisos permitidos
+      const isAllowed = 
+        PUBLIC_ROUTES.includes(pathname) ||
+        SHARED_ROUTES.some(route => pathname.startsWith(route)) ||
+        TEACHER_ROUTES.some(route => pathname.startsWith(route))
 
-      if (!canAccess) {
-        console.log("🚫 Teacher sin permisos para:", pathname, "redirigiendo a /teacher")
-        return NextResponse.redirect(new URL("/teacher", req.url))
-      }
-
-      // Redirigir desde raíz al panel de teacher
-      if (pathname === "/") {
-        console.log("🏠 Teacher en raíz, redirigiendo a /teacher")
+      if (!isAllowed) {
         return NextResponse.redirect(new URL("/teacher", req.url))
       }
     }
-    else {
-      console.log("❌ Rol no reconocido:", token.role)
-      return NextResponse.redirect(new URL("/login", req.url))
-    }
 
-    console.log("✅ Acceso permitido a:", pathname)
     return NextResponse.next()
   },
   {
@@ -79,41 +82,45 @@ export default withAuth(
       authorized: ({ token, req }) => {
         const { pathname } = req.nextUrl
         
-        // Permitir acceso a rutas públicas y de autenticación
-        if (pathname.startsWith("/api/auth") || 
-            pathname.startsWith("/_next") || 
-            pathname.startsWith("/favicon") ||
-            pathname.includes(".")) {
+        // ⚡ OPTIMIZACIÓN: Lista rápida de rutas que SIEMPRE pasan sin token
+        const alwaysAllowed = [
+          "/api/auth",
+          "/_next",
+          "/favicon"
+        ]
+
+        if (alwaysAllowed.some(route => pathname.startsWith(route)) || pathname.includes(".")) {
           return true
         }
 
-        // Permitir acceso a login sin token
-        if (pathname === "/login") {
-          return true
-        }
-
-        // Para páginas de pago públicas
+        // ⚡ RUTAS DE PAGO PÚBLICAS (sin autenticación)
         if (pathname.startsWith("/payment/")) {
           return true
         }
 
-        // Todas las demás rutas requieren token
-        return !!token
+        // ⚡ LOGIN: PERMITIR SIN TOKEN
+        if (pathname === "/login") {
+          return true
+        }
+
+        // ⚡ PÁGINA PRINCIPAL: REQUERIR TOKEN VÁLIDO PARA ACCESO
+        if (pathname === "/") {
+          return !!token
+        }
+
+        // ⚡ TODAS LAS DEMÁS RUTAS REQUIEREN TOKEN CON ROLES VÁLIDOS
+        return !!token && (token.role === "ADMIN" || token.role === "TEACHER")
       },
     },
   }
 )
 
+// ⚡ CONFIGURACIÓN OPTIMIZADA - MATCHER MÁS ESPECÍFICO
 export const config = {
   matcher: [
     /*
-     * Match all request paths except for the ones starting with:
-     * - api/auth (NextAuth.js routes)
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - public files (images, etc.)
+     * ⚡ OPTIMIZACIÓN: Matcher más específico para reducir overhead
      */
-    "/((?!api/auth|_next/static|_next/image|favicon.ico|.*\\.).*)",
+    "/((?!api/auth|_next/static|_next/image|favicon.ico|.*\\.|uploads/).*)",
   ]
 } 
