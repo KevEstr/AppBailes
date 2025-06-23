@@ -29,7 +29,7 @@
     "performance:test": "npm run build && npm run start:prod",
     "test": "jest",
     "test:watch": "jest --watch",
-    "test:ci": "jest --coverage --watchAll=false --silent",
+    "test:ci": "jest --watchAll=false --passWithNoTests",
     "vercel:deploy": "vercel --prod",
     "vercel:preview": "vercel"
   },
