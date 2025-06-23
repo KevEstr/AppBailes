@@ -185,17 +185,65 @@ export function MonthlyPaymentsDashboard() {
 
   return (
     <div className="space-y-6">
+      {/* Navegación rápida */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <Link href="/admin/monthly-payments/config">
+          <Card className="border-0 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 transition-all cursor-pointer">
+            <CardContent className="p-4">
+              <div className="flex items-center space-x-3">
+                <Settings className="h-6 w-6 text-white" />
+                <div>
+                  <h3 className="text-white font-semibold">Configuración</h3>
+                  <p className="text-purple-100 text-sm">Valores y parámetros</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+
+        <Link href="/admin/monthly-payments/periods">
+          <Card className="border-0 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 transition-all cursor-pointer">
+            <CardContent className="p-4">
+              <div className="flex items-center space-x-3">
+                <Calendar className="h-6 w-6 text-white" />
+                <div>
+                  <h3 className="text-white font-semibold">Períodos</h3>
+                  <p className="text-blue-100 text-sm">Gestionar períodos</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+
+        <Link href="/admin/monthly-payments/review">
+          <Card className="border-0 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 transition-all cursor-pointer">
+            <CardContent className="p-4">
+              <div className="flex items-center space-x-3">
+                <Eye className="h-6 w-6 text-white" />
+                <div>
+                  <h3 className="text-white font-semibold">Comprobantes</h3>
+                  <p className="text-green-100 text-sm">Revisar pagos</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+
+        <Card className="border-0 bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 transition-all cursor-pointer">
+          <CardContent className="p-4">
+            <div className="flex items-center space-x-3">
+              <FileText className="h-6 w-6 text-white" />
+              <div>
+                <h3 className="text-white font-semibold">Reportes</h3>
+                <p className="text-orange-100 text-sm">Análisis y stats</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
       {/* Acciones rápidas */}
       <div className="flex gap-4 justify-end">
-        <Link href="/admin/monthly-payments/review">
-          <Button 
-            variant="outline" 
-            className="bg-gray-800/90 border-gray-600 text-white hover:bg-gray-700 hover:border-gray-500"
-          >
-            <Eye className="h-4 w-4 mr-2" />
-            Revisar Comprobantes
-          </Button>
-        </Link>
 
         <Dialog>
           <DialogTrigger asChild>

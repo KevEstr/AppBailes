@@ -37,6 +37,9 @@ model DanceClass {
   capacity    Int               @default(20)
   description String?
   price       Float?
+  sport       SportType         @default(DANCE)
+  modality    String?
+  level       ClassLevel        @default(BEGINNER)
   id          Int               @id @default(autoincrement())
   trainerId   Int
   enrollments ClassEnrollment[]
@@ -369,4 +372,15 @@ model User {
 enum UserRole {
   ADMIN
   TEACHER
+}
+
+enum SportType {
+  DANCE
+  VOLLEYBALL
+}
+
+enum ClassLevel {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
 }

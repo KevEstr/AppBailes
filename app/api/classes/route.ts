@@ -10,6 +10,13 @@ const createClassSchema = z.object({
   trainerId: z.number().int().positive('El ID del entrenador debe ser un número positivo'),
   capacity: z.number().min(1, 'La capacidad debe ser mayor a 0').optional(),
   price: z.number().min(0, 'El precio debe ser mayor o igual a 0').optional(),
+  sport: z.enum(['DANCE', 'VOLLEYBALL'], { 
+    errorMap: () => ({ message: 'El deporte debe ser DANCE o VOLLEYBALL' })
+  }),
+  modality: z.string().optional(),
+  level: z.enum(['BEGINNER', 'INTERMEDIATE', 'ADVANCED'], {
+    errorMap: () => ({ message: 'El nivel debe ser BEGINNER, INTERMEDIATE o ADVANCED' })
+  }).optional(),
   schedules: z.array(z.object({
     dayOfWeek: z.number().min(0).max(6),
     startTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Formato de hora inválido (HH:MM)'),
@@ -132,6 +139,9 @@ export async function POST(request: NextRequest) {
         trainerId: validatedData.trainerId,
         capacity: validatedData.capacity || 20,
         price: validatedData.price,
+        sport: validatedData.sport,
+        modality: validatedData.modality,
+        level: validatedData.level || 'BEGINNER',
         schedules: {
           create: validatedData.schedules
         }
@@ -195,6 +205,9 @@ export async function PUT(request: NextRequest) {
         trainerId: validatedData.trainerId,
         capacity: validatedData.capacity,
         price: validatedData.price,
+        sport: validatedData.sport,
+        modality: validatedData.modality,
+        level: validatedData.level,
         ...(validatedData.schedules && {
           schedules: {
             deleteMany: {}, // Eliminar horarios existentes
@@ -237,10 +250,17 @@ export async function PUT(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   try {
     const url = new URL(request.url)
-    const classId = url.searchParams.get('id')
+    const classIdParam = url.searchParams.get('id')
     
-    if (!classId) {
+    if (!classIdParam) {
       return NextResponse.json({ error: 'ID de clase requerido' }, { status: 400 })
+    }
+
+    const classId = parseInt(classIdParam)
+    if (!classId || classId <= 0) {
+      return NextResponse.json({ 
+        error: 'ID de clase debe ser un número válido' 
+      }, { status: 400 })
     }
 
     const deletedClass = await prisma.danceClass.update({
