@@ -5,61 +5,121 @@ export async function POST(request: NextRequest) {
   try {
     const data = await request.json()
     
+    // Log para debugging - ver qué datos están llegando
+    console.log('📋 Datos recibidos en enrollment/register:', JSON.stringify(data, null, 2))
+    
     // Validar datos requeridos
     if (!data.studentName || !data.documentNumber || !data.phone) {
+      console.log('❌ Faltan datos requeridos:', {
+        studentName: !!data.studentName,
+        documentNumber: !!data.documentNumber,
+        phone: !!data.phone
+      })
       return NextResponse.json({
         success: false,
         error: 'Faltan datos requeridos'
       }, { status: 400 })
     }
 
+    // Validar que documentNumber sea un número válido
+    const documentNumberInt = parseInt(data.documentNumber)
+    if (isNaN(documentNumberInt) || documentNumberInt <= 0) {
+      console.log('❌ Número de documento inválido:', data.documentNumber)
+      return NextResponse.json({
+        success: false,
+        error: 'El número de documento debe ser un número válido'
+      }, { status: 400 })
+    }
+
+    console.log('🔍 Buscando estudiante con ID:', documentNumberInt)
+
     // Verificar si el estudiante ya existe
     let student = await prisma.student.findUnique({
-      where: { id: parseInt(data.documentNumber) }
+      where: { id: documentNumberInt }
     })
+
+    console.log('👤 Resultado búsqueda estudiante:', student ? 'Encontrado' : 'No encontrado')
 
     // Si no existe, crear el estudiante
     if (!student) {
-      student = await prisma.student.create({
-        data: {
-          id: parseInt(data.documentNumber),
-          name: data.studentName,
-          phone: data.phone,
-          email: data.email || null,
-          avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(data.studentName)}`
-        }
-      })
+      console.log('🆕 Creando nuevo estudiante...')
+      
+      try {
+        student = await prisma.student.create({
+          data: {
+            id: documentNumberInt,
+            name: data.studentName,
+            phone: data.phone,
+            email: data.email || null,
+            avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(data.studentName)}`
+          }
+        })
 
-      // Crear información extendida de inscripción con todos los datos
-      await prisma.studentEnrollmentData.create({
-        data: {
-          studentId: student.id,
-          documentType: data.documentType || null,
-          birthDate: data.birthDate || null,
-          address: data.address || null,
-          neighborhood: data.neighborhood || null,
-          city: 'Itagüí',
-          hasSisben: data.hasSisben || false,
-          eps: data.eps || null,
-          bloodType: data.bloodType || null,
-          hasRestrictions: data.hasRestrictions || false,
-          restrictionsDescription: data.restrictionsDescription || null,
-          medicalConditions: data.medicalConditions || null,
-          isAdult: data.isAdult !== undefined ? data.isAdult : true,
-          emergencyContactName: data.emergencyContactName || null,
-          emergencyContactRelation: data.emergencyContactRelation || null,
-          emergencyContactPhone: data.emergencyContactPhone || null,
-          guardianName: data.guardianName || null,
-          guardianRelation: data.guardianRelation || null,
-          guardianPhone: data.guardianPhone || null,
-          monthlyFee: null // Se definirá por la administración
+        console.log('✅ Estudiante creado exitosamente:', student.id)
+
+        // Crear información extendida de inscripción con todos los datos
+        console.log('📝 Creando datos extendidos de inscripción...')
+        
+        await prisma.studentEnrollmentData.create({
+          data: {
+            studentId: student.id,
+            documentType: data.documentType || null,
+            birthDate: data.birthDate || null,
+            address: data.address || null,
+            addressLatitude: data.addressLatitude || null,
+            addressLongitude: data.addressLongitude || null,
+            neighborhood: data.neighborhood || null,
+            city: 'Itagüí',
+            hasSisben: data.hasSisben || false,
+            eps: data.eps || null,
+            bloodType: data.bloodType || null,
+            hasRestrictions: data.hasRestrictions || false,
+            restrictionsDescription: data.restrictionsDescription || null,
+            medicalConditions: data.medicalConditions || null,
+            isAdult: data.isAdult !== undefined ? data.isAdult : true,
+            emergencyContactName: data.emergencyContactName || null,
+            emergencyContactRelation: data.emergencyContactRelation || null,
+            emergencyContactPhone: data.emergencyContactPhone || null,
+            guardianName: data.guardianName || null,
+            guardianRelation: data.guardianRelation || null,
+            guardianPhone: data.guardianPhone || null,
+            monthlyFee: null // Se definirá por la administración
+          }
+        })
+
+        console.log('✅ Datos extendidos creados exitosamente')
+
+      } catch (createError: unknown) {
+        console.error('❌ Error creando estudiante:', createError)
+        
+        // Verificar si es error de duplicado
+        if (createError && typeof createError === 'object' && 'code' in createError && createError.code === 'P2002') {
+          return NextResponse.json({
+            success: false,
+            error: 'Ya existe un estudiante con este número de documento, email o teléfono'
+          }, { status: 400 })
         }
-      })
+        
+        throw createError
+      }
+    } else {
+      console.log('👤 Estudiante ya existe, actualizando información extendida si es necesario...')
+    }
+
+    // Verificar que student existe antes de continuar
+    if (!student) {
+      console.error('❌ Error: student es null después de la creación')
+      return NextResponse.json({
+        success: false,
+        error: 'Error interno: no se pudo crear o encontrar el estudiante'
+      }, { status: 500 })
     }
 
     // Crear la inscripción si se proporcionó classId
     let enrollment = null
     if (data.classId) {
+      console.log('📚 Creando inscripción a clase:', data.classId)
+      
       try {
         enrollment = await prisma.classEnrollment.create({
           data: {
@@ -67,14 +127,18 @@ export async function POST(request: NextRequest) {
             classId: parseInt(data.classId)
           }
         })
-      } catch (error) {
+        
+        console.log('✅ Inscripción creada exitosamente:', enrollment.id)
+        
+      } catch (error: unknown) {
         // Si ya está inscrito, no es un error
-        console.log('Student might already be enrolled:', error)
+        console.log('⚠️ Posible inscripción duplicada (ignorando):', error)
       }
+    } else {
+      console.log('⚠️ No se proporcionó classId, no se crea inscripción a clase')
     }
-
-    // Guardar información adicional en una tabla de registros de inscripción
-    // Por ahora, solo retornamos éxito
+    
+    console.log('🎉 Proceso completado exitosamente')
     
     return NextResponse.json({
       success: true,
@@ -90,8 +154,14 @@ export async function POST(request: NextRequest) {
       } : null
     })
 
-  } catch (error) {
-    console.error('Error processing enrollment:', error)
+  } catch (error: any) {
+    console.error('💥 Error processing enrollment:', error)
+    console.error('💥 Error details:', {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : 'No stack trace',
+      code: error.code || 'No error code'
+    })
+    
     return NextResponse.json({
       success: false,
       error: 'Error interno del servidor'

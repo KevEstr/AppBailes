@@ -24,9 +24,15 @@ import {
   ChevronLeft,
   ChevronRight,
   Send,
-  AlertCircle
+  AlertCircle,
+  ArrowLeft,
+  ArrowRight,
+  Users,
+  CheckCircle,
+  Trophy
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { InteractiveMap } from './interactive-map'
 
 interface EnrollmentFormData {
   // Tipo de inscripción
@@ -43,7 +49,10 @@ interface EnrollmentFormData {
   documentNumber: string
   birthDate: string
   phone: string
+  email: string
   address: string
+  addressLatitude?: number
+  addressLongitude?: number
   neighborhood: string
   hasSisben: boolean
   eps: string
@@ -91,15 +100,22 @@ interface ClassData {
 }
 
 const DOCUMENT_TYPES = [
-  "Cédula de Ciudadanía",
-  "Tarjeta de Identidad", 
-  "Registro Civil",
-  "Cédula de Extranjería"
+  { value: "CC", label: "Cédula de Ciudadanía" },
+  { value: "TI", label: "Tarjeta de Identidad" }, 
+  { value: "RC", label: "Registro Civil" },
+  { value: "CE", label: "Cédula de Extranjería" }
 ]
 
 const BLOOD_TYPES = ["O+", "O-", "A+", "A-", "B+", "B-", "AB+", "AB-"]
 
-const RELATIONS = ["Padre", "Madre", "Abuelo(a)", "Tío(a)", "Hermano(a)", "Otro"]
+const RELATIONS = [
+  { value: "padre", label: "Padre" },
+  { value: "madre", label: "Madre" },
+  { value: "abuelo", label: "Abuelo(a)" },
+  { value: "tio", label: "Tío(a)" },
+  { value: "hermano", label: "Hermano(a)" },
+  { value: "otro", label: "Otro" }
+]
 
 export function EnrollmentForm() {
   const { toast } = useToast()
@@ -120,6 +136,7 @@ export function EnrollmentForm() {
     documentNumber: '',
     birthDate: '',
     phone: '',
+    email: '',
     address: '',
     neighborhood: '',
     hasSisben: false,
@@ -288,6 +305,7 @@ export function EnrollmentForm() {
           documentNumber: '',
           birthDate: '',
           phone: '',
+          email: '',
           address: '',
           neighborhood: '',
           hasSisben: false,
@@ -324,7 +342,7 @@ export function EnrollmentForm() {
         return !!formData.enrollmentType && !!formData.classId
       case 2:
         return !!(formData.studentName && formData.documentType && formData.documentNumber && 
-                 formData.birthDate && formData.phone && formData.address && formData.neighborhood)
+                 formData.birthDate && formData.phone && formData.email && formData.address && formData.neighborhood)
       case 3:
         return !!(formData.eps && formData.bloodType)
       case 4:
@@ -496,99 +514,229 @@ export function EnrollmentForm() {
               <p className="text-gray-400">Completa los datos personales</p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <Label className="text-white mb-2 block">Nombres y apellidos *</Label>
-                <Input
-                  placeholder="Nombre completo"
-                  value={formData.studentName}
-                  onChange={(e) => updateFormData('studentName', e.target.value)}
-                  className="bg-gray-800 border-gray-600 text-white"
-                />
-              </div>
-
-              <div>
-                <Label className="text-white mb-2 block">Tipo de documento *</Label>
-                <Select onValueChange={(value) => updateFormData('documentType', value)}>
-                  <SelectTrigger className="bg-gray-800 border-gray-600 text-white">
-                    <SelectValue placeholder="Selecciona tipo" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {DOCUMENT_TYPES.map(type => (
-                      <SelectItem key={type} value={type}>{type}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <Label className="text-white mb-2 block">Número de documento *</Label>
-                <Input
-                  placeholder="Número de identificación"
-                  value={formData.documentNumber}
-                  onChange={(e) => updateFormData('documentNumber', e.target.value)}
-                  className="bg-gray-800 border-gray-600 text-white"
-                />
-              </div>
-
-              <div>
-                <Label className="text-white mb-2 block">Fecha de nacimiento *</Label>
-                <Input
-                  type="date"
-                  value={formData.birthDate}
-                  onChange={(e) => updateFormData('birthDate', e.target.value)}
-                  className="bg-gray-800 border-gray-600 text-white"
-                />
-              </div>
-
-              <div>
-                <Label className="text-white mb-2 block">📲 Número celular *</Label>
-                <Input
-                  placeholder="Número de teléfono"
-                  value={formData.phone}
-                  onChange={(e) => updateFormData('phone', e.target.value)}
-                  className="bg-gray-800 border-gray-600 text-white"
-                />
-              </div>
-
-              <div>
-                <Label className="text-white mb-2 block">Dirección de residencia *</Label>
-                <Input
-                  placeholder="Dirección completa"
-                  value={formData.address}
-                  onChange={(e) => updateFormData('address', e.target.value)}
-                  className="bg-gray-800 border-gray-600 text-white"
-                />
-              </div>
-
-              <div className="md:col-span-2">
-                <Label className="text-white mb-2 block">Barrio de residencia *</Label>
-                <Input
-                  placeholder="Nombre del barrio"
-                  value={formData.neighborhood}
-                  onChange={(e) => updateFormData('neighborhood', e.target.value)}
-                  className="bg-gray-800 border-gray-600 text-white"
-                />
-              </div>
-            </div>
-
-            <div className="mt-6">
-              <Label className="text-white mb-4 block">¿Es mayor o menor de edad? *</Label>
-              <RadioGroup 
-                value={formData.isAdult ? "adult" : "minor"} 
-                onValueChange={(value) => updateFormData('isAdult', value === "adult")}
-                className="flex space-x-6"
-              >
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="adult" id="adult" />
-                  <Label htmlFor="adult" className="text-white">Mayor de edad</Label>
+            {/* Información Básica */}
+            <Card className="bg-gray-700/50 border-gray-600 backdrop-blur-sm">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-lg text-white">
+                  <div className="rounded-lg bg-gradient-to-r from-blue-500 to-purple-500 p-1.5">
+                    <User className="h-4 w-4 text-white" />
+                  </div>
+                  Información Básica
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="studentName" className="text-white">Nombre del Estudiante *</Label>
+                  <Input
+                    id="studentName"
+                    value={formData.studentName}
+                    onChange={(e) => updateFormData('studentName', e.target.value)}
+                    required
+                    className="bg-gray-800 border-gray-600 text-white"
+                  />
                 </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="minor" id="minor" />
-                  <Label htmlFor="minor" className="text-white">Menor de edad</Label>
+
+                <div>
+                  <Label htmlFor="documentType" className="text-white">Tipo de Documento</Label>
+                  <Select
+                    value={formData.documentType}
+                    onValueChange={(value) => updateFormData('documentType', value)}
+                  >
+                    <SelectTrigger className="bg-gray-800 border-gray-600 text-white">
+                      <SelectValue placeholder="Seleccionar tipo" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {DOCUMENT_TYPES.map((type) => (
+                        <SelectItem key={type.value} value={type.value}>
+                          {type.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
-              </RadioGroup>
-            </div>
+
+                <div>
+                  <Label htmlFor="documentNumber" className="text-white">Número de Documento *</Label>
+                  <Input
+                    id="documentNumber"
+                    value={formData.documentNumber}
+                    onChange={(e) => updateFormData('documentNumber', e.target.value)}
+                    required
+                    className="bg-gray-800 border-gray-600 text-white"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="birthDate" className="text-white">Fecha de Nacimiento</Label>
+                  <Input
+                    id="birthDate"
+                    type="date"
+                    value={formData.birthDate}
+                    onChange={(e) => updateFormData('birthDate', e.target.value)}
+                    className="bg-gray-800 border-gray-600 text-white"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="phone" className="text-white">Teléfono *</Label>
+                  <Input
+                    id="phone"
+                    value={formData.phone}
+                    onChange={(e) => updateFormData('phone', e.target.value)}
+                    required
+                    className="bg-gray-800 border-gray-600 text-white"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="email" className="text-white">Email *</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => updateFormData('email', e.target.value)}
+                    required
+                    className="bg-gray-800 border-gray-600 text-white"
+                  />
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Ubicación */}
+            <Card className="bg-gray-700/50 border-gray-600 backdrop-blur-sm">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-lg text-white">
+                  <div className="rounded-lg bg-gradient-to-r from-green-500 to-teal-500 p-1.5">
+                    <MapPin className="h-4 w-4 text-white" />
+                  </div>
+                  Ubicación
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* Información básica en grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-white mb-2 block">Ciudad *</Label>
+                    <Input
+                      placeholder="Itagüí"
+                      value="Itagüí"
+                      disabled
+                      className="bg-gray-600 border-gray-500 text-gray-300 cursor-not-allowed"
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="neighborhood" className="text-white">Barrio</Label>
+                    <Input
+                      id="neighborhood"
+                      placeholder="Ej: San Antonio de Prado"
+                      value={formData.neighborhood}
+                      onChange={(e) => updateFormData('neighborhood', e.target.value)}
+                      className="bg-gray-800 border-gray-600 text-white"
+                    />
+                  </div>
+                </div>
+
+                {/* Sección de mapa centrada */}
+                <div className="w-full max-w-4xl mx-auto">
+                  <InteractiveMap
+                    address={formData.address}
+                    latitude={formData.addressLatitude}
+                    longitude={formData.addressLongitude}
+                    onAddressChange={(address) => updateFormData('address', address)}
+                    onCoordinatesChange={(lat, lng) => {
+                      updateFormData('addressLatitude', lat)
+                      updateFormData('addressLongitude', lng)
+                    }}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Información Médica */}
+            <Card className="bg-gray-700/50 border-gray-600 backdrop-blur-sm">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-lg text-white">
+                  <div className="rounded-lg bg-gradient-to-r from-red-500 to-pink-500 p-1.5">
+                    <Heart className="h-4 w-4 text-white" />
+                  </div>
+                  Información Médica
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="eps" className="text-white">EPS</Label>
+                  <Input
+                    id="eps"
+                    placeholder="Nombre de la EPS"
+                    value={formData.eps}
+                    onChange={(e) => updateFormData('eps', e.target.value)}
+                    className="bg-gray-800 border-gray-600 text-white"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="bloodType" className="text-white">Tipo de Sangre</Label>
+                  <Select
+                    value={formData.bloodType}
+                    onValueChange={(value) => updateFormData('bloodType', value)}
+                  >
+                    <SelectTrigger className="bg-gray-800 border-gray-600 text-white">
+                      <SelectValue placeholder="Seleccionar tipo" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="A+">A+</SelectItem>
+                      <SelectItem value="A-">A-</SelectItem>
+                      <SelectItem value="B+">B+</SelectItem>
+                      <SelectItem value="B-">B-</SelectItem>
+                      <SelectItem value="AB+">AB+</SelectItem>
+                      <SelectItem value="AB-">AB-</SelectItem>
+                      <SelectItem value="O+">O+</SelectItem>
+                      <SelectItem value="O-">O-</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="hasSisben"
+                    checked={formData.hasSisben}
+                    onCheckedChange={(checked) => updateFormData('hasSisben', checked)}
+                  />
+                  <Label htmlFor="hasSisben" className="text-white">Tiene SISBEN</Label>
+                </div>
+
+                <div className="col-span-full">
+                  <div className="flex items-center space-x-2 mb-2">
+                    <Checkbox
+                      id="hasRestrictions"
+                      checked={formData.hasRestrictions}
+                      onCheckedChange={(checked) => updateFormData('hasRestrictions', checked)}
+                    />
+                    <Label htmlFor="hasRestrictions" className="text-white">Tiene restricciones médicas</Label>
+                  </div>
+                  {formData.hasRestrictions && (
+                    <Textarea
+                      placeholder="Describa las restricciones médicas..."
+                      value={formData.restrictionsDescription}
+                      onChange={(e) => updateFormData('restrictionsDescription', e.target.value)}
+                      className="bg-gray-800 border-gray-600 text-white"
+                    />
+                  )}
+                </div>
+
+                <div className="col-span-full">
+                  <Label htmlFor="medicalConditions" className="text-white">Condiciones Médicas Adicionales</Label>
+                  <Textarea
+                    id="medicalConditions"
+                    placeholder="Describa cualquier condición médica adicional..."
+                    value={formData.medicalConditions}
+                    onChange={(e) => updateFormData('medicalConditions', e.target.value)}
+                    className="bg-gray-800 border-gray-600 text-white"
+                  />
+                </div>
+              </CardContent>
+            </Card>
           </div>
         )
 
@@ -606,24 +754,6 @@ export function EnrollmentForm() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <Label className="text-white mb-4 block">¿Tiene SISBEN? *</Label>
-                <RadioGroup 
-                  value={formData.hasSisben ? "yes" : "no"} 
-                  onValueChange={(value) => updateFormData('hasSisben', value === "yes")}
-                  className="flex space-x-6"
-                >
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="yes" id="sisben-yes" />
-                    <Label htmlFor="sisben-yes" className="text-white">Sí</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="no" id="sisben-no" />
-                    <Label htmlFor="sisben-no" className="text-white">No</Label>
-                  </div>
-                </RadioGroup>
-              </div>
-
               <div>
                 <Label className="text-white mb-2 block">EPS</Label>
                 <Input
@@ -731,7 +861,7 @@ export function EnrollmentForm() {
                       </SelectTrigger>
                       <SelectContent>
                         {RELATIONS.map(relation => (
-                          <SelectItem key={relation} value={relation}>{relation}</SelectItem>
+                          <SelectItem key={relation.value} value={relation.value}>{relation.label}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -778,7 +908,7 @@ export function EnrollmentForm() {
                         </SelectTrigger>
                         <SelectContent>
                           {RELATIONS.map(relation => (
-                            <SelectItem key={relation} value={relation}>{relation}</SelectItem>
+                            <SelectItem key={relation.value} value={relation.value}>{relation.label}</SelectItem>
                           ))}
                         </SelectContent>
                       </Select>

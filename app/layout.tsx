@@ -3,6 +3,7 @@ import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
 import { Toaster } from "@/components/toaster"
+import { GoogleMapsProvider } from "@/lib/google-maps-provider"
 
 const inter = Inter({ 
   subsets: ["latin"],
@@ -50,7 +51,9 @@ export default function RootLayout({
   return (
     <html lang="es" className={inter.variable}>
       <body className="font-sans antialiased">
-        {children}
+        <GoogleMapsProvider>
+          {children}
+        </GoogleMapsProvider>
         <Toaster />
       </body>
     </html>

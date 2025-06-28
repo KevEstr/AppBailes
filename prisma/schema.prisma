@@ -40,6 +40,8 @@ model StudentEnrollmentData {
   documentType      String?
   birthDate         String?
   address           String?
+  addressLatitude   Float?   // Coordenadas del mapa
+  addressLongitude  Float?   // Coordenadas del mapa
   neighborhood      String?
   city              String?   @default("Itagüí")
   hasSisben         Boolean   @default(false)

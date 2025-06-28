@@ -59,7 +59,10 @@ export async function PUT(
     const { id } = await params
     const studentId = parseInt(id)
 
+    console.log('PUT Request - Student ID:', id, 'Parsed:', studentId)
+
     if (isNaN(studentId)) {
+      console.log('Invalid student ID:', id)
       return NextResponse.json(
         { error: 'ID de estudiante inválido' },
         { status: 400 }
@@ -67,6 +70,7 @@ export async function PUT(
     }
 
     const data = await request.json()
+    console.log('PUT Request - Data received:', JSON.stringify(data, null, 2))
 
     // Verificar que el estudiante existe
     const existingStudent = await prisma.student.findUnique({
@@ -74,11 +78,14 @@ export async function PUT(
     })
 
     if (!existingStudent) {
+      console.log('Student not found with ID:', studentId)
       return NextResponse.json(
         { error: 'Estudiante no encontrado' },
         { status: 404 }
       )
     }
+
+    console.log('Existing student found:', existingStudent)
 
     // Actualizar información básica del estudiante
     const updatedStudent = await prisma.student.update({
@@ -90,6 +97,8 @@ export async function PUT(
       }
     })
 
+    console.log('Student basic info updated successfully')
+
     // Actualizar o crear información extendida
     const enrollmentData = await prisma.studentEnrollmentData.upsert({
       where: { studentId: studentId },
@@ -97,6 +106,8 @@ export async function PUT(
         documentType: data.documentType || null,
         birthDate: data.birthDate || null,
         address: data.address || null,
+        addressLatitude: data.addressLatitude || null,
+        addressLongitude: data.addressLongitude || null,
         neighborhood: data.neighborhood || null,
         city: data.city || 'Itagüí',
         hasSisben: data.hasSisben || false,
@@ -119,6 +130,8 @@ export async function PUT(
         documentType: data.documentType || null,
         birthDate: data.birthDate || null,
         address: data.address || null,
+        addressLatitude: data.addressLatitude || null,
+        addressLongitude: data.addressLongitude || null,
         neighborhood: data.neighborhood || null,
         city: data.city || 'Itagüí',
         hasSisben: data.hasSisben || false,
@@ -138,14 +151,21 @@ export async function PUT(
       }
     })
 
+    console.log('Enrollment data updated successfully')
+
     return NextResponse.json({
       success: true,
-      student: updatedStudent
+      student: updatedStudent,
+      enrollmentData
     })
   } catch (error) {
     console.error('Error updating student:', error)
+    console.error('Error details:', {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : 'No stack trace'
+    })
     return NextResponse.json(
-      { success: false, error: 'Error interno del servidor' },
+      { success: false, error: 'Error interno del servidor', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     )
   }

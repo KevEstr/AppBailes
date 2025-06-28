@@ -69,6 +69,17 @@ export function StudentsManagement() {
 
   const { toast } = useToast()
 
+  // Función helper para convertir Student local a Student del modal
+  const convertStudentForModal = (localStudent: Student) => ({
+    id: localStudent.id.toString(),
+    name: localStudent.name,
+    email: localStudent.email || '',
+    phone: localStudent.phone,
+    documentNumber: localStudent.id.toString(),
+    city: 'Itagüí',
+    monthlyFee: 0
+  })
+
   const loadEnrollments = async (page = 1, search = "", status = "all") => {
     try {
       setLoading(true)
@@ -506,8 +517,8 @@ export function StudentsManagement() {
       {/* Student Detail Modal */}
       {selectedStudent && (
         <Dialog open={detailModalOpen} onOpenChange={setDetailModalOpen}>
-          <DialogContent className="max-w-6xl bg-gray-900 border-gray-700 max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
+          <DialogContent className="max-w-[95vw] lg:max-w-5xl bg-gray-900 border-gray-700 max-h-[90vh] overflow-y-auto">
+            <DialogHeader className="pb-4">
               <DialogTitle className="text-white text-xl">Detalles Completos del Estudiante</DialogTitle>
             </DialogHeader>
             <StudentDetailModal enrollment={selectedStudent} />
@@ -525,10 +536,9 @@ export function StudentsManagement() {
         <EditStudentModal
           isOpen={editModalOpen}
           onClose={() => setEditModalOpen(false)}
-          student={selectedStudent.student}
-          onUpdate={() => {
+          student={convertStudentForModal(selectedStudent.student)}
+          onStudentUpdated={() => {
             loadEnrollments(currentPage, searchTerm, statusFilter)
-            setEditModalOpen(false)
           }}
         />
       )}

@@ -11,6 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useToast } from "@/hooks/use-toast"
 import { User, MapPin, Heart, Phone, Shield, DollarSign } from 'lucide-react'
+import { InteractiveMap } from './interactive-map'
 
 interface Student {
   id: string
@@ -21,6 +22,8 @@ interface Student {
   phone: string
   email: string
   address?: string
+  addressLatitude?: number
+  addressLongitude?: number
   neighborhood?: string
   city: string
   hasSisben?: boolean
@@ -57,21 +60,47 @@ interface EditStudentModalProps {
 const documentTypes = [
   { value: 'CC', label: 'Cédula de Ciudadanía' },
   { value: 'TI', label: 'Tarjeta de Identidad' },
-  { value: 'CE', label: 'Cédula de Extranjería' },
-  { value: 'PAS', label: 'Pasaporte' }
+  { value: 'RC', label: 'Registro Civil' },
+  { value: 'CE', label: 'Cédula de Extranjería' }
 ]
 
 const relationshipOptions = [
   { value: 'padre', label: 'Padre' },
   { value: 'madre', label: 'Madre' },
-  { value: 'hermano', label: 'Hermano/a' },
-  { value: 'abuelo', label: 'Abuelo/a' },
-  { value: 'tio', label: 'Tío/a' },
-  { value: 'primo', label: 'Primo/a' },
-  { value: 'amigo', label: 'Amigo/a' },
-  { value: 'pareja', label: 'Pareja' },
+  { value: 'abuelo', label: 'Abuelo(a)' },
+  { value: 'tio', label: 'Tío(a)' },
+  { value: 'hermano', label: 'Hermano(a)' },
   { value: 'otro', label: 'Otro' }
 ]
+
+// Funciones de mapeo para convertir texto completo a código corto (para compatibilidad hacia atrás)
+const mapDocumentTypeToCode = (type?: string) => {
+  if (!type) return 'CC'
+  
+  const fullToCodeMapping = {
+    'Cédula de Ciudadanía': 'CC',
+    'Tarjeta de Identidad': 'TI',
+    'Registro Civil': 'RC',
+    'Cédula de Extranjería': 'CE'
+  }
+  
+  return fullToCodeMapping[type as keyof typeof fullToCodeMapping] || type
+}
+
+const mapRelationshipToCode = (relation?: string) => {
+  if (!relation) return ''
+  
+  const fullToCodeMapping = {
+    'Padre': 'padre',
+    'Madre': 'madre',
+    'Abuelo(a)': 'abuelo',
+    'Tío(a)': 'tio',
+    'Hermano(a)': 'hermano',
+    'Otro': 'otro'
+  }
+  
+  return fullToCodeMapping[relation as keyof typeof fullToCodeMapping] || relation.toLowerCase()
+}
 
 export default function EditStudentModal({ isOpen, onClose, student, onStudentUpdated }: EditStudentModalProps) {
   const { toast } = useToast()
@@ -80,7 +109,71 @@ export default function EditStudentModal({ isOpen, onClose, student, onStudentUp
 
   useEffect(() => {
     if (student) {
-      setFormData({ ...student })
+      // Cargar los datos completos del estudiante desde la API
+      const loadStudentData = async () => {
+        try {
+          const response = await fetch(`/api/students/${student.id}`)
+          const data = await response.json()
+          
+          if (data.success && data.student) {
+            // Combinar datos básicos con datos extendidos
+            const fullStudentData = {
+              id: student.id.toString(),
+              name: data.student.name,
+              email: data.student.email,
+              phone: data.student.phone,
+              documentNumber: student.id.toString(), // El ID es el número de documento
+              documentType: mapDocumentTypeToCode(data.student.enrollmentData?.documentType) || 'CC',
+              birthDate: data.student.enrollmentData?.birthDate || '',
+              address: data.student.enrollmentData?.address || '',
+              addressLatitude: data.student.enrollmentData?.addressLatitude || 0,
+              addressLongitude: data.student.enrollmentData?.addressLongitude || 0,
+              neighborhood: data.student.enrollmentData?.neighborhood || '',
+              city: data.student.enrollmentData?.city || 'Itagüí',
+              hasSisben: data.student.enrollmentData?.hasSisben || false,
+              eps: data.student.enrollmentData?.eps || '',
+              bloodType: data.student.enrollmentData?.bloodType || '',
+              hasRestrictions: data.student.enrollmentData?.hasRestrictions || false,
+              restrictionsDescription: data.student.enrollmentData?.restrictionsDescription || '',
+              medicalConditions: data.student.enrollmentData?.medicalConditions || '',
+              isAdult: data.student.enrollmentData?.isAdult !== undefined ? data.student.enrollmentData.isAdult : true,
+              emergencyContactName: data.student.enrollmentData?.emergencyContactName || '',
+              emergencyContactRelation: mapRelationshipToCode(data.student.enrollmentData?.emergencyContactRelation) || '',
+              emergencyContactPhone: data.student.enrollmentData?.emergencyContactPhone || '',
+              guardianName: data.student.enrollmentData?.guardianName || '',
+              guardianRelation: mapRelationshipToCode(data.student.enrollmentData?.guardianRelation) || '',
+              guardianPhone: data.student.enrollmentData?.guardianPhone || '',
+              monthlyFee: data.student.enrollmentData?.monthlyFee || 0
+            }
+            setFormData(fullStudentData)
+          } else {
+            // Si no se pueden cargar los datos completos, usar los básicos
+            setFormData({ 
+              ...student,
+              id: student.id.toString(),
+              documentNumber: student.id.toString(),
+              city: 'Itagüí',
+              monthlyFee: 0,
+              addressLatitude: undefined,
+              addressLongitude: undefined
+            })
+          }
+        } catch (error) {
+          console.error('Error loading student data:', error)
+          // Fallback a datos básicos
+          setFormData({ 
+            ...student,
+            id: student.id.toString(),
+            documentNumber: student.id.toString(),
+            city: 'Itagüí',
+            monthlyFee: 0,
+            addressLatitude: undefined,
+            addressLongitude: undefined
+          })
+        }
+      }
+      
+      loadStudentData()
     }
   }, [student])
 
@@ -102,8 +195,10 @@ export default function EditStudentModal({ isOpen, onClose, student, onStudentUp
         },
         body: JSON.stringify(formData),
       })
-
+      console.log(response)
+      console.log(response.ok)
       if (!response.ok) {
+        console.log(response)
         throw new Error('Error al actualizar el estudiante')
       }
 
@@ -184,10 +279,15 @@ export default function EditStudentModal({ isOpen, onClose, student, onStudentUp
                 <Label htmlFor="documentNumber">Número de Documento *</Label>
                 <Input
                   id="documentNumber"
-                  value={formData.documentNumber || ''}
+                  value={formData.documentNumber || formData.id || ''}
                   onChange={(e) => handleInputChange('documentNumber', e.target.value)}
                   required
+                  disabled
+                  className="bg-gray-600 cursor-not-allowed"
                 />
+                <p className="text-xs text-gray-400 mt-1">
+                  El número de documento no se puede modificar
+                </p>
               </div>
 
               <div>
@@ -233,42 +333,43 @@ export default function EditStudentModal({ isOpen, onClose, student, onStudentUp
                 Ubicación
               </CardTitle>
             </CardHeader>
-            <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="address">Dirección</Label>
-                <Input
-                  id="address"
-                  value={formData.address || ''}
-                  onChange={(e) => handleInputChange('address', e.target.value)}
-                />
+            <CardContent className="space-y-6">
+              {/* Información básica en grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="city">Ciudad *</Label>
+                  <Input
+                    id="city"
+                    value={formData.city || ''}
+                    onChange={(e) => handleInputChange('city', e.target.value)}
+                    required
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="neighborhood">Barrio</Label>
+                  <Input
+                    id="neighborhood"
+                    placeholder="Ej: San Antonio de Prado"
+                    value={formData.neighborhood || ''}
+                    onChange={(e) => handleInputChange('neighborhood', e.target.value)}
+                    className="bg-gray-800 border-gray-600 text-white"
+                  />
+                </div>
               </div>
 
-              <div>
-                <Label htmlFor="neighborhood">Barrio</Label>
-                <Input
-                  id="neighborhood"
-                  value={formData.neighborhood || ''}
-                  onChange={(e) => handleInputChange('neighborhood', e.target.value)}
+              {/* Sección de mapa centrada */}
+              <div className="w-full max-w-4xl mx-auto">
+                <InteractiveMap
+                  address={formData.address || ''}
+                  latitude={formData.addressLatitude}
+                  longitude={formData.addressLongitude}
+                  onAddressChange={(address) => handleInputChange('address', address)}
+                  onCoordinatesChange={(lat, lng) => {
+                    handleInputChange('addressLatitude', lat)
+                    handleInputChange('addressLongitude', lng)
+                  }}
                 />
-              </div>
-
-              <div>
-                <Label htmlFor="city">Ciudad *</Label>
-                <Input
-                  id="city"
-                  value={formData.city || ''}
-                  onChange={(e) => handleInputChange('city', e.target.value)}
-                  required
-                />
-              </div>
-
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="hasSisben"
-                  checked={formData.hasSisben || false}
-                  onCheckedChange={(checked) => handleInputChange('hasSisben', checked)}
-                />
-                <Label htmlFor="hasSisben">Tiene SISBEN</Label>
               </div>
             </CardContent>
           </Card>
@@ -313,6 +414,15 @@ export default function EditStudentModal({ isOpen, onClose, student, onStudentUp
                     <SelectItem value="O-">O-</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="hasSisben"
+                  checked={formData.hasSisben || false}
+                  onCheckedChange={(checked) => handleInputChange('hasSisben', checked)}
+                />
+                <Label htmlFor="hasSisben">Tiene SISBEN</Label>
               </div>
 
               <div className="col-span-full">

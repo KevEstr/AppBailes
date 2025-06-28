@@ -12,6 +12,8 @@ interface StudentEnrollmentData {
   documentType?: string
   birthDate?: string
   address?: string
+  addressLatitude?: number
+  addressLongitude?: number
   neighborhood?: string
   city?: string
   hasSisben?: boolean
@@ -297,14 +299,25 @@ export function StudentDetailModal({ enrollment }: StudentDetailModalProps) {
     return <Badge className={config.className}>{config.label}</Badge>
   }
 
-  const generateGoogleMapsUrl = (address: string) => {
-    if (!address) return null
-    const encodedAddress = encodeURIComponent(`${address}, Itagüí, Antioquia, Colombia`)
-    return `https://www.google.com/maps/embed/v1/place?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&q=${encodedAddress}`
+  const generateGoogleMapsUrl = (enrollmentData: StudentEnrollmentData) => {
+    if (!process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY) return null
+    
+    // Si tenemos coordenadas, usar esas
+    if (enrollmentData.addressLatitude && enrollmentData.addressLongitude) {
+      return `https://www.google.com/maps/embed/v1/place?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&q=${enrollmentData.addressLatitude},${enrollmentData.addressLongitude}&zoom=16`
+    }
+    
+    // Si no tenemos coordenadas pero sí dirección, usar la dirección
+    if (enrollmentData.address) {
+      const encodedAddress = encodeURIComponent(`${enrollmentData.address}, Itagüí, Antioquia, Colombia`)
+      return `https://www.google.com/maps/embed/v1/place?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&q=${encodedAddress}`
+    }
+    
+    return null
   }
 
-  const mapUrl = detailData?.student.enrollmentData?.address 
-    ? generateGoogleMapsUrl(detailData.student.enrollmentData.address)
+  const mapUrl = detailData?.student.enrollmentData 
+    ? generateGoogleMapsUrl(detailData.student.enrollmentData)
     : null
 
   if (loading) {
@@ -324,398 +337,438 @@ export function StudentDetailModal({ enrollment }: StudentDetailModalProps) {
   }
 
   return (
-    <div className="space-y-6 text-white">
-      {/* Header con información básica */}
-      <div className="flex items-center gap-4 pb-4 border-b border-gray-700">
-        <div className="flex-1">
-          <h2 className="text-2xl font-bold text-white">{detailData.student.name}</h2>
-          <div className="flex items-center gap-4 mt-2 text-gray-300">
-            <div className="flex items-center gap-1">
-              <IdCard className="w-4 h-4" />
-              <span>CC: {detailData.student.id}</span>
+    <div className="space-y-4 text-white">
+      {/* Header Principal - Optimizado para móvil */}
+      <div className="relative bg-gradient-to-r from-slate-800 to-slate-700 rounded-xl p-4 border border-slate-600">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+          {/* Avatar y nombre */}
+          <div className="flex items-center gap-3 flex-1">
+            <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-lg sm:text-xl">
+              {detailData.student.name.split(' ').map(n => n[0]).join('').substring(0, 2)}
             </div>
-            <div className="flex items-center gap-1">
-              <Phone className="w-4 h-4" />
-              <span>{detailData.student.phone}</span>
-            </div>
-            {detailData.student.email && (
-              <div className="flex items-center gap-1">
-                <Mail className="w-4 h-4" />
-                <span>{detailData.student.email}</span>
+            <div className="flex-1 min-w-0">
+              <h2 className="text-xl sm:text-2xl font-bold text-white truncate">{detailData.student.name}</h2>
+              <div className="flex flex-wrap items-center gap-2 mt-1 text-sm text-slate-300">
+                <span className="flex items-center gap-1">
+                  <IdCard className="w-3 h-3" />
+                  CC: {detailData.student.id}
+                </span>
+                <span className="flex items-center gap-1">
+                  <Phone className="w-3 h-3" />
+                  {detailData.student.phone}
+                </span>
+                {detailData.student.email && (
+                  <span className="flex items-center gap-1">
+                    <Mail className="w-3 h-3" />
+                    <span className="truncate max-w-32 sm:max-w-none">{detailData.student.email}</span>
+                  </span>
+                )}
               </div>
+            </div>
+          </div>
+          
+          {/* Estados */}
+          <div className="flex flex-wrap gap-2">
+            <Badge 
+              variant={detailData.student.isActive ? "default" : "secondary"} 
+              className={`${detailData.student.isActive ? "bg-green-600 hover:bg-green-700" : "bg-gray-600"} text-white border-0`}
+            >
+              {detailData.student.isActive ? "Activo" : "Inactivo"}
+            </Badge>
+            {detailData.student.hasDebt && (
+              <Badge className="bg-red-600 hover:bg-red-700 text-white border-0">
+                Con deuda
+              </Badge>
             )}
           </div>
         </div>
-        <div className="flex flex-col gap-2">
-          <Badge variant={detailData.student.isActive ? "default" : "secondary"} 
-                 className={detailData.student.isActive ? "bg-green-600" : "bg-gray-600"}>
-            {detailData.student.isActive ? "Activo" : "Inactivo"}
-          </Badge>
-          {detailData.student.hasDebt && (
-            <Badge className="bg-red-600">
-              Con deuda
-            </Badge>
-          )}
-        </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* Grid Principal - Responsive */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        
         {/* Información Personal */}
-        <Card className="bg-gray-800 border-gray-700">
-          <CardHeader>
-            <CardTitle className="text-blue-400 flex items-center gap-2">
-              <User className="w-5 h-5" />
+        <Card className="bg-slate-800 border-slate-700 hover:bg-slate-800/80 transition-colors">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-emerald-400 flex items-center gap-2 text-lg">
+              <div className="p-1.5 rounded-lg bg-emerald-500/20">
+                <User className="w-4 h-4" />
+              </div>
               Información Personal
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="space-y-3 text-sm">
             {detailData.student.enrollmentData ? (
               <>
                 {detailData.student.enrollmentData.documentType && (
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Tipo de documento:</span>
-                    <span>{detailData.student.enrollmentData.documentType}</span>
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-300">Tipo de documento:</span>
+                    <span className="font-medium text-white">{detailData.student.enrollmentData.documentType}</span>
                   </div>
                 )}
                 {detailData.student.enrollmentData.birthDate && (
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Fecha de nacimiento:</span>
-                    <span>{formatDate(detailData.student.enrollmentData.birthDate)}</span>
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-300">Fecha de nacimiento:</span>
+                    <span className="font-medium text-white">{formatDate(detailData.student.enrollmentData.birthDate)}</span>
                   </div>
                 )}
                 {detailData.student.enrollmentData.bloodType && (
                   <div className="flex justify-between items-center">
-                    <span className="text-gray-400">Tipo de sangre:</span>
-                    <Badge variant="outline" className="border-red-400 text-red-400">
+                    <span className="text-slate-300">Tipo de sangre:</span>
+                    <Badge variant="outline" className="border-red-400 text-red-400 bg-red-950/30">
                       <Heart className="w-3 h-3 mr-1" />
                       {detailData.student.enrollmentData.bloodType}
                     </Badge>
                   </div>
                 )}
                 {detailData.student.enrollmentData.eps && (
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">EPS:</span>
-                    <span>{detailData.student.enrollmentData.eps}</span>
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-300">EPS:</span>
+                    <span className="font-medium text-white">{detailData.student.enrollmentData.eps}</span>
                   </div>
                 )}
                 <div className="flex justify-between items-center">
-                  <span className="text-gray-400">SISBEN:</span>
-                  <Badge className={detailData.student.enrollmentData.hasSisben ? "bg-green-600" : "bg-gray-600"}>
-                    {detailData.student.enrollmentData.hasSisben ? "Sí" : "No"}
-                  </Badge>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-400">Estado:</span>
-                  <Badge className={detailData.student.enrollmentData.isAdult !== false ? "bg-blue-600" : "bg-orange-600"}>
+                  <span className="text-slate-300">Estado:</span>
+                  <Badge className={`${detailData.student.enrollmentData.isAdult !== false ? "bg-blue-600" : "bg-orange-600"} text-white border-0`}>
                     {detailData.student.enrollmentData.isAdult !== false ? "Mayor de edad" : "Menor de edad"}
                   </Badge>
                 </div>
-                <Separator className="bg-gray-700" />
+                
+                {/* Contacto de emergencia */}
                 {(detailData.student.enrollmentData.emergencyContactName || detailData.student.enrollmentData.emergencyContact) && (
                   <>
-                    <div className="flex justify-between">
-                      <span className="text-gray-400">Contacto de emergencia:</span>
-                      <span>{detailData.student.enrollmentData.emergencyContactName || detailData.student.enrollmentData.emergencyContact}</span>
+                    <Separator className="bg-slate-700" />
+                    <div className="space-y-2 pt-1">
+                      <div className="text-orange-400 font-medium text-xs uppercase tracking-wide">Contacto de Emergencia</div>
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-center">
+                          <span className="text-slate-300">Nombre:</span>
+                          <span className="font-medium text-white text-right max-w-40 truncate">{detailData.student.enrollmentData.emergencyContactName || detailData.student.enrollmentData.emergencyContact}</span>
+                        </div>
+                        {(detailData.student.enrollmentData.emergencyContactPhone || detailData.student.enrollmentData.emergencyPhone) && (
+                          <div className="flex justify-between items-center">
+                            <span className="text-slate-300">Teléfono:</span>
+                            <span className="font-medium text-white">{detailData.student.enrollmentData.emergencyContactPhone || detailData.student.enrollmentData.emergencyPhone}</span>
+                          </div>
+                        )}
+                        {(detailData.student.enrollmentData.emergencyContactRelation || detailData.student.enrollmentData.relationship) && (
+                          <div className="flex justify-between items-center">
+                            <span className="text-slate-300">Parentesco:</span>
+                            <span className="font-medium text-white capitalize">{detailData.student.enrollmentData.emergencyContactRelation || detailData.student.enrollmentData.relationship}</span>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                    {(detailData.student.enrollmentData.emergencyContactPhone || detailData.student.enrollmentData.emergencyPhone) && (
-                      <div className="flex justify-between">
-                        <span className="text-gray-400">Teléfono de emergencia:</span>
-                        <span>{detailData.student.enrollmentData.emergencyContactPhone || detailData.student.enrollmentData.emergencyPhone}</span>
-                      </div>
-                    )}
-                    {(detailData.student.enrollmentData.emergencyContactRelation || detailData.student.enrollmentData.relationship) && (
-                      <div className="flex justify-between">
-                        <span className="text-gray-400">Parentesco:</span>
-                        <span>{detailData.student.enrollmentData.emergencyContactRelation || detailData.student.enrollmentData.relationship}</span>
-                      </div>
-                    )}
                   </>
                 )}
-                {detailData.student.enrollmentData.isAdult === false && (
+
+                {/* Información del acudiente */}
+                {detailData.student.enrollmentData.isAdult === false && detailData.student.enrollmentData.guardianName && (
                   <>
-                    <Separator className="bg-gray-700" />
-                    <div className="text-orange-400 font-medium text-sm">Información del Acudiente</div>
-                    {detailData.student.enrollmentData.guardianName && (
-                      <div className="flex justify-between">
-                        <span className="text-gray-400">Nombre del acudiente:</span>
-                        <span>{detailData.student.enrollmentData.guardianName}</span>
+                    <Separator className="bg-slate-700" />
+                    <div className="space-y-2 pt-1">
+                      <div className="text-purple-400 font-medium text-xs uppercase tracking-wide">Información del Acudiente</div>
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-center">
+                          <span className="text-slate-300">Nombre:</span>
+                          <span className="font-medium text-white text-right max-w-40 truncate">{detailData.student.enrollmentData.guardianName}</span>
+                        </div>
+                        {detailData.student.enrollmentData.guardianRelation && (
+                          <div className="flex justify-between items-center">
+                            <span className="text-slate-300">Relación:</span>
+                            <span className="font-medium text-white capitalize">{detailData.student.enrollmentData.guardianRelation}</span>
+                          </div>
+                        )}
+                        {detailData.student.enrollmentData.guardianPhone && (
+                          <div className="flex justify-between items-center">
+                            <span className="text-slate-300">Teléfono:</span>
+                            <span className="font-medium text-white">{detailData.student.enrollmentData.guardianPhone}</span>
+                          </div>
+                        )}
                       </div>
-                    )}
-                    {detailData.student.enrollmentData.guardianRelation && (
-                      <div className="flex justify-between">
-                        <span className="text-gray-400">Relación:</span>
-                        <span>{detailData.student.enrollmentData.guardianRelation}</span>
-                      </div>
-                    )}
-                    {detailData.student.enrollmentData.guardianPhone && (
-                      <div className="flex justify-between">
-                        <span className="text-gray-400">Teléfono del acudiente:</span>
-                        <span>{detailData.student.enrollmentData.guardianPhone}</span>
-                      </div>
-                    )}
+                    </div>
                   </>
                 )}
               </>
             ) : (
-              <p className="text-gray-500 italic">Información personal no registrada</p>
+              <div className="text-center py-6">
+                <User className="w-8 h-8 mx-auto text-slate-500 mb-2" />
+                <p className="text-slate-400 text-sm">Información personal no registrada</p>
+              </div>
             )}
           </CardContent>
         </Card>
 
-        {/* Información de Clase */}
-        <Card className="bg-gray-800 border-gray-700">
-          <CardHeader>
-            <CardTitle className="text-blue-400 flex items-center gap-2">
-              <GraduationCap className="w-5 h-5" />
-              Información de Clase
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="flex justify-between">
-              <span className="text-gray-400">Clase:</span>
-              <span>{detailData.danceClass.name}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-400">Tipo:</span>
-              <Badge className={detailData.danceClass.type === 'DANCE' ? "bg-purple-600" : "bg-orange-600"}>
-                {detailData.danceClass.type === 'DANCE' ? 'Baile' : 'Deporte'}
-              </Badge>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-400">Entrenador:</span>
-              <span>{detailData.danceClass.trainer.name}</span>
-            </div>
-            {detailData.danceClass.price && (
-              <div className="flex justify-between">
-                <span className="text-gray-400">Precio:</span>
-                <span className="font-semibold text-green-400">{formatCurrency(detailData.danceClass.price)}</span>
-              </div>
-            )}
-            {detailData.danceClass.location && (
-              <div className="space-y-1">
-                <div className="flex justify-between">
-                  <span className="text-gray-400">Ubicación:</span>
-                  <span>{detailData.danceClass.location.name}</span>
+        {/* Columna derecha: Información de Clase + Información Médica */}
+        <div className="space-y-4">
+          {/* Información de Clase */}
+          <Card className="bg-slate-800 border-slate-700 hover:bg-slate-800/80 transition-colors">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-violet-400 flex items-center gap-2 text-lg">
+                <div className="p-1.5 rounded-lg bg-violet-500/20">
+                  <GraduationCap className="w-4 h-4" />
                 </div>
-                {detailData.danceClass.location.address && (
-                  <div className="flex items-start gap-2">
-                    <MapPin className="w-4 h-4 mt-0.5 text-gray-400 flex-shrink-0" />
-                    <span className="text-sm text-gray-300">{detailData.danceClass.location.address}</span>
-                  </div>
-                )}
-              </div>
-            )}
-            <Separator className="bg-gray-700" />
-            <div className="flex justify-between">
-              <span className="text-gray-400">Fecha de inscripción:</span>
-              <span>{formatDate(detailData.enrolledAt)}</span>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Horarios */}
-        {detailData.danceClass.schedules && detailData.danceClass.schedules.length > 0 && (
-          <Card className="bg-gray-800 border-gray-700">
-            <CardHeader>
-              <CardTitle className="text-blue-400 flex items-center gap-2">
-                <Clock className="w-5 h-5" />
-                Horarios de Clase
+                Información de Clase
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                {detailData.danceClass.schedules.map((schedule, index) => (
-                  <div key={index} className="flex justify-between items-center p-2 bg-gray-700 rounded">
-                    <span className="font-medium">{getDayName(schedule.dayOfWeek)}</span>
-                    <span className="text-blue-300">{schedule.startTime} - {schedule.endTime}</span>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Información Médica */}
-        {detailData.student.enrollmentData && (
-          <Card className="bg-gray-800 border-gray-700">
-            <CardHeader>
-              <CardTitle className="text-blue-400 flex items-center gap-2">
-                <Heart className="w-5 h-5" />
-                Información Médica
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
+            <CardContent className="space-y-3 text-sm">
               <div className="flex justify-between items-center">
-                <span className="text-gray-400">Restricciones médicas:</span>
-                <Badge className={(detailData.student.enrollmentData.hasRestrictions || detailData.student.enrollmentData.hasMedicalRestrictions) ? "bg-red-600" : "bg-green-600"}>
-                  {(detailData.student.enrollmentData.hasRestrictions || detailData.student.enrollmentData.hasMedicalRestrictions) ? "Sí" : "No"}
+                <span className="text-slate-300">Clase:</span>
+                <span className="font-medium text-white text-right max-w-40 truncate">{detailData.danceClass.name}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-slate-300">Tipo:</span>
+                <Badge className={`${detailData.danceClass.type === 'DANCE' ? "bg-purple-600" : "bg-orange-600"} text-white border-0`}>
+                  {detailData.danceClass.type === 'DANCE' ? 'Baile' : 'Deporte'}
                 </Badge>
               </div>
-              {(detailData.student.enrollmentData.hasRestrictions || detailData.student.enrollmentData.hasMedicalRestrictions) && (
+              <div className="flex justify-between items-center">
+                <span className="text-slate-300">Entrenador:</span>
+                <span className="font-medium text-white text-right max-w-40 truncate">{detailData.danceClass.trainer.name}</span>
+              </div>
+              {detailData.danceClass.price && (
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-300">Precio:</span>
+                  <span className="font-semibold text-green-400">{formatCurrency(detailData.danceClass.price)}</span>
+                </div>
+              )}
+              {detailData.danceClass.location && (
                 <>
-                  {(detailData.student.enrollmentData.restrictionsDescription || detailData.student.enrollmentData.medicalRestrictions) && (
-                    <div className="p-3 bg-red-900/20 border border-red-700 rounded">
-                      <div className="flex items-start gap-2">
-                        <AlertTriangle className="w-4 h-4 mt-0.5 text-red-400 flex-shrink-0" />
-                        <div>
-                          <p className="text-sm font-medium text-red-400">Restricciones:</p>
-                          <p className="text-sm text-gray-300 mt-1">{detailData.student.enrollmentData.restrictionsDescription || detailData.student.enrollmentData.medicalRestrictions}</p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                  {detailData.student.enrollmentData.medicalConditions && (
-                    <div className="p-3 bg-yellow-900/20 border border-yellow-700 rounded">
-                      <div className="flex items-start gap-2">
-                        <Heart className="w-4 h-4 mt-0.5 text-yellow-400 flex-shrink-0" />
-                        <div>
-                          <p className="text-sm font-medium text-yellow-400">Condiciones médicas:</p>
-                          <p className="text-sm text-gray-300 mt-1">{detailData.student.enrollmentData.medicalConditions}</p>
-                        </div>
-                      </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-300">Ubicación:</span>
+                    <span className="font-medium text-white text-right max-w-40 truncate">{detailData.danceClass.location.name}</span>
+                  </div>
+                  {detailData.danceClass.location.address && (
+                    <div className="flex items-start gap-2 pt-1">
+                      <MapPin className="w-3 h-3 mt-0.5 text-slate-400 flex-shrink-0" />
+                      <span className="text-xs text-slate-300 leading-relaxed">{detailData.danceClass.location.address}</span>
                     </div>
                   )}
                 </>
               )}
+              <Separator className="bg-slate-700" />
+              <div className="flex justify-between items-center">
+                <span className="text-slate-300">Fecha de inscripción:</span>
+                <span className="font-medium text-white">{formatDate(detailData.enrolledAt)}</span>
+              </div>
+              
+              {/* Horarios integrados aquí */}
+              {detailData.danceClass.schedules && detailData.danceClass.schedules.length > 0 && (
+                <>
+                  <Separator className="bg-slate-700" />
+                  <div className="space-y-2 pt-1">
+                    <div className="text-blue-400 font-medium text-xs uppercase tracking-wide">Horarios</div>
+                    <div className="space-y-1">
+                      {detailData.danceClass.schedules.map((schedule, index) => (
+                        <div key={index} className="flex justify-between items-center p-2 bg-slate-700/50 rounded text-xs">
+                          <span className="font-medium text-white">{getDayName(schedule.dayOfWeek)}</span>
+                          <span className="text-blue-300 font-mono">{schedule.startTime} - {schedule.endTime}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
             </CardContent>
           </Card>
-        )}
+
+          {/* Información Médica - Ahora en la misma columna */}
+          {detailData.student.enrollmentData && (
+            <Card className="bg-slate-800 border-slate-700 hover:bg-slate-800/80 transition-colors">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-red-400 flex items-center gap-2 text-lg">
+                  <div className="p-1.5 rounded-lg bg-red-500/20">
+                    <Heart className="w-4 h-4" />
+                  </div>
+                  Información Médica
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3 text-sm">
+                {/* Información médica básica */}
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-300">SISBEN:</span>
+                    <Badge className={`${detailData.student.enrollmentData.hasSisben ? "bg-green-600" : "bg-slate-600"} text-white border-0`}>
+                      {detailData.student.enrollmentData.hasSisben ? "Sí" : "No"}
+                    </Badge>
+                  </div>
+                  
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-300">Restricciones médicas:</span>
+                    <Badge className={`${(detailData.student.enrollmentData.hasRestrictions || detailData.student.enrollmentData.hasMedicalRestrictions) ? "bg-red-600" : "bg-green-600"} text-white border-0`}>
+                      {(detailData.student.enrollmentData.hasRestrictions || detailData.student.enrollmentData.hasMedicalRestrictions) ? "Sí" : "No"}
+                    </Badge>
+                  </div>
+                </div>
+                
+                {/* Alertas médicas */}
+                {(detailData.student.enrollmentData.hasRestrictions || detailData.student.enrollmentData.hasMedicalRestrictions) && (
+                  <div className="space-y-3 mt-4">
+                    {(detailData.student.enrollmentData.restrictionsDescription || detailData.student.enrollmentData.medicalRestrictions) && (
+                      <div className="p-4 bg-red-950/30 border border-red-800/50 rounded-lg">
+                        <div className="flex items-start gap-3">
+                          <AlertTriangle className="w-5 h-5 mt-0.5 text-red-400 flex-shrink-0" />
+                          <div className="flex-1">
+                            <p className="text-sm font-medium text-red-400 mb-2">Restricciones médicas:</p>
+                            <p className="text-sm text-slate-100 leading-relaxed">{detailData.student.enrollmentData.restrictionsDescription || detailData.student.enrollmentData.medicalRestrictions}</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    {detailData.student.enrollmentData.medicalConditions && (
+                      <div className="p-4 bg-yellow-950/30 border border-yellow-800/50 rounded-lg">
+                        <div className="flex items-start gap-3">
+                          <Heart className="w-5 h-5 mt-0.5 text-yellow-400 flex-shrink-0" />
+                          <div className="flex-1">
+                            <p className="text-sm font-medium text-yellow-400 mb-2">Condiciones médicas adicionales:</p>
+                            <p className="text-sm text-slate-100 leading-relaxed">{detailData.student.enrollmentData.medicalConditions}</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+        </div>
       </div>
 
-      {/* Ubicación y Mapa */}
+      {/* Ubicación - Solo si hay datos */}
       {detailData.student.enrollmentData?.address && (
-        <Card className="bg-gray-800 border-gray-700">
-          <CardHeader>
-            <CardTitle className="text-blue-400 flex items-center gap-2">
-              <MapPin className="w-5 h-5" />
+        <Card className="bg-slate-800 border-slate-700 hover:bg-slate-800/80 transition-colors">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-green-400 flex items-center gap-2 text-lg">
+              <div className="p-1.5 rounded-lg bg-green-500/20">
+                <MapPin className="w-4 h-4" />
+              </div>
               Ubicación del Estudiante
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {detailData.student.enrollmentData.address && (
-                  <div>
-                    <span className="text-gray-400 text-sm">Dirección:</span>
-                    <p className="text-white">{detailData.student.enrollmentData.address}</p>
-                  </div>
-                )}
-                {detailData.student.enrollmentData.neighborhood && (
-                  <div>
-                    <span className="text-gray-400 text-sm">Barrio:</span>
-                    <p className="text-white">{detailData.student.enrollmentData.neighborhood}</p>
-                  </div>
-                )}
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
+              <div>
+                <span className="text-slate-300 text-xs uppercase tracking-wide">Dirección</span>
+                <p className="text-white font-medium">{detailData.student.enrollmentData.address}</p>
+              </div>
+              {detailData.student.enrollmentData.neighborhood && (
                 <div>
-                  <span className="text-gray-400 text-sm">Ciudad:</span>
-                  <p className="text-white">{detailData.student.enrollmentData.city || 'Itagüí'}</p>
+                  <span className="text-slate-300 text-xs uppercase tracking-wide">Barrio</span>
+                  <p className="text-white font-medium">{detailData.student.enrollmentData.neighborhood}</p>
+                </div>
+              )}
+              <div>
+                <span className="text-slate-300 text-xs uppercase tracking-wide">Ciudad</span>
+                <p className="text-white font-medium">{detailData.student.enrollmentData.city || 'Itagüí'}</p>
+              </div>
+            </div>
+            
+            {mapUrl && !mapError && (
+              <div className="mt-4">
+                <div className="aspect-video w-full max-w-2xl mx-auto">
+                  <iframe
+                    src={mapUrl}
+                    width="100%"
+                    height="100%"
+                    style={{ border: 0 }}
+                    allowFullScreen
+                    loading="lazy"
+                    referrerPolicy="no-referrer-when-downgrade"
+                    className="rounded-lg border border-slate-600"
+                    onError={() => setMapError(true)}
+                  />
                 </div>
               </div>
-              
-              {mapUrl && !mapError && (
-                <div className="mt-4">
-                  <div className="aspect-video w-full">
-                    <iframe
-                      src={mapUrl}
-                      width="100%"
-                      height="100%"
-                      style={{ border: 0 }}
-                      allowFullScreen
-                      loading="lazy"
-                      referrerPolicy="no-referrer-when-downgrade"
-                      className="rounded-lg"
-                      onError={() => setMapError(true)}
-                    />
-                  </div>
-                </div>
-              )}
-              
-              {(mapError || !mapUrl) && (
-                <div className="mt-4 p-4 bg-gray-700 rounded-lg text-center">
-                  <MapPin className="w-8 h-8 mx-auto text-gray-400 mb-2" />
-                  <p className="text-gray-400">
-                    {!mapUrl ? 'No se puede mostrar el mapa - API key no configurada' : 'Error al cargar el mapa'}
-                  </p>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="mt-2"
-                    onClick={() => {
-                      const address = `${detailData.student.enrollmentData?.address}, Itagüí, Antioquia, Colombia`
-                      window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`, '_blank')
-                    }}
-                  >
-                    Abrir en Google Maps
-                  </Button>
-                </div>
-              )}
-            </div>
+            )}
+            
+            {(mapError || !mapUrl) && (
+              <div className="mt-4 p-4 bg-slate-700/50 rounded-lg text-center">
+                <MapPin className="w-8 h-8 mx-auto text-slate-400 mb-2" />
+                <p className="text-slate-300 text-sm mb-3">
+                  {!mapUrl ? 'Mapa no disponible' : 'Error al cargar el mapa'}
+                </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="border-slate-600 text-slate-200 hover:bg-slate-600 hover:text-white"
+                  onClick={() => {
+                    const address = `${detailData.student.enrollmentData?.address}, Itagüí, Antioquia, Colombia`
+                    window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`, '_blank')
+                  }}
+                >
+                  Abrir en Google Maps
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
 
       {/* Estado Financiero */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Deudas */}
-        <Card className="bg-gray-800 border-gray-700">
-          <CardHeader>
-            <CardTitle className="text-blue-400 flex items-center gap-2">
-              <DollarSign className="w-5 h-5" />
+        <Card className="bg-slate-800 border-slate-700 hover:bg-slate-800/80 transition-colors">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-red-400 flex items-center gap-2 text-lg">
+              <div className="p-1.5 rounded-lg bg-red-500/20">
+                <DollarSign className="w-4 h-4" />
+              </div>
               Deudas Pendientes
             </CardTitle>
           </CardHeader>
           <CardContent>
             {detailData.student.debts && detailData.student.debts.length > 0 ? (
-              <div className="space-y-3">
+              <div className="space-y-2">
                 {detailData.student.debts.map((debt) => (
-                  <div key={debt.id} className="p-3 bg-red-900/20 border border-red-700 rounded">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <p className="font-medium text-red-400">{debt.concept}</p>
-                        <p className="text-sm text-gray-400">Vence: {formatDate(debt.dueDate)}</p>
+                  <div key={debt.id} className="p-3 bg-red-950/30 border border-red-800/50 rounded-lg">
+                    <div className="flex justify-between items-start gap-2">
+                      <div className="flex-1">
+                        <p className="font-medium text-red-400 text-sm">{debt.concept}</p>
+                        <p className="text-xs text-slate-300">Vence: {formatDate(debt.dueDate)}</p>
                       </div>
-                      <span className="font-bold text-red-400">{formatCurrency(debt.amount)}</span>
+                      <span className="font-bold text-red-400 text-sm">{formatCurrency(debt.amount)}</span>
                     </div>
                   </div>
                 ))}
               </div>
             ) : (
-              <div className="flex items-center justify-center py-4">
-                <div className="text-center">
-                  <UserCheck className="w-8 h-8 mx-auto text-green-400 mb-2" />
-                  <p className="text-green-400">Sin deudas pendientes</p>
-                </div>
+              <div className="flex flex-col items-center justify-center py-6">
+                <UserCheck className="w-8 h-8 text-green-400 mb-2" />
+                <p className="text-green-400 text-sm font-medium">Sin deudas pendientes</p>
               </div>
             )}
           </CardContent>
         </Card>
 
         {/* Últimos Pagos */}
-        <Card className="bg-gray-800 border-gray-700">
-          <CardHeader>
-            <CardTitle className="text-blue-400 flex items-center gap-2">
-              <DollarSign className="w-5 h-5" />
+        <Card className="bg-slate-800 border-slate-700 hover:bg-slate-800/80 transition-colors">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-green-400 flex items-center gap-2 text-lg">
+              <div className="p-1.5 rounded-lg bg-green-500/20">
+                <DollarSign className="w-4 h-4" />
+              </div>
               Últimos Pagos
             </CardTitle>
           </CardHeader>
           <CardContent>
             {detailData.student.receipts && detailData.student.receipts.length > 0 ? (
-              <div className="space-y-3">
+              <div className="space-y-2">
                 {detailData.student.receipts.map((receipt) => (
-                  <div key={receipt.id} className="p-3 bg-green-900/20 border border-green-700 rounded">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <p className="font-medium text-green-400">{receipt.concept}</p>
-                        <p className="text-sm text-gray-400">{formatDate(receipt.createdAt)}</p>
+                  <div key={receipt.id} className="p-3 bg-green-950/30 border border-green-800/50 rounded-lg">
+                    <div className="flex justify-between items-start gap-2">
+                      <div className="flex-1">
+                        <p className="font-medium text-green-400 text-sm">{receipt.concept}</p>
+                        <p className="text-xs text-slate-300">{formatDate(receipt.createdAt)}</p>
                       </div>
-                      <span className="font-bold text-green-400">{formatCurrency(receipt.amount)}</span>
+                      <span className="font-bold text-green-400 text-sm">{formatCurrency(receipt.amount)}</span>
                     </div>
                   </div>
                 ))}
               </div>
             ) : (
-              <div className="flex items-center justify-center py-4">
-                <p className="text-gray-400">No hay pagos registrados</p>
+              <div className="flex flex-col items-center justify-center py-6">
+                <DollarSign className="w-8 h-8 text-slate-500 mb-2" />
+                <p className="text-slate-400 text-sm">No hay pagos registrados</p>
               </div>
             )}
           </CardContent>
@@ -724,21 +777,23 @@ export function StudentDetailModal({ enrollment }: StudentDetailModalProps) {
 
       {/* Historial de Asistencias */}
       {detailData.student.attendances && detailData.student.attendances.length > 0 && (
-        <Card className="bg-gray-800 border-gray-700">
-          <CardHeader>
-            <CardTitle className="text-blue-400 flex items-center gap-2">
-              <Calendar className="w-5 h-5" />
-              Historial de Asistencias (Últimas 10)
+        <Card className="bg-slate-800 border-slate-700 hover:bg-slate-800/80 transition-colors">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-blue-400 flex items-center gap-2 text-lg">
+              <div className="p-1.5 rounded-lg bg-blue-500/20">
+                <Calendar className="w-4 h-4" />
+              </div>
+              Historial de Asistencias
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
               {detailData.student.attendances.map((attendance) => (
-                <div key={attendance.id} className="flex justify-between items-center p-2 bg-gray-700 rounded">
-                  <div>
-                    <p className="text-white">{formatDate(attendance.date)}</p>
+                <div key={attendance.id} className="flex justify-between items-center p-3 bg-slate-700/50 rounded-lg">
+                  <div className="flex-1">
+                    <p className="text-white text-sm font-medium">{formatDate(attendance.date)}</p>
                     {attendance.session?.danceClass && (
-                      <p className="text-sm text-gray-400">{attendance.session.danceClass.name}</p>
+                      <p className="text-xs text-slate-300">{attendance.session.danceClass.name}</p>
                     )}
                   </div>
                   {getAttendanceStatusBadge(attendance.status)}
