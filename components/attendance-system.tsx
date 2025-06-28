@@ -15,6 +15,7 @@ import {
   GraduationCap,
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { useParadiseApi } from "@/hooks/use-paradise-api"
 import { Label } from "@/components/ui/label"
 
 interface Student {
@@ -69,23 +70,27 @@ export function AttendanceSystem() {
   const [students, setStudents] = useState<Student[]>([])
   const [loading, setLoading] = useState(true)
 
-  const loadClasses = useCallback(async () => {
-    try {
-      const response = await fetch("/api/classes?active=true")
-      const data = await response.json()
-      if (data.success) {
-        setClasses(data.classes)
-      }
-    } catch (error) {
-      console.error("Error loading classes:", error)
-    } finally {
+  // ⚡ OPTIMIZACIÓN: useParadiseApi para clases
+  const { 
+    data: classesData, 
+    loading: classesLoading,
+    error: classesError 
+  } = useParadiseApi<{success: boolean, classes: DanceClass[]}>('/classes?active=true')
+
+  // ⚡ EFECTO OPTIMIZADO: Solo cuando hay datos
+  useEffect(() => {
+    if (classesData?.success) {
+      setClasses(classesData.classes)
       setLoading(false)
     }
-  }, [])
+  }, [classesData])
 
   useEffect(() => {
-    loadClasses()
-  }, [loadClasses])
+    if (classesError) {
+      console.error("Error loading classes:", classesError)
+      setLoading(false)
+    }
+  }, [classesError])
 
   const loadTodaySession = useCallback(async () => {
     if (!selectedClass) return

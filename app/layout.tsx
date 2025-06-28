@@ -1,14 +1,19 @@
 import type React from "react"
-import type { Metadata } from "next"
+import type { Metadata, Viewport } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
 import { Toaster } from "@/components/toaster"
 import { GoogleMapsProvider } from "@/lib/google-maps-provider"
+import AuthSessionProvider from "@/components/providers/session-provider"
+import { PerformanceOptimizer } from "@/components/performance-optimizer"
 
+// ⚡ FUENTE OPTIMIZADA CON PRELOAD
 const inter = Inter({ 
   subsets: ["latin"],
   display: 'swap',
-  variable: '--font-inter'
+  variable: '--font-inter',
+  preload: true,
+  fallback: ['system-ui', 'arial', 'sans-serif']
 })
 
 export const metadata: Metadata = {
@@ -26,7 +31,7 @@ export const metadata: Metadata = {
     address: false,
     telephone: false,
   },
-  metadataBase: new URL('http://localhost:3000'),
+  metadataBase: new URL(process.env.NEXTAUTH_URL || 'http://localhost:3000'),
   openGraph: {
     title: "Paradise Dance Academy - Sistema de Gestión",
     description: "Sistema completo de gestión para academias de baile",
@@ -43,6 +48,15 @@ export const metadata: Metadata = {
   },
 }
 
+// ⚡ VIEWPORT SEPARADO (CORRIGE ADVERTENCIA)
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  themeColor: '#1f2937',
+  colorScheme: 'dark',
+}
+
 export default function RootLayout({
   children,
 }: {
@@ -50,11 +64,26 @@ export default function RootLayout({
 }) {
   return (
     <html lang="es" className={inter.variable}>
-      <body className="font-sans antialiased">
+      <head>
+        {/* ⚡ PRELOAD CRÍTICO PARA FONTS */}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link rel="dns-prefetch" href="//fonts.googleapis.com" />
+        <link rel="dns-prefetch" href="//fonts.gstatic.com" />
+        
+        {/* ⚡ PRELOAD RECURSOS CRÍTICOS */}
+        <link rel="preload" href="/logo.jpg" as="image" type="image/jpeg" />
+      </head>
+      <body className="font-sans antialiased bg-gray-900 text-white">
         <GoogleMapsProvider>
           {children}
         </GoogleMapsProvider>
         <Toaster />
+        <AuthSessionProvider>
+          {children}
+          <Toaster />
+          <PerformanceOptimizer />
+        </AuthSessionProvider>
       </body>
     </html>
   )

@@ -1,71 +1,161 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
 
-export async function GET() {
+// ⚡ CACHE EN MEMORIA PARA CONSULTAS FRECUENTES
+let debtsCache: {
+  data: any;
+  timestamp: number;
+  count: number;
+} | null = null
+
+const CACHE_DURATION = 60 * 1000 // 1 minuto para debts (datos que cambian frecuentemente)
+
+export async function GET(request: Request) {
   try {
+    // ✅ Verificar autenticación
+    const session = await getServerSession(authOptions)
+    if (!session) {
+      return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+    }
+
+    const { searchParams } = new URL(request.url)
+    const countOnly = searchParams.get('count') === 'true'
+    const now = Date.now()
+
+    // ⚡ VERIFICAR CACHE PRIMERO
+    if (debtsCache && (now - debtsCache.timestamp) < CACHE_DURATION) {
+      if (countOnly) {
+        return NextResponse.json({ 
+          count: debtsCache.count,
+          cached: true,
+          timestamp: debtsCache.timestamp
+        })
+      }
+      return NextResponse.json({
+        debts: debtsCache.data,
+        count: debtsCache.count,
+        cached: true,
+        timestamp: debtsCache.timestamp
+      })
+    }
+
+    // ⚡ CONSULTA OPTIMIZADA - Solo campos necesarios
+    const debtFields = {
+      id: true,
+      amount: true,
+      concept: true,
+      dueDate: true,
+      isPaid: true,
+      lastReminder: true,
+      student: {
+        select: {
+          id: true,
+          name: true,
+          phone: true,
+          email: true
+        }
+      }
+    }
+
+    if (countOnly) {
+      // ⚡ Solo contar para requests de count
+      const count = await prisma.debt.count({
+        where: {
+          isPaid: false,
+          dueDate: {
+            lt: new Date()
+          }
+        }
+      })
+
+      // Actualizar cache con count
+      if (debtsCache) {
+        debtsCache.count = count
+        debtsCache.timestamp = now
+      } else {
+        debtsCache = {
+          data: [],
+          count,
+          timestamp: now
+        }
+      }
+
+      return NextResponse.json({ count })
+    }
+
+    // ⚡ CONSULTA COMPLETA OPTIMIZADA
     const debts = await prisma.debt.findMany({
       where: {
         isPaid: false,
+        dueDate: {
+          lt: new Date()
+        }
       },
-      include: {
-        student: true,
-      },
-      orderBy: {
-        dueDate: "asc",
-      },
+      select: debtFields,
+      orderBy: [
+        { dueDate: 'asc' },
+        { amount: 'desc' }
+      ],
+      take: 100 // Limitar resultados para evitar sobrecarga
     })
 
-    // Calcular días de retraso y formatear datos
-    const formattedDebts = debts.map((debt: any) => {
-      const today = new Date()
-      const dueDate = new Date(debt.dueDate)
-      const daysOverdue = Math.max(0, Math.floor((today.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24)))
+    // ⚡ ACTUALIZAR CACHE
+    debtsCache = {
+      data: debts,
+      count: debts.length,
+      timestamp: now
+    }
 
-      return {
-        id: debt.id,
-        studentName: debt.student.name,
-        avatar: debt.student.avatar,
-        phone: debt.student.phone,
-        amount: debt.amount,
-        concept: debt.concept,
-        daysOverdue,
-        lastPayment: debt.student.updatedAt.toLocaleDateString("es-ES"),
-      }
+    // ⚡ HEADERS DE CACHE PARA EL CLIENTE
+    const response = NextResponse.json({
+      debts,
+      count: debts.length,
+      total: debts.length,
+      cached: false,
+      timestamp: now
     })
 
-    // Actualizar el estado hasDebt de los estudiantes
-    const studentIds = debts.map((debt: any) => debt.studentId)
-    await prisma.student.updateMany({
-      where: {
-        id: { in: studentIds },
-      },
-      data: {
-        hasDebt: true,
-      },
-    })
+    response.headers.set('Cache-Control', 'public, s-maxage=30, stale-while-revalidate=60')
+    
+    return response
 
-    // Actualizar estudiantes sin deudas
-    await prisma.student.updateMany({
-      where: {
-        id: { notIn: studentIds },
-      },
-      data: {
-        hasDebt: false,
-      },
-    })
-
-    return NextResponse.json({
-      debts: formattedDebts,
-      count: formattedDebts.length,
-    })
   } catch (error) {
     console.error("Error fetching debts:", error)
-    return NextResponse.json({ error: "Error al obtener deudas" }, { status: 500 })
+    
+    // ⚡ FALLBACK CON CACHE EN CASO DE ERROR
+    if (debtsCache) {
+      return NextResponse.json({
+        debts: debtsCache.data,
+        count: debtsCache.count,
+        cached: true,
+        error: "Usando datos en cache debido a error temporal"
+      })
+    }
+
+    return NextResponse.json(
+      { 
+        error: "Error interno del servidor",
+        debts: [],
+        count: 0 
+      }, 
+      { status: 500 }
+    )
   }
 }
 
+// ⚡ INVALIDAR CACHE CUANDO SE CREAN/ACTUALIZAN DEBTS
 export async function POST(request: Request) {
   try {
+    const session = await getServerSession(authOptions)
+    if (!session || session.user.role !== 'ADMIN') {
+      return NextResponse.json({ error: 'No autorizado' }, { status: 403 })
+    }
+
+    // Invalidar cache
+    debtsCache = null
+
     const data = await request.json()
 
     // Validar que el studentId sea un número válido
@@ -93,7 +183,6 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ debt })
   } catch (error) {
-    console.error("Error creating debt:", error)
-    return NextResponse.json({ error: "Error al crear deuda" }, { status: 500 })
+    return NextResponse.json({ error: "Error interno" }, { status: 500 })
   }
 }
