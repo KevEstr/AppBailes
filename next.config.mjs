@@ -7,6 +7,9 @@ const nextConfig = {
     ignoreBuildErrors: true,
   },
   
+  // ⚡ CONFIGURACIÓN PARA DOCKER
+  output: 'standalone',
+  
   // ⚡ OPTIMIZACIONES CRÍTICAS DE RENDIMIENTO
   images: {
     unoptimized: false,

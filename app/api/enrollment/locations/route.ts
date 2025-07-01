@@ -5,8 +5,26 @@ const prisma = new PrismaClient()
 
 export async function GET(request: NextRequest) {
   try {
+    const { searchParams } = new URL(request.url)
+    const sport = searchParams.get('sport')
+
+    if (!sport || sport !== 'VOLLEYBALL') {
+      return NextResponse.json({
+        success: false,
+        error: 'Este endpoint es solo para ubicaciones de voleibol'
+      }, { status: 400 })
+    }
+
+    // Obtener ubicaciones únicas donde hay clases de voleibol
     const locations = await prisma.sportLocation.findMany({
-      where: { isActive: true },
+      where: {
+        classes: {
+          some: {
+            sport: 'VOLLEYBALL',
+            isActive: true
+          }
+        }
+      },
       select: {
         id: true,
         name: true,

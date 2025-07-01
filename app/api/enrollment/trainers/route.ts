@@ -6,52 +6,34 @@ const prisma = new PrismaClient()
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
-    const type = searchParams.get('type') // 'dance' or 'sports'
+    const sport = searchParams.get('sport')
 
-    // Get trainers based on type
-    let trainers
-    if (type === 'dance') {
-      trainers = await prisma.trainer.findMany({
-        where: {
-          isActive: true,
-          classes: {
-            some: {
-              type: 'DANCE'
-            }
-          }
-        },
-        select: {
-          id: true,
-          name: true,
-          email: true
-        }
-      })
-    } else if (type === 'sports') {
-      trainers = await prisma.trainer.findMany({
-        where: {
-          isActive: true,
-          classes: {
-            some: {
-              type: 'SPORTS'
-            }
-          }
-        },
-        select: {
-          id: true,
-          name: true,
-          email: true
-        }
-      })
-    } else {
-      trainers = await prisma.trainer.findMany({
-        where: { isActive: true },
-        select: {
-          id: true,
-          name: true,
-          email: true
-        }
-      })
+    if (!sport || sport !== 'DANCE') {
+      return NextResponse.json({
+        success: false,
+        error: 'Este endpoint es solo para profesores de baile'
+      }, { status: 400 })
     }
+
+    // Obtener profesores únicos de clases de baile
+    const trainers = await prisma.trainer.findMany({
+      where: {
+        classes: {
+          some: {
+            sport: 'DANCE',
+            isActive: true
+          }
+        }
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true
+      },
+      orderBy: {
+        name: 'asc'
+      }
+    })
 
     return NextResponse.json({
       success: true,

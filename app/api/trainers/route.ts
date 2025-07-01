@@ -14,34 +14,47 @@ const createTrainerSchema = z.object({
 
 const updateTrainerSchema = createTrainerSchema.partial()
 
-// GET - Obtener entrenadores
+// GET - Obtener profesores filtrados por deporte, ubicación, nivel
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    
-    if (!session || session.user.role !== "ADMIN") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
+    const url = new URL(request.url)
+    const sport = url.searchParams.get('sport')
+    const locationId = url.searchParams.get('locationId')
+    const level = url.searchParams.get('level')
+    const active = url.searchParams.get('active') === 'true'
 
+    const classWhere: any = {}
+    if (sport && sport !== 'ALL') classWhere.sport = sport
+    if (locationId && locationId !== 'ALL') classWhere.locationId = parseInt(locationId)
+    if (level && level !== 'ALL') classWhere.level = level
+    if (active) classWhere.isActive = true
+
+    // Solo profesores con al menos una clase activa según los filtros
     const trainers = await prisma.trainer.findMany({
       where: {
-        isActive: true
+        classes: {
+          some: classWhere
+        }
       },
       select: {
         id: true,
         name: true,
-        email: true,
-        phone: true
+        email: true
       },
       orderBy: {
-        name: "asc"
+        name: 'asc'
       }
     })
 
-    return NextResponse.json(trainers)
+    return NextResponse.json({ success: true, trainers })
   } catch (error) {
-    console.error("Error fetching trainers:", error)
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
+    console.error('Error fetching trainers:', error)
+    return NextResponse.json({
+      success: false,
+      error: 'Error interno del servidor'
+    }, { status: 500 })
+  } finally {
+    await prisma.$disconnect()
   }
 }
 

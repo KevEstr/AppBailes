@@ -1,16 +1,6 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Label } from "@/components/ui/label"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Badge } from "@/components/ui/badge"
-import { Separator } from "@/components/ui/separator"
 import { 
   User, 
   Calendar, 
@@ -25,35 +15,46 @@ import {
   ChevronRight,
   Send,
   AlertCircle,
-  ArrowLeft,
-  ArrowRight,
   Users,
   CheckCircle,
-  Trophy
+  Trophy,
+  Clock,
+  Star
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { InteractiveMap } from './interactive-map'
+import { Card, CardContent } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Label } from "@/components/ui/label"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Badge } from "@/components/ui/badge"
+import { Separator } from "@/components/ui/separator"
 
 interface EnrollmentFormData {
-  // Tipo de inscripción
-  enrollmentType: 'dance' | 'sports'
+  // Selección de clase
+  sport: 'DANCE' | 'VOLLEYBALL'
+  trainerId: number | null
+  locationId: number | null
+  classId: number | null
   
-  // Información de la clase/entrenamiento
-  trainerId?: number
-  classId?: number
-  locationId?: number
-  
-  // Información del estudiante/deportista
+  // Información básica del estudiante (para tabla Student)
+  studentId: string // Cédula que será el ID
   studentName: string
-  documentType: string
-  documentNumber: string
-  birthDate: string
-  phone: string
   email: string
+  phone: string
+  
+  // Información detallada (para tabla StudentEnrollmentData)
+  documentType: string
+  birthDate: string
   address: string
   addressLatitude?: number
   addressLongitude?: number
   neighborhood: string
+  city: string
   hasSisben: boolean
   eps: string
   bloodType: string
@@ -62,41 +63,48 @@ interface EnrollmentFormData {
   medicalConditions?: string
   isAdult: boolean
   
-  // Información de emergencia
+  // Contacto de emergencia
   emergencyContactName: string
   emergencyContactRelation: string
   emergencyContactPhone: string
   
-  // Información del acudiente (si es menor)
+  // Acudiente (si es menor)
   guardianName?: string
   guardianRelation?: string
   guardianPhone?: string
   
-  // Aceptación de términos
+  // Términos
   acceptsTerms: boolean
 }
 
-interface Trainer {
+interface TrainerInfo {
   id: number
   name: string
   email: string
 }
 
-interface SportLocation {
+interface LocationInfo {
   id: number
   name: string
   address?: string
 }
 
-interface ClassData {
+interface ClassInfo {
   id: number
   name: string
   description?: string
-  trainer: string
-  trainerId: number
-  type: string
-  location?: string
-  locationId?: number
+  sport: string
+  level: string
+  capacity: number
+  price?: number
+  trainer: TrainerInfo
+  location?: LocationInfo
+  schedules: Array<{
+    id: number
+    dayOfWeek: number
+    startTime: string
+    endTime: string
+  }>
 }
 
 const DOCUMENT_TYPES = [
@@ -117,28 +125,34 @@ const RELATIONS = [
   { value: "otro", label: "Otro" }
 ]
 
+const DAYS_OF_WEEK = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado']
+
 export function EnrollmentForm() {
   const { toast } = useToast()
   const [currentStep, setCurrentStep] = useState(1)
   const [loading, setLoading] = useState(false)
   
   // Dynamic data states
-  const [trainers, setTrainers] = useState<Trainer[]>([])
-  const [allClasses, setAllClasses] = useState<ClassData[]>([])
-  const [filteredClasses, setFilteredClasses] = useState<ClassData[]>([])
-  const [locations, setLocations] = useState<SportLocation[]>([])
+  const [trainers, setTrainers] = useState<TrainerInfo[]>([])
+  const [locations, setLocations] = useState<LocationInfo[]>([])
+  const [availableClasses, setAvailableClasses] = useState<ClassInfo[]>([])
+  const [selectedClass, setSelectedClass] = useState<ClassInfo | null>(null)
   const [loadingData, setLoadingData] = useState(false)
   
   const [formData, setFormData] = useState<EnrollmentFormData>({
-    enrollmentType: 'dance',
+    sport: '' as 'DANCE' | 'VOLLEYBALL',
+    trainerId: null,
+    locationId: null,
+    classId: null,
+    studentId: '',
     studentName: '',
-    documentType: '',
-    documentNumber: '',
-    birthDate: '',
-    phone: '',
     email: '',
+    phone: '',
+    documentType: '',
+    birthDate: '',
     address: '',
     neighborhood: '',
+    city: '',
     hasSisben: false,
     eps: '',
     bloodType: '',
@@ -152,120 +166,139 @@ export function EnrollmentForm() {
 
   const totalSteps = 5
 
-  // Load data functions
-  const loadTrainers = async (type?: string) => {
+  // Load trainers for DANCE
+  const loadTrainers = async () => {
     try {
       setLoadingData(true)
-      const url = type ? `/api/enrollment/trainers?type=${type}` : '/api/enrollment/trainers'
-      const response = await fetch(url)
+      const response = await fetch('/api/enrollment/trainers?sport=DANCE')
       const data = await response.json()
+      
       if (data.success) {
         setTrainers(data.trainers)
+      } else {
+        toast({
+          title: "Error",
+          description: "No se pudieron cargar los profesores",
+          variant: "destructive"
+        })
       }
     } catch (error) {
       console.error('Error loading trainers:', error)
+      toast({
+        title: "Error",
+        description: "Error al cargar los profesores",
+        variant: "destructive"
+      })
     } finally {
       setLoadingData(false)
     }
   }
 
-  const loadAllClasses = async (type?: string) => {
-    try {
-      setLoadingData(true)
-      let url = '/api/enrollment/classes'
-      if (type) url += `?type=${type}`
-
-      const response = await fetch(url)
-      const data = await response.json()
-      if (data.success) {
-        setAllClasses(data.classes)
-        setFilteredClasses(data.classes) // Initially, filtered classes are the same as all classes
-      }
-    } catch (error) {
-      console.error('Error loading classes:', error)
-    } finally {
-      setLoadingData(false)
-    }
-  }
-
-  const loadFilteredClasses = async (type?: string, trainerId?: number, locationId?: number) => {
-    try {
-      let url = '/api/enrollment/classes'
-      const params = new URLSearchParams()
-      if (type) params.append('type', type)
-      if (trainerId) params.append('trainerId', trainerId.toString())
-      if (locationId) params.append('locationId', locationId.toString())
-      
-      if (params.toString()) {
-        url += `?${params.toString()}`
-      }
-
-      const response = await fetch(url)
-      const data = await response.json()
-      if (data.success) {
-        setFilteredClasses(data.classes)
-      }
-    } catch (error) {
-      console.error('Error loading filtered classes:', error)
-    }
-  }
-
+  // Load locations for VOLLEYBALL
   const loadLocations = async () => {
     try {
-      const response = await fetch('/api/enrollment/locations')
+      setLoadingData(true)
+      const response = await fetch('/api/enrollment/locations?sport=VOLLEYBALL')
       const data = await response.json()
+      
       if (data.success) {
         setLocations(data.locations)
+      } else {
+        toast({
+          title: "Error",
+          description: "No se pudieron cargar las ubicaciones",
+          variant: "destructive"
+        })
       }
     } catch (error) {
       console.error('Error loading locations:', error)
+      toast({
+        title: "Error",
+        description: "Error al cargar las ubicaciones",
+        variant: "destructive"
+      })
+    } finally {
+      setLoadingData(false)
     }
   }
 
-  // Load initial data
-  useEffect(() => {
-    if (formData.enrollmentType === 'dance') {
-      loadTrainers('dance')
-      loadAllClasses('dance')
-    } else if (formData.enrollmentType === 'sports') {
-      loadLocations()
-      loadAllClasses('sports')
+  // Load classes/schedules based on sport and selection
+  const loadSchedules = async () => {
+    if (formData.sport === 'DANCE' && !formData.trainerId) return
+    if (formData.sport === 'VOLLEYBALL' && !formData.locationId) return
+
+    try {
+      setLoadingData(true)
+      
+      let url = `/api/enrollment/schedules?sport=${formData.sport}`
+      if (formData.sport === 'DANCE') {
+        url += `&trainerId=${formData.trainerId}`
+      } else {
+        url += `&locationId=${formData.locationId}`
+      }
+
+      const response = await fetch(url)
+      const data = await response.json()
+      
+      if (data.success) {
+        setAvailableClasses(data.classes)
+      } else {
+        toast({
+          title: "Error",
+          description: "No se pudieron cargar los horarios",
+          variant: "destructive"
+        })
+      }
+    } catch (error) {
+      console.error('Error loading schedules:', error)
+      toast({
+        title: "Error",
+        description: "Error al cargar los horarios",
+        variant: "destructive"
+      })
+    } finally {
+      setLoadingData(false)
     }
-  }, [formData.enrollmentType])
+  }
+
+  // Load initial data when sport changes
+  useEffect(() => {
+    if (formData.sport === 'DANCE') {
+      loadTrainers()
+      setLocations([])
+      setFormData(prev => ({ ...prev, locationId: null, trainerId: null, classId: null }))
+    } else {
+      loadLocations()
+      setTrainers([])
+      setFormData(prev => ({ ...prev, trainerId: null, locationId: null, classId: null }))
+    }
+    setAvailableClasses([])
+    setSelectedClass(null)
+  }, [formData.sport])
+
+  // Load schedules when trainer or location changes
+  useEffect(() => {
+    if (formData.trainerId || formData.locationId) {
+      loadSchedules()
+      setFormData(prev => ({ ...prev, classId: null }))
+      setSelectedClass(null)
+    } else {
+      setAvailableClasses([])
+    }
+  }, [formData.trainerId, formData.locationId])
+
+  // Update selected class when classId changes
+  useEffect(() => {
+    if (formData.classId) {
+      const foundClass = availableClasses.find(c => c.id === formData.classId)
+      setSelectedClass(foundClass || null)
+    } else {
+      setSelectedClass(null)
+    }
+  }, [formData.classId, availableClasses])
 
   const updateFormData = (field: keyof EnrollmentFormData, value: any) => {
-    // Reset dependent fields when changing main selection
-    if (field === 'enrollmentType') {
-      setFormData(prev => ({
-        ...prev,
-        trainerId: undefined,
-        locationId: undefined,
-        classId: undefined,
-        [field]: value
-      }))
-      return
-    }
-    
-    // Reset class selection when changing trainer or location
-    if (field === 'trainerId' || field === 'locationId') {
-      setFormData(prev => ({
-        ...prev,
-        classId: undefined,
-        [field]: value
-      }))
-    } else {
-      setFormData(prev => ({ ...prev, [field]: value }))
-    }
-    
-    // For dance: load filtered classes when trainer changes
-    if (field === 'trainerId' && formData.enrollmentType === 'dance') {
-      loadFilteredClasses('dance', value)
-    }
-    
-    // For sports: load filtered classes when location changes
-    if (field === 'locationId' && formData.enrollmentType === 'sports') {
-      loadFilteredClasses('sports', undefined, value)
-    }
+    setFormData(prev => ({ ...prev, [field]: value }))
   }
 
   const nextStep = () => {
@@ -283,10 +316,33 @@ export function EnrollmentForm() {
   const submitForm = async () => {
     setLoading(true)
     try {
+      // Verificar solo por número de documento
+      const checkResponse = await fetch(`/api/students/check?documentNumber=${formData.studentId}`)
+      const checkData = await checkResponse.json()
+      console.log(checkData)
+      if (checkData.exists) {
+        toast({
+          title: "❌ Estudiante ya registrado",
+          description: "Ya existe un estudiante inscrito con este número de documento. Si crees que esto es un error, por favor contacta al administrador.",
+          variant: "destructive"
+        })
+        setLoading(false)
+        return
+      }
+
+      // Si el documento no existe, proceder con la inscripción
+      const apiData = {
+        ...formData,
+        documentNumber: formData.studentId,
+        classId: formData.classId
+      }
+      
+      delete (apiData as any).studentId
+
       const response = await fetch('/api/enrollments/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
+        body: JSON.stringify(apiData)
       })
 
       const data = await response.json()
@@ -294,20 +350,25 @@ export function EnrollmentForm() {
       if (data.success) {
         toast({
           title: "✅ Inscripción exitosa",
-          description: "Tu inscripción ha sido procesada correctamente"
+          description: `¡Bienvenido a ${selectedClass?.name}!`,
+          variant: "default"
         })
         
         // Reset form
         setFormData({
-          enrollmentType: 'dance',
+          sport: '' as 'DANCE' | 'VOLLEYBALL',
+          trainerId: null,
+          locationId: null,
+          classId: null,
+          studentId: '',
           studentName: '',
-          documentType: '',
-          documentNumber: '',
-          birthDate: '',
-          phone: '',
           email: '',
+          phone: '',
+          documentType: '',
+          birthDate: '',
           address: '',
           neighborhood: '',
+          city: '',
           hasSisben: false,
           eps: '',
           bloodType: '',
@@ -318,18 +379,20 @@ export function EnrollmentForm() {
           emergencyContactPhone: '',
           acceptsTerms: false
         })
+        setSelectedClass(null)
         setCurrentStep(1)
       } else {
         toast({
-          title: "❌ Error",
-          description: data.error || "No se pudo procesar la inscripción",
+          title: "❌ Error en la inscripción",
+          description: data.error || "No se pudo completar la inscripción. Por favor, intenta nuevamente.",
           variant: "destructive"
         })
       }
     } catch (error) {
+      console.error('Error en la inscripción:', error)
       toast({
-        title: "❌ Error",
-        description: "Error al procesar la inscripción",
+        title: "❌ Error de conexión",
+        description: "Hubo un problema al procesar tu solicitud. Por favor, verifica tu conexión e intenta nuevamente.",
         variant: "destructive"
       })
     }
@@ -339,16 +402,36 @@ export function EnrollmentForm() {
   const canProceedFromStep = (step: number): boolean => {
     switch (step) {
       case 1:
-        return !!formData.enrollmentType && !!formData.classId
+        return !!formData.classId
       case 2:
-        return !!(formData.studentName && formData.documentType && formData.documentNumber && 
-                 formData.birthDate && formData.phone && formData.email && formData.address && formData.neighborhood)
+        // Solo validar que los campos estén completos, no su unicidad
+        return !!(
+          formData.studentName && 
+          formData.studentId && 
+          formData.documentType && 
+          formData.birthDate && 
+          formData.email && 
+          formData.phone
+        )
       case 3:
-        return !!(formData.eps && formData.bloodType)
+        return !!(
+          formData.city && 
+          formData.neighborhood && 
+          formData.address && 
+          formData.eps && 
+          formData.bloodType
+        )
       case 4:
-        return !!(formData.emergencyContactName && formData.emergencyContactRelation && 
+        return !!(
+          formData.emergencyContactName && 
+          formData.emergencyContactRelation && 
                  formData.emergencyContactPhone && 
-                 (formData.isAdult || (formData.guardianName && formData.guardianRelation && formData.guardianPhone)))
+          (formData.isAdult || (
+            formData.guardianName && 
+            formData.guardianRelation && 
+            formData.guardianPhone
+          ))
+        )
       case 5:
         return formData.acceptsTerms
       default:
@@ -356,144 +439,193 @@ export function EnrollmentForm() {
     }
   }
 
+  // Función auxiliar para obtener el texto del nivel
+  const getLevelText = (level: string) => {
+    switch (level) {
+      case 'BEGINNER':
+        return 'Principiante'
+      case 'INTERMEDIATE':
+        return 'Intermedio'
+      case 'ADVANCED':
+        return 'Avanzado'
+      default:
+        return level
+    }
+  }
+
+  const renderScheduleContent = () => {
+    if (loadingData) {
+      return (
+        <div className="flex items-center justify-center py-2">
+          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-500"></div>
+          <span className="ml-2 text-gray-400 text-sm">Cargando...</span>
+        </div>
+      )
+    }
+
+    if (availableClasses.length === 0) {
+      return (
+        <div className="text-center py-4 text-gray-400">
+          <Clock className="h-8 w-8 mx-auto mb-2 opacity-50" />
+          <p className="text-sm">No hay horarios disponibles</p>
+        </div>
+      )
+    }
+
+    return (
+      <Select 
+        value={formData.classId?.toString() || ''}
+        onValueChange={(value) => updateFormData('classId', value ? parseInt(value) : null)}
+      >
+        <SelectTrigger className="bg-gray-800 border-gray-600 text-white py-2 min-h-[2.5rem] h-auto">
+          <SelectValue placeholder="Selecciona tu horario">
+            {selectedClass && (
+              <div className="flex flex-col w-full">
+                <span className="truncate font-medium">{selectedClass.name}</span>
+              </div>
+            )}
+          </SelectValue>
+        </SelectTrigger>
+        <SelectContent className="max-h-[300px] w-[var(--radix-select-trigger-width)] min-w-[var(--radix-select-trigger-width)]">
+          {availableClasses.map((classInfo) => (
+            <SelectItem key={classInfo.id} value={classInfo.id.toString()} className="w-full">
+              <div className="flex flex-col w-full pr-2">
+                <span className="text-sm">{classInfo.name}</span>
+                {formData.sport === 'VOLLEYBALL' && classInfo.trainer && (
+                  <span className="text-xs text-gray-400 truncate">
+                    Profesor: {classInfo.trainer.name}
+                  </span>
+                )}
+              </div>
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    )
+  }
+
   const renderStepContent = () => {
     switch (currentStep) {
       case 1:
         return (
-          <div className="space-y-6">
-            <div className="text-center mb-8">
-              <div className="flex justify-center mb-4">
-                <div className="p-4 rounded-full bg-gradient-to-r from-blue-500 to-purple-600">
-                  <GraduationCap className="h-8 w-8 text-white" />
-                </div>
-              </div>
-              <h3 className="text-2xl font-bold text-white mb-2">Tipo de Inscripción</h3>
-              <p className="text-gray-400">Selecciona el área en la que te quieres inscribir</p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Card 
-                className={`cursor-pointer transition-all duration-300 border-2 ${
-                  formData.enrollmentType === 'dance' 
-                    ? 'border-purple-500 bg-purple-500/10' 
-                    : 'border-gray-600 bg-gray-800/50 hover:border-purple-400'
-                }`}
-                onClick={() => updateFormData('enrollmentType', 'dance')}
-              >
-                <CardContent className="p-6 text-center">
-                  <GraduationCap className="h-12 w-12 mx-auto mb-4 text-purple-400" />
-                  <h4 className="text-xl font-bold text-white mb-2">Baile</h4>
-                  <p className="text-gray-400">Inscríbete en clases de baile urbano</p>
-                </CardContent>
-              </Card>
-
-              <Card 
-                className={`cursor-pointer transition-all duration-300 border-2 ${
-                  formData.enrollmentType === 'sports' 
-                    ? 'border-blue-500 bg-blue-500/10' 
-                    : 'border-gray-600 bg-gray-800/50 hover:border-blue-400'
-                }`}
-                onClick={() => updateFormData('enrollmentType', 'sports')}
-              >
-                <CardContent className="p-6 text-center">
-                  <Dumbbell className="h-12 w-12 mx-auto mb-4 text-blue-400" />
-                  <h4 className="text-xl font-bold text-white mb-2">Deportes</h4>
-                  <p className="text-gray-400">Únete a nuestros entrenamientos deportivos</p>
-                </CardContent>
-              </Card>
-            </div>
-
-            {formData.enrollmentType === 'dance' && (
-              <div className="space-y-6 mt-8">
+          <div className="space-y-4">
+            {/* Sport Selection */}
                 <div>
-                  <Label className="text-white text-lg mb-4 block">Profesor con el que quieres bailar *</Label>
+              <Label className="text-white font-medium mb-2 block">Tipo de Actividad *</Label>
                   <Select 
-                    key={`trainer-${formData.enrollmentType}`}
-                    value={formData.trainerId ? formData.trainerId.toString() : ""}
-                    onValueChange={(value) => updateFormData('trainerId', value ? parseInt(value) : undefined)}
+                value={formData.sport}
+                onValueChange={(value: 'DANCE' | 'VOLLEYBALL') => updateFormData('sport', value)}
                   >
-                    <SelectTrigger className="bg-gray-800 border-gray-600 text-white">
-                      <SelectValue placeholder="Selecciona un profesor" />
+                <SelectTrigger className="bg-gray-800 border-gray-600 text-white py-2">
+                  <SelectValue placeholder="Selecciona una actividad" />
                     </SelectTrigger>
                     <SelectContent>
-                      {trainers.filter(trainer => 
-                        allClasses.some(cls => cls.trainerId === trainer.id && cls.type === 'DANCE')
-                      ).map(trainer => (
-                        <SelectItem key={trainer.id} value={trainer.id.toString()}>
-                          {trainer.name} (Baile Urbano)
+                  <SelectItem value="DANCE">
+                    <div className="flex items-center gap-2">
+                      <GraduationCap className="h-4 w-4 text-purple-400 flex-shrink-0" />
+                      <span className="truncate">Baile Urbano</span>
+                    </div>
                         </SelectItem>
-                      ))}
+                  <SelectItem value="VOLLEYBALL">
+                    <div className="flex items-center gap-2">
+                      <Dumbbell className="h-4 w-4 text-blue-400 flex-shrink-0" />
+                      <span className="truncate">Voleibol</span>
+                    </div>
+                  </SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
 
-                {formData.trainerId && (
+            {/* Professor/Location Selection - Solo mostrar si hay un deporte seleccionado */}
+            {formData.sport && (
+              formData.sport === 'DANCE' ? (
                   <div>
-                    <Label className="text-white text-lg mb-4 block">Grupo de baile *</Label>
+                  <Label className="text-white font-medium mb-2 block">Profesor con el que bailas *</Label>
+                  {loadingData ? (
+                    <div className="flex items-center justify-center py-2">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-purple-500"></div>
+                      <span className="ml-2 text-gray-400 text-sm">Cargando...</span>
+                    </div>
+                  ) : (
                     <Select 
-                      key={`class-${formData.trainerId}`}
-                      value={formData.classId ? formData.classId.toString() : ""}
-                      onValueChange={(value) => updateFormData('classId', value ? parseInt(value) : undefined)}
+                      value={formData.trainerId?.toString() || ''}
+                      onValueChange={(value) => updateFormData('trainerId', value ? parseInt(value) : null)}
                     >
-                      <SelectTrigger className="bg-gray-800 border-gray-600 text-white">
-                        <SelectValue placeholder="Selecciona un horario" />
+                      <SelectTrigger className="bg-gray-800 border-gray-600 text-white py-2">
+                        <SelectValue placeholder="Selecciona tu profesor" />
                       </SelectTrigger>
-                      <SelectContent>
-                        {filteredClasses.filter(cls => cls.type === 'DANCE' && cls.trainerId === formData.trainerId).map(cls => (
-                          <SelectItem key={cls.id} value={cls.id.toString()}>
-                            {cls.name}
+                      <SelectContent className="max-h-[300px] w-[var(--radix-select-trigger-width)] min-w-[var(--radix-select-trigger-width)]">
+                        {trainers.map((trainer) => (
+                          <SelectItem key={trainer.id} value={trainer.id.toString()} className="w-full">
+                            <div className="flex items-center gap-2 w-full pr-4">
+                              <User className="h-4 w-4 text-purple-400 flex-shrink-0" />
+                              <span className="truncate">{trainer.name}</span>
+                            </div>
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
-                  </div>
                 )}
+              </div>
+              ) : (
+                <div>
+                  <Label className="text-white font-medium mb-2 block">Cancha en la que entrenas *</Label>
+                  {loadingData ? (
+                    <div className="flex items-center justify-center py-2">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
+                      <span className="ml-2 text-gray-400 text-sm">Cargando...</span>
+                    </div>
+                  ) : (
+                  <Select 
+                      value={formData.locationId?.toString() || ''}
+                      onValueChange={(value) => updateFormData('locationId', value ? parseInt(value) : null)}
+                  >
+                      <SelectTrigger className="bg-gray-800 border-gray-600 text-white py-2">
+                        <SelectValue placeholder="Selecciona la cancha" />
+                    </SelectTrigger>
+                      <SelectContent className="max-h-[300px] w-[var(--radix-select-trigger-width)] min-w-[var(--radix-select-trigger-width)]">
+                      {locations.map((location) => (
+                          <SelectItem key={location.id} value={location.id.toString()} className="w-full">
+                            <div className="flex items-center gap-2 w-full pr-4">
+                              <MapPin className="h-4 w-4 text-green-400 flex-shrink-0" />
+                              <span className="truncate">{location.name}</span>
+                            </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  )}
+                </div>
+              )
+            )}
+
+            {/* Schedule Selection */}
+            {(formData.trainerId || formData.locationId) && (
+                  <div>
+                <Label className="text-white font-medium mb-2 block">
+                  Grupo y horario *
+                </Label>
+                {renderScheduleContent()}
               </div>
             )}
 
-            {formData.enrollmentType === 'sports' && (
-              <div className="space-y-6 mt-8">
-                <div>
-                  <Label className="text-white text-lg mb-4 block">Cancha donde entrenas *</Label>
-                  <Select 
-                    key={`location-${formData.enrollmentType}`}
-                    value={formData.locationId ? formData.locationId.toString() : ""}
-                    onValueChange={(value) => updateFormData('locationId', value ? parseInt(value) : undefined)}
-                  >
-                    <SelectTrigger className="bg-gray-800 border-gray-600 text-white">
-                      <SelectValue placeholder="Selecciona una cancha" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {locations.map((location) => (
-                        <SelectItem key={location.id} value={location.id.toString()}>
-                          {location.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {formData.locationId && (
+            {/* Selected Class Summary */}
+            {selectedClass && (
+              <div className="bg-gray-800/50 border-gray-600 rounded-lg p-4 mt-6">
+                <div className="flex items-start gap-3">
+                  <CheckCircle className="h-5 w-5 text-green-400 mt-0.5 flex-shrink-0" />
                   <div>
-                    <Label className="text-white text-lg mb-4 block">Grupo de entrenamiento *</Label>
-                    <Select 
-                      key={`class-${formData.locationId}`}
-                      value={formData.classId ? formData.classId.toString() : ""}
-                      onValueChange={(value) => updateFormData('classId', value ? parseInt(value) : undefined)}
-                    >
-                      <SelectTrigger className="bg-gray-800 border-gray-600 text-white">
-                        <SelectValue placeholder="Selecciona un horario" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {filteredClasses.filter(cls => cls.type === 'SPORTS' && cls.locationId === formData.locationId).map(cls => (
-                          <SelectItem key={cls.id} value={cls.id.toString()}>
-                            {cls.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <p className="text-white font-medium text-sm mb-2">Clase seleccionada:</p>
+                    <div className="space-y-1 text-sm">
+                      <p className="text-green-400">{selectedClass.name}</p>
+                      <p className="text-gray-400">Profesor: {selectedClass.trainer.name}</p>
+                      {selectedClass.location && (
+                        <p className="text-gray-400">Cancha: {selectedClass.location.name}</p>
+                      )}
+                      <p className="text-gray-400">Nivel: {getLevelText(selectedClass.level)}</p>
+                    </div>
                   </div>
-                )}
+                </div>
               </div>
             )}
           </div>
@@ -501,48 +633,69 @@ export function EnrollmentForm() {
 
       case 2:
         return (
-          <div className="space-y-6">
-            <div className="text-center mb-8">
-              <div className="flex justify-center mb-4">
-                <div className="p-4 rounded-full bg-gradient-to-r from-blue-500 to-purple-600">
-                  <User className="h-8 w-8 text-white" />
+          <div className="space-y-4">
+            {/* Resumen de clase seleccionada */}
+            {selectedClass && (
+              <div className="bg-gray-800/50 border-gray-600 rounded-lg p-3">
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4 text-green-400 flex-shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-white font-medium text-sm truncate">{selectedClass.name}</p>
+                    <p className="text-gray-400 text-xs truncate">
+                      {selectedClass.trainer.name}
+                      {selectedClass.location && ` • ${selectedClass.location.name}`}
+                    </p>
                 </div>
               </div>
-              <h3 className="text-2xl font-bold text-white mb-2">
-                Información del {formData.enrollmentType === 'dance' ? 'Bailarín' : 'Deportista'}
-              </h3>
-              <p className="text-gray-400">Completa los datos personales</p>
             </div>
+            )}
 
-            {/* Información Básica */}
-            <Card className="bg-gray-700/50 border-gray-600 backdrop-blur-sm">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-lg text-white">
-                  <div className="rounded-lg bg-gradient-to-r from-blue-500 to-purple-500 p-1.5">
-                    <User className="h-4 w-4 text-white" />
-                  </div>
-                  Información Básica
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="studentName" className="text-white">Nombre del Estudiante *</Label>
+            {/* Formulario de información personal */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 bg-gray-800/50 p-4 rounded-lg border border-gray-600">
+              <div className="md:col-span-2 lg:col-span-3">
+                <Label htmlFor="studentName" className="text-white font-medium text-sm">
+                  Nombre Completo *
+                </Label>
                   <Input
                     id="studentName"
+                  placeholder="Nombres y apellidos"
                     value={formData.studentName}
                     onChange={(e) => updateFormData('studentName', e.target.value)}
-                    required
-                    className="bg-gray-800 border-gray-600 text-white"
+                  className="bg-gray-800 border-gray-600 text-white mt-1"
+                />
+              </div>
+
+              <div className="lg:col-span-2">
+                <Label htmlFor="birthDate" className="text-white font-medium text-sm">
+                  Fecha de Nacimiento *
+                </Label>
+                <Input
+                  id="birthDate"
+                  type="date"
+                  value={formData.birthDate}
+                  onChange={(e) => {
+                    const birthDate = new Date(e.target.value);
+                    const today = new Date();
+                    const age = today.getFullYear() - birthDate.getFullYear();
+                    const isAdult = age >= 18;
+                    
+                    // Actualizar tanto la fecha como el estado de mayoría de edad
+                    updateFormData('birthDate', e.target.value);
+                    updateFormData('isAdult', isAdult);
+                  }}
+                  className="bg-gray-800 border-gray-600 text-white mt-1"
                   />
                 </div>
 
                 <div>
-                  <Label htmlFor="documentType" className="text-white">Tipo de Documento</Label>
+                <Label htmlFor="documentType" className="text-white font-medium text-sm">
+                  Tipo de Documento *
+                </Label>
                   <Select
                     value={formData.documentType}
                     onValueChange={(value) => updateFormData('documentType', value)}
                   >
-                    <SelectTrigger className="bg-gray-800 border-gray-600 text-white">
+                  <SelectTrigger className="bg-gray-800 border-gray-600 text-white mt-1">
                       <SelectValue placeholder="Seleccionar tipo" />
                     </SelectTrigger>
                     <SelectContent>
@@ -556,89 +709,80 @@ export function EnrollmentForm() {
                 </div>
 
                 <div>
-                  <Label htmlFor="documentNumber" className="text-white">Número de Documento *</Label>
+                <Label htmlFor="studentId" className="text-white font-medium text-sm">
+                  Número de Documento *
+                </Label>
                   <Input
-                    id="documentNumber"
-                    value={formData.documentNumber}
-                    onChange={(e) => updateFormData('documentNumber', e.target.value)}
-                    required
-                    className="bg-gray-800 border-gray-600 text-white"
+                  id="studentId"
+                  placeholder="Número de documento"
+                  value={formData.studentId}
+                  onChange={(e) => updateFormData('studentId', e.target.value)}
+                  className="bg-gray-800 border-gray-600 text-white mt-1"
+                  />
+                </div>
+
+              <div className="lg:col-span-2">
+                <Label htmlFor="email" className="text-white font-medium text-sm">
+                  Email *
+                </Label>
+                  <Input
+                  id="email"
+                  type="email"
+                  placeholder="correo@ejemplo.com"
+                  value={formData.email}
+                  onChange={(e) => updateFormData('email', e.target.value)}
+                  className="bg-gray-800 border-gray-600 text-white mt-1"
                   />
                 </div>
 
                 <div>
-                  <Label htmlFor="birthDate" className="text-white">Fecha de Nacimiento</Label>
-                  <Input
-                    id="birthDate"
-                    type="date"
-                    value={formData.birthDate}
-                    onChange={(e) => updateFormData('birthDate', e.target.value)}
-                    className="bg-gray-800 border-gray-600 text-white"
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="phone" className="text-white">Teléfono *</Label>
+                <Label htmlFor="phone" className="text-white font-medium text-sm">
+                  Teléfono *
+                </Label>
                   <Input
                     id="phone"
+                  placeholder="3001234567"
                     value={formData.phone}
                     onChange={(e) => updateFormData('phone', e.target.value)}
-                    required
-                    className="bg-gray-800 border-gray-600 text-white"
+                  className="bg-gray-800 border-gray-600 text-white mt-1"
                   />
                 </div>
-
-                <div>
-                  <Label htmlFor="email" className="text-white">Email *</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => updateFormData('email', e.target.value)}
-                    required
-                    className="bg-gray-800 border-gray-600 text-white"
-                  />
                 </div>
-              </CardContent>
-            </Card>
+          </div>
+        )
 
+      case 3:
+        return (
+          <div className="space-y-4 sm:space-y-6">
             {/* Ubicación */}
-            <Card className="bg-gray-700/50 border-gray-600 backdrop-blur-sm">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-lg text-white">
-                  <div className="rounded-lg bg-gradient-to-r from-green-500 to-teal-500 p-1.5">
-                    <MapPin className="h-4 w-4 text-white" />
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 bg-gray-800/50 p-4 rounded-lg border border-gray-600">
+              <div className="col-span-full flex items-center gap-2 mb-2">
+                <MapPin className="h-5 w-5 text-green-400" />
+                <h3 className="text-lg font-semibold text-white">Ubicación</h3>
                   </div>
-                  Ubicación
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                {/* Información básica en grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
                   <div>
-                    <Label className="text-white mb-2 block">Ciudad *</Label>
+                <Label className="text-white">Ciudad *</Label>
                     <Input
-                      placeholder="Itagüí"
-                      value="Itagüí"
-                      disabled
-                      className="bg-gray-600 border-gray-500 text-gray-300 cursor-not-allowed"
+                  value={formData.city}
+                  placeholder="Ej: Bello"
+                  onChange={(e) => updateFormData('city', e.target.value)}
+                  className="bg-gray-800 border-gray-600 text-white mt-1"
                     />
                   </div>
 
-                  <div>
-                    <Label htmlFor="neighborhood" className="text-white">Barrio</Label>
+              <div className="lg:col-span-2">
+                <Label htmlFor="neighborhood" className="text-white">Barrio *</Label>
                     <Input
                       id="neighborhood"
-                      placeholder="Ej: San Antonio de Prado"
+                  placeholder="Ej: Mesa"
                       value={formData.neighborhood}
                       onChange={(e) => updateFormData('neighborhood', e.target.value)}
-                      className="bg-gray-800 border-gray-600 text-white"
+                  className="bg-gray-800 border-gray-600 text-white mt-1"
                     />
-                  </div>
                 </div>
 
-                {/* Sección de mapa centrada */}
-                <div className="w-full max-w-4xl mx-auto">
+              <div className="col-span-full">
                   <InteractiveMap
                     address={formData.address}
                     latitude={formData.addressLatitude}
@@ -650,60 +794,52 @@ export function EnrollmentForm() {
                     }}
                   />
                 </div>
-              </CardContent>
-            </Card>
+            </div>
 
             {/* Información Médica */}
-            <Card className="bg-gray-700/50 border-gray-600 backdrop-blur-sm">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-lg text-white">
-                  <div className="rounded-lg bg-gradient-to-r from-red-500 to-pink-500 p-1.5">
-                    <Heart className="h-4 w-4 text-white" />
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 bg-gray-800/50 p-4 rounded-lg border border-gray-600">
+              <div className="col-span-full flex items-center gap-2 mb-2">
+                <Heart className="h-5 w-5 text-red-400" />
+                <h3 className="text-lg font-semibold text-white">Información Médica</h3>
                   </div>
-                  Información Médica
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="eps" className="text-white">EPS</Label>
+
+              <div className="lg:col-span-2">
+                <Label htmlFor="eps" className="text-white">EPS *</Label>
                   <Input
                     id="eps"
                     placeholder="Nombre de la EPS"
                     value={formData.eps}
                     onChange={(e) => updateFormData('eps', e.target.value)}
-                    className="bg-gray-800 border-gray-600 text-white"
+                  className="bg-gray-800 border-gray-600 text-white mt-1"
                   />
                 </div>
 
                 <div>
-                  <Label htmlFor="bloodType" className="text-white">Tipo de Sangre</Label>
+                <Label htmlFor="bloodType" className="text-white">Tipo de Sangre *</Label>
                   <Select
                     value={formData.bloodType}
                     onValueChange={(value) => updateFormData('bloodType', value)}
                   >
-                    <SelectTrigger className="bg-gray-800 border-gray-600 text-white">
+                  <SelectTrigger className="bg-gray-800 border-gray-600 text-white mt-1">
                       <SelectValue placeholder="Seleccionar tipo" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="A+">A+</SelectItem>
-                      <SelectItem value="A-">A-</SelectItem>
-                      <SelectItem value="B+">B+</SelectItem>
-                      <SelectItem value="B-">B-</SelectItem>
-                      <SelectItem value="AB+">AB+</SelectItem>
-                      <SelectItem value="AB-">AB-</SelectItem>
-                      <SelectItem value="O+">O+</SelectItem>
-                      <SelectItem value="O-">O-</SelectItem>
+                    {BLOOD_TYPES.map(type => (
+                      <SelectItem key={type} value={type}>{type}</SelectItem>
+                    ))}
                     </SelectContent>
                   </Select>
                 </div>
 
-                <div className="flex items-center space-x-2">
+              <div className="col-span-full">
+                <div className="flex items-center space-x-2 mb-2">
                   <Checkbox
                     id="hasSisben"
                     checked={formData.hasSisben}
                     onCheckedChange={(checked) => updateFormData('hasSisben', checked)}
                   />
                   <Label htmlFor="hasSisben" className="text-white">Tiene SISBEN</Label>
+                </div>
                 </div>
 
                 <div className="col-span-full">
@@ -718,103 +854,21 @@ export function EnrollmentForm() {
                   {formData.hasRestrictions && (
                     <Textarea
                       placeholder="Describa las restricciones médicas..."
-                      value={formData.restrictionsDescription}
+                    value={formData.restrictionsDescription || ''}
                       onChange={(e) => updateFormData('restrictionsDescription', e.target.value)}
-                      className="bg-gray-800 border-gray-600 text-white"
+                    className="bg-gray-800 border-gray-600 text-white mt-2"
                     />
                   )}
                 </div>
 
                 <div className="col-span-full">
-                  <Label htmlFor="medicalConditions" className="text-white">Condiciones Médicas Adicionales</Label>
+                <Label htmlFor="medicalConditions" className="text-white">Condiciones Médicas</Label>
                   <Textarea
                     id="medicalConditions"
-                    placeholder="Describa cualquier condición médica adicional..."
-                    value={formData.medicalConditions}
-                    onChange={(e) => updateFormData('medicalConditions', e.target.value)}
-                    className="bg-gray-800 border-gray-600 text-white"
-                  />
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        )
-
-      case 3:
-        return (
-          <div className="space-y-6">
-            <div className="text-center mb-8">
-              <div className="flex justify-center mb-4">
-                <div className="p-4 rounded-full bg-gradient-to-r from-green-500 to-blue-600">
-                  <Heart className="h-8 w-8 text-white" />
-                </div>
-              </div>
-              <h3 className="text-2xl font-bold text-white mb-2">Información de Salud</h3>
-              <p className="text-gray-400">Datos médicos importantes</p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <Label className="text-white mb-2 block">EPS</Label>
-                <Input
-                  placeholder="Nombre de la EPS"
-                  value={formData.eps}
-                  onChange={(e) => updateFormData('eps', e.target.value)}
-                  className="bg-gray-800 border-gray-600 text-white"
-                />
-              </div>
-
-              <div>
-                <Label className="text-white mb-2 block">Grupo sanguíneo *</Label>
-                <Select onValueChange={(value) => updateFormData('bloodType', value)}>
-                  <SelectTrigger className="bg-gray-800 border-gray-600 text-white">
-                    <SelectValue placeholder="Selecciona grupo sanguíneo" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {BLOOD_TYPES.map(type => (
-                      <SelectItem key={type} value={type}>{type}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <Label className="text-white mb-4 block">¿Presenta restricciones para actividad física? *</Label>
-                <RadioGroup 
-                  value={formData.hasRestrictions ? "yes" : "no"} 
-                  onValueChange={(value) => updateFormData('hasRestrictions', value === "yes")}
-                  className="flex space-x-6"
-                >
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="yes" id="restrictions-yes" />
-                    <Label htmlFor="restrictions-yes" className="text-white">Sí</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="no" id="restrictions-no" />
-                    <Label htmlFor="restrictions-no" className="text-white">No</Label>
-                  </div>
-                </RadioGroup>
-              </div>
-
-              {formData.hasRestrictions && (
-                <div className="md:col-span-2">
-                  <Label className="text-white mb-2 block">Descripción de restricciones</Label>
-                  <Textarea
-                    placeholder="Describe las restricciones médicas"
-                    value={formData.restrictionsDescription || ''}
-                    onChange={(e) => updateFormData('restrictionsDescription', e.target.value)}
-                    className="bg-gray-800 border-gray-600 text-white"
-                  />
-                </div>
-              )}
-
-              <div className="md:col-span-2">
-                <Label className="text-white mb-2 block">¿Padece enfermedades o lesiones?</Label>
-                <Textarea
-                  placeholder="Describe cualquier condición médica relevante"
+                  placeholder="Describa cualquier condición médica relevante..."
                   value={formData.medicalConditions || ''}
                   onChange={(e) => updateFormData('medicalConditions', e.target.value)}
-                  className="bg-gray-800 border-gray-600 text-white"
+                  className="bg-gray-800 border-gray-600 text-white mt-1"
                 />
               </div>
             </div>
@@ -824,27 +878,15 @@ export function EnrollmentForm() {
       case 4:
         return (
           <div className="space-y-6">
-            <div className="text-center mb-8">
-              <div className="flex justify-center mb-4">
-                <div className="p-4 rounded-full bg-gradient-to-r from-orange-500 to-red-600">
-                  <UserCheck className="h-8 w-8 text-white" />
-                </div>
-              </div>
-              <h3 className="text-2xl font-bold text-white mb-2">Contactos de Emergencia</h3>
-              <p className="text-gray-400">Información para casos de emergencia</p>
+            {/* Contacto de Emergencia */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 bg-gray-800/50 p-4 rounded-lg border border-gray-600">
+              <div className="col-span-full flex items-center gap-2 mb-2">
+                <AlertCircle className="h-5 w-5 text-orange-400" />
+                <h3 className="text-lg font-semibold text-white">Contacto de Emergencia</h3>
             </div>
 
-            <Card className="bg-gray-800/50 border-gray-600">
-              <CardHeader>
-                <CardTitle className="text-white flex items-center">
-                  <AlertCircle className="h-5 w-5 mr-2 text-orange-400" />
-                  Contacto de Emergencia
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <Label className="text-white mb-2 block">Nombres y apellidos *</Label>
+                <Label className="text-white mb-1">Nombres y apellidos *</Label>
                     <Input
                       placeholder="Nombre del contacto"
                       value={formData.emergencyContactName}
@@ -854,8 +896,11 @@ export function EnrollmentForm() {
                   </div>
 
                   <div>
-                    <Label className="text-white mb-2 block">Parentesco *</Label>
-                    <Select onValueChange={(value) => updateFormData('emergencyContactRelation', value)}>
+                <Label className="text-white mb-1">Parentesco *</Label>
+                <Select 
+                  value={formData.emergencyContactRelation}
+                  onValueChange={(value) => updateFormData('emergencyContactRelation', value)}
+                >
                       <SelectTrigger className="bg-gray-800 border-gray-600 text-white">
                         <SelectValue placeholder="Selecciona parentesco" />
                       </SelectTrigger>
@@ -867,8 +912,8 @@ export function EnrollmentForm() {
                     </Select>
                   </div>
 
-                  <div className="md:col-span-2">
-                    <Label className="text-white mb-2 block">📲 Celular del contacto *</Label>
+              <div>
+                <Label className="text-white mb-1">📲 Celular del contacto *</Label>
                     <Input
                       placeholder="Número de teléfono"
                       value={formData.emergencyContactPhone}
@@ -877,21 +922,17 @@ export function EnrollmentForm() {
                     />
                   </div>
                 </div>
-              </CardContent>
-            </Card>
 
+            {/* Información del Acudiente */}
             {!formData.isAdult && (
-              <Card className="bg-gray-800/50 border-gray-600">
-                <CardHeader>
-                  <CardTitle className="text-white flex items-center">
-                    <Shield className="h-5 w-5 mr-2 text-blue-400" />
-                    Información del Acudiente
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 bg-gray-800/50 p-4 rounded-lg border border-gray-600">
+                <div className="col-span-full flex items-center gap-2 mb-2">
+                  <Shield className="h-5 w-5 text-blue-400" />
+                  <h3 className="text-lg font-semibold text-white">Información del Acudiente</h3>
+                </div>
+
                     <div>
-                      <Label className="text-white mb-2 block">Nombres y apellidos *</Label>
+                  <Label className="text-white mb-1">Nombres y apellidos *</Label>
                       <Input
                         placeholder="Nombre del acudiente"
                         value={formData.guardianName || ''}
@@ -901,8 +942,11 @@ export function EnrollmentForm() {
                     </div>
 
                     <div>
-                      <Label className="text-white mb-2 block">Parentesco *</Label>
-                      <Select onValueChange={(value) => updateFormData('guardianRelation', value)}>
+                  <Label className="text-white mb-1">Parentesco *</Label>
+                  <Select 
+                    value={formData.guardianRelation || ''}
+                    onValueChange={(value) => updateFormData('guardianRelation', value)}
+                  >
                         <SelectTrigger className="bg-gray-800 border-gray-600 text-white">
                           <SelectValue placeholder="Selecciona parentesco" />
                         </SelectTrigger>
@@ -914,8 +958,8 @@ export function EnrollmentForm() {
                       </Select>
                     </div>
 
-                    <div className="md:col-span-2">
-                      <Label className="text-white mb-2 block">📲 Celular del acudiente *</Label>
+                <div>
+                  <Label className="text-white mb-1">📲 Celular del acudiente *</Label>
                       <Input
                         placeholder="Número de teléfono"
                         value={formData.guardianPhone || ''}
@@ -924,8 +968,6 @@ export function EnrollmentForm() {
                       />
                     </div>
                   </div>
-                </CardContent>
-              </Card>
             )}
           </div>
         )
@@ -933,25 +975,54 @@ export function EnrollmentForm() {
       case 5:
         return (
           <div className="space-y-6">
-            <div className="text-center mb-8">
-              <div className="flex justify-center mb-4">
-                <div className="p-4 rounded-full bg-gradient-to-r from-green-500 to-teal-600">
-                  <Shield className="h-8 w-8 text-white" />
+            {/* Resumen de Inscripción */}
+            {selectedClass && (
+              <div className="bg-gray-800/50 border-gray-600 rounded-lg p-6">
+                <h4 className="text-lg font-semibold text-white mb-4 flex items-center">
+                  <CheckCircle className="h-5 w-5 mr-2 text-green-400" />
+                  Resumen de Inscripción
+                </h4>
+                <div className="space-y-3 text-sm">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <span className="text-gray-400">Actividad:</span>
+                      <p className="text-white font-medium">{selectedClass.name}</p>
+                </div>
+                    <div>
+                      <span className="text-gray-400">Profesor:</span>
+                      <p className="text-white font-medium">{selectedClass.trainer.name}</p>
+              </div>
+                    {selectedClass.location && (
+                      <div>
+                        <span className="text-gray-400">Ubicación:</span>
+                        <p className="text-white font-medium">{selectedClass.location.name}</p>
+            </div>
+                    )}
+                    <div>
+                      <span className="text-gray-400">Participante:</span>
+                      <p className="text-white font-medium">{formData.studentName}</p>
+                    </div>
+                    <div>
+                      <span className="text-gray-400">Documento:</span>
+                      <p className="text-white font-medium">{formData.studentId}</p>
+                    </div>
+                    <div>
+                      <span className="text-gray-400">Teléfono:</span>
+                      <p className="text-white font-medium">{formData.phone}</p>
+                    </div>
+                  </div>
                 </div>
               </div>
-              <h3 className="text-2xl font-bold text-white mb-2">Términos y Condiciones</h3>
-              <p className="text-gray-400">Acepta los términos para completar la inscripción</p>
-            </div>
+            )}
 
-            <Card className="bg-gray-800/50 border-gray-600">
-              <CardContent className="p-6">
-                <div className="space-y-4">
-                  <h4 className="text-lg font-semibold text-white">Reconocimiento de riesgos y exoneración de responsabilidad</h4>
+            {/* Términos y Condiciones */}
+            <div className="bg-gray-800/50 border-gray-600 rounded-lg p-6">
+              <h4 className="text-lg font-semibold text-white mb-4">Términos y Condiciones</h4>
                   
                   <div className="max-h-60 overflow-y-auto bg-gray-900/50 p-4 rounded-lg border border-gray-600">
                     <p className="text-gray-300 text-sm leading-relaxed">
                       Yo manifiesto de forma voluntaria e irrevocable, que me hago responsable de los riesgos que 
-                      pueden derivarse de la práctica de {formData.enrollmentType === 'dance' ? 'baile' : 'deportes'}. 
+                  pueden derivarse de la práctica de {formData.sport === 'DANCE' ? 'baile' : 'voleibol'}. 
                       Entiendo que la participación en estas actividades conlleva riesgos inherentes de lesión, 
                       y acepto participar bajo mi propia responsabilidad.
                       <br /><br />
@@ -977,43 +1048,6 @@ export function EnrollmentForm() {
                     </Label>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
-
-            <Card className="bg-gray-800/50 border-gray-600">
-              <CardContent className="p-6">
-                <h4 className="text-lg font-semibold text-white mb-4 flex items-center">
-                  <GraduationCap className="h-5 w-5 mr-2 text-blue-400" />
-                  Resumen de Inscripción
-                </h4>
-                <div className="space-y-3 text-sm">
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-400">Tipo:</span>
-                    <Badge 
-                      className={`${
-                        formData.enrollmentType === 'dance' 
-                          ? 'bg-purple-500/20 text-purple-300 border-purple-500/30' 
-                          : 'bg-blue-500/20 text-blue-300 border-blue-500/30'
-                      } border`}
-                    >
-                      {formData.enrollmentType === 'dance' ? 'Baile' : 'Deportes'}
-                    </Badge>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Participante:</span>
-                    <span className="text-white font-medium">{formData.studentName}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Documento:</span>
-                    <span className="text-white font-medium">{formData.documentNumber}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Teléfono:</span>
-                    <span className="text-white font-medium">{formData.phone}</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
           </div>
         )
 
@@ -1024,78 +1058,96 @@ export function EnrollmentForm() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-slate-900 to-gray-800">
-      <div className="container mx-auto px-6 py-8">
-        <div className="max-w-4xl mx-auto">
-          {/* Header */}
-          <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 mb-4">
-              <GraduationCap className="h-8 w-8 text-white" />
-            </div>
-            <h1 className="text-4xl font-bold text-white mb-2">Formulario de Inscripción</h1>
-            <p className="text-gray-400 text-lg">Paradise Dance Academy</p>
-          </div>
-
+      <div className="container px-2 py-2 sm:px-6 sm:py-6 mx-auto">
+        <div className="max-w-6xl mx-auto">
           {/* Progress Bar */}
-          <div className="mb-8">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm text-gray-400">Paso {currentStep} de {totalSteps}</span>
-              <span className="text-sm text-gray-400">{Math.round((currentStep / totalSteps) * 100)}%</span>
+          <div className="mb-4 sm:mb-6">
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-xs sm:text-sm text-gray-400">Paso {currentStep} de {totalSteps}</span>
+              <span className="text-xs sm:text-sm text-gray-400">{Math.round((currentStep / totalSteps) * 100)}%</span>
             </div>
-            <div className="w-full bg-gray-700 rounded-full h-2">
+            <div className="w-full bg-gray-700 rounded-full h-1.5">
               <div 
-                className="bg-gradient-to-r from-blue-500 to-purple-600 h-2 rounded-full transition-all duration-300"
+                className="bg-gradient-to-r from-blue-500 to-purple-600 h-1.5 rounded-full transition-all duration-300"
                 style={{ width: `${(currentStep / totalSteps) * 100}%` }}
               ></div>
             </div>
           </div>
 
-          {/* Form Content */}
-          <Card className="bg-gray-800/90 border-gray-600 shadow-2xl">
-            <CardContent className="p-8">
+          {/* Título del paso actual */}
+          <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-6">
+            <div className="p-1.5 sm:p-3 rounded-xl bg-gradient-to-r from-blue-500 to-purple-600">
+              {currentStep === 1 && <Trophy className="h-4 w-4 sm:h-6 sm:w-6 text-white" />}
+              {currentStep === 2 && <User className="h-4 w-4 sm:h-6 sm:w-6 text-white" />}
+              {currentStep === 3 && <MapPin className="h-4 w-4 sm:h-6 sm:w-6 text-white" />}
+              {currentStep === 4 && <UserCheck className="h-4 w-4 sm:h-6 sm:w-6 text-white" />}
+              {currentStep === 5 && <Shield className="h-4 w-4 sm:h-6 sm:w-6 text-white" />}
+            </div>
+            <div>
+              <h2 className="text-lg sm:text-2xl font-bold text-white">
+                {currentStep === 1 && "Selecciona tu Actividad"}
+                {currentStep === 2 && "Información Personal"}
+                {currentStep === 3 && "Información Detallada"}
+                {currentStep === 4 && "Contactos de Emergencia"}
+                {currentStep === 5 && "Confirmar Inscripción"}
+              </h2>
+              <p className="text-xs sm:text-sm text-gray-400">
+                {currentStep === 1 && "Elige el deporte y horario en el que quieres participar"}
+                {currentStep === 2 && "Datos básicos del participante"}
+                {currentStep === 3 && "Ubicación y datos médicos"}
+                {currentStep === 4 && "Información para casos de emergencia"}
+                {currentStep === 5 && "Revisa los datos y acepta los términos"}
+              </p>
+            </div>
+          </div>
+
               {renderStepContent()}
 
-              <Separator className="my-8 bg-gray-600" />
+          <Separator className="my-4 sm:my-6 bg-gray-600" />
 
               {/* Navigation Buttons */}
-              <div className="flex justify-between">
+          <div className="flex gap-2 sm:gap-3 justify-between">
                 <Button
                   variant="outline"
                   onClick={prevStep}
                   disabled={currentStep === 1}
                   className="border-gray-600 text-white hover:bg-gray-700"
                 >
-                  <ChevronLeft className="h-4 w-4 mr-2" />
-                  Anterior
+              <ChevronLeft className="h-4 w-4 mr-1 sm:mr-2" />
+              <span className="hidden sm:inline">Anterior</span>
                 </Button>
 
                 {currentStep < totalSteps ? (
                   <Button
                     onClick={nextStep}
                     disabled={!canProceedFromStep(currentStep)}
-                    className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
+                className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 flex-1 sm:flex-none"
                   >
-                    Siguiente
-                    <ChevronRight className="h-4 w-4 ml-2" />
+                <span className="hidden sm:inline">Siguiente</span>
+                <span className="sm:hidden">Continuar</span>
+                <ChevronRight className="h-4 w-4 ml-1 sm:ml-2" />
                   </Button>
                 ) : (
                   <Button
                     onClick={submitForm}
                     disabled={!canProceedFromStep(currentStep) || loading}
-                    className="bg-gradient-to-r from-green-500 to-teal-600 hover:from-green-600 hover:to-teal-700"
+                className="bg-gradient-to-r from-green-500 to-teal-600 hover:from-green-600 hover:to-teal-700 flex-1 sm:flex-none"
                   >
                     {loading ? (
-                      "Procesando..."
+                  <span className="flex items-center justify-center">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    Procesando...
+                  </span>
                     ) : (
                       <>
-                        <Send className="h-4 w-4 mr-2" />
-                        Enviar Inscripción
+                    <Send className="h-4 w-4 mr-1 sm:mr-2" />
+                    <span className="hidden sm:inline">Confirmar Inscripción</span>
+                    <span className="sm:hidden">Confirmar</span>
                       </>
                     )}
                   </Button>
                 )}
               </div>
-            </CardContent>
-          </Card>
         </div>
       </div>
     </div>

@@ -6,25 +6,41 @@ const prisma = new PrismaClient()
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
-    const sport = searchParams.get('sport') // 'DANCE' or 'VOLLEYBALL'
+    const sport = searchParams.get('sport')
     const trainerId = searchParams.get('trainerId')
     const locationId = searchParams.get('locationId')
 
+    if (!sport) {
+      return NextResponse.json({
+        success: false,
+        error: 'El parámetro sport es requerido'
+      }, { status: 400 })
+    }
+
     let whereClause: any = {
+      sport,
       isActive: true
     }
 
+    // Para DANCE: filtrar por profesor
     if (sport === 'DANCE') {
-      whereClause.sport = 'DANCE'
-    } else if (sport === 'VOLLEYBALL') {
-      whereClause.sport = 'VOLLEYBALL'
-    }
-
-    if (trainerId) {
+      if (!trainerId) {
+        return NextResponse.json({
+          success: false,
+          error: 'El parámetro trainerId es requerido para clases de baile'
+        }, { status: 400 })
+      }
       whereClause.trainerId = parseInt(trainerId)
     }
 
-    if (locationId) {
+    // Para VOLLEYBALL: filtrar por ubicación
+    if (sport === 'VOLLEYBALL') {
+      if (!locationId) {
+        return NextResponse.json({
+          success: false,
+          error: 'El parámetro locationId es requerido para clases de voleibol'
+        }, { status: 400 })
+      }
       whereClause.locationId = parseInt(locationId)
     }
 
@@ -62,45 +78,17 @@ export async function GET(request: NextRequest) {
         }
       },
       orderBy: [
-        {
-          trainer: {
-            name: 'asc'
-          }
-        },
-        {
-          name: 'asc'
-        }
+        { name: 'asc' }
       ]
     })
 
-    const formattedClasses = classes.map(cls => ({
-      id: cls.id,
-      name: cls.name,
-      description: cls.description,
-      sport: cls.sport,
-      level: cls.level,
-      capacity: cls.capacity,
-      price: cls.price,
-      trainer: {
-        id: cls.trainer.id,
-        name: cls.trainer.name,
-        email: cls.trainer.email
-      },
-      location: cls.location ? {
-        id: cls.location.id,
-        name: cls.location.name,
-        address: cls.location.address
-      } : undefined,
-      schedules: cls.schedules
-    }))
-
     return NextResponse.json({
       success: true,
-      classes: formattedClasses
+      classes
     })
 
   } catch (error) {
-    console.error('Error fetching classes:', error)
+    console.error('Error fetching schedules:', error)
     return NextResponse.json({
       success: false,
       error: 'Error interno del servidor'

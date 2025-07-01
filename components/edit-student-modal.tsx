@@ -224,35 +224,37 @@ export default function EditStudentModal({ isOpen, onClose, student, onStudentUp
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto bg-gray-800/95 border border-gray-600 backdrop-blur-sm text-white">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-white text-xl">
+      <DialogContent className="!w-[95vw] !max-w-4xl h-[90vh] max-h-[90vh] p-0 bg-gray-800/95 border border-gray-600 backdrop-blur-sm text-white overflow-hidden !left-[50%] !translate-x-[-50%]">
+        <DialogHeader className="px-4 py-3 border-b border-gray-600 flex-shrink-0">
+          <DialogTitle className="flex items-center gap-2 text-white text-lg sm:text-xl">
             <div className="rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 p-2 border border-blue-500">
-              <User className="h-5 w-5 text-white" />
+              <User className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
             </div>
             Editar Estudiante
           </DialogTitle>
         </DialogHeader>
         
-        <form onSubmit={handleSubmit} className="space-y-6 [&_label]:text-white [&_label]:font-medium">
+        <div className="flex-1 overflow-y-auto px-4 py-2">
+          <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6 [&_label]:text-white [&_label]:font-medium pb-4">
           {/* Información Básica */}
           <Card className="bg-gray-700/50 border-gray-600 backdrop-blur-sm">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg text-white">
+            <CardHeader className="pb-3 sm:pb-6">
+              <CardTitle className="flex items-center gap-2 text-base sm:text-lg text-white">
                 <div className="rounded-lg bg-gradient-to-r from-blue-500 to-purple-500 p-1.5">
                   <User className="h-4 w-4 text-white" />
                 </div>
                 Información Básica
               </CardTitle>
             </CardHeader>
-            <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
+            <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+              <div className="sm:col-span-2">
                 <Label htmlFor="name" className="text-white">Nombre Completo *</Label>
                 <Input
                   id="name"
                   value={formData.name || ''}
                   onChange={(e) => handleInputChange('name', e.target.value)}
                   required
+                  className="bg-gray-800 border-gray-600 text-white"
                 />
               </div>
               
@@ -262,7 +264,7 @@ export default function EditStudentModal({ isOpen, onClose, student, onStudentUp
                   value={formData.documentType || 'CC'}
                   onValueChange={(value) => handleInputChange('documentType', value)}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="bg-gray-800 border-gray-600 text-white">
                     <SelectValue placeholder="Seleccionar tipo" />
                   </SelectTrigger>
                   <SelectContent>
@@ -283,7 +285,7 @@ export default function EditStudentModal({ isOpen, onClose, student, onStudentUp
                   onChange={(e) => handleInputChange('documentNumber', e.target.value)}
                   required
                   disabled
-                  className="bg-gray-600 cursor-not-allowed"
+                  className="bg-gray-600 cursor-not-allowed border-gray-500 text-gray-300"
                 />
                 <p className="text-xs text-gray-400 mt-1">
                   El número de documento no se puede modificar
@@ -297,6 +299,7 @@ export default function EditStudentModal({ isOpen, onClose, student, onStudentUp
                   type="date"
                   value={formData.birthDate || ''}
                   onChange={(e) => handleInputChange('birthDate', e.target.value)}
+                  className="bg-gray-800 border-gray-600 text-white"
                 />
               </div>
 
@@ -307,6 +310,7 @@ export default function EditStudentModal({ isOpen, onClose, student, onStudentUp
                   value={formData.phone || ''}
                   onChange={(e) => handleInputChange('phone', e.target.value)}
                   required
+                  className="bg-gray-800 border-gray-600 text-white"
                 />
               </div>
 
@@ -318,6 +322,7 @@ export default function EditStudentModal({ isOpen, onClose, student, onStudentUp
                   value={formData.email || ''}
                   onChange={(e) => handleInputChange('email', e.target.value)}
                   required
+                  className="bg-gray-800 border-gray-600 text-white"
                 />
               </div>
             </CardContent>
@@ -325,17 +330,17 @@ export default function EditStudentModal({ isOpen, onClose, student, onStudentUp
 
           {/* Ubicación */}
           <Card className="bg-gray-700/50 border-gray-600 backdrop-blur-sm">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg text-white">
+            <CardHeader className="pb-3 sm:pb-6">
+              <CardTitle className="flex items-center gap-2 text-base sm:text-lg text-white">
                 <div className="rounded-lg bg-gradient-to-r from-green-500 to-teal-500 p-1.5">
                   <MapPin className="h-4 w-4 text-white" />
                 </div>
                 Ubicación
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-6">
+            <CardContent className="space-y-4 sm:space-y-6">
               {/* Información básica en grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div>
                   <Label htmlFor="city">Ciudad *</Label>
                   <Input
@@ -343,6 +348,7 @@ export default function EditStudentModal({ isOpen, onClose, student, onStudentUp
                     value={formData.city || ''}
                     onChange={(e) => handleInputChange('city', e.target.value)}
                     required
+                    className="bg-gray-800 border-gray-600 text-white"
                   />
                 </div>
 
@@ -359,7 +365,7 @@ export default function EditStudentModal({ isOpen, onClose, student, onStudentUp
               </div>
 
               {/* Sección de mapa centrada */}
-              <div className="w-full max-w-4xl mx-auto">
+              <div className="w-full">
                 <InteractiveMap
                   address={formData.address || ''}
                   latitude={formData.addressLatitude}
@@ -376,21 +382,22 @@ export default function EditStudentModal({ isOpen, onClose, student, onStudentUp
 
           {/* Información Médica */}
           <Card className="bg-gray-700/50 border-gray-600 backdrop-blur-sm">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg text-white">
+            <CardHeader className="pb-3 sm:pb-6">
+              <CardTitle className="flex items-center gap-2 text-base sm:text-lg text-white">
                 <div className="rounded-lg bg-gradient-to-r from-red-500 to-pink-500 p-1.5">
                   <Heart className="h-4 w-4 text-white" />
                 </div>
                 Información Médica
               </CardTitle>
             </CardHeader>
-            <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               <div>
                 <Label htmlFor="eps">EPS</Label>
                 <Input
                   id="eps"
                   value={formData.eps || ''}
                   onChange={(e) => handleInputChange('eps', e.target.value)}
+                  className="bg-gray-800 border-gray-600 text-white"
                 />
               </div>
 
@@ -400,7 +407,7 @@ export default function EditStudentModal({ isOpen, onClose, student, onStudentUp
                   value={formData.bloodType || ''}
                   onValueChange={(value) => handleInputChange('bloodType', value)}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="bg-gray-800 border-gray-600 text-white">
                     <SelectValue placeholder="Seleccionar tipo" />
                   </SelectTrigger>
                   <SelectContent>
@@ -439,6 +446,7 @@ export default function EditStudentModal({ isOpen, onClose, student, onStudentUp
                     placeholder="Describa las restricciones médicas..."
                     value={formData.restrictionsDescription || ''}
                     onChange={(e) => handleInputChange('restrictionsDescription', e.target.value)}
+                    className="bg-gray-800 border-gray-600 text-white"
                   />
                 )}
               </div>
@@ -450,6 +458,7 @@ export default function EditStudentModal({ isOpen, onClose, student, onStudentUp
                   placeholder="Describa cualquier condición médica adicional..."
                   value={formData.medicalConditions || ''}
                   onChange={(e) => handleInputChange('medicalConditions', e.target.value)}
+                  className="bg-gray-800 border-gray-600 text-white"
                 />
               </div>
             </CardContent>
@@ -457,21 +466,22 @@ export default function EditStudentModal({ isOpen, onClose, student, onStudentUp
 
           {/* Contacto de Emergencia */}
           <Card className="bg-gray-700/50 border-gray-600 backdrop-blur-sm">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg text-white">
+            <CardHeader className="pb-3 sm:pb-6">
+              <CardTitle className="flex items-center gap-2 text-base sm:text-lg text-white">
                 <div className="rounded-lg bg-gradient-to-r from-orange-500 to-amber-500 p-1.5">
                   <Phone className="h-4 w-4 text-white" />
                 </div>
                 Contacto de Emergencia
               </CardTitle>
             </CardHeader>
-            <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <CardContent className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
               <div>
                 <Label htmlFor="emergencyContactName">Nombre</Label>
                 <Input
                   id="emergencyContactName"
                   value={formData.emergencyContactName || ''}
                   onChange={(e) => handleInputChange('emergencyContactName', e.target.value)}
+                  className="bg-gray-800 border-gray-600 text-white"
                 />
               </div>
 
@@ -481,7 +491,7 @@ export default function EditStudentModal({ isOpen, onClose, student, onStudentUp
                   value={formData.emergencyContactRelation || ''}
                   onValueChange={(value) => handleInputChange('emergencyContactRelation', value)}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="bg-gray-800 border-gray-600 text-white">
                     <SelectValue placeholder="Seleccionar relación" />
                   </SelectTrigger>
                   <SelectContent>
@@ -500,6 +510,7 @@ export default function EditStudentModal({ isOpen, onClose, student, onStudentUp
                   id="emergencyContactPhone"
                   value={formData.emergencyContactPhone || ''}
                   onChange={(e) => handleInputChange('emergencyContactPhone', e.target.value)}
+                  className="bg-gray-800 border-gray-600 text-white"
                 />
               </div>
             </CardContent>
@@ -507,8 +518,8 @@ export default function EditStudentModal({ isOpen, onClose, student, onStudentUp
 
           {/* Estado Legal */}
           <Card className="bg-gray-700/50 border-gray-600 backdrop-blur-sm">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg text-white">
+            <CardHeader className="pb-3 sm:pb-6">
+              <CardTitle className="flex items-center gap-2 text-base sm:text-lg text-white">
                 <div className="rounded-lg bg-gradient-to-r from-indigo-500 to-blue-500 p-1.5">
                   <Shield className="h-4 w-4 text-white" />
                 </div>
@@ -530,21 +541,22 @@ export default function EditStudentModal({ isOpen, onClose, student, onStudentUp
           {/* Información del Acudiente (solo si es menor de edad) */}
           {!formData.isAdult && (
             <Card className="bg-gray-700/50 border-gray-600 backdrop-blur-sm">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-lg text-white">
+              <CardHeader className="pb-3 sm:pb-6">
+                <CardTitle className="flex items-center gap-2 text-base sm:text-lg text-white">
                   <div className="rounded-lg bg-gradient-to-r from-purple-500 to-violet-500 p-1.5">
                     <Shield className="h-4 w-4 text-white" />
                   </div>
                   Información del Acudiente
                 </CardTitle>
               </CardHeader>
-              <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <CardContent className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                 <div>
                   <Label htmlFor="guardianName">Nombre del Acudiente</Label>
                   <Input
                     id="guardianName"
                     value={formData.guardianName || ''}
                     onChange={(e) => handleInputChange('guardianName', e.target.value)}
+                    className="bg-gray-800 border-gray-600 text-white"
                   />
                 </div>
 
@@ -554,7 +566,7 @@ export default function EditStudentModal({ isOpen, onClose, student, onStudentUp
                     value={formData.guardianRelation || ''}
                     onValueChange={(value) => handleInputChange('guardianRelation', value)}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="bg-gray-800 border-gray-600 text-white">
                       <SelectValue placeholder="Seleccionar relación" />
                     </SelectTrigger>
                     <SelectContent>
@@ -573,6 +585,7 @@ export default function EditStudentModal({ isOpen, onClose, student, onStudentUp
                     id="guardianPhone"
                     value={formData.guardianPhone || ''}
                     onChange={(e) => handleInputChange('guardianPhone', e.target.value)}
+                    className="bg-gray-800 border-gray-600 text-white"
                   />
                 </div>
               </CardContent>
@@ -581,8 +594,8 @@ export default function EditStudentModal({ isOpen, onClose, student, onStudentUp
 
           {/* Información Financiera */}
           <Card className="bg-gray-700/50 border-gray-600 backdrop-blur-sm">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg text-white">
+            <CardHeader className="pb-3 sm:pb-6">
+              <CardTitle className="flex items-center gap-2 text-base sm:text-lg text-white">
                 <div className="rounded-lg bg-gradient-to-r from-emerald-500 to-teal-500 p-1.5">
                   <DollarSign className="h-4 w-4 text-white" />
                 </div>
@@ -590,7 +603,7 @@ export default function EditStudentModal({ isOpen, onClose, student, onStudentUp
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div>
+              <div className="max-w-sm">
                 <Label htmlFor="monthlyFee">Mensualidad *</Label>
                 <Input
                   id="monthlyFee"
@@ -600,30 +613,32 @@ export default function EditStudentModal({ isOpen, onClose, student, onStudentUp
                   value={formData.monthlyFee || 0}
                   onChange={(e) => handleInputChange('monthlyFee', parseInt(e.target.value) || 0)}
                   required
+                  className="bg-gray-800 border-gray-600 text-white"
                 />
               </div>
             </CardContent>
           </Card>
 
           {/* Botones de acción */}
-          <div className="flex justify-end space-x-2 pt-4">
+          <div className="flex flex-col sm:flex-row justify-end gap-2 sm:gap-2 pt-4 sticky bottom-0 bg-gray-800/95 backdrop-blur-sm border-t border-gray-600 px-4 py-3 -mx-4 -mb-4">
             <Button 
               type="button" 
               variant="outline" 
               onClick={onClose}
-              className="bg-gray-600 border-gray-500 text-white hover:bg-gray-500 hover:text-white"
+              className="bg-gray-600 border-gray-500 text-white hover:bg-gray-500 hover:text-white w-full sm:w-auto"
             >
               Cancelar
             </Button>
             <Button 
               type="submit" 
               disabled={loading}
-              className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white border-0"
+              className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white border-0 w-full sm:w-auto"
             >
               {loading ? 'Guardando...' : 'Guardar Cambios'}
             </Button>
           </div>
-        </form>
+          </form>
+        </div>
       </DialogContent>
     </Dialog>
   )

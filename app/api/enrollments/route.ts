@@ -16,50 +16,87 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '10')
     const search = searchParams.get('search')
 
-    const skip = (page - 1) * limit
+    // Validar y ajustar parámetros de paginación
+    const validPage = Math.max(1, page)
+    const validLimit = Math.min(50, Math.max(1, limit)) // Máximo 50 registros por página
+    const skip = (validPage - 1) * validLimit
 
-    // Build where clause
-    const where: any = {}
-    
-    if (status && status !== 'all') {
-      where.isActive = status === 'active'
+    // Construir consulta base
+    const baseQuery: any = {
+      isActive: status === 'active' ? true : status === 'inactive' ? false : undefined
     }
-    
-         if (search) {
-       where.OR = [
-         { student: { name: { contains: search, mode: 'insensitive' } } },
-         { student: { phone: { contains: search, mode: 'insensitive' } } },
-         { student: { email: { contains: search, mode: 'insensitive' } } }
-       ]
-     }
 
+    // Agregar condiciones de búsqueda si existe un término
+    if (search) {
+      baseQuery.OR = [
+        { student: { name: { contains: search, mode: 'insensitive' } } },
+        { student: { phone: { contains: search, mode: 'insensitive' } } },
+        { student: { email: { contains: search, mode: 'insensitive' } } },
+        { student: { id: isNaN(parseInt(search)) ? undefined : parseInt(search) } }
+      ].filter(Boolean)
+    }
+
+    // Ejecutar consultas en paralelo para mejor rendimiento
     const [enrollments, total] = await Promise.all([
       prisma.classEnrollment.findMany({
-        where,
+        where: baseQuery,
         include: {
-          student: true,
+          student: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              phone: true,
+              hasDebt: true,
+              isActive: true
+            }
+          },
           danceClass: {
-            include: {
-              trainer: true,
-              location: true
+            select: {
+              id: true,
+              name: true,
+              sport: true,
+              trainer: {
+                select: {
+                  name: true
+                }
+              },
+              location: {
+                select: {
+                  name: true,
+                  address: true
+                }
+              }
             }
           }
         },
-        orderBy: { createdAt: 'desc' },
+        orderBy: [
+          { isActive: 'desc' },
+          { createdAt: 'desc' }
+        ],
         skip,
-        take: limit
+        take: validLimit
       }),
-      prisma.classEnrollment.count({ where })
+      prisma.classEnrollment.count({
+        where: baseQuery
+      })
     ])
+
+    // Calcular metadatos de paginación
+    const totalPages = Math.ceil(total / validLimit)
+    const hasNextPage = validPage < totalPages
+    const hasPrevPage = validPage > 1
 
     return NextResponse.json({
       success: true,
       enrollments,
       pagination: {
         total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit)
+        page: validPage,
+        limit: validLimit,
+        totalPages,
+        hasNextPage,
+        hasPrevPage
       }
     })
   } catch (error) {
@@ -119,7 +156,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Verificar si ya está inscrito
-    const existingEnrollment = await prisma.enrollment.findUnique({
+    const existingEnrollment = await prisma.classEnrollment.findUnique({
       where: {
         studentId_classId: {
           studentId: validatedData.studentId,
@@ -138,7 +175,7 @@ export async function POST(request: NextRequest) {
     let enrollment
     if (existingEnrollment && !existingEnrollment.isActive) {
       // Reactivar inscripción existente
-      enrollment = await prisma.enrollment.update({
+      enrollment = await prisma.classEnrollment.update({
         where: { id: existingEnrollment.id },
         data: { 
           isActive: true,
@@ -167,7 +204,7 @@ export async function POST(request: NextRequest) {
       })
     } else {
       // Crear nueva inscripción
-      enrollment = await prisma.enrollment.create({
+      enrollment = await prisma.classEnrollment.create({
         data: {
           studentId: validatedData.studentId,
           classId: validatedData.classId

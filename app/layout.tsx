@@ -75,12 +75,10 @@ export default function RootLayout({
         <link rel="preload" href="/logo.jpg" as="image" type="image/jpeg" />
       </head>
       <body className="font-sans antialiased bg-gray-900 text-white">
-        <GoogleMapsProvider>
-          {children}
-        </GoogleMapsProvider>
-        <Toaster />
         <AuthSessionProvider>
-          {children}
+          <GoogleMapsProvider>
+            {children}
+          </GoogleMapsProvider>
           <Toaster />
           <PerformanceOptimizer />
         </AuthSessionProvider>

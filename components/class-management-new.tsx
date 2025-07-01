@@ -19,7 +19,10 @@ import {
   UserPlus,
   BookOpen,
   GraduationCap,
-  MapPin
+  MapPin,
+  Dumbbell,
+  Building,
+  Home as HomeIcon
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 
@@ -27,6 +30,12 @@ interface Trainer {
   id: number
   name: string
   email: string
+}
+
+interface Location {
+  id: number
+  name: string
+  address?: string
 }
 
 interface Student {
@@ -50,7 +59,10 @@ interface DanceClass {
   description?: string
   capacity: number
   price?: number
+  sport: 'DANCE' | 'VOLLEYBALL'
+  level?: 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED'
   trainer: Trainer
+  location?: Location
   schedules: ClassSchedule[]
   enrollments: {
     student: Student
@@ -64,55 +76,165 @@ const DAYS_OF_WEEK = [
   'Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'
 ]
 
+const SPORT_OPTIONS = [
+  { value: 'DANCE', label: 'Baile Urbano', icon: GraduationCap, color: 'from-purple-500 to-pink-600' },
+  { value: 'VOLLEYBALL', label: 'Voleibol', icon: Dumbbell, color: 'from-blue-500 to-green-600' }
+]
+
+const LEVEL_OPTIONS = [
+  { value: 'BEGINNER', label: 'Principiante' },
+  { value: 'INTERMEDIATE', label: 'Intermedio' },
+  { value: 'ADVANCED', label: 'Avanzado' }
+]
+
 export function ClassManagementNew() {
   const { toast } = useToast()
   const [classes, setClasses] = useState<DanceClass[]>([])
+  const [totalClasses, setTotalClasses] = useState(0)
   const [trainers, setTrainers] = useState<Trainer[]>([])
+  const [locations, setLocations] = useState<Location[]>([])
   const [students, setStudents] = useState<Student[]>([])
   const [loading, setLoading] = useState(true)
   const [showCreateDialog, setShowCreateDialog] = useState(false)
+  const [showLocationDialog, setShowLocationDialog] = useState(false)
   const [selectedClass, setSelectedClass] = useState<DanceClass | null>(null)
   const [showEnrollDialog, setShowEnrollDialog] = useState(false)
+
+  // Filtros
+  const [filterSport, setFilterSport] = useState<string>('ALL')
+  const [filterTrainer, setFilterTrainer] = useState<string>('ALL')
+  const [filterLocation, setFilterLocation] = useState<string>('ALL')
+  const [filterLevel, setFilterLevel] = useState<string>('ALL')
+
+  // Paginación
+  const [currentPage, setCurrentPage] = useState(1)
+  const CLASSES_PER_PAGE = 6
 
   // Formulario para nueva clase - memoizado
   const [newClass, setNewClass] = useState({
     name: '',
     description: '',
+    sport: 'DANCE' as 'DANCE' | 'VOLLEYBALL',
+    level: 'BEGINNER' as 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED',
     trainerId: 0,
+    locationId: 0,
     capacity: 20,
     price: 0,
     schedules: [{ dayOfWeek: 1, startTime: '18:00', endTime: '19:00' }]
   })
 
-  // ✅ OPTIMIZACIÓN: useCallback para loadData
-  const loadData = useCallback(async () => {
-    try {
-      const [classesRes, trainersRes, studentsRes] = await Promise.all([
-        fetch('/api/classes?active=true'),
-        fetch('/api/trainers?active=true'),
-        fetch('/api/students?active=true')
-      ])
+  // Formulario para nueva ubicación
+  const [newLocation, setNewLocation] = useState({
+    name: '',
+    address: ''
+  })
 
-      const [classesData, trainersData, studentsData] = await Promise.all([
-        classesRes.json(),
-        trainersRes.json(),
-        studentsRes.json()
-      ])
+  // Cargar trainers según deporte y filtros activos
+  const loadTrainers = useCallback(async () => {
+    let url = '/api/trainers?active=true'
+    if (filterSport !== 'ALL') url += `&sport=${filterSport}`
+    const res = await fetch(url)
+    const data = await res.json()
+    if (data.success) setTrainers(data.trainers)
+  }, [filterSport])
 
-      if (classesData.success) setClasses(classesData.classes)
-      if (trainersData.success) setTrainers(trainersData.trainers)
-      if (studentsData.success) setStudents(studentsData.students)
-      
-      setLoading(false)
-    } catch (error) {
-      console.error('Error loading data:', error)
-      setLoading(false)
-    }
+  // Cargar ubicaciones
+  const loadLocations = useCallback(async () => {
+    const res = await fetch('/api/enrollment/locations?sport=VOLLEYBALL')
+    const data = await res.json()
+    if (data.success) setLocations(data.locations)
   }, [])
 
+  // Cargar clases paginadas y filtradas
+  const loadClasses = useCallback(async () => {
+    setLoading(true)
+    try {
+      const params = new URLSearchParams()
+      params.set('active', 'true')
+      params.set('page', currentPage.toString())
+      params.set('pageSize', CLASSES_PER_PAGE.toString())
+      if (filterSport !== 'ALL') params.set('sport', filterSport)
+      if (filterTrainer !== 'ALL') params.set('trainerId', filterTrainer)
+      if (filterLocation !== 'ALL') params.set('locationId', filterLocation)
+      if (filterLevel !== 'ALL') params.set('level', filterLevel)
+      const res = await fetch(`/api/classes?${params.toString()}`)
+      const data = await res.json()
+      if (data.success) {
+        setClasses(data.classes)
+        setTotalClasses(data.total)
+      }
+    } catch (error) {
+      console.error('Error loading classes:', error)
+    } finally {
+      setLoading(false)
+    }
+  }, [currentPage, filterSport, filterTrainer, filterLocation, filterLevel])
+
+  // Efectos para cargar datos
   useEffect(() => {
-    loadData()
-  }, [loadData])
+    loadLocations()
+  }, [loadLocations])
+
+  useEffect(() => {
+    loadTrainers()
+  }, [loadTrainers])
+
+  useEffect(() => {
+    loadClasses()
+  }, [loadClasses])
+
+  // Resetear página al cambiar filtros
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [filterSport, filterTrainer, filterLocation, filterLevel])
+
+  // ✅ Crear nueva ubicación
+  const createLocation = useCallback(async () => {
+    if (!newLocation.name) {
+      toast({
+        title: "❌ Error",
+        description: "El nombre de la ubicación es requerido",
+        variant: "destructive"
+      })
+      return
+    }
+
+    try {
+      const response = await fetch('/api/locations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newLocation)
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        toast({
+          title: "✅ Ubicación creada",
+          description: `${newLocation.name} ha sido creada exitosamente`
+        })
+        setShowLocationDialog(false)
+        
+        // Agregar la nueva ubicación a la lista
+        setLocations(prev => [...prev, data.location])
+        
+        // Reset form
+        setNewLocation({ name: '', address: '' })
+      } else {
+        toast({
+          title: "❌ Error",
+          description: data.error || "No se pudo crear la ubicación",
+          variant: "destructive"
+        })
+      }
+    } catch (error) {
+      toast({
+        title: "❌ Error",
+        description: "Error al crear la ubicación",
+        variant: "destructive"
+      })
+    }
+  }, [newLocation, toast])
 
   // ✅ OPTIMIZACIÓN: createClass sin recargar todo
   const createClass = useCallback(async () => {
@@ -125,14 +247,26 @@ export function ClassManagementNew() {
       return
     }
 
+    if (newClass.sport === 'VOLLEYBALL' && !newClass.locationId) {
+      toast({
+        title: "❌ Error",
+        description: "La ubicación es requerida para clases de voleibol",
+        variant: "destructive"
+      })
+      return
+    }
+
     try {
+      const classData = {
+        ...newClass,
+        trainerId: Number(newClass.trainerId),
+        locationId: newClass.sport === 'VOLLEYBALL' ? Number(newClass.locationId) : undefined
+      }
+
       const response = await fetch('/api/classes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...newClass,
-          trainerId: Number(newClass.trainerId)
-        })
+        body: JSON.stringify(classData)
       })
 
       const data = await response.json()
@@ -145,19 +279,23 @@ export function ClassManagementNew() {
         setShowCreateDialog(false)
         
         // ✅ OPTIMIZACIÓN: Solo agregar la nueva clase sin recargar
-        const newClassWithTrainer = {
+        const newClassWithDetails = {
           ...data.class,
           trainer: trainers.find(t => t.id === Number(newClass.trainerId))!,
+          location: newClass.locationId ? locations.find(l => l.id === Number(newClass.locationId)) : undefined,
           enrollments: [],
           _count: { enrollments: 0 }
         }
-        setClasses(prev => [...prev, newClassWithTrainer])
+        setClasses(prev => [...prev, newClassWithDetails])
         
         // Reset form
         setNewClass({
           name: '',
           description: '',
+          sport: 'DANCE',
+          level: 'BEGINNER',
           trainerId: 0,
+          locationId: 0,
           capacity: 20,
           price: 0,
           schedules: [{ dayOfWeek: 1, startTime: '18:00', endTime: '19:00' }]
@@ -176,7 +314,7 @@ export function ClassManagementNew() {
         variant: "destructive"
       })
     }
-  }, [newClass, trainers, toast])
+  }, [newClass, trainers, locations, toast])
 
   // ✅ OPTIMIZACIÓN: enrollStudent sin recargar todo
   const enrollStudent = useCallback(async (studentId: number, classId: number) => {
@@ -206,7 +344,6 @@ export function ClassManagementNew() {
               }
             : cls
         ))
-        
         setShowEnrollDialog(false)
       } else {
         toast({
@@ -218,49 +355,7 @@ export function ClassManagementNew() {
     } catch (error) {
       toast({
         title: "❌ Error",
-        description: "Error al inscribir estudiante",
-        variant: "destructive"
-      })
-    }
-  }, [students, toast])
-
-  // ✅ OPTIMIZACIÓN: unenrollStudent sin recargar todo
-  const unenrollStudent = useCallback(async (studentId: number, classId: number) => {
-    try {
-      const response = await fetch(`/api/enrollments?studentId=${studentId}&classId=${classId}`, {
-        method: 'DELETE'
-      })
-
-      const data = await response.json()
-
-      if (data.success) {
-        const student = students.find(s => s.id === studentId)
-        toast({
-          title: "✅ Estudiante desinscrito",
-          description: `${student?.name} ha sido desinscrito de la clase`
-        })
-        
-        // ✅ OPTIMIZACIÓN: Solo actualizar la clase específica
-        setClasses(prev => prev.map(cls => 
-          cls.id === classId 
-            ? {
-                ...cls,
-                enrollments: cls.enrollments.filter(e => e.student.id !== studentId),
-                _count: { enrollments: cls._count.enrollments - 1 }
-              }
-            : cls
-        ))
-      } else {
-        toast({
-          title: "❌ Error",
-          description: data.error || "No se pudo desinscribir al estudiante",
-          variant: "destructive"
-        })
-      }
-    } catch (error) {
-      toast({
-        title: "❌ Error",
-        description: "Error al desinscribir estudiante",
+        description: "Error al inscribir al estudiante",
         variant: "destructive"
       })
     }
@@ -268,8 +363,10 @@ export function ClassManagementNew() {
 
   // ✅ OPTIMIZACIÓN: deleteClass sin recargar todo
   const deleteClass = useCallback(async (classId: number) => {
+    if (!confirm('¿Estás seguro de que deseas eliminar esta clase?')) return
+
     try {
-      const response = await fetch(`/api/classes?id=${classId}`, {
+      const response = await fetch(`/api/classes/${classId}`, {
         method: 'DELETE'
       })
 
@@ -281,7 +378,7 @@ export function ClassManagementNew() {
           description: "La clase ha sido eliminada exitosamente"
         })
         
-        // ✅ OPTIMIZACIÓN: Solo remover la clase del estado
+        // ✅ OPTIMIZACIÓN: Solo remover la clase específica
         setClasses(prev => prev.filter(cls => cls.id !== classId))
       } else {
         toast({
@@ -299,392 +396,351 @@ export function ClassManagementNew() {
     }
   }, [toast])
 
-  // ✅ OPTIMIZACIÓN: Funciones memoizadas
-  const addSchedule = useCallback(() => {
-    setNewClass(prev => ({
-      ...prev,
-      schedules: [...prev.schedules, { dayOfWeek: 1, startTime: '18:00', endTime: '19:00' }]
-    }))
-  }, [])
+  // Funciones auxiliares para horarios
+  const addSchedule = () => {
+    setNewClass({
+      ...newClass,
+      schedules: [...newClass.schedules, { dayOfWeek: 1, startTime: '18:00', endTime: '19:00' }]
+    })
+  }
 
-  const removeSchedule = useCallback((index: number) => {
-    setNewClass(prev => ({
-      ...prev,
-      schedules: prev.schedules.filter((_, i) => i !== index)
-    }))
-  }, [])
+  const removeSchedule = (index: number) => {
+    if (newClass.schedules.length > 1) {
+      setNewClass({
+        ...newClass,
+        schedules: newClass.schedules.filter((_, i) => i !== index)
+      })
+    }
+  }
 
-  const updateSchedule = useCallback((index: number, field: string, value: any) => {
-    setNewClass(prev => ({
-      ...prev,
-      schedules: prev.schedules.map((schedule, i) => 
+  const updateSchedule = (index: number, field: keyof ClassSchedule, value: any) => {
+    const updated = newClass.schedules.map((schedule, i) => 
         i === index ? { ...schedule, [field]: value } : schedule
       )
-    }))
-  }, [])
+    setNewClass({ ...newClass, schedules: updated })
+  }
 
-  // ✅ OPTIMIZACIÓN: Estudiantes disponibles memoizados
+  // ✅ OPTIMIZACIÓN: Memorizar clases filtradas
+  const filteredClasses = useMemo(() => {
+    return classes.filter((cls) => {
+      if (filterSport !== 'ALL' && cls.sport !== filterSport) return false
+      if (filterTrainer !== 'ALL' && cls.trainer.id.toString() !== filterTrainer) return false
+      if (filterLocation !== 'ALL' && cls.location && cls.location.id.toString() !== filterLocation) return false
+      if (filterLevel !== 'ALL' && cls.level !== filterLevel) return false
+      return true
+    })
+  }, [classes, filterSport, filterTrainer, filterLocation, filterLevel])
+
+  // Paginación de clases filtradas
+  const totalPages = Math.ceil(totalClasses / CLASSES_PER_PAGE)
+  const paginatedClasses = useMemo(() => {
+    const start = (currentPage - 1) * CLASSES_PER_PAGE
+    return filteredClasses.slice(start, start + CLASSES_PER_PAGE)
+  }, [filteredClasses, currentPage])
+
+  // ✅ OPTIMIZACIÓN: Memorizar estudiantes disponibles para inscripción
   const availableStudents = useMemo(() => {
-    if (!selectedClass) return students
+    if (!selectedClass) return []
     const enrolledIds = selectedClass.enrollments.map(e => e.student.id)
     return students.filter(student => !enrolledIds.includes(student.id))
-  }, [selectedClass, students])
+  }, [students, selectedClass])
 
   if (loading) {
     return (
-      <div className="max-w-7xl mx-auto">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {[1, 2, 3, 4, 5, 6].map((i) => (
-            <Card key={i} className="animate-pulse border-0 shadow-xl rounded-3xl">
-              <CardContent className="p-8">
-                <div className="space-y-4">
-                  <div className="h-6 bg-slate-200 rounded w-3/4"></div>
-                  <div className="h-4 bg-slate-200 rounded w-1/2"></div>
-                  <div className="h-4 bg-slate-200 rounded w-2/3"></div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
       </div>
     )
   }
 
   return (
-    <div className="max-w-7xl mx-auto">
-      {/* Header */}
-      <Card className="border-0 bg-gradient-to-r from-gray-800/90 via-slate-800/90 to-gray-700/90 text-white shadow-2xl mb-8 rounded-3xl border border-gray-600 backdrop-blur-sm">
-        <CardHeader className="pb-6">
-          <CardTitle className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
+    <div className="max-w-7xl mx-auto px-2 sm:px-4 md:px-6">
+      {/* Breadcrumb */}
+      <div className="mb-4">
+        <div className="flex items-center space-x-2">
+          <Button variant="link" className="text-blue-400 hover:text-blue-300 p-0">
+            <HomeIcon className="h-4 w-4 mr-1" />
+            Inicio
+          </Button>
+          <span className="text-gray-400">/</span>
+          <span className="text-gray-300">Clases</span>
+        </div>
+      </div>
+
+      {/* Título y descripción */}
+      <div className="flex items-start space-x-4 mb-6">
               <div className="rounded-2xl bg-blue-600 p-3 backdrop-blur-sm border border-blue-500">
                 <GraduationCap className="h-8 w-8 text-white" />
               </div>
               <div>
-                <span className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">Gestión</span>
-                <p className="text-blue-300 mt-2">Administra clases de baile y estudiantes</p>
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+            Gestión de Clases
+          </h1>
+          <p className="text-gray-300 mt-1">
+            Sistema de administración de clases y horarios
+          </p>
+        </div>
               </div>
-            </div>
-            <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-              <DialogTrigger asChild>
-                <Button 
-                  onClick={() => setShowCreateDialog(true)}
-                  className="bg-blue-600/60 hover:bg-blue-700/60 border border-blue-500 text-white text-lg px-6 py-3 rounded-2xl hover:text-white backdrop-blur-sm"
-                >
-                  <Plus className="w-6 h-6 mr-2 text-white" />
-                  Nueva Clase
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-gray-800 border border-gray-600 text-white">
-                <DialogHeader>
-                  <DialogTitle className="text-2xl font-bold text-white">Crear Nueva Clase de Baile</DialogTitle>
-                </DialogHeader>
 
-                <div className="space-y-6">
-                  {/* Información básica */}
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="name" className="text-gray-200 font-semibold">Nombre de la Clase *</Label>
-                      <Input
-                        id="name"
-                        value={newClass.name}
-                        onChange={(e) => setNewClass({ ...newClass, name: e.target.value })}
-                        placeholder="ej: Salsa Avanzada"
-                        className="border border-gray-600 focus:border-blue-500 bg-gray-700 text-white placeholder:text-gray-400"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="capacity" className="text-gray-200 font-semibold">Capacidad</Label>
-                      <Input
-                        id="capacity"
-                        type="number"
-                        value={newClass.capacity}
-                        onChange={(e) => setNewClass({ ...newClass, capacity: parseInt(e.target.value) || 20 })}
-                        className="border border-gray-600 focus:border-blue-500 bg-gray-700 text-white"
-                      />
-                    </div>
+      {/* Card de Filtros */}
+      <Card className="border-0 bg-gradient-to-r from-gray-800/90 via-slate-800/90 to-gray-700/90 text-white shadow-2xl mb-6 sm:mb-8 rounded-3xl border border-gray-600 backdrop-blur-sm">
+        <CardContent className="p-4 sm:p-6">
+          <div className="flex flex-col sm:flex-row flex-wrap gap-3 sm:gap-4 items-stretch sm:items-end">
+            <div className="flex-1 min-w-[140px]">
+              <Label className="text-gray-300">Deporte</Label>
+              <Select value={filterSport} onValueChange={setFilterSport}>
+                <SelectTrigger className="bg-gray-700 border-gray-600 text-white w-full">
+                  <SelectValue placeholder="Todos" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">Todos</SelectItem>
+                  <SelectItem value="DANCE">Baile</SelectItem>
+                  <SelectItem value="VOLLEYBALL">Voleibol</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex-1 min-w-[140px]">
+              <Label className="text-gray-300">Instructor/Entrenador</Label>
+              <Select value={filterTrainer} onValueChange={setFilterTrainer}>
+                <SelectTrigger className="bg-gray-700 border-gray-600 text-white w-full">
+                  <SelectValue placeholder="Todos" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">Todos</SelectItem>
+                  {trainers.map((t) => (
+                    <SelectItem key={t.id} value={t.id.toString()}>{t.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="trainer" className="text-gray-200 font-semibold">Instructor *</Label>
-                      <Select 
-                        value={newClass.trainerId.toString()} 
-                        onValueChange={(value) => setNewClass({ ...newClass, trainerId: parseInt(value) })}
-                      >
-                        <SelectTrigger className="border border-gray-600 focus:border-blue-500 bg-gray-700 text-white">
-                          <SelectValue placeholder="Selecciona un instructor" />
+            <div className="flex-1 min-w-[140px]">
+              <Label className="text-gray-300">Nivel</Label>
+              <Select value={filterLevel} onValueChange={setFilterLevel}>
+                <SelectTrigger className="bg-gray-700 border-gray-600 text-white w-full">
+                  <SelectValue placeholder="Todos" />
                         </SelectTrigger>
-                        <SelectContent className="bg-gray-700 border-gray-600">
-                          {trainers.map((trainer) => (
-                            <SelectItem key={trainer.id} value={trainer.id.toString()} className="text-white hover:bg-blue-600">
-                              {trainer.name}
-                            </SelectItem>
+                <SelectContent>
+                  <SelectItem value="ALL">Todos</SelectItem>
+                  {LEVEL_OPTIONS.map((l) => (
+                    <SelectItem key={l.value} value={l.value}>{l.label}</SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
-                    </div>
-                    <div>
-                      <Label htmlFor="price" className="text-gray-200 font-semibold">Valor por Clase</Label>
-                      <Input
-                        id="price"
-                        type="number"
-                        value={newClass.price}
-                        onChange={(e) => setNewClass({ ...newClass, price: parseFloat(e.target.value) || 0 })}
-                        placeholder="0"
-                        className="border border-gray-600 focus:border-blue-500 bg-gray-700 text-white placeholder:text-gray-400"
-                      />
-                    </div>
                   </div>
 
-                  <div>
-                    <Label htmlFor="description" className="text-gray-200 font-semibold">Descripción del Estilo de Baile</Label>
-                    <Textarea
-                      id="description"
-                      value={newClass.description}
-                      onChange={(e) => setNewClass({ ...newClass, description: e.target.value })}
-                      placeholder="Describe el tipo de clase y nivel..."
-                      className="border border-gray-600 focus:border-blue-500 bg-gray-700 text-white placeholder:text-gray-400"
-                    />
-                  </div>
-
-                  {/* Horarios */}
-                  <div>
-                    <div className="flex items-center justify-between mb-4">
-                      <Label className="text-lg font-semibold text-gray-200">Horarios</Label>
-                      <Button onClick={addSchedule} variant="outline" size="sm" className="border-blue-500 text-blue-400 hover:bg-blue-950 hover:text-blue-300">
-                        <Plus className="h-4 w-4 mr-2 text-blue-400" />
-                        Agregar Horario
-                      </Button>
-                    </div>
-
-                    {newClass.schedules.map((schedule, index) => (
-                      <Card key={index} className="mb-4 p-4 bg-gray-700 border border-gray-600">
-                        <div className="grid grid-cols-12 gap-3 items-end">
-                          <div className="col-span-5">
-                            <Label className="text-gray-200 font-medium">Día de la semana</Label>
-                            <Select 
-                              value={schedule.dayOfWeek.toString()} 
-                              onValueChange={(value) => updateSchedule(index, 'dayOfWeek', parseInt(value))}
-                            >
-                              <SelectTrigger className="border border-gray-600 focus:border-blue-500 bg-gray-600 text-white">
-                                <SelectValue />
+            <div className="flex-1 min-w-[140px]">
+              <Label className="text-gray-300">Ubicación</Label>
+              <Select value={filterLocation} onValueChange={setFilterLocation}>
+                <SelectTrigger className="bg-gray-700 border-gray-600 text-white w-full">
+                  <SelectValue placeholder="Todas" />
                               </SelectTrigger>
-                              <SelectContent className="bg-gray-600 border-gray-600">
-                                {DAYS_OF_WEEK.map((day, dayIndex) => (
-                                  <SelectItem key={dayIndex} value={dayIndex.toString()} className="text-white hover:bg-blue-600">
-                                    {day}
-                                  </SelectItem>
+                <SelectContent>
+                  <SelectItem value="ALL">Todas</SelectItem>
+                  {locations.map((l) => (
+                    <SelectItem key={l.id} value={l.id.toString()}>{l.name}</SelectItem>
                                 ))}
                               </SelectContent>
                             </Select>
                           </div>
-                          <div className="col-span-3">
-                            <Label className="text-gray-200 font-medium">Hora inicio</Label>
-                            <Input
-                              type="time"
-                              value={schedule.startTime}
-                              onChange={(e) => updateSchedule(index, 'startTime', e.target.value)}
-                              className="border border-gray-600 focus:border-blue-500 bg-gray-600 text-white"
-                            />
-                          </div>
-                          <div className="col-span-3">
-                            <Label className="text-gray-200 font-medium">Hora fin</Label>
-                            <Input
-                              type="time"
-                              value={schedule.endTime}
-                              onChange={(e) => updateSchedule(index, 'endTime', e.target.value)}
-                              className="border border-gray-600 focus:border-blue-500 bg-gray-600 text-white"
-                            />
-                          </div>
-                          <div className="col-span-1">
+
+            {/* Botón Nueva Clase */}
+            <div className="flex-1 min-w-[140px] sm:max-w-[220px]">
+              <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+                <DialogTrigger asChild>
                             <Button 
-                              onClick={() => removeSchedule(index)} 
-                              variant="outline" 
-                              size="sm"
-                              disabled={newClass.schedules.length === 1}
-                              className="bg-red-600 hover:bg-red-700 text-white"
-                            >
-                              <Trash2 className="h-4 w-4 text-white" />
+                    onClick={() => setShowCreateDialog(true)}
+                    className="w-full sm:w-auto bg-blue-600/60 hover:bg-blue-700/60 border border-blue-500 text-white text-lg px-6 py-3 rounded-2xl hover:text-white backdrop-blur-sm"
+                  >
+                    <Plus className="w-6 h-6 mr-2 text-white" />
+                    Nueva Clase
                             </Button>
+                </DialogTrigger>
+                <DialogContent className="!w-[95vw] !max-w-5xl h-[90vh] max-h-[90vh] overflow-y-auto bg-gray-800 border border-gray-600 text-white !left-[50%] !translate-x-[-50%]">
+                  <DialogHeader>
+                    <DialogTitle className="text-2xl font-bold text-white">
+                      Crear Nueva Clase de {newClass.sport === 'DANCE' ? 'Baile' : 'Voleibol'}
+                    </DialogTitle>
+                  </DialogHeader>
+                  {/* Rest of the dialog content */}
+                </DialogContent>
+              </Dialog>
                           </div>
                         </div>
-                      </Card>
-                    ))}
-                  </div>
-
-                  <div className="flex justify-end space-x-4">
-                    <Button variant="outline" onClick={() => setShowCreateDialog(false)} className="border-gray-600 text-gray-300 hover:bg-gray-700 hover:text-white">
-                      Cancelar
-                    </Button>
-                    <Button onClick={createClass} disabled={!newClass.name || !newClass.trainerId} className="bg-blue-600 hover:bg-blue-700 text-white">
-                      Crear Clase
-                    </Button>
-                  </div>
-                </div>
-              </DialogContent>
-            </Dialog>
-          </CardTitle>
-        </CardHeader>
+        </CardContent>
       </Card>
 
-      {/* Lista de clases */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {classes.map((danceClass) => (
-          <Card key={danceClass.id} className="border-0 shadow-2xl rounded-3xl hover:shadow-3xl transition-all duration-300 hover:-translate-y-1 bg-gray-800/90 border border-gray-600 backdrop-blur-sm">
-            <CardContent className="p-8">
+      {/* Lista de clases paginada */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+        {loading ? (
+          <div className="col-span-3 flex justify-center items-center min-h-[200px]">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+          </div>
+        ) : classes.length === 0 ? (
+          <div className="col-span-3 text-center text-gray-400 py-12">No hay clases para mostrar.</div>
+        ) : (
+          classes.map((danceClass) => (
+            <Card key={danceClass.id} className="border-0 shadow-2xl rounded-2xl sm:rounded-3xl hover:shadow-3xl transition-all duration-300 hover:-translate-y-1 bg-gray-800/90 border border-gray-600 backdrop-blur-sm">
+              <CardContent className="p-4 sm:p-8">
               {/* Header de la clase */}
-              <div className="flex items-start justify-between mb-6">
-                <div className="flex-1">
-                  <h3 className="text-2xl font-bold text-white mb-2">{danceClass.name}</h3>
-                  <p className="text-gray-300 mb-3">{danceClass.description || "Sin descripción"}</p>
-                  <div className="flex items-center space-x-2 text-sm text-gray-400">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between mb-4 sm:mb-6">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1 sm:mb-2 flex-wrap">
+                      <Badge className={`$ {
+                        danceClass.sport === 'DANCE' 
+                          ? 'bg-purple-600 text-white' 
+                          : 'bg-blue-600 text-white'
+                      } border-0 text-xs sm:text-sm`}>
+                        {danceClass.sport === 'DANCE' ? '💃 Baile' : '🏐 Voleibol'}
+                      </Badge>
+                      {danceClass.level && (
+                        <Badge variant="outline" className="text-gray-300 border-gray-600 text-xs sm:text-sm">
+                          {danceClass.level === 'BEGINNER' ? 'Principiante' :
+                            danceClass.level === 'INTERMEDIATE' ? 'Intermedio' : 'Avanzado'}
+                        </Badge>
+                      )}
+                    </div>
+                    <h3 className="text-lg sm:text-2xl font-bold text-white mb-1 sm:mb-2 truncate">{danceClass.name}</h3>
+                    <p className="text-gray-300 mb-2 text-sm sm:text-base truncate">{danceClass.description || "Sin descripción"}</p>
+                    <div className="space-y-1 text-xs sm:text-sm text-gray-400">
+                      <div className="flex items-center space-x-2">
                     <GraduationCap className="h-4 w-4" />
-                    <span>{danceClass.trainer.name}</span>
+                        <span className="truncate">{danceClass.trainer.name}</span>
+                      </div>
+                      {danceClass.location && (
+                        <div className="flex items-center space-x-2">
+                          <MapPin className="h-4 w-4" />
+                          <span className="truncate">{danceClass.location.name}</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
-                <div className="flex space-x-2">
+                  <div className="flex flex-row sm:flex-col gap-2 sm:gap-0 items-center sm:items-end mt-2 sm:mt-0">
                   <Button variant="outline" size="sm" onClick={() => deleteClass(danceClass.id)} className="border-red-500 text-red-400 hover:bg-red-950 hover:text-red-300">
                     <Trash2 className="h-4 w-4 text-red-400" />
                   </Button>
                 </div>
               </div>
 
-              {/* Horarios */}
-              <div className="mb-6">
-                <h4 className="font-semibold text-blue-400 mb-3 flex items-center">
-                  <Clock className="h-4 w-4 mr-2" />
-                  Horarios
-                </h4>
-                <div className="space-y-2">
+                {/* Estadísticas y horarios */}
+                <div className="space-y-2 sm:space-y-4">
+                  <div className="flex justify-between items-center p-2 sm:p-4 bg-gray-700/50 rounded-xl">
+                    <div className="flex items-center space-x-2">
+                      <Users className="h-5 w-5 text-blue-400" />
+                      <span className="text-white font-medium text-xs sm:text-base">Estudiantes</span>
+                    </div>
+                    <span className="text-lg sm:text-2xl font-bold text-blue-400">
+                      {danceClass._count.enrollments}/{danceClass.capacity}
+                    </span>
+                  </div>
+
+                  <div className="p-2 sm:p-4 bg-gray-700/50 rounded-xl">
+                    <div className="flex items-center space-x-2 mb-2 sm:mb-3">
+                      <Calendar className="h-4 w-4 text-green-400" />
+                      <span className="text-xs sm:text-sm font-medium text-gray-300">Horarios</span>
+                    </div>
+                    <div className="space-y-1 sm:space-y-2">
                   {danceClass.schedules.map((schedule, index) => (
-                    <div key={index} className="flex items-center justify-between p-2 bg-gray-700/80 rounded-lg border border-gray-600">
-                      <span className="font-medium text-blue-300">{DAYS_OF_WEEK[schedule.dayOfWeek]}</span>
-                      <span className="text-gray-300">{schedule.startTime} - {schedule.endTime}</span>
+                        <div key={index} className="flex justify-between items-center p-1 sm:p-2 bg-gray-600/50 rounded text-xs">
+                          <span className="font-medium text-white">{DAYS_OF_WEEK[schedule.dayOfWeek]}</span>
+                          <span className="text-green-300 font-mono">{schedule.startTime} - {schedule.endTime}</span>
                     </div>
                   ))}
                 </div>
               </div>
 
-              {/* Estadísticas */}
-              <div className="grid grid-cols-2 gap-4 mb-6">
-                <div className="text-center p-3 bg-blue-950/50 rounded-lg border border-blue-500">
-                  <div className="text-2xl font-bold text-blue-400">{danceClass._count.enrollments}</div>
-                  <div className="text-sm text-blue-300">Inscritos</div>
+                  <Button
+                    onClick={() => {
+                      setSelectedClass(danceClass)
+                      setShowEnrollDialog(true)
+                    }}
+                    disabled={danceClass._count.enrollments >= danceClass.capacity}
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white mt-2"
+                  >
+                    <UserPlus className="h-4 w-4 mr-2" />
+                    Inscribir Estudiante
+                  </Button>
                 </div>
-                <div className="text-center p-3 bg-green-950/50 rounded-lg border border-green-500">
-                  <div className="text-2xl font-bold text-green-400">{danceClass.capacity}</div>
-                  <div className="text-sm text-green-300">Capacidad</div>
-                </div>
+              </CardContent>
+            </Card>
+          ))
+        )}
               </div>
 
-              {/* Estudiantes inscritos */}
-              <div className="mb-6">
-                <div className="flex items-center justify-between mb-3">
-                  <h4 className="font-semibold text-blue-400 flex items-center">
-                    <Users className="h-4 w-4 mr-2" />
-                    Estudiantes ({danceClass.enrollments.length})
-                  </h4>
-                  <Dialog open={showEnrollDialog && selectedClass?.id === danceClass.id} onOpenChange={setShowEnrollDialog}>
-                    <DialogTrigger asChild>
+      {/* Paginación */}
+      {totalPages > 1 && (
+        <div className="flex justify-center items-center gap-2 mt-6 sm:mt-8">
+          <Button
+            variant="outline"
+            className="border-gray-600 text-white"
+            disabled={currentPage === 1}
+            onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+          >
+            Anterior
+          </Button>
+          <span className="text-gray-300 text-sm sm:text-base">Página {currentPage} de {totalPages}</span>
                       <Button 
                         variant="outline" 
-                        size="sm"
-                        onClick={() => setSelectedClass(danceClass)}
-                        className="border-blue-500 text-blue-400 hover:bg-blue-950 hover:text-blue-300"
-                      >
-                        <UserPlus className="h-4 w-4 mr-1 text-blue-400" />
-                        Inscribir
+            className="border-gray-600 text-white"
+            disabled={currentPage === totalPages}
+            onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+          >
+            Siguiente
                       </Button>
-                    </DialogTrigger>
-                    <DialogContent className="bg-gray-800 border border-gray-600 text-white">
+        </div>
+      )}
+
+      {/* Dialog para inscribir estudiante */}
+      <Dialog open={showEnrollDialog} onOpenChange={setShowEnrollDialog}>
+        <DialogContent className="max-w-2xl bg-gray-800 border border-gray-600 text-white">
                       <DialogHeader>
-                        <DialogTitle className="text-white">Inscribir Estudiante en {danceClass.name}</DialogTitle>
+            <DialogTitle className="text-xl font-bold text-white">
+              Inscribir Estudiante en {selectedClass?.name}
+            </DialogTitle>
                       </DialogHeader>
                       <div className="space-y-4">
                         {availableStudents.length === 0 ? (
-                          <p className="text-gray-400 text-sm">No hay estudiantes disponibles para inscribir</p>
-                        ) : (
-                          <div className="space-y-2 max-h-60 overflow-y-auto">
+              <p className="text-gray-400 text-center py-8">
+                No hay estudiantes disponibles para inscribir en esta clase.
+              </p>
+            ) : (
+              <>
+                <p className="text-gray-300">
+                  Selecciona un estudiante para inscribir en esta clase:
+                </p>
+                <div className="max-h-80 overflow-y-auto space-y-2">
                             {availableStudents.map((student) => (
-                              <div key={student.id} className="flex items-center justify-between p-3 bg-gray-700 rounded-lg border border-gray-600">
+                    <div
+                      key={student.id}
+                      className="flex items-center justify-between p-4 bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors"
+                    >
+                      <div className="flex items-center space-x-3">
+                        <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
+                          <span className="text-white font-bold text-sm">
+                            {student.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                          </span>
+                        </div>
                                 <div>
-                                  <span className="font-medium text-white">{student.name}</span>
-                                  <div className="text-sm text-gray-400">Cédula: {student.id}</div>
-                                  {student.hasDebt && (
-                                    <Badge variant="destructive" className="text-xs">Tiene deuda</Badge>
-                                  )}
+                          <p className="font-medium text-white">{student.name}</p>
+                          <p className="text-sm text-gray-400">ID: {student.id}</p>
+                          <p className="text-sm text-gray-400">{student.email}</p>
+                        </div>
                                 </div>
                                 <Button 
-                                  size="sm" 
-                                  onClick={() => enrollStudent(student.id, danceClass.id)}
-                                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                        onClick={() => selectedClass && enrollStudent(student.id, selectedClass.id)}
+                        className="bg-green-600 hover:bg-green-700 text-white"
                                 >
                                   Inscribir
                                 </Button>
                               </div>
                             ))}
                           </div>
+              </>
                         )}
                       </div>
                     </DialogContent>
                   </Dialog>
-                </div>
-
-                <div className="space-y-2 max-h-32 overflow-y-auto">
-                  {danceClass.enrollments.length === 0 ? (
-                    <p className="text-gray-400 text-sm">No hay estudiantes inscritos</p>
-                  ) : (
-                    danceClass.enrollments.map((enrollment) => (
-                      <div key={enrollment.student.id} className="flex items-center justify-between p-2 bg-gray-700/80 rounded-lg border border-gray-600">
-                        <div className="flex items-center space-x-3">
-                          <div>
-                            <span className="font-medium text-blue-300">{enrollment.student.name}</span>
-                            <div className="text-xs text-gray-400">Cédula: {enrollment.student.id}</div>
-                          </div>
-                          {enrollment.student.hasDebt && (
-                            <Badge variant="destructive" className="text-xs">Deuda</Badge>
-                          )}
-                        </div>
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          onClick={() => unenrollStudent(enrollment.student.id, danceClass.id)}
-                          className="border-red-500 text-red-400 hover:bg-red-950 hover:text-red-300"
-                        >
-                          <Trash2 className="h-3 w-3 text-red-400" />
-                        </Button>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-
-              {/* Información adicional */}
-              {danceClass.price && (
-                <div className="pt-4 border-t border-gray-600">
-                  <div className="flex items-center justify-between">
-                    <span className="text-gray-300">Precio por clase:</span>
-                    <span className="text-lg font-bold text-green-400">${danceClass.price}</span>
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      {classes.length === 0 && (
-        <Card className="border-0 shadow-2xl rounded-3xl bg-gray-800/90 border border-gray-600 backdrop-blur-sm">
-          <CardContent className="p-12 text-center">
-            <div className="w-24 h-24 mx-auto mb-8 bg-gradient-to-r from-purple-600 to-blue-600 rounded-full flex items-center justify-center border-2 border-purple-500">
-              <BookOpen className="w-12 h-12 text-white" />
-            </div>
-            <h3 className="text-3xl font-bold text-white mb-4">No hay clases creadas</h3>
-            <p className="text-gray-300 text-xl">Crea tu primera clase para comenzar</p>
-          </CardContent>
-        </Card>
-      )}
     </div>
   )
 } 

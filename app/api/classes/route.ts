@@ -10,6 +10,7 @@ const createClassSchema = z.object({
   name: z.string().min(1, 'El nombre es requerido'),
   description: z.string().optional(),
   trainerId: z.number().int().positive('El ID del entrenador debe ser un número positivo'),
+  locationId: z.number().int().positive('El ID de la ubicación debe ser un número positivo').optional(),
   capacity: z.number().min(1, 'La capacidad debe ser mayor a 0').optional(),
   price: z.number().min(0, 'El precio debe ser mayor o igual a 0').optional(),
   sport: z.enum(['DANCE', 'VOLLEYBALL'], { 
@@ -28,7 +29,7 @@ const createClassSchema = z.object({
 
 const updateClassSchema = createClassSchema.partial()
 
-// GET - Obtener todas las clases
+// GET - Obtener todas las clases (paginado y filtrado)
 export async function GET(request: NextRequest) {
   try {
     // Verificar autenticación
@@ -40,79 +41,91 @@ export async function GET(request: NextRequest) {
     const url = new URL(request.url)
     const isActive = url.searchParams.get('active') === 'true'
     const trainerIdParam = url.searchParams.get('trainerId')
+    const sportParam = url.searchParams.get('sport')
+    const locationIdParam = url.searchParams.get('locationId')
+    const levelParam = url.searchParams.get('level')
+    const pageParam = url.searchParams.get('page')
+    const pageSizeParam = url.searchParams.get('pageSize')
+
+    const page = pageParam ? parseInt(pageParam) : 1
+    const pageSize = pageSizeParam ? parseInt(pageSizeParam) : 6
+    const skip = (page - 1) * pageSize
+    const take = pageSize
 
     const where: any = {}
     if (isActive !== null) {
       where.isActive = isActive
     }
-    if (trainerIdParam) {
-      const trainerId = parseInt(trainerIdParam)
-      if (trainerId) {
-        where.trainerId = trainerId
-      }
+    if (trainerIdParam && trainerIdParam !== 'ALL') {
+      where.trainerId = parseInt(trainerIdParam)
+    }
+    if (sportParam && sportParam !== 'ALL') {
+      where.sport = sportParam
+    }
+    if (locationIdParam && locationIdParam !== 'ALL') {
+      where.locationId = parseInt(locationIdParam)
+    }
+    if (levelParam && levelParam !== 'ALL') {
+      where.level = levelParam
     }
 
-    const classes = await prisma.danceClass.findMany({
-      where,
-      include: {
-        trainer: {
-          select: {
-            id: true,
-            name: true,
-            email: true
-          }
-        },
-        schedules: {
-          where: { isActive: true },
-          orderBy: [
-            { dayOfWeek: 'asc' },
-            { startTime: 'asc' }
-          ]
-        },
-        sessions: {
-          take: 5,
-          orderBy: { date: 'desc' },
-          include: {
-            attendances: {
-              include: {
-                student: {
-                  select: {
-                    id: true,
-                    name: true
-                  }
+    const [total, classes] = await Promise.all([
+      prisma.danceClass.count({ where }),
+      prisma.danceClass.findMany({
+        where,
+        skip,
+        take,
+        include: {
+          trainer: {
+            select: {
+              id: true,
+              name: true,
+              email: true
+            }
+          },
+          location: {
+            select: {
+              id: true,
+              name: true,
+              address: true
+            }
+          },
+          schedules: {
+            where: { isActive: true },
+            orderBy: [
+              { dayOfWeek: 'asc' },
+              { startTime: 'asc' }
+            ]
+          },
+          enrollments: {
+            where: { isActive: true },
+            include: {
+              student: {
+                select: {
+                  id: true,
+                  name: true,
+                  email: true,
+                  phone: true
                 }
               }
             }
-          }
-        },
-        enrollments: {
-          where: { isActive: true },
-          include: {
-            student: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-                phone: true
+          },
+          _count: {
+            select: {
+              enrollments: {
+                where: { isActive: true }
               }
             }
           }
         },
-        _count: {
-          select: {
-            enrollments: {
-              where: { isActive: true }
-            }
-          }
-        }
-      },
-      orderBy: [
-        { isActive: 'desc' },
-        { name: 'asc' }
-      ]
-    })
+        orderBy: [
+          { isActive: 'desc' },
+          { name: 'asc' }
+        ]
+      })
+    ])
 
-    return NextResponse.json({ success: true, classes })
+    return NextResponse.json({ success: true, classes, total, page, pageSize })
   } catch (error) {
     console.error('Error fetching classes:', error)
     return NextResponse.json(
@@ -140,11 +153,34 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Si es voleibol, verificar que tenga ubicación
+    if (validatedData.sport === 'VOLLEYBALL' && !validatedData.locationId) {
+      return NextResponse.json(
+        { error: 'La ubicación es requerida para clases de voleibol' },
+        { status: 400 }
+      )
+    }
+
+    // Si se proporciona locationId, verificar que la ubicación existe
+    if (validatedData.locationId) {
+      const location = await prisma.sportLocation.findUnique({
+        where: { id: validatedData.locationId }
+      })
+
+      if (!location) {
+        return NextResponse.json(
+          { error: 'Ubicación no encontrada' },
+          { status: 404 }
+        )
+      }
+    }
+
     const newClass = await prisma.danceClass.create({
       data: {
         name: validatedData.name,
         description: validatedData.description,
         trainerId: validatedData.trainerId,
+        locationId: validatedData.locationId,
         capacity: validatedData.capacity || 20,
         price: validatedData.price,
         sport: validatedData.sport,
@@ -160,6 +196,13 @@ export async function POST(request: NextRequest) {
             id: true,
             name: true,
             email: true
+          }
+        },
+        location: {
+          select: {
+            id: true,
+            name: true,
+            address: true
           }
         },
         schedules: {
@@ -182,6 +225,8 @@ export async function POST(request: NextRequest) {
       { error: 'Error interno del servidor' },
       { status: 500 }
     )
+  } finally {
+    await prisma.$disconnect()
   }
 }
 

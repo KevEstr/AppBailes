@@ -47,7 +47,7 @@ export const InternalLayout = memo(function InternalLayout({ children, title, de
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-slate-900 to-gray-800">
-      <div className="container mx-auto px-6 py-8">
+      <div className="mx-auto px-2 sm:px-4 lg:px-6 py-4 sm:py-6 lg:py-8 max-w-[95%]">
         {/* Header with navigation */}
         <Card className="mb-8 rounded-2xl bg-gray-800/90 p-6 shadow-xl border border-gray-600 backdrop-blur-sm">
           <div className="flex items-center justify-between">
@@ -83,11 +83,11 @@ export const InternalLayout = memo(function InternalLayout({ children, title, de
             </div>
 
             <div className="text-right">
-              <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+              <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent hidden sm:block">
                 {title}
               </h1>
               {description && (
-                <p className="text-gray-300 text-sm mt-1">{description}</p>
+                <p className="text-gray-300 text-sm mt-1 hidden sm:block">{description}</p>
               )}
             </div>
           </div>

@@ -19,6 +19,7 @@ import {
   LogOut,
   Shield,
   UserPlus,
+  UserCheck,
   ArrowRight
 } from "lucide-react"
 import Link from "next/link"
@@ -85,6 +86,14 @@ export default function AdminPage() {
       icon: GraduationCap,
       description: "Organizar horarios y grupos de baile",
       color: "from-violet-500 to-purple-600",
+    },
+    {
+      id: "students",
+      href: "/admin/students",
+      label: "Gestión de Estudiantes",
+      icon: UserCheck,
+      description: "Administrar estudiantes e inscripciones",
+      color: "from-blue-500 to-cyan-600",
     },
     {
       id: "attendance",

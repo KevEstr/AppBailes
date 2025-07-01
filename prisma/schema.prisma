@@ -8,17 +8,15 @@ datasource db {
 }
 
 model Student {
-
   id        Int      @id // Cédula colombiana (sin autoincrement)
   name                    String
-  email                   String?                   @unique
-  phone                   String                    @unique
+  email                   String?
+  phone                   String
   avatar                  String?
   hasDebt                 Boolean                   @default(false)
   isActive                Boolean                   @default(true)
   createdAt               DateTime                  @default(now())
   updatedAt               DateTime                  @updatedAt
-
 
   enrollmentData   StudentEnrollmentData?
   attendances             Attendance[]
@@ -32,6 +30,10 @@ model Student {
   serviceOrders           ServiceOrder[]
   financialTransactions   FinancialTransaction[]
 
+  @@index([name])
+  @@index([phone])
+  @@index([email])
+  @@index([isActive])
   @@map("students")
 }
 
@@ -86,7 +88,7 @@ model DanceClass {
   capacity    Int               @default(20)
   description String?
   price       Float?
-
+  locationId  Int?      // Para deportes, referencia a SportLocation
 
   // Relations
   location    SportLocation?    @relation(fields: [locationId], references: [id])
@@ -160,6 +162,10 @@ model ClassEnrollment {
   student    Student    @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
   @@unique([studentId, classId])
+  @@index([isActive])
+  @@index([createdAt])
+  @@index([studentId])
+  @@index([classId])
   @@map("class_enrollments")
 }
 

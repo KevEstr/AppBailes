@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client'
+import bcrypt from 'bcryptjs'
 
 const prisma = new PrismaClient()
 
@@ -7,116 +8,27 @@ async function main() {
 
   // Create trainers
   console.log('👨‍🏫 Creando entrenadores...')
-  
-  // Dance trainers
-  const karenOspina = await prisma.trainer.create({
+  const trainer1 = await prisma.trainer.create({
     data: {
-      name: 'Karen Ospina',
-      email: 'karen.ospina@paradisedance.com',
-      phone: '3001234567',
+      name: 'María González',
+      email: 'maria@danceacademy.com',
+      phone: '1234567890',
     },
   })
 
-  const luisaMachado = await prisma.trainer.create({
+  const trainer2 = await prisma.trainer.create({
     data: {
-      name: 'Luisa Machado Duque',
-      email: 'luisa.machado@paradisedance.com',
-      phone: '3009876543',
+      name: 'Carlos Rodríguez',
+      email: 'carlos@danceacademy.com',
+      phone: '0987654321',
     },
   })
 
-  // Sports trainers
-  const angelica = await prisma.trainer.create({
+  const trainer3 = await prisma.trainer.create({
     data: {
-      name: 'Angelica',
-      email: 'angelica@paradisesports.com',
-      phone: '3005555555',
-    },
-  })
-
-  const andresVera = await prisma.trainer.create({
-    data: {
-      name: 'Andres Vera',
-      email: 'andres.vera@paradisesports.com',
-      phone: '3006666666',
-    },
-  })
-
-  const andresArroyave = await prisma.trainer.create({
-    data: {
-      name: 'Andres Arroyave',
-      email: 'andres.arroyave@paradisesports.com',
-      phone: '3007777777',
-    },
-  })
-
-  const andres = await prisma.trainer.create({
-    data: {
-      name: 'Andres',
-      email: 'andres@paradisesports.com',
-      phone: '3007777778',
-    },
-  })
-
-  const david = await prisma.trainer.create({
-    data: {
-      name: 'David',
-      email: 'david@paradisesports.com',
-      phone: '3008888888',
-    },
-  })
-
-  const camila = await prisma.trainer.create({
-    data: {
-      name: 'Camila',
-      email: 'camila@paradisesports.com',
-      phone: '3009999999',
-    },
-  })
-
-  const yennifer = await prisma.trainer.create({
-    data: {
-      name: 'Yennifer',
-      email: 'yennifer@paradisesports.com',
-      phone: '3001111110',
-    },
-  })
-
-  const santiago = await prisma.trainer.create({
-    data: {
-      name: 'Santiago',
-      email: 'santiago@paradisesports.com',
-      phone: '3001111111',
-    },
-  })
-
-  // Create sport locations
-  console.log('🏟️ Creando ubicaciones deportivas...')
-  const placaCarmen = await prisma.sportLocation.create({
-    data: {
-      name: 'Placa Polideportiva del Carmen',
-      address: 'Barrio El Carmen',
-    },
-  })
-
-  const placaComfenalco = await prisma.sportLocation.create({
-    data: {
-      name: 'Placa Cubierta de Villas de Comfenalco',
-      address: 'Villas de Comfenalco',
-    },
-  })
-
-  const placaPuertoBello = await prisma.sportLocation.create({
-    data: {
-      name: 'Placa Cubierta de Puerto Bello',
-      address: 'Puerto Bello',
-    },
-  })
-
-  const placaMesa = await prisma.sportLocation.create({
-    data: {
-      name: 'Placa Deportiva del Mesa',
-      address: 'El Mesa',
+      name: 'Luis Martínez',
+      email: 'luis@danceacademy.com',
+      phone: '5556789012',
     },
   })
 
@@ -162,493 +74,51 @@ async function main() {
     },
   })
 
-  // Create dance classes with schedules  
+  // Create dance classes with schedules
   console.log('💃 Creando clases de baile...')
-  
-  // Karen Ospina classes
-  const karenClass1 = await prisma.danceClass.create({
+  const salsaClass = await prisma.danceClass.create({
     data: {
-      name: 'Martes y jueves 3:30 Pm a 5:00 Pm - Karen (Baile Urbano)',
-      description: 'Clase de baile urbano con Karen Ospina',
-      trainerId: karenOspina.id,
+      name: 'Salsa Básica',
+      description: 'Aprende los pasos fundamentales de la salsa',
+      trainerId: trainer1.id,
       capacity: 20,
       price: 50.00,
-      type: 'DANCE',
       schedules: {
         create: [
-          { dayOfWeek: 2, startTime: '15:30', endTime: '17:00' }, // Martes
-          { dayOfWeek: 4, startTime: '15:30', endTime: '17:00' }  // Jueves
+          { dayOfWeek: 1, startTime: '18:00', endTime: '19:00' }, // Lunes
+          { dayOfWeek: 3, startTime: '18:00', endTime: '19:00' }  // Miércoles
         ]
       }
     },
   })
 
-  const karenClass2 = await prisma.danceClass.create({
+  const bachataClass = await prisma.danceClass.create({
     data: {
-      name: 'Martes y jueves 5:00 Pm a 6:30 Pm - Karen (Baile Urbano)',
-      description: 'Clase de baile urbano con Karen Ospina',
-      trainerId: karenOspina.id,
-      capacity: 20,
-      price: 50.00,
-      type: 'DANCE',
+      name: 'Bachata Intermedio',
+      description: 'Perfecciona tu técnica de bachata',
+      trainerId: trainer2.id,
+      capacity: 15,
+      price: 60.00,
       schedules: {
         create: [
-          { dayOfWeek: 2, startTime: '17:00', endTime: '18:30' }, // Martes
-          { dayOfWeek: 4, startTime: '17:00', endTime: '18:30' }  // Jueves
+          { dayOfWeek: 2, startTime: '19:00', endTime: '20:00' }, // Martes
+          { dayOfWeek: 4, startTime: '19:00', endTime: '20:00' }  // Jueves
         ]
       }
     },
   })
 
-  const karenClass3 = await prisma.danceClass.create({
+  const merengueClass = await prisma.danceClass.create({
     data: {
-      name: 'Martes y jueves 6:30 Pm a 8:00 Pm - Karen (Baile Urbano)',
-      description: 'Clase de baile urbano con Karen Ospina',
-      trainerId: karenOspina.id,
-      capacity: 20,
-      price: 50.00,
-      type: 'DANCE',
-      schedules: {
-        create: [
-          { dayOfWeek: 2, startTime: '18:30', endTime: '20:00' }, // Martes
-          { dayOfWeek: 4, startTime: '18:30', endTime: '20:00' }  // Jueves
-        ]
-      }
-    },
-  })
-
-  const karenClass4 = await prisma.danceClass.create({
-    data: {
-      name: 'Sábados y domingos 10:00 Am a 11:30 Am - Karen (Baile Urbano)',
-      description: 'Clase de baile urbano con Karen Ospina',
-      trainerId: karenOspina.id,
-      capacity: 20,
-      price: 50.00,
-      type: 'DANCE',
-      schedules: {
-        create: [
-          { dayOfWeek: 6, startTime: '10:00', endTime: '11:30' }, // Sábado
-          { dayOfWeek: 0, startTime: '10:00', endTime: '11:30' }  // Domingo
-        ]
-      }
-    },
-  })
-
-  // Luisa Machado Duque classes
-  const luisaClass1 = await prisma.danceClass.create({
-    data: {
-      name: 'Miércoles y viernes 3:30 Pm a 5:00 Pm - Luisa (Baile Urbano)',
-      description: 'Clase de baile urbano con Luisa Machado Duque',
-      trainerId: luisaMachado.id,
-      capacity: 20,
-      price: 50.00,
-      type: 'DANCE',
-      schedules: {
-        create: [
-          { dayOfWeek: 3, startTime: '15:30', endTime: '17:00' }, // Miércoles
-          { dayOfWeek: 5, startTime: '15:30', endTime: '17:00' }  // Viernes
-        ]
-      }
-    },
-  })
-
-  const luisaClass2 = await prisma.danceClass.create({
-    data: {
-      name: 'Miércoles y viernes 5:00 Pm a 6:30 Pm - Luisa (Baile Urbano)',
-      description: 'Clase de baile urbano con Luisa Machado Duque',
-      trainerId: luisaMachado.id,
-      capacity: 20,
-      price: 50.00,
-      type: 'DANCE',
-      schedules: {
-        create: [
-          { dayOfWeek: 3, startTime: '17:00', endTime: '18:30' }, // Miércoles
-          { dayOfWeek: 5, startTime: '17:00', endTime: '18:30' }  // Viernes
-        ]
-      }
-    },
-  })
-
-  const luisaClass3 = await prisma.danceClass.create({
-    data: {
-      name: 'Miércoles y viernes 6:30 Pm a 8:00 Pm - Luisa (Baile Urbano)',
-      description: 'Clase de baile urbano con Luisa Machado Duque',
-      trainerId: luisaMachado.id,
-      capacity: 20,
-      price: 50.00,
-      type: 'DANCE',
-      schedules: {
-        create: [
-          { dayOfWeek: 3, startTime: '18:30', endTime: '20:00' }, // Miércoles
-          { dayOfWeek: 5, startTime: '18:30', endTime: '20:00' }  // Viernes
-        ]
-      }
-    },
-  })
-
-  // Sports classes organized by location
-  console.log('🏃‍♂️ Creando clases deportivas...')
-  
-  // === PLACA POLIDEPORTIVA DEL CARMEN ===
-  const carmenClass1 = await prisma.danceClass.create({
-    data: {
-      name: 'Lunes, miércoles y viernes 2:30 Pm a 4:00 Pm (Angelica)',
-      description: 'Entrenamiento deportivo con Angelica en Placa del Carmen',
-      trainerId: angelica.id,
+      name: 'Merengue y Reggaeton',
+      description: 'Ritmos caribeños modernos',
+      trainerId: trainer3.id,
       capacity: 25,
-      price: 40.00,
-      type: 'SPORTS',
-      locationId: placaCarmen.id,
-      schedules: {
-        create: [
-          { dayOfWeek: 1, startTime: '14:30', endTime: '16:00' }, // Lunes
-          { dayOfWeek: 3, startTime: '14:30', endTime: '16:00' }, // Miércoles
-          { dayOfWeek: 5, startTime: '14:30', endTime: '16:00' }  // Viernes
-        ]
-      }
-    },
-  })
-
-  const carmenClass2 = await prisma.danceClass.create({
-    data: {
-      name: 'Lunes, miércoles y viernes 4:00 Pm a 5:30 Pm (Angelica)',
-      description: 'Entrenamiento deportivo con Angelica en Placa del Carmen',
-      trainerId: angelica.id,
-      capacity: 25,
-      price: 40.00,
-      type: 'SPORTS',
-      locationId: placaCarmen.id,
-      schedules: {
-        create: [
-          { dayOfWeek: 1, startTime: '16:00', endTime: '17:30' }, // Lunes
-          { dayOfWeek: 3, startTime: '16:00', endTime: '17:30' }, // Miércoles
-          { dayOfWeek: 5, startTime: '16:00', endTime: '17:30' }  // Viernes
-        ]
-      }
-    },
-  })
-
-  const carmenClass3 = await prisma.danceClass.create({
-    data: {
-      name: 'Lunes, miércoles y viernes 3:00 Pm a 4:30 Pm (Andres Vera)',
-      description: 'Entrenamiento deportivo con Andres Vera en Placa del Carmen',
-      trainerId: andresVera.id,
-      capacity: 25,
-      price: 40.00,
-      type: 'SPORTS',
-      locationId: placaCarmen.id,
-      schedules: {
-        create: [
-          { dayOfWeek: 1, startTime: '15:00', endTime: '16:30' }, // Lunes
-          { dayOfWeek: 3, startTime: '15:00', endTime: '16:30' }, // Miércoles
-          { dayOfWeek: 5, startTime: '15:00', endTime: '16:30' }  // Viernes
-        ]
-      }
-    },
-  })
-
-  const carmenClass4 = await prisma.danceClass.create({
-    data: {
-      name: 'Lunes, miércoles y viernes 4:30 Pm a 6:00 Pm (Andres Arroyave)',
-      description: 'Entrenamiento deportivo con Andres Arroyave en Placa del Carmen',
-      trainerId: andresArroyave.id,
-      capacity: 25,
-      price: 40.00,
-      type: 'SPORTS',
-      locationId: placaCarmen.id,
-      schedules: {
-        create: [
-          { dayOfWeek: 1, startTime: '16:30', endTime: '18:00' }, // Lunes
-          { dayOfWeek: 3, startTime: '16:30', endTime: '18:00' }, // Miércoles
-          { dayOfWeek: 5, startTime: '16:30', endTime: '18:00' }  // Viernes
-        ]
-      }
-    },
-  })
-
-  const carmenClass5 = await prisma.danceClass.create({
-    data: {
-      name: 'Lunes, miércoles y viernes 3:00 Pm a 4:30 Pm (Andres Arroyave)',
-      description: 'Entrenamiento deportivo con Andres Arroyave en Placa del Carmen',
-      trainerId: andresArroyave.id,
-      capacity: 25,
-      price: 40.00,
-      type: 'SPORTS',
-      locationId: placaCarmen.id,
-      schedules: {
-        create: [
-          { dayOfWeek: 1, startTime: '15:00', endTime: '16:30' }, // Lunes
-          { dayOfWeek: 3, startTime: '15:00', endTime: '16:30' }, // Miércoles
-          { dayOfWeek: 5, startTime: '15:00', endTime: '16:30' }  // Viernes
-        ]
-      }
-    },
-  })
-
-  const carmenClass6 = await prisma.danceClass.create({
-    data: {
-      name: 'Lunes, martes y jueves 7:00 Pm a 8:30 Pm (David)',
-      description: 'Entrenamiento deportivo con David en Placa del Carmen',
-      trainerId: david.id,
-      capacity: 25,
-      price: 40.00,
-      type: 'SPORTS',
-      locationId: placaCarmen.id,
-      schedules: {
-        create: [
-          { dayOfWeek: 1, startTime: '19:00', endTime: '20:30' }, // Lunes
-          { dayOfWeek: 2, startTime: '19:00', endTime: '20:30' }, // Martes
-          { dayOfWeek: 4, startTime: '19:00', endTime: '20:30' }  // Jueves
-        ]
-      }
-    },
-  })
-
-  const carmenClass7 = await prisma.danceClass.create({
-    data: {
-      name: 'Lunes, martes y jueves 7:00 Pm a 8:30 Pm (Camila)',
-      description: 'Entrenamiento deportivo con Camila en Placa del Carmen',
-      trainerId: camila.id,
-      capacity: 25,
-      price: 40.00,
-      type: 'SPORTS',
-      locationId: placaCarmen.id,
-      schedules: {
-        create: [
-          { dayOfWeek: 1, startTime: '19:00', endTime: '20:30' }, // Lunes
-          { dayOfWeek: 2, startTime: '19:00', endTime: '20:30' }, // Martes
-          { dayOfWeek: 4, startTime: '19:00', endTime: '20:30' }  // Jueves
-        ]
-      }
-    },
-  })
-
-  const carmenClass8 = await prisma.danceClass.create({
-    data: {
-      name: 'Martes, jueves 2:30 Pm a 4:00 Pm y sábado 8:00 Am a 9:30 Am (Andres Vera)',
-      description: 'Entrenamiento deportivo con Andres Vera en Placa del Carmen',
-      trainerId: andresVera.id,
-      capacity: 25,
-      price: 40.00,
-      type: 'SPORTS',
-      locationId: placaCarmen.id,
-      schedules: {
-        create: [
-          { dayOfWeek: 2, startTime: '14:30', endTime: '16:00' }, // Martes
-          { dayOfWeek: 4, startTime: '14:30', endTime: '16:00' }, // Jueves
-          { dayOfWeek: 6, startTime: '08:00', endTime: '09:30' }  // Sábado
-        ]
-      }
-    },
-  })
-
-  const carmenClass9 = await prisma.danceClass.create({
-    data: {
-      name: 'Martes, jueves 2:30 Pm a 4:00 Pm y sábado 8:00 Am a 9:30 Am (David)',
-      description: 'Entrenamiento deportivo con David en Placa del Carmen',
-      trainerId: david.id,
-      capacity: 25,
-      price: 40.00,
-      type: 'SPORTS',
-      locationId: placaCarmen.id,
-      schedules: {
-        create: [
-          { dayOfWeek: 2, startTime: '14:30', endTime: '16:00' }, // Martes
-          { dayOfWeek: 4, startTime: '14:30', endTime: '16:00' }, // Jueves
-          { dayOfWeek: 6, startTime: '08:00', endTime: '09:30' }  // Sábado
-        ]
-      }
-    },
-  })
-
-  const carmenClass10 = await prisma.danceClass.create({
-    data: {
-      name: 'Martes, jueves 4:00 Pm a 5:30 Pm y sábado 9:30 Am a 11:00 Am (David)',
-      description: 'Entrenamiento deportivo con David en Placa del Carmen',
-      trainerId: david.id,
-      capacity: 25,
-      price: 40.00,
-      type: 'SPORTS',
-      locationId: placaCarmen.id,
-      schedules: {
-        create: [
-          { dayOfWeek: 2, startTime: '16:00', endTime: '17:30' }, // Martes
-          { dayOfWeek: 4, startTime: '16:00', endTime: '17:30' }, // Jueves
-          { dayOfWeek: 6, startTime: '09:30', endTime: '11:00' }  // Sábado
-        ]
-      }
-    },
-  })
-
-  const carmenClass11 = await prisma.danceClass.create({
-    data: {
-      name: 'MASCULINO - Lunes, martes y jueves 8:30 Pm a 10:00 Pm (Santiago)',
-      description: 'Entrenamiento deportivo masculino con Santiago en Placa del Carmen',
-      trainerId: santiago.id,
-      capacity: 20,
       price: 45.00,
-      type: 'SPORTS',
-      locationId: placaCarmen.id,
       schedules: {
         create: [
-          { dayOfWeek: 1, startTime: '20:30', endTime: '22:00' }, // Lunes
-          { dayOfWeek: 2, startTime: '20:30', endTime: '22:00' }, // Martes
-          { dayOfWeek: 4, startTime: '20:30', endTime: '22:00' }  // Jueves
-        ]
-      }
-    },
-  })
-
-  // === PLACA CUBIERTA DE VILLAS DE COMFENALCO ===
-  const comfenalcoClass1 = await prisma.danceClass.create({
-    data: {
-      name: 'Martes, jueves 4:00 Pm a 5:30 Pm y sábado 8:00 Am a 9:30 Am (Andres)',
-      description: 'Entrenamiento deportivo con Andres en Comfenalco',
-      trainerId: andres.id,
-      capacity: 25,
-      price: 40.00,
-      type: 'SPORTS',
-      locationId: placaComfenalco.id,
-      schedules: {
-        create: [
-          { dayOfWeek: 2, startTime: '16:00', endTime: '17:30' }, // Martes
-          { dayOfWeek: 4, startTime: '16:00', endTime: '17:30' }, // Jueves
-          { dayOfWeek: 6, startTime: '08:00', endTime: '09:30' }  // Sábado
-        ]
-      }
-    },
-  })
-
-  const comfenalcoClass2 = await prisma.danceClass.create({
-    data: {
-      name: 'Martes, jueves 5:30 Pm a 7:00 Pm y sábado 9:30 Am a 11:00 Am (Andres)',
-      description: 'Entrenamiento deportivo con Andres en Comfenalco',
-      trainerId: andres.id,
-      capacity: 25,
-      price: 40.00,
-      type: 'SPORTS',
-      locationId: placaComfenalco.id,
-      schedules: {
-        create: [
-          { dayOfWeek: 2, startTime: '17:30', endTime: '19:00' }, // Martes
-          { dayOfWeek: 4, startTime: '17:30', endTime: '19:00' }, // Jueves
-          { dayOfWeek: 6, startTime: '09:30', endTime: '11:00' }  // Sábado
-        ]
-      }
-    },
-  })
-
-  const comfenalcoClass3 = await prisma.danceClass.create({
-    data: {
-      name: 'Martes, jueves 4:00 Pm a 5:30 Pm y sábado 8:00 Am a 9:30 Am (Angelica)',
-      description: 'Entrenamiento deportivo con Angelica en Comfenalco',
-      trainerId: angelica.id,
-      capacity: 25,
-      price: 40.00,
-      type: 'SPORTS',
-      locationId: placaComfenalco.id,
-      schedules: {
-        create: [
-          { dayOfWeek: 2, startTime: '16:00', endTime: '17:30' }, // Martes
-          { dayOfWeek: 4, startTime: '16:00', endTime: '17:30' }, // Jueves
-          { dayOfWeek: 6, startTime: '08:00', endTime: '09:30' }  // Sábado
-        ]
-      }
-    },
-  })
-
-  const comfenalcoClass4 = await prisma.danceClass.create({
-    data: {
-      name: 'Martes, jueves 5:30 Pm a 7:00 Pm y sábado 9:30 Am a 11:00 Am (Angelica)',
-      description: 'Entrenamiento deportivo con Angelica en Comfenalco',
-      trainerId: angelica.id,
-      capacity: 25,
-      price: 40.00,
-      type: 'SPORTS',
-      locationId: placaComfenalco.id,
-      schedules: {
-        create: [
-          { dayOfWeek: 2, startTime: '17:30', endTime: '19:00' }, // Martes
-          { dayOfWeek: 4, startTime: '17:30', endTime: '19:00' }, // Jueves
-          { dayOfWeek: 6, startTime: '09:30', endTime: '11:00' }  // Sábado
-        ]
-      }
-    },
-  })
-
-  // === PLACA CUBIERTA DE PUERTO BELLO ===
-  const puertoBelloClass1 = await prisma.danceClass.create({
-    data: {
-      name: 'Lunes, martes, jueves 3:30 Pm a 5:00 Pm (Camila)',
-      description: 'Entrenamiento deportivo con Camila en Puerto Bello',
-      trainerId: camila.id,
-      capacity: 25,
-      price: 40.00,
-      type: 'SPORTS',
-      locationId: placaPuertoBello.id,
-      schedules: {
-        create: [
-          { dayOfWeek: 1, startTime: '15:30', endTime: '17:00' }, // Lunes
-          { dayOfWeek: 2, startTime: '15:30', endTime: '17:00' }, // Martes
-          { dayOfWeek: 4, startTime: '15:30', endTime: '17:00' }  // Jueves
-        ]
-      }
-    },
-  })
-
-  const puertoBelloClass2 = await prisma.danceClass.create({
-    data: {
-      name: 'Lunes 3:30 Pm a 5:00 Pm, martes, jueves 5:00 Pm a 6:30 Pm (Yennifer)',
-      description: 'Entrenamiento deportivo con Yennifer en Puerto Bello',
-      trainerId: yennifer.id,
-      capacity: 25,
-      price: 40.00,
-      type: 'SPORTS',
-      locationId: placaPuertoBello.id,
-      schedules: {
-        create: [
-          { dayOfWeek: 1, startTime: '15:30', endTime: '17:00' }, // Lunes 3:30-5:00
-          { dayOfWeek: 2, startTime: '17:00', endTime: '18:30' }, // Martes 5:00-6:30
-          { dayOfWeek: 4, startTime: '17:00', endTime: '18:30' }  // Jueves 5:00-6:30
-        ]
-      }
-    },
-  })
-
-  // === PLACA DEPORTIVA DEL MESA ===
-  const mesaClass1 = await prisma.danceClass.create({
-    data: {
-      name: 'Lunes, martes y jueves 7:00 Pm a 8:30 Pm (David)',
-      description: 'Entrenamiento deportivo con David en El Mesa',
-      trainerId: david.id,
-      capacity: 25,
-      price: 40.00,
-      type: 'SPORTS',
-      locationId: placaMesa.id,
-      schedules: {
-        create: [
-          { dayOfWeek: 1, startTime: '19:00', endTime: '20:30' }, // Lunes
-          { dayOfWeek: 2, startTime: '19:00', endTime: '20:30' }, // Martes
-          { dayOfWeek: 4, startTime: '19:00', endTime: '20:30' }  // Jueves
-        ]
-      }
-    },
-  })
-
-  const mesaClass2 = await prisma.danceClass.create({
-    data: {
-      name: 'Lunes, martes y jueves 7:00 Pm a 8:30 Pm (Andres Vera)',
-      description: 'Entrenamiento deportivo con Andres Vera en El Mesa',
-      trainerId: andresVera.id,
-      capacity: 25,
-      price: 40.00,
-      type: 'SPORTS',
-      locationId: placaMesa.id,
-      schedules: {
-        create: [
-          { dayOfWeek: 1, startTime: '19:00', endTime: '20:30' }, // Lunes
-          { dayOfWeek: 2, startTime: '19:00', endTime: '20:30' }, // Martes
-          { dayOfWeek: 4, startTime: '19:00', endTime: '20:30' }  // Jueves
+          { dayOfWeek: 5, startTime: '20:00', endTime: '21:00' }, // Viernes
+          { dayOfWeek: 6, startTime: '17:00', endTime: '18:00' }  // Sábado
         ]
       }
     },
@@ -659,28 +129,35 @@ async function main() {
   await prisma.classEnrollment.create({
     data: {
       studentId: student1.id,
-      classId: karenClass1.id,
+      classId: salsaClass.id,
     },
   })
 
   await prisma.classEnrollment.create({
     data: {
       studentId: student2.id,
-      classId: luisaClass2.id,
+      classId: salsaClass.id,
     },
   })
 
   await prisma.classEnrollment.create({
     data: {
       studentId: student3.id,
-      classId: carmenClass1.id,
+      classId: bachataClass.id,
     },
   })
 
   await prisma.classEnrollment.create({
     data: {
       studentId: student4.id,
-      classId: carmenClass11.id,
+      classId: merengueClass.id,
+    },
+  })
+
+  await prisma.classEnrollment.create({
+    data: {
+      studentId: student1.id,
+      classId: bachataClass.id,
     },
   })
 
@@ -694,7 +171,7 @@ async function main() {
 
   const todaySession = await prisma.classSession.create({
     data: {
-      classId: karenClass1.id,
+      classId: salsaClass.id,
       date: today,
       startTime: startTime,
       endTime: endTime,
@@ -762,6 +239,65 @@ async function main() {
     },
   })
 
+  // ===== CREAR USUARIOS PARA LOGIN =====
+  console.log('👤 Creando usuarios para login...')
+  
+  // Crear usuario administrador
+  const adminPassword = await bcrypt.hash('admin123', 12)
+  
+  const admin = await prisma.user.upsert({
+    where: { email: 'admin@paradisedance.com' },
+    update: {},
+    create: {
+      email: 'admin@paradisedance.com',
+      password: adminPassword,
+      name: 'Administrador Paradise',
+      role: 'ADMIN',
+      isActive: true
+    }
+  })
+
+  console.log('✅ Usuario administrador creado:', admin.email)
+
+  // Obtener trainers existentes para crear usuarios profesor
+  const trainers = await prisma.trainer.findMany({
+    take: 3,
+    where: {
+      isActive: true
+    }
+  })
+
+  // Crear usuarios profesor para los trainers
+  for (const trainer of trainers) {
+    const teacherPassword = await bcrypt.hash('teacher123', 12)
+    
+    // Verificar si ya existe un usuario para este trainer
+    const existingUser = await prisma.user.findUnique({
+      where: { trainerId: trainer.id }
+    })
+
+    if (!existingUser) {
+      const teacherEmail = trainer.email || `profesor${trainer.id}@paradisedance.com`
+      
+      const teacher = await prisma.user.upsert({
+        where: { email: teacherEmail },
+        update: {},
+        create: {
+          email: teacherEmail,
+          password: teacherPassword,
+          name: trainer.name,
+          role: 'TEACHER',
+          trainerId: trainer.id,
+          isActive: true
+        }
+      })
+
+      console.log('✅ Usuario profesor creado:', teacher.email, 'para trainer:', trainer.name)
+    } else {
+      console.log('⚠️ Ya existe usuario para trainer:', trainer.name)
+    }
+  }
+
   console.log('🎉 ¡Base de datos poblada exitosamente!')
   console.log('📊 Resumen:')
   console.log(`   👨‍🏫 ${await prisma.trainer.count()} entrenadores`)
@@ -770,6 +306,20 @@ async function main() {
   console.log(`   📝 ${await prisma.classEnrollment.count()} inscripciones`)
   console.log(`   📅 ${await prisma.classSession.count()} sesiones`)
   console.log(`   ✅ ${await prisma.attendance.count()} asistencias`)
+  console.log(`   👤 ${await prisma.user.count()} usuarios`)
+  console.log('')
+  console.log('🔑 CREDENCIALES DE ACCESO:')
+  console.log('👑 ADMINISTRADOR:')
+  console.log('   Email: admin@paradisedance.com')
+  console.log('   Contraseña: admin123')
+  console.log('')
+  console.log('👨‍🏫 PROFESORES:')
+  console.log('   Contraseña para todos: teacher123')
+  
+  for (const trainer of trainers) {
+    const teacherEmail = trainer.email || `profesor${trainer.id}@paradisedance.com`
+    console.log(`   Email: ${teacherEmail} (${trainer.name})`)
+  }
 }
 
 main()
@@ -779,4 +329,4 @@ main()
   })
   .finally(async () => {
     await prisma.$disconnect()
-  }) 
+  })
