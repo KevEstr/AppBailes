@@ -5,18 +5,19 @@ const globalForPrisma = globalThis as unknown as {
 }
 
 // ⚡ CONFIGURACIÓN OPTIMIZADA DE PRISMA
-export const prisma = globalForPrisma.prisma ?? new PrismaClient({
-  log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
-  // ⚡ CONFIGURACIONES DE PERFORMANCE VÁLIDAS
-  datasources: {
-    db: {
-      url: process.env.DATABASE_URL
-    }
-  }
-})
+function createPrismaClient() {
+  return new PrismaClient({
+    log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
+  })
+}
 
-// ⚡ OPTIMIZACIÓN: Solo crear instancia en desarrollo
-if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma
+// Solo crear la instancia si no existe globalmente
+export const prisma = globalForPrisma.prisma ?? createPrismaClient()
+
+// En desarrollo, mantener la instancia global para hot reload
+if (process.env.NODE_ENV !== "production") {
+  globalForPrisma.prisma = prisma
+}
 
 // ⚡ FUNCIÓN DE HEALTH CHECK PARA LA BD
 export async function checkDatabaseHealth(): Promise<boolean> {

@@ -44,15 +44,13 @@ En el dashboard de Railway, ve a tu servicio de aplicación y agrega estas varia
 
 ### 🔐 Variables Obligatorias
 
+⚠️ **IMPORTANTE**: Lee `RAILWAY_ENV_SETUP.md` para instrucciones detalladas.
+
+**Resumen rápido**:
 ```env
-# Base de datos (usar la URL de PostgreSQL de Railway)
-DATABASE_URL=postgresql://postgres:password@host:port/database
-
-# NextAuth
-NEXTAUTH_URL=https://tu-app.railway.app
-NEXTAUTH_SECRET=tu_secreto_super_seguro_para_produccion
-
-# Aplicación
+DATABASE_URL=${{PostgreSQL.DATABASE_URL}}
+NEXTAUTH_URL=https://tu-app.railway.app  
+NEXTAUTH_SECRET=[genera con: openssl rand -base64 32]
 NODE_ENV=production
 NEXT_TELEMETRY_DISABLED=1
 NEXT_PUBLIC_BASE_URL=https://tu-app.railway.app
