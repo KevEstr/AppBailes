@@ -36,7 +36,7 @@ done
 
 # Ejecutar migraciones de la base de datos
 echo "🗄️ Ejecutando migraciones de base de datos..."
-npx prisma migrate deploy
+# npx prisma migrate deploy
 
 # Opcional: Ejecutar seed solo si es el primer deployment
 # Para habilitarlo, descomenta las siguientes líneas:
