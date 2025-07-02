@@ -22,8 +22,18 @@ export class WhatsAppService {
   private accessToken: string;
   private phoneNumberId: string;
   private baseUrl: string;
+  private initialized: boolean = false;
 
   constructor() {
+    // No inicializar durante el constructor para evitar errores en build time
+    this.accessToken = '';
+    this.phoneNumberId = '';
+    this.baseUrl = '';
+  }
+
+  private initialize() {
+    if (this.initialized) return;
+
     this.accessToken = process.env.WHATSAPP_ACCESS_TOKEN || '';
     this.phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID || '';
     this.baseUrl = `https://graph.facebook.com/v22.0/${this.phoneNumberId}/messages`;
@@ -34,14 +44,17 @@ export class WhatsAppService {
     console.log('   🔑 Token length:', this.accessToken.length);
     
     if (!this.accessToken || !this.phoneNumberId) {
-      throw new Error('WhatsApp credentials not configured');
+      throw new Error('WhatsApp credentials not configured. Please set WHATSAPP_ACCESS_TOKEN and WHATSAPP_PHONE_NUMBER_ID environment variables.');
     }
+
+    this.initialized = true;
   }
 
   /**
    * Envía un mensaje de pago por WhatsApp - Sistema inteligente con fallback
    */
   async sendPaymentMessage(data: WhatsAppMessage): Promise<WhatsAppResponse> {
+    this.initialize(); // Lazy initialization
     try {
       // Formatear el número de teléfono (debe incluir código de país sin +)
       const formattedPhone = this.formatPhoneNumber(data.parentPhone);
@@ -238,6 +251,7 @@ ${data.paymentLink}
    * MÉTODO ALTERNATIVO: Envía mensaje de texto (puede fallar)
    */
   async sendPaymentMessageText(data: WhatsAppMessage): Promise<WhatsAppResponse> {
+    this.initialize(); // Lazy initialization
     try {
       // Formatear el número de teléfono (debe incluir código de país sin +)
       const formattedPhone = this.formatPhoneNumber(data.parentPhone);
@@ -293,6 +307,7 @@ ${data.paymentLink}
    * Envía un mensaje usando plantilla (más profesional)
    */
   async sendPaymentTemplate(data: WhatsAppMessage): Promise<WhatsAppResponse> {
+    this.initialize(); // Lazy initialization
     try {
       const formattedPhone = this.formatPhoneNumber(data.parentPhone);
       
@@ -380,6 +395,7 @@ ${data.paymentLink}
    * Envía el template hello_world para probar conectividad
    */
   async sendHelloWorldTemplate(phoneNumber: string): Promise<WhatsAppResponse> {
+    this.initialize(); // Lazy initialization
     try {
       console.log('📤 Enviando template hello_world a:', phoneNumber);
       
@@ -455,6 +471,7 @@ ${data.paymentLink}
    * Envía un recordatorio de pago
    */
   async sendPaymentReminder(data: WhatsAppMessage): Promise<WhatsAppResponse> {
+    this.initialize(); // Lazy initialization
     const reminderMessage = `🔔 *Recordatorio de Pago - Paradise Dance Academy*
 
 Hola! Te recordamos que el pago de *${data.studentName}* está próximo a vencer.
@@ -502,6 +519,7 @@ ${data.paymentLink}
    * Verifica el estado del servicio WhatsApp
    */
   async verifyConnection(): Promise<boolean> {
+    this.initialize(); // Lazy initialization
     try {
       const response = await fetch(`https://graph.facebook.com/v18.0/${this.phoneNumberId}`, {
         headers: {
@@ -582,6 +600,7 @@ ${data.paymentLink}
     amount: number;
     paymentMethod: string;
   }): Promise<WhatsAppResponse> {
+    this.initialize(); // Lazy initialization
     try {
       const formattedPhone = this.formatPhoneNumber(data.parentPhone);
       
@@ -621,6 +640,7 @@ ${data.paymentLink}
     rejectionReason: string;
     paymentLink?: string;
   }): Promise<WhatsAppResponse> {
+    this.initialize(); // Lazy initialization
     try {
       const formattedPhone = this.formatPhoneNumber(data.parentPhone);
       
@@ -1011,4 +1031,21 @@ ${data.rejectionReason}
   }
 }
 
-export const whatsappService = new WhatsAppService(); 
+// Lazy initialization - solo crear cuando se necesite
+let _whatsappService: WhatsAppService | undefined;
+
+export function getWhatsAppService(): WhatsAppService {
+  if (!_whatsappService) {
+    _whatsappService = new WhatsAppService();
+  }
+  return _whatsappService;
+}
+
+// Para compatibilidad con código existente
+export const whatsappService = new Proxy({} as WhatsAppService, {
+  get(target, prop) {
+    const service = getWhatsAppService();
+    const value = (service as any)[prop];
+    return typeof value === 'function' ? value.bind(service) : value;
+  }
+}); 

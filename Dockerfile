@@ -20,6 +20,8 @@ COPY . .
 # Set build-time environment variables
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV DATABASE_URL="postgresql://build:build@localhost:5432/build"
+ENV WHATSAPP_ACCESS_TOKEN="build_token"
+ENV WHATSAPP_PHONE_NUMBER_ID="123456789012345"
 
 # Generate Prisma Client
 RUN npx prisma generate
