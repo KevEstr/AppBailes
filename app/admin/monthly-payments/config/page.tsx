@@ -2,6 +2,9 @@ import { Metadata } from "next"
 import { InternalLayout } from "@/components/layouts/internal-layout"
 import { MonthlyFeeConfig } from "@/components/monthly-payments/MonthlyFeeConfig"
 
+// Deshabilitar prerendering para evitar errores con event handlers
+export const dynamic = 'force-dynamic'
+
 export const metadata: Metadata = {
   title: "Configuración de Mensualidades - Paradise Dance Academy",
   description: "Configurar valores y parámetros del sistema de mensualidades",
