@@ -22,6 +22,7 @@
     "db:seed": "prisma db seed",
     "db:reset": "prisma migrate reset --force",
     "db:migrate:deploy": "prisma migrate deploy",
+    "db:seed-real": "ts-node --esm prisma/seed-real-data.ts",
     "docker:build": "docker build -t appbailes .",
     "docker:run": "docker run -p 3000:3000 appbailes",
     "docker:dev": "docker-compose up --build",

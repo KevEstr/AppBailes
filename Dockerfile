@@ -22,6 +22,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ENV DATABASE_URL="postgresql://build:build@localhost:5432/build"
 ENV WHATSAPP_ACCESS_TOKEN="build_token"
 ENV WHATSAPP_PHONE_NUMBER_ID="123456789012345"
+ENV NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=AIzaSyAkJA2y7VQLc7S_ioTeAmVzxnZaNfkoPcM
 
 # Generate Prisma Client
 RUN npx prisma generate
