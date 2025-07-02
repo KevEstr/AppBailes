@@ -206,7 +206,7 @@ export default function ClassManagement() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="w-full px-2 py-2 sm:px-6 sm:py-6 mx-auto">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

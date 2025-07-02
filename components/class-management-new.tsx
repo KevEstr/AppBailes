@@ -454,7 +454,7 @@ export function ClassManagementNew() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-2 sm:px-4 md:px-6">
+    <div className="w-full mx-auto px-2 sm:px-4 md:px-6">
       {/* Breadcrumb */}
       <div className="mb-4">
         <div className="flex items-center space-x-2">

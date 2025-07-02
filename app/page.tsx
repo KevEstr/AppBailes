@@ -39,7 +39,7 @@ const CACHE_DURATION = 5 * 60 * 1000 // 5 minutos
         </div>
         
         <div className="space-y-3">
-          <h1 className="text-2xl font-bold text-white">Paradise Dance Academy</h1>
+          <h1 className="text-2xl font-bold text-white">Paradise Academy</h1>
           <p className="text-blue-300">Redirigiendo al sistema...</p>
         </div>
         

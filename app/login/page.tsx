@@ -67,7 +67,7 @@ export default function LoginPage() {
             />
             <div className="absolute inset-0 bg-gradient-to-r from-blue-400 to-purple-400 opacity-20"></div>
           </div>
-          <h1 className="text-3xl font-bold text-white mb-2">Paradise Dance Academy</h1>
+          <h1 className="text-3xl font-bold text-white mb-2">Paradise Academy</h1>
           <p className="text-blue-300">Sistema de Gestión</p>
         </div>
 
@@ -175,7 +175,7 @@ export default function LoginPage() {
         {/* Footer */}
         <div className="text-center mt-6">
           <p className="text-gray-400 text-sm">
-            © 2024 Paradise Dance Academy - Sistema de Gestión
+            © 2025 Paradise Academy - Sistema de Gestión
           </p>
         </div>
       </div>
