@@ -1,8 +1,5 @@
 'use client'
 
-// Deshabilitar prerendering para evitar errores con event handlers
-export const dynamic = 'force-dynamic'
-
 import { InternalLayout } from "@/components/layouts/internal-layout"
 import { EnrollmentForm } from '@/components/enrollment-form'
 import { UserPlus } from "lucide-react"

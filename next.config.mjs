@@ -10,6 +10,11 @@ const nextConfig = {
   // ⚡ CONFIGURACIÓN PARA DOCKER
   output: 'standalone',
   
+  // ⚡ DESHABILITAR PRERENDERING PARA EVITAR ERRORES CON EVENT HANDLERS
+  experimental: {
+    optimizeCss: true,
+  },
+  
   // ⚡ OPTIMIZACIONES CRÍTICAS DE RENDIMIENTO
   images: {
     unoptimized: false,
@@ -65,7 +70,10 @@ const nextConfig = {
   // ⚡ OPTIMIZACIÓN EXPERIMENTAL (CORREGIDA)
   experimental: {
     optimizeCss: true,
+    esmExternals: true,
   },
+  
+
 
   // ⚡ CONFIGURACIÓN DE WEBPACK PARA PERFORMANCE
   webpack: (config, { isServer }) => {

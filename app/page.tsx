@@ -1,8 +1,5 @@
 "use client"
 
-// Deshabilitar prerendering para evitar errores con event handlers
-export const dynamic = 'force-dynamic'
-
 import { useState, useEffect, useCallback, useMemo } from "react"
 import Image from "next/image"
 import Link from "next/link"
