@@ -1,5 +1,8 @@
 "use client"
 
+// Deshabilitar prerendering para evitar errores con event handlers
+export const dynamic = 'force-dynamic'
+
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import { useEffect } from "react"

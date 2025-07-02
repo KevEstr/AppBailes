@@ -1,5 +1,8 @@
 'use client';
 
+// Deshabilitar prerendering para evitar errores con event handlers
+export const dynamic = 'force-dynamic';
+
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
