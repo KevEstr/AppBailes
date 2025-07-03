@@ -27,6 +27,11 @@ Configurar templates profesionales para notificar a los usuarios cuando sus comp
 
 🎉 *¡Perfecto!* El pago ha sido registrado exitosamente en nuestro sistema.
 
+📄 *Tu recibo digital:*
+{{5}}
+
+💡 *Puedes descargarlo o compartirlo desde este enlace*
+
 *Paradise Dance Academy* ✨
 ¡Gracias por ser parte de nuestra familia de baile! 🩰
 ```
@@ -36,6 +41,7 @@ Configurar templates profesionales para notificar a los usuarios cuando sus comp
 2. `{{2}}` - Período de pago (ej: "Diciembre 2024")
 3. `{{3}}` - Monto aprobado (ej: "$150,000")
 4. `{{4}}` - Método de pago (ej: "Transferencia")
+5. `{{5}}` - Recibo digital (ej: "https://example.com/recibo-digital")
 
 ---
 
@@ -98,7 +104,7 @@ Hola, te informamos que tu comprobante de pago ha sido *RECHAZADO*.
 #### Paso 2: Configurar Contenido
 - **Template Type:** TEXT
 - Copia y pega el contenido del template de aprobación
-- Configura los 4 parámetros: {{1}}, {{2}}, {{3}}, {{4}}
+- Configura los 5 parámetros: {{1}}, {{2}}, {{3}}, {{4}}, {{5}}
 
 #### Paso 3: Enviar para Revisión
 - Revisa toda la información

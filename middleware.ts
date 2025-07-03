@@ -94,7 +94,11 @@ export default withAuth(
         }
 
         // ⚡ RUTAS DE PAGO PÚBLICAS (sin autenticación)
-        if (pathname.startsWith("/payment/")) {
+        if (pathname.startsWith("/payment/") || 
+            pathname.startsWith("/api/payment-form/") ||
+            pathname.startsWith("/api/upload/payment-proof") ||
+            pathname.startsWith("/api/recibo/") ||
+            pathname.startsWith("/recibo/")) {
           return true
         }
 
@@ -121,6 +125,6 @@ export const config = {
     /*
      * ⚡ OPTIMIZACIÓN: Matcher más específico para reducir overhead
      */
-    "/((?!api/auth|_next/static|_next/image|favicon.ico|.*\\.|uploads/).*)",
+    "/((?!api/auth|api/recibo|api/payment-form|api/upload/payment-proof|_next/static|_next/image|favicon.ico|.*\\.|uploads/).*)",
   ]
 } 

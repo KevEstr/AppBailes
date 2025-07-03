@@ -4,10 +4,10 @@ import { monthlyPaymentService } from '@/lib/monthly-payment-service';
 // POST /api/payment-form/[formId]/upload-proof - Subir comprobante de pago
 export async function POST(
   request: NextRequest,
-  { params }: { params: { formId: string } }
+  { params }: { params: Promise<{ formId: string }> }
 ) {
   try {
-    const { formId } = params;
+    const { formId } = await params;
     const body = await request.json();
 
     const { 

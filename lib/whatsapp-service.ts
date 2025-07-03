@@ -95,7 +95,7 @@ export class WhatsAppService {
       template: {
         name: 'payment_reminder_paradise', // Nombre del template aprobado
         language: {
-          code: 'es'
+          code: 'es_CO'
         },
         components: [
           {
@@ -103,19 +103,23 @@ export class WhatsAppService {
             parameters: [
               {
                 type: 'text',
-                text: data.studentName // {{1}} - Nombre del estudiante (ej: "Juan")
+                text: data.studentName // {{1}} - Estudiante (ej: "Juan Pérez")
               },
               {
                 type: 'text',
-                text: data.period // {{2}} - Período (ej: "Junio")
+                text: `$${data.amount.toLocaleString()}` // {{2}} - Monto (ej: "$150,000")
               },
               {
                 type: 'text',
-                text: data.dueDate // {{3}} - Fecha vencimiento (ej: "Julio")
+                text: data.period // {{3}} - Período (ej: "Enero 2025")
               },
               {
                 type: 'text',
-                text: data.paymentLink // {{4}} - Enlace de pago (reemplaza "Con Prioridad")
+                text: data.dueDate // {{4}} - Vence (ej: "31 de Enero")
+              },
+              {
+                type: 'text',
+                text: data.paymentLink // {{5}} - Enlace para subir comprobante
               }
             ]
           }
@@ -324,7 +328,7 @@ ${data.paymentLink}
           template: {
             name: 'payment_reminder', // Nombre de tu plantilla aprobada
             language: {
-              code: 'es'
+              code: 'es_CO'
             },
             components: [
               {
@@ -599,6 +603,7 @@ ${data.paymentLink}
     period: string;
     amount: number;
     paymentMethod: string;
+    receiptUrl?: string;
   }): Promise<WhatsAppResponse> {
     this.initialize(); // Lazy initialization
     try {
@@ -612,7 +617,13 @@ ${data.paymentLink}
       // PRIORIDAD 1: Intentar template personalizado
       try {
         console.log('🎯 Intentando template personalizado de aprobación...');
-        return await this.sendProofApprovedTemplate(data, formattedPhone);
+        return await this.sendProofApprovedTemplate({
+          studentName: data.studentName,
+          period: data.period,
+          amount: data.amount,
+          paymentMethod: data.paymentMethod,
+          receiptUrl: data.receiptUrl
+        }, formattedPhone);
       } catch (templateError) {
         console.log('⚠️ Template personalizado falló, usando fallback...');
         console.error('Error con template personalizado:', templateError);
@@ -676,6 +687,7 @@ ${data.paymentLink}
     period: string;
     amount: number;
     paymentMethod: string;
+    receiptUrl?: string;
   }, formattedPhone: string): Promise<WhatsAppResponse> {
     const requestBody = {
       messaging_product: 'whatsapp',
@@ -684,7 +696,7 @@ ${data.paymentLink}
       template: {
         name: 'proof_approved_paradise', // Template aprobado para notificaciones de aprobación
         language: {
-          code: 'es'
+          code: 'es_CO'
         },
         components: [
           {
@@ -705,6 +717,10 @@ ${data.paymentLink}
               {
                 type: 'text',
                 text: data.paymentMethod // {{4}} - Método de pago
+              },
+              {
+                type: 'text',
+                text: data.receiptUrl || 'Sin recibo disponible' // {{5}} - URL del recibo digital
               }
             ]
           }
@@ -752,7 +768,7 @@ ${data.paymentLink}
       template: {
         name: 'proof_rejected_paradise', // Template aprobado para notificaciones de rechazo
         language: {
-          code: 'es'
+          code: 'es_CO'
         },
         components: [
           {
@@ -814,6 +830,7 @@ ${data.paymentLink}
     period: string;
     amount: number;
     paymentMethod: string;
+    receiptUrl?: string;
   }, formattedPhone: string): Promise<WhatsAppResponse> {
     // 1. Enviar template hello_world
     const helloWorldBody = {
@@ -922,6 +939,7 @@ ${data.paymentLink}
     period: string;
     amount: number;
     paymentMethod: string;
+    receiptUrl?: string;
   }, formattedPhone: string): Promise<void> {
     const approvedMessage = `✅ *Comprobante Aprobado - Paradise Dance Academy*
 
@@ -935,7 +953,7 @@ ${data.paymentLink}
 
 🎉 *¡Perfecto!* El pago ha sido registrado exitosamente en nuestro sistema.
 
-*Paradise Dance Academy* ✨
+${data.receiptUrl ? `📄 *Tu recibo digital:*\n${data.receiptUrl}\n\n💡 *Puedes descargarlo o compartirlo desde este enlace*\n` : ''}*Paradise Dance Academy* ✨
 ¡Gracias por ser parte de nuestra familia de baile! 🩰`;
 
     const followUpBody = {

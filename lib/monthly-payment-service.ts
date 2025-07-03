@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { generateId } from '@/lib/utils';
 import { whatsappService } from '@/lib/whatsapp-service';
+import { DigitalReceiptService } from '@/lib/digital-receipt-service';
 
 export class MonthlyPaymentService {
   
@@ -325,6 +326,34 @@ export class MonthlyPaymentService {
 
       // Actualizar estado de deuda del estudiante
       await this.updateStudentDebtStatus(monthlyPayment.studentId);
+
+      // ========== GENERAR RECIBO DIGITAL ==========
+      
+      try {
+        console.log('📄 Generando recibo digital...');
+        const receiptData = await DigitalReceiptService.createReceiptFromMonthlyPayment(
+          monthlyPayment.id,
+          paidAmount,
+          proof.paymentMethod,
+          data.reviewedBy
+        );
+        
+        console.log(`✅ Recibo digital generado: ${receiptData.receiptNumber}`);
+        console.log(`🔗 URL del recibo: ${DigitalReceiptService.generateReceiptUrl(receiptData.id)}`);
+        
+        // Guardar URL del recibo en el pago mensual para referencia
+        await prisma.monthlyPayment.update({
+          where: { id: monthlyPayment.id },
+          data: {
+            // Agregar URL del recibo en notas si no hay campo específico
+            notes: `Recibo digital: ${DigitalReceiptService.generateReceiptUrl(receiptData.id)}`
+          }
+        });
+        
+      } catch (receiptError) {
+        console.error('❌ Error generando recibo digital:', receiptError);
+        // No fallar la operación principal si falla la generación del recibo
+      }
     }
 
     // ========== ENVIAR NOTIFICACIONES DE WHATSAPP ==========
@@ -351,6 +380,36 @@ export class MonthlyPaymentService {
 
         if (data.status === 'APPROVED') {
           console.log('📤 Enviando notificación de comprobante APROBADO...');
+          
+          // Agregar URL del recibo digital si existe
+          let receiptUrl = undefined;
+          try {
+            // Buscar si ya se generó un recibo para este pago
+            const existingReceipt = await prisma.receipt.findFirst({
+              where: {
+                studentId: student.id,
+                concept: {
+                  contains: period.name
+                },
+                createdAt: {
+                  gte: new Date(Date.now() - 5 * 60 * 1000) // Últimos 5 minutos
+                }
+              },
+              orderBy: { createdAt: 'desc' }
+            });
+            
+            if (existingReceipt) {
+              receiptUrl = `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/recibo/${existingReceipt.id}`;
+              console.log(`📄 Recibo encontrado para envío: ${receiptUrl}`);
+            }
+          } catch (receiptSearchError) {
+            console.log('⚠️ No se pudo buscar recibo digital para el mensaje');
+          }
+          
+          if (receiptUrl) {
+            (notificationData as any).receiptUrl = receiptUrl;
+          }
+          
           await whatsappService.sendProofApprovedNotification(notificationData);
           console.log('✅ Notificación de aprobación enviada exitosamente');
           

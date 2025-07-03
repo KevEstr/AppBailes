@@ -4,10 +4,10 @@ import { monthlyPaymentService } from '@/lib/monthly-payment-service';
 // GET /api/payment-form/[formId] - Obtener formulario de pago
 export async function GET(
   request: NextRequest,
-  { params }: { params: { formId: string } }
+  { params }: { params: Promise<{ formId: string }> }
 ) {
   try {
-    const { formId } = params;
+    const { formId } = await params;
 
     if (!formId) {
       return NextResponse.json(
