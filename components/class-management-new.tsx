@@ -87,6 +87,114 @@ const LEVEL_OPTIONS = [
   { value: 'ADVANCED', label: 'Avanzado' }
 ]
 
+const getLevelLabel = (level: string) => {
+  const levelOption = LEVEL_OPTIONS.find(opt => opt.value === level)
+  return levelOption?.label || 'Avanzado'
+}
+
+const getSportBadgeClass = (sport: 'DANCE' | 'VOLLEYBALL') => {
+  return sport === 'DANCE' ? 'bg-purple-600 text-white' : 'bg-blue-600 text-white'
+}
+
+const getSportLabel = (sport: 'DANCE' | 'VOLLEYBALL') => {
+  return sport === 'DANCE' ? '💃 Baile' : '🏐 Voleibol'
+}
+
+const renderClassesList = (classes: DanceClass[], loading: boolean, deleteClass: (id: number) => void, setSelectedClass: (danceClass: DanceClass) => void, setShowEnrollDialog: (show: boolean) => void) => {
+  if (loading) {
+    return (
+      <div className="col-span-3 flex justify-center items-center min-h-[200px]">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+      </div>
+    )
+  }
+  
+  if (classes.length === 0) {
+    return <div className="col-span-3 text-center text-gray-400 py-12">No hay clases para mostrar.</div>
+  }
+  
+  return classes.map((danceClass) => (
+    <Card key={danceClass.id} className="border-0 shadow-2xl rounded-2xl sm:rounded-3xl hover:shadow-3xl transition-all duration-300 hover:-translate-y-1 bg-gray-800/90 border border-gray-600 backdrop-blur-sm">
+      <CardContent className="p-4 sm:p-8">
+      {/* Header de la clase */}
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between mb-4 sm:mb-6">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1 sm:mb-2 flex-wrap">
+              <Badge className={`${getSportBadgeClass(danceClass.sport)} border-0 text-xs sm:text-sm`}>
+                {getSportLabel(danceClass.sport)}
+              </Badge>
+              {danceClass.level && (
+                <Badge variant="outline" className="text-gray-300 border-gray-600 text-xs sm:text-sm">
+                  {getLevelLabel(danceClass.level)}
+                </Badge>
+              )}
+            </div>
+            <h3 className="text-lg sm:text-2xl font-bold text-white mb-1 sm:mb-2 truncate">{danceClass.name}</h3>
+            <p className="text-gray-300 mb-2 text-sm sm:text-base truncate">{danceClass.description || "Sin descripción"}</p>
+            <div className="space-y-1 text-xs sm:text-sm text-gray-400">
+              <div className="flex items-center space-x-2">
+            <GraduationCap className="h-4 w-4" />
+                <span className="truncate">{danceClass.trainer.name}</span>
+              </div>
+              {danceClass.location && (
+                <div className="flex items-center space-x-2">
+                  <MapPin className="h-4 w-4" />
+                  <span className="truncate">{danceClass.location.name}</span>
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="flex flex-row sm:flex-col gap-2 sm:gap-0 items-center sm:items-end mt-2 sm:mt-0">
+          <Button variant="outline" size="sm" onClick={() => deleteClass(danceClass.id)} className="border-red-500 text-red-400 hover:bg-red-950 hover:text-red-300">
+            <Trash2 className="h-4 w-4 text-red-400" />
+          </Button>
+        </div>
+      </div>
+
+        {/* Estadísticas y horarios */}
+        <div className="space-y-2 sm:space-y-4">
+          <div className="flex justify-between items-center p-2 sm:p-4 bg-gray-700/50 rounded-xl">
+            <div className="flex items-center space-x-2">
+              <Users className="h-5 w-5 text-blue-400" />
+              <span className="text-white font-medium text-xs sm:text-base">Estudiantes</span>
+            </div>
+            <span className="text-lg sm:text-2xl font-bold text-blue-400">
+              {danceClass._count.enrollments}/{danceClass.capacity}
+            </span>
+          </div>
+
+          <div className="p-2 sm:p-4 bg-gray-700/50 rounded-xl">
+            <div className="flex items-center space-x-2 mb-2 sm:mb-3">
+              <Calendar className="h-4 w-4 text-green-400" />
+              <span className="text-xs sm:text-sm font-medium text-gray-300">Horarios</span>
+            </div>
+            <div className="space-y-1 sm:space-y-2">
+          {danceClass.schedules.map((schedule, index) => (
+                <div key={index} className="flex justify-between items-center p-1 sm:p-2 bg-gray-600/50 rounded text-xs">
+                  <span className="font-medium text-white">{DAYS_OF_WEEK[schedule.dayOfWeek]}</span>
+                  <span className="text-green-300 font-mono">{schedule.startTime} - {schedule.endTime}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+          <Button
+            onClick={() => {
+              setSelectedClass(danceClass)
+              setShowEnrollDialog(true)
+            }}
+            disabled={danceClass._count.enrollments >= danceClass.capacity}
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white mt-2"
+          >
+            <UserPlus className="h-4 w-4 mr-2" />
+            Inscribir Estudiante
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  ))
+}
+
 export function ClassManagementNew() {
   const { toast } = useToast()
   const [classes, setClasses] = useState<DanceClass[]>([])
@@ -116,8 +224,8 @@ export function ClassManagementNew() {
     description: '',
     sport: 'DANCE' as 'DANCE' | 'VOLLEYBALL',
     level: 'BEGINNER' as 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED',
-    trainerId: 0,
-    locationId: 0,
+    trainerId: '',
+    locationId: '',
     capacity: 20,
     price: 0,
     schedules: [{ dayOfWeek: 1, startTime: '18:00', endTime: '19:00' }]
@@ -143,6 +251,13 @@ export function ClassManagementNew() {
     const res = await fetch('/api/enrollment/locations?sport=VOLLEYBALL')
     const data = await res.json()
     if (data.success) setLocations(data.locations)
+  }, [])
+
+  // Cargar estudiantes
+  const loadStudents = useCallback(async () => {
+    const res = await fetch('/api/students')
+    const data = await res.json()
+    if (data.success) setStudents(data.students)
   }, [])
 
   // Cargar clases paginadas y filtradas
@@ -182,6 +297,10 @@ export function ClassManagementNew() {
   useEffect(() => {
     loadClasses()
   }, [loadClasses])
+
+  useEffect(() => {
+    loadStudents()
+  }, [loadStudents])
 
   // Resetear página al cambiar filtros
   useEffect(() => {
@@ -274,7 +393,7 @@ export function ClassManagementNew() {
       if (data.success) {
         toast({
           title: "✅ Clase creada",
-          description: `${newClass.name} ha sido creada exitosamente`
+          description: data.message || `${newClass.name} ha sido creada exitosamente`
         })
         setShowCreateDialog(false)
         
@@ -294,17 +413,19 @@ export function ClassManagementNew() {
           description: '',
           sport: 'DANCE',
           level: 'BEGINNER',
-          trainerId: 0,
-          locationId: 0,
+          trainerId: '',
+          locationId: '',
           capacity: 20,
           price: 0,
           schedules: [{ dayOfWeek: 1, startTime: '18:00', endTime: '19:00' }]
         })
       } else {
         toast({
-          title: "❌ Error",
-          description: data.error || "No se pudo crear la clase",
-          variant: "destructive"
+          title: data.error || "❌ Error",
+          description: data.details || data.error || "No se pudo crear la clase",
+          variant: "destructive",
+          // Mostrar más tiempo si hay detalles de conflicto
+          duration: data.details ? 8000 : 5000
         })
       }
     } catch (error) {
@@ -563,7 +684,262 @@ export function ClassManagementNew() {
                       Crear Nueva Clase de {newClass.sport === 'DANCE' ? 'Baile' : 'Voleibol'}
                     </DialogTitle>
                   </DialogHeader>
-                  {/* Rest of the dialog content */}
+                  
+                  <div className="space-y-6 p-2">
+                    {/* Información básica */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-4">
+                        <div>
+                          <Label className="text-gray-300 font-medium">Nombre de la Clase *</Label>
+                          <Input
+                            value={newClass.name}
+                            onChange={(e) => setNewClass({...newClass, name: e.target.value})}
+                            placeholder="Ej: Salsa Principiantes"
+                            className="bg-gray-700 border-gray-600 text-white placeholder:text-gray-400 mt-1"
+                          />
+                        </div>
+
+                        <div>
+                          <Label className="text-gray-300 font-medium">Descripción</Label>
+                          <Textarea
+                            value={newClass.description}
+                            onChange={(e) => setNewClass({...newClass, description: e.target.value})}
+                            placeholder="Descripción de la clase..."
+                            className="bg-gray-700 border-gray-600 text-white placeholder:text-gray-400 mt-1"
+                            rows={3}
+                          />
+                        </div>
+
+                        <div>
+                          <Label className="text-gray-300 font-medium">Deporte *</Label>
+                          <Select value={newClass.sport} onValueChange={(value: 'DANCE' | 'VOLLEYBALL') => setNewClass({...newClass, sport: value})}>
+                            <SelectTrigger className="bg-gray-700 border-gray-600 text-white mt-1">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {SPORT_OPTIONS.map((sport) => (
+                                <SelectItem key={sport.value} value={sport.value}>
+                                  <div className="flex items-center space-x-2">
+                                    <sport.icon className="h-4 w-4" />
+                                    <span>{sport.label}</span>
+                                  </div>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div>
+                          <Label className="text-gray-300 font-medium">Nivel</Label>
+                          <Select value={newClass.level} onValueChange={(value: 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED') => setNewClass({...newClass, level: value})}>
+                            <SelectTrigger className="bg-gray-700 border-gray-600 text-white mt-1">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {LEVEL_OPTIONS.map((level) => (
+                                <SelectItem key={level.value} value={level.value}>
+                                  {level.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+
+                      <div className="space-y-4">
+                        <div>
+                          <Label className="text-gray-300 font-medium">Instructor/Entrenador *</Label>
+                          <Select value={newClass.trainerId} onValueChange={(value) => setNewClass({...newClass, trainerId: value})}>
+                            <SelectTrigger className="bg-gray-700 border-gray-600 text-white mt-1">
+                              <SelectValue placeholder="Seleccionar instructor" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {trainers.map((trainer) => (
+                                <SelectItem key={trainer.id} value={trainer.id.toString()}>
+                                  {trainer.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        {newClass.sport === 'VOLLEYBALL' && (
+                          <div>
+                            <Label className="text-gray-300 font-medium">Ubicación *</Label>
+                            <div className="flex gap-2 mt-1">
+                              <Select value={newClass.locationId} onValueChange={(value) => setNewClass({...newClass, locationId: value})}>
+                                <SelectTrigger className="bg-gray-700 border-gray-600 text-white flex-1">
+                                  <SelectValue placeholder="Seleccionar ubicación" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {locations.map((location) => (
+                                    <SelectItem key={location.id} value={location.id.toString()}>
+                                      {location.name}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <Dialog open={showLocationDialog} onOpenChange={setShowLocationDialog}>
+                                <DialogTrigger asChild>
+                                  <Button type="button" variant="outline" className="border-gray-600 text-gray-300 hover:bg-gray-700 px-3">
+                                    <Building className="h-4 w-4" />
+                                  </Button>
+                                </DialogTrigger>
+                                <DialogContent className="bg-gray-800 border border-gray-600 text-white">
+                                  <DialogHeader>
+                                    <DialogTitle className="text-white">Nueva Ubicación</DialogTitle>
+                                  </DialogHeader>
+                                  <div className="space-y-4">
+                                    <div>
+                                      <Label className="text-gray-300">Nombre *</Label>
+                                      <Input
+                                        value={newLocation.name}
+                                        onChange={(e) => setNewLocation({...newLocation, name: e.target.value})}
+                                        placeholder="Nombre de la ubicación"
+                                        className="bg-gray-700 border-gray-600 text-white placeholder:text-gray-400"
+                                      />
+                                    </div>
+                                    <div>
+                                      <Label className="text-gray-300">Dirección</Label>
+                                      <Input
+                                        value={newLocation.address}
+                                        onChange={(e) => setNewLocation({...newLocation, address: e.target.value})}
+                                        placeholder="Dirección (opcional)"
+                                        className="bg-gray-700 border-gray-600 text-white placeholder:text-gray-400"
+                                      />
+                                    </div>
+                                    <Button onClick={createLocation} className="w-full bg-blue-600 hover:bg-blue-700 text-white">
+                                      Crear Ubicación
+                                    </Button>
+                                  </div>
+                                </DialogContent>
+                              </Dialog>
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <Label className="text-gray-300 font-medium">Capacidad</Label>
+                            <Input
+                              type="number"
+                              value={newClass.capacity}
+                              onChange={(e) => setNewClass({...newClass, capacity: Number(e.target.value)})}
+                              min="1"
+                              max="100"
+                              className="bg-gray-700 border-gray-600 text-white mt-1"
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-gray-300 font-medium">Precio ($)</Label>
+                            <Input
+                              type="number"
+                              value={newClass.price}
+                              onChange={(e) => setNewClass({...newClass, price: Number(e.target.value)})}
+                              min="0"
+                              step="0.01"
+                              className="bg-gray-700 border-gray-600 text-white mt-1"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Horarios */}
+                    <div className="border-t border-gray-600 pt-6">
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-lg font-medium text-white">Horarios de Clase</h3>
+                        <Button 
+                          type="button"
+                          onClick={addSchedule}
+                          variant="outline" 
+                          size="sm"
+                          className="border-gray-600 text-gray-300 hover:bg-gray-700"
+                        >
+                          <Plus className="h-4 w-4 mr-1" />
+                          Agregar Horario
+                        </Button>
+                      </div>
+
+                      <div className="space-y-3">
+                        {newClass.schedules.map((schedule, index) => (
+                          <div key={index} className="flex items-center gap-3 p-3 bg-gray-700/50 rounded-lg">
+                            <div className="flex-1">
+                              <Label className="text-gray-300 text-sm">Día</Label>
+                              <Select 
+                                value={schedule.dayOfWeek.toString()} 
+                                onValueChange={(value) => updateSchedule(index, 'dayOfWeek', Number(value))}
+                              >
+                                <SelectTrigger className="bg-gray-700 border-gray-600 text-white mt-1">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {DAYS_OF_WEEK.map((day, dayIndex) => (
+                                    <SelectItem key={dayIndex} value={dayIndex.toString()}>
+                                      {day}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            
+                            <div className="flex-1">
+                              <Label className="text-gray-300 text-sm">Hora Inicio</Label>
+                              <Input
+                                type="time"
+                                value={schedule.startTime}
+                                onChange={(e) => updateSchedule(index, 'startTime', e.target.value)}
+                                className="bg-gray-700 border-gray-600 text-white mt-1"
+                              />
+                            </div>
+                            
+                            <div className="flex-1">
+                              <Label className="text-gray-300 text-sm">Hora Fin</Label>
+                              <Input
+                                type="time"
+                                value={schedule.endTime}
+                                onChange={(e) => updateSchedule(index, 'endTime', e.target.value)}
+                                className="bg-gray-700 border-gray-600 text-white mt-1"
+                              />
+                            </div>
+
+                            {newClass.schedules.length > 1 && (
+                              <Button
+                                type="button"
+                                onClick={() => removeSchedule(index)}
+                                variant="outline"
+                                size="sm"
+                                className="border-red-500 text-red-400 hover:bg-red-950 mt-6"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Botones de acción */}
+                    <div className="flex justify-end space-x-3 pt-4 border-t border-gray-600">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setShowCreateDialog(false)}
+                        className="border-gray-600 text-gray-300 hover:bg-gray-700"
+                      >
+                        Cancelar
+                      </Button>
+                      <Button
+                        type="button"
+                        onClick={createClass}
+                        className="bg-blue-600 hover:bg-blue-700 text-white"
+                        disabled={!newClass.name || !newClass.trainerId || (newClass.sport === 'VOLLEYBALL' && !newClass.locationId)}
+                      >
+                        <Plus className="h-4 w-4 mr-2" />
+                        Crear Clase
+                      </Button>
+                    </div>
+                  </div>
                 </DialogContent>
               </Dialog>
                           </div>
@@ -573,100 +949,8 @@ export function ClassManagementNew() {
 
       {/* Lista de clases paginada */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-        {loading ? (
-          <div className="col-span-3 flex justify-center items-center min-h-[200px]">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-          </div>
-        ) : classes.length === 0 ? (
-          <div className="col-span-3 text-center text-gray-400 py-12">No hay clases para mostrar.</div>
-        ) : (
-          classes.map((danceClass) => (
-            <Card key={danceClass.id} className="border-0 shadow-2xl rounded-2xl sm:rounded-3xl hover:shadow-3xl transition-all duration-300 hover:-translate-y-1 bg-gray-800/90 border border-gray-600 backdrop-blur-sm">
-              <CardContent className="p-4 sm:p-8">
-              {/* Header de la clase */}
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between mb-4 sm:mb-6">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1 sm:mb-2 flex-wrap">
-                      <Badge className={`$ {
-                        danceClass.sport === 'DANCE' 
-                          ? 'bg-purple-600 text-white' 
-                          : 'bg-blue-600 text-white'
-                      } border-0 text-xs sm:text-sm`}>
-                        {danceClass.sport === 'DANCE' ? '💃 Baile' : '🏐 Voleibol'}
-                      </Badge>
-                      {danceClass.level && (
-                        <Badge variant="outline" className="text-gray-300 border-gray-600 text-xs sm:text-sm">
-                          {danceClass.level === 'BEGINNER' ? 'Principiante' :
-                            danceClass.level === 'INTERMEDIATE' ? 'Intermedio' : 'Avanzado'}
-                        </Badge>
-                      )}
-                    </div>
-                    <h3 className="text-lg sm:text-2xl font-bold text-white mb-1 sm:mb-2 truncate">{danceClass.name}</h3>
-                    <p className="text-gray-300 mb-2 text-sm sm:text-base truncate">{danceClass.description || "Sin descripción"}</p>
-                    <div className="space-y-1 text-xs sm:text-sm text-gray-400">
-                      <div className="flex items-center space-x-2">
-                    <GraduationCap className="h-4 w-4" />
-                        <span className="truncate">{danceClass.trainer.name}</span>
-                      </div>
-                      {danceClass.location && (
-                        <div className="flex items-center space-x-2">
-                          <MapPin className="h-4 w-4" />
-                          <span className="truncate">{danceClass.location.name}</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex flex-row sm:flex-col gap-2 sm:gap-0 items-center sm:items-end mt-2 sm:mt-0">
-                  <Button variant="outline" size="sm" onClick={() => deleteClass(danceClass.id)} className="border-red-500 text-red-400 hover:bg-red-950 hover:text-red-300">
-                    <Trash2 className="h-4 w-4 text-red-400" />
-                  </Button>
-                </div>
-              </div>
-
-                {/* Estadísticas y horarios */}
-                <div className="space-y-2 sm:space-y-4">
-                  <div className="flex justify-between items-center p-2 sm:p-4 bg-gray-700/50 rounded-xl">
-                    <div className="flex items-center space-x-2">
-                      <Users className="h-5 w-5 text-blue-400" />
-                      <span className="text-white font-medium text-xs sm:text-base">Estudiantes</span>
-                    </div>
-                    <span className="text-lg sm:text-2xl font-bold text-blue-400">
-                      {danceClass._count.enrollments}/{danceClass.capacity}
-                    </span>
-                  </div>
-
-                  <div className="p-2 sm:p-4 bg-gray-700/50 rounded-xl">
-                    <div className="flex items-center space-x-2 mb-2 sm:mb-3">
-                      <Calendar className="h-4 w-4 text-green-400" />
-                      <span className="text-xs sm:text-sm font-medium text-gray-300">Horarios</span>
-                    </div>
-                    <div className="space-y-1 sm:space-y-2">
-                  {danceClass.schedules.map((schedule, index) => (
-                        <div key={index} className="flex justify-between items-center p-1 sm:p-2 bg-gray-600/50 rounded text-xs">
-                          <span className="font-medium text-white">{DAYS_OF_WEEK[schedule.dayOfWeek]}</span>
-                          <span className="text-green-300 font-mono">{schedule.startTime} - {schedule.endTime}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-                  <Button
-                    onClick={() => {
-                      setSelectedClass(danceClass)
-                      setShowEnrollDialog(true)
-                    }}
-                    disabled={danceClass._count.enrollments >= danceClass.capacity}
-                    className="w-full bg-blue-600 hover:bg-blue-700 text-white mt-2"
-                  >
-                    <UserPlus className="h-4 w-4 mr-2" />
-                    Inscribir Estudiante
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))
-        )}
-              </div>
+        {renderClassesList(classes, loading, deleteClass, setSelectedClass, setShowEnrollDialog)}
+      </div>
 
       {/* Paginación */}
       {totalPages > 1 && (

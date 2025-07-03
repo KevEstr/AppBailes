@@ -3,8 +3,29 @@ import { PrismaClient } from '@prisma/client'
 import { z } from 'zod'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
+import { ClassSessionService } from '@/lib/class-session-service'
 
 const prisma = new PrismaClient()
+
+// 🕐 FUNCIÓN AUXILIAR: Detectar conflictos de horario
+function hasTimeConflict(schedule1: any, schedule2: any): boolean {
+  // Convertir horarios a minutos para comparación más fácil
+  const timeToMinutes = (time: string): number => {
+    const [hours, minutes] = time.split(':').map(Number)
+    return hours * 60 + minutes
+  }
+
+  const start1 = timeToMinutes(schedule1.startTime)
+  const end1 = timeToMinutes(schedule1.endTime)
+  const start2 = timeToMinutes(schedule2.startTime)
+  const end2 = timeToMinutes(schedule2.endTime)
+
+  // Verificar si hay traslape
+  // Los horarios se traslapan si:
+  // - El inicio de uno está entre el inicio y fin del otro
+  // - O si uno contiene completamente al otro
+  return (start1 < end2 && end1 > start2)
+}
 
 const createClassSchema = z.object({
   name: z.string().min(1, 'El nombre es requerido'),
@@ -175,6 +196,44 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // 🚨 VALIDACIÓN DE CONFLICTOS DE HORARIO DEL ENTRENADOR
+    for (const newSchedule of validatedData.schedules) {
+      // Buscar clases activas del mismo entrenador en el mismo día
+      const conflictingClasses = await prisma.danceClass.findMany({
+        where: {
+          trainerId: validatedData.trainerId,
+          isActive: true,
+          schedules: {
+            some: {
+              dayOfWeek: newSchedule.dayOfWeek,
+              isActive: true
+            }
+          }
+        },
+        include: {
+          schedules: {
+            where: {
+              dayOfWeek: newSchedule.dayOfWeek,
+              isActive: true
+            }
+          }
+        }
+      })
+
+      // Verificar traslape de horarios
+      for (const existingClass of conflictingClasses) {
+        for (const existingSchedule of existingClass.schedules) {
+          if (hasTimeConflict(newSchedule, existingSchedule)) {
+            const dayNames = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado']
+            return NextResponse.json({
+              error: `❌ Conflicto de horarios`,
+              details: `El entrenador ${trainer.name} ya tiene la clase "${existingClass.name}" los ${dayNames[newSchedule.dayOfWeek]} de ${existingSchedule.startTime} a ${existingSchedule.endTime}. El nuevo horario (${newSchedule.startTime} - ${newSchedule.endTime}) se traslapa con esta clase existente.`
+            }, { status: 409 })
+          }
+        }
+      }
+    }
+
     const newClass = await prisma.danceClass.create({
       data: {
         name: validatedData.name,
@@ -211,7 +270,27 @@ export async function POST(request: NextRequest) {
       }
     })
 
-    return NextResponse.json({ success: true, class: newClass })
+    // ✨ GENERAR SESIONES AUTOMÁTICAMENTE
+    try {
+      const sessionService = new ClassSessionService(prisma)
+      const sessionResult = await sessionService.generateSessionsForClass({
+        classId: newClass.id,
+        schedules: validatedData.schedules,
+        startDate: new Date(),
+        weeksToGenerate: 8 // Generar sesiones para las próximas 8 semanas
+      })
+      
+      console.log(`✅ Sesiones generadas automáticamente: ${sessionResult.totalSessions}`)
+    } catch (sessionError) {
+      console.error('⚠️  Error generando sesiones (la clase se creó exitosamente):', sessionError)
+      // No fallar la creación de la clase si falla la generación de sesiones
+    }
+
+    return NextResponse.json({ 
+      success: true, 
+      class: newClass,
+      message: 'Clase creada exitosamente y sesiones generadas automáticamente'
+    })
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
@@ -249,6 +328,59 @@ export async function PUT(request: NextRequest) {
 
     const body = await request.json()
     const validatedData = updateClassSchema.parse(body)
+
+    // 🚨 VALIDACIÓN DE CONFLICTOS DE HORARIO AL ACTUALIZAR
+    if (validatedData.schedules && validatedData.trainerId) {
+      // Obtener información del entrenador
+      const trainer = await prisma.trainer.findUnique({
+        where: { id: validatedData.trainerId }
+      })
+
+      if (!trainer) {
+        return NextResponse.json(
+          { error: 'Entrenador no encontrado' },
+          { status: 404 }
+        )
+      }
+
+      for (const newSchedule of validatedData.schedules) {
+        // Buscar clases activas del mismo entrenador en el mismo día (excluyendo la clase actual)
+        const conflictingClasses = await prisma.danceClass.findMany({
+          where: {
+            trainerId: validatedData.trainerId,
+            isActive: true,
+            id: { not: classId }, // Excluir la clase que se está editando
+            schedules: {
+              some: {
+                dayOfWeek: newSchedule.dayOfWeek,
+                isActive: true
+              }
+            }
+          },
+          include: {
+            schedules: {
+              where: {
+                dayOfWeek: newSchedule.dayOfWeek,
+                isActive: true
+              }
+            }
+          }
+        })
+
+        // Verificar traslape de horarios
+        for (const existingClass of conflictingClasses) {
+          for (const existingSchedule of existingClass.schedules) {
+            if (hasTimeConflict(newSchedule, existingSchedule)) {
+              const dayNames = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado']
+              return NextResponse.json({
+                error: `❌ Conflicto de horarios`,
+                details: `El entrenador ${trainer.name} ya tiene la clase "${existingClass.name}" los ${dayNames[newSchedule.dayOfWeek]} de ${existingSchedule.startTime} a ${existingSchedule.endTime}. El nuevo horario (${newSchedule.startTime} - ${newSchedule.endTime}) se traslapa con esta clase existente.`
+              }, { status: 409 })
+            }
+          }
+        }
+      }
+    }
 
     const updatedClass = await prisma.danceClass.update({
       where: { id: classId },
