@@ -6,6 +6,7 @@ const ADMIN_ROUTES = ["/admin", "/receipts", "/messages", "/debts", "/history"]
 const SHARED_ROUTES = ["/classes", "/attendance"]
 const TEACHER_ROUTES = ["/teacher"]
 const PUBLIC_ROUTES = ["/login"]  // ⚡ REMOVIDO "/" de rutas públicas - ahora requiere autenticación
+const PAYMENT_ROUTES = ["/payment/", "/recibo/"]  // ⚡ RUTAS PÚBLICAS DE PAGO Y RECIBOS
 
 export default withAuth(
   function middleware(req) {
@@ -93,12 +94,11 @@ export default withAuth(
           return true
         }
 
-        // ⚡ RUTAS DE PAGO PÚBLICAS (sin autenticación)
-        if (pathname.startsWith("/payment/") || 
+        // ⚡ RUTAS DE PAGO Y RECIBOS PÚBLICAS (sin autenticación)
+        if (PAYMENT_ROUTES.some(route => pathname.startsWith(route)) ||
             pathname.startsWith("/api/payment-form/") ||
-            pathname.startsWith("/api/upload/payment-proof") ||
-            pathname.startsWith("/api/recibo/") ||
-            pathname.startsWith("/recibo/")) {
+            pathname.startsWith("/api/upload/") ||
+            pathname.startsWith("/api/recibo/")) {
           return true
         }
 
@@ -124,7 +124,8 @@ export const config = {
   matcher: [
     /*
      * ⚡ OPTIMIZACIÓN: Matcher más específico para reducir overhead
+     * Excluye rutas públicas de pago, recibos y uploads
      */
-    "/((?!api/auth|api/recibo|api/payment-form|api/upload/payment-proof|_next/static|_next/image|favicon.ico|.*\\.|uploads/).*)",
+    "/((?!api/auth|api/recibo|api/payment-form|api/upload|payment/|recibo/|_next/static|_next/image|favicon.ico|.*\\.|uploads/).*)",
   ]
 } 
