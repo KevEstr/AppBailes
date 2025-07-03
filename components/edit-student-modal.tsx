@@ -13,6 +13,7 @@ import { useToast } from "@/hooks/use-toast"
 import { User, MapPin, Heart, Phone, Shield, DollarSign } from 'lucide-react'
 import { InteractiveMap } from './interactive-map'
 
+
 interface Student {
   id: string
   name: string
@@ -116,7 +117,6 @@ export default function EditStudentModal({ isOpen, onClose, student, onStudentUp
           const data = await response.json()
           
           if (data.success && data.student) {
-            // Combinar datos básicos con datos extendidos
             const fullStudentData = {
               id: student.id.toString(),
               name: data.student.name,
