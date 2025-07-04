@@ -2,14 +2,14 @@
 
 import type React from "react"
 import { useState, useCallback, useMemo } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent} from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
-import { Send, DollarSign, CreditCard, Gift, Smartphone, User } from "lucide-react"
+import { Send} from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 
 export function ReceiptSystem() {
@@ -150,29 +150,15 @@ export function ReceiptSystem() {
 
   return (
     <div className="max-w-7xl mx-auto">
-      {/* Header */}
-      <Card className="border-0 bg-gradient-to-r from-gray-800/90 via-slate-800/90 to-gray-700/90 text-white shadow-2xl mb-8 rounded-3xl border border-gray-600 backdrop-blur-sm">
-        <CardHeader className="pb-6">
-          <CardTitle className="flex items-center space-x-4">
-            <div className="rounded-2xl bg-blue-600 p-3 backdrop-blur-sm border border-blue-500">
-              <Smartphone className="h-8 w-8 text-white" />
-            </div>
-            <div>
-              <span className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">Recibos Paradise</span>
-              <p className="text-blue-300 mt-2 text-lg">Sistema de recibos digitales automáticos</p>
-            </div>
-          </CardTitle>
-        </CardHeader>
-      </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Formulario */}
         <Card className="border-0 shadow-2xl rounded-3xl bg-gray-800/90 border border-gray-600 backdrop-blur-sm">
-          <CardContent className="p-8">
+          <CardContent className="p-6 sm:p-8">
             <h3 className="text-2xl font-bold text-white border-b border-gray-600 pb-3">
               💰 Datos del Estudiante
             </h3>
-            <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <Label htmlFor="studentId" className="text-gray-200 font-semibold text-lg">
                   Cédula del Estudiante
@@ -275,7 +261,7 @@ export function ReceiptSystem() {
 
         {/* Promociones y notas */}
         <Card className="border-0 shadow-2xl rounded-3xl bg-gray-800/90 border border-gray-600 backdrop-blur-sm">
-          <CardContent className="p-8">
+          <CardContent className="p-6 sm:p-8">
             <h3 className="text-2xl font-bold text-white border-b border-gray-600 pb-3">
               🎉 Promociones Disponibles
             </h3>
@@ -303,7 +289,7 @@ export function ReceiptSystem() {
             </div>
 
             {/* Promociones destacadas */}
-            <div className="grid grid-cols-1 gap-4 mb-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
               {promotions.slice(0, 3).map((promo) => (
                 <Card 
                   key={promo.id} 
@@ -347,7 +333,7 @@ export function ReceiptSystem() {
 
       {/* Vista previa del recibo */}
       <Card className="border-0 shadow-2xl rounded-3xl bg-gray-800/90 border border-gray-600 backdrop-blur-sm mt-8">
-        <CardContent className="p-8">
+        <CardContent className="p-6 sm:p-8">
           <h3 className="text-2xl font-bold text-white mb-6 border-b border-gray-600 pb-3">
             📄 Vista Previa del Recibo
           </h3>

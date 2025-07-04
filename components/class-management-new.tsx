@@ -65,6 +65,7 @@ interface DanceClass {
   location?: Location
   schedules: ClassSchedule[]
   enrollments: {
+    id: number
     student: Student
   }[]
   _count: {
@@ -100,7 +101,15 @@ const getSportLabel = (sport: 'DANCE' | 'VOLLEYBALL') => {
   return sport === 'DANCE' ? '💃 Baile' : '🏐 Voleibol'
 }
 
-const renderClassesList = (classes: DanceClass[], loading: boolean, deleteClass: (id: number) => void, setSelectedClass: (danceClass: DanceClass) => void, setShowEnrollDialog: (show: boolean) => void) => {
+const renderClassesList = (
+  classes: DanceClass[],
+  loading: boolean,
+  deleteClass: (id: number) => void,
+  setSelectedClass: (danceClass: DanceClass) => void,
+  setShowEnrollDialog: (show: boolean) => void,
+  setViewingEnrolled: (show: boolean) => void,
+  openEditDialog: (danceClass: DanceClass) => void
+) => {
   if (loading) {
     return (
       <div className="col-span-3 flex justify-center items-center min-h-[200px]">
@@ -145,10 +154,13 @@ const renderClassesList = (classes: DanceClass[], loading: boolean, deleteClass:
             </div>
           </div>
           <div className="flex flex-row sm:flex-col gap-2 sm:gap-0 items-center sm:items-end mt-2 sm:mt-0">
-          <Button variant="outline" size="sm" onClick={() => deleteClass(danceClass.id)} className="border-red-500 text-red-400 hover:bg-red-950 hover:text-red-300">
-            <Trash2 className="h-4 w-4 text-red-400" />
-          </Button>
-        </div>
+            <Button variant="outline" size="sm" onClick={() => openEditDialog(danceClass)} className="border-blue-500 text-blue-400 hover:bg-blue-950 hover:text-blue-300">
+              <Edit className="h-4 w-4 text-blue-400" />
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => deleteClass(danceClass.id)} className="border-red-500 text-red-400 hover:bg-red-950 hover:text-red-300">
+              <Trash2 className="h-4 w-4 text-red-400" />
+            </Button>
+          </div>
       </div>
 
         {/* Estadísticas y horarios */}
@@ -170,7 +182,7 @@ const renderClassesList = (classes: DanceClass[], loading: boolean, deleteClass:
             </div>
             <div className="space-y-1 sm:space-y-2">
           {danceClass.schedules.map((schedule, index) => (
-                <div key={index} className="flex justify-between items-center p-1 sm:p-2 bg-gray-600/50 rounded text-xs">
+                <div key={index} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 p-3 bg-gray-700/50 rounded-lg">
                   <span className="font-medium text-white">{DAYS_OF_WEEK[schedule.dayOfWeek]}</span>
                   <span className="text-green-300 font-mono">{schedule.startTime} - {schedule.endTime}</span>
             </div>
@@ -178,17 +190,33 @@ const renderClassesList = (classes: DanceClass[], loading: boolean, deleteClass:
         </div>
       </div>
 
-          <Button
-            onClick={() => {
-              setSelectedClass(danceClass)
-              setShowEnrollDialog(true)
-            }}
-            disabled={danceClass._count.enrollments >= danceClass.capacity}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white mt-2"
-          >
-            <UserPlus className="h-4 w-4 mr-2" />
-            Inscribir Estudiante
-          </Button>
+          <div className="flex flex-col gap-2 mt-2">
+            <Button
+              onClick={() => {
+                setSelectedClass(danceClass)
+                setViewingEnrolled(false)
+                setShowEnrollDialog(true)
+              }}
+              disabled={danceClass._count.enrollments >= danceClass.capacity}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              <UserPlus className="h-4 w-4 mr-2" />
+              Inscribir Estudiante
+            </Button>
+
+            <Button
+              variant="outline"
+              onClick={() => {
+                setSelectedClass(danceClass)
+                setViewingEnrolled(true)
+                setShowEnrollDialog(true)
+              }}
+              className="w-full border-gray-600 text-gray-300 hover:bg-gray-700"
+            >
+              <Users className="h-4 w-4 mr-2" />
+              Ver Estudiantes
+            </Button>
+          </div>
         </div>
       </CardContent>
     </Card>
@@ -207,6 +235,9 @@ export function ClassManagementNew() {
   const [showLocationDialog, setShowLocationDialog] = useState(false)
   const [selectedClass, setSelectedClass] = useState<DanceClass | null>(null)
   const [showEnrollDialog, setShowEnrollDialog] = useState(false)
+  const [viewingEnrolled, setViewingEnrolled] = useState(false)
+  const [editingClass, setEditingClass] = useState<DanceClass | null>(null)
+  const [isEditing, setIsEditing] = useState(false)
 
   // Filtros
   const [filterSport, setFilterSport] = useState<string>('ALL')
@@ -355,6 +386,50 @@ export function ClassManagementNew() {
     }
   }, [newLocation, toast])
 
+  // ✅ Función para abrir modal de edición
+  const openEditDialog = useCallback((danceClass: DanceClass) => {
+    setEditingClass(danceClass)
+    setIsEditing(true)
+    
+    // Precargar datos en el formulario
+    setNewClass({
+      name: danceClass.name,
+      description: danceClass.description || '',
+      sport: danceClass.sport,
+      level: danceClass.level || 'BEGINNER',
+      trainerId: danceClass.trainer.id.toString(),
+      locationId: danceClass.location?.id.toString() || '',
+      capacity: danceClass.capacity,
+      price: danceClass.price || 0,
+      schedules: danceClass.schedules.map(schedule => ({
+        dayOfWeek: schedule.dayOfWeek,
+        startTime: schedule.startTime,
+        endTime: schedule.endTime
+      }))
+    })
+    
+    setShowCreateDialog(true)
+  }, [])
+
+  // ✅ Función para cerrar el modal y limpiar estado
+  const closeDialog = useCallback(() => {
+    setShowCreateDialog(false)
+    setIsEditing(false)
+    setEditingClass(null)
+    // Reset form
+    setNewClass({
+      name: '',
+      description: '',
+      sport: 'DANCE',
+      level: 'BEGINNER',
+      trainerId: '',
+      locationId: '',
+      capacity: 20,
+      price: 0,
+      schedules: [{ dayOfWeek: 1, startTime: '18:00', endTime: '19:00' }]
+    })
+  }, [])
+
   // ✅ OPTIMIZACIÓN: createClass sin recargar todo
   const createClass = useCallback(async () => {
     if (!newClass.name || !newClass.trainerId) {
@@ -395,7 +470,7 @@ export function ClassManagementNew() {
           title: "✅ Clase creada",
           description: data.message || `${newClass.name} ha sido creada exitosamente`
         })
-        setShowCreateDialog(false)
+        closeDialog()
         
         // ✅ OPTIMIZACIÓN: Solo agregar la nueva clase sin recargar
         const newClassWithDetails = {
@@ -406,19 +481,6 @@ export function ClassManagementNew() {
           _count: { enrollments: 0 }
         }
         setClasses(prev => [...prev, newClassWithDetails])
-        
-        // Reset form
-        setNewClass({
-          name: '',
-          description: '',
-          sport: 'DANCE',
-          level: 'BEGINNER',
-          trainerId: '',
-          locationId: '',
-          capacity: 20,
-          price: 0,
-          schedules: [{ dayOfWeek: 1, startTime: '18:00', endTime: '19:00' }]
-        })
       } else {
         toast({
           title: data.error || "❌ Error",
@@ -436,6 +498,79 @@ export function ClassManagementNew() {
       })
     }
   }, [newClass, trainers, locations, toast])
+
+  // ✅ Actualizar clase existente
+  const updateClass = useCallback(async () => {
+    if (!editingClass || !newClass.name || !newClass.trainerId) {
+      toast({
+        title: "❌ Error",
+        description: "Por favor completa todos los campos requeridos",
+        variant: "destructive"
+      })
+      return
+    }
+
+    if (newClass.sport === 'VOLLEYBALL' && !newClass.locationId) {
+        toast({
+          title: "❌ Error",
+        description: "La ubicación es requerida para clases de voleibol",
+          variant: "destructive"
+      })
+      return
+    }
+
+    try {
+      const classData = {
+        ...newClass,
+        trainerId: Number(newClass.trainerId),
+        locationId: newClass.sport === 'VOLLEYBALL' ? Number(newClass.locationId) : undefined
+      }
+
+      const response = await fetch(`/api/classes?id=${editingClass.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(classData)
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        toast({
+          title: "✅ Clase actualizada",
+          description: `${newClass.name} ha sido actualizada exitosamente`
+        })
+        
+        // ✅ OPTIMIZACIÓN: Actualizar la clase específica en la lista
+        const updatedClassWithDetails = {
+          ...data.class,
+          trainer: trainers.find(t => t.id === Number(newClass.trainerId))!,
+          location: newClass.locationId ? locations.find(l => l.id === Number(newClass.locationId)) : undefined,
+          enrollments: editingClass.enrollments, // Mantener las inscripciones existentes
+          _count: editingClass._count // Mantener el conteo existente
+        }
+        
+        setClasses(prev => prev.map(cls => 
+          cls.id === editingClass.id ? updatedClassWithDetails : cls
+        ))
+        
+        closeDialog()
+      } else {
+        toast({
+          title: data.error || "❌ Error",
+          description: data.details || data.error || "No se pudo actualizar la clase",
+          variant: "destructive",
+          // Mostrar más tiempo si hay detalles de conflicto
+          duration: data.details ? 8000 : 5000
+        })
+      }
+    } catch (error) {
+      toast({
+        title: "❌ Error",
+        description: "Error al actualizar la clase",
+        variant: "destructive"
+      })
+    }
+  }, [editingClass, newClass, trainers, locations, toast])
 
   // ✅ OPTIMIZACIÓN: enrollStudent sin recargar todo
   const enrollStudent = useCallback(async (studentId: number, classId: number) => {
@@ -460,7 +595,7 @@ export function ClassManagementNew() {
           cls.id === classId 
             ? {
                 ...cls,
-                enrollments: [...cls.enrollments, { student: student! }],
+                enrollments: [...cls.enrollments, { id: data.enrollment.id, student: student! }],
                 _count: { enrollments: cls._count.enrollments + 1 }
               }
             : cls
@@ -566,6 +701,60 @@ export function ClassManagementNew() {
     return students.filter(student => !enrolledIds.includes(student.id))
   }, [students, selectedClass])
 
+  // ✅ Eliminar inscripción (dar de baja estudiante de la clase)
+  const removeEnrollment = useCallback(async (enrollmentId: number, classId: number) => {
+    if (!confirm('¿Estás seguro de que deseas eliminar la inscripción de este estudiante?')) return
+
+    try {
+      const response = await fetch('/api/enrollments', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: enrollmentId })
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        toast({
+          title: '✅ Inscripción eliminada',
+          description: 'El estudiante ha sido retirado de la clase'
+        })
+
+        // Actualizar estado local
+        setClasses(prev => prev.map(cls =>
+          cls.id === classId
+            ? {
+                ...cls,
+                enrollments: cls.enrollments.filter(e => e.id !== enrollmentId),
+                _count: { enrollments: cls._count.enrollments - 1 }
+              }
+            : cls
+        ))
+
+        // Si estamos viendo la clase actual en el modal, actualizar también
+        if (selectedClass && selectedClass.id === classId) {
+          setSelectedClass({
+            ...selectedClass,
+            enrollments: selectedClass.enrollments.filter(e => e.id !== enrollmentId),
+            _count: { enrollments: selectedClass._count.enrollments - 1 }
+          })
+        }
+      } else {
+        toast({
+          title: '❌ Error',
+          description: data.error || 'No se pudo eliminar la inscripción',
+          variant: 'destructive'
+        })
+      }
+    } catch (error) {
+      toast({
+        title: '❌ Error',
+        description: 'Error al eliminar la inscripción',
+        variant: 'destructive'
+      })
+    }
+  }, [toast, setClasses, selectedClass])
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -576,33 +765,6 @@ export function ClassManagementNew() {
 
   return (
     <div className="w-full mx-auto px-2 sm:px-4 md:px-6">
-      {/* Breadcrumb */}
-      <div className="mb-4">
-        <div className="flex items-center space-x-2">
-          <Button variant="link" className="text-blue-400 hover:text-blue-300 p-0">
-            <HomeIcon className="h-4 w-4 mr-1" />
-            Inicio
-          </Button>
-          <span className="text-gray-400">/</span>
-          <span className="text-gray-300">Clases</span>
-        </div>
-      </div>
-
-      {/* Título y descripción */}
-      <div className="flex items-start space-x-4 mb-6">
-              <div className="rounded-2xl bg-blue-600 p-3 backdrop-blur-sm border border-blue-500">
-                <GraduationCap className="h-8 w-8 text-white" />
-              </div>
-              <div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
-            Gestión de Clases
-          </h1>
-          <p className="text-gray-300 mt-1">
-            Sistema de administración de clases y horarios
-          </p>
-        </div>
-              </div>
-
       {/* Card de Filtros */}
       <Card className="border-0 bg-gradient-to-r from-gray-800/90 via-slate-800/90 to-gray-700/90 text-white shadow-2xl mb-6 sm:mb-8 rounded-3xl border border-gray-600 backdrop-blur-sm">
         <CardContent className="p-4 sm:p-6">
@@ -668,7 +830,9 @@ export function ClassManagementNew() {
 
             {/* Botón Nueva Clase */}
             <div className="flex-1 min-w-[140px] sm:max-w-[220px]">
-              <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+              <Dialog open={showCreateDialog} onOpenChange={(open) => {
+                if (!open) closeDialog()
+              }}>
                 <DialogTrigger asChild>
                             <Button 
                     onClick={() => setShowCreateDialog(true)}
@@ -678,10 +842,10 @@ export function ClassManagementNew() {
                     Nueva Clase
                             </Button>
                 </DialogTrigger>
-                <DialogContent className="!w-[95vw] !max-w-5xl h-[90vh] max-h-[90vh] overflow-y-auto bg-gray-800 border border-gray-600 text-white !left-[50%] !translate-x-[-50%]">
+                <DialogContent className="w-full sm:!w-[95vw] sm:!max-w-5xl h-[90vh] max-h-[90vh] overflow-y-auto overflow-x-hidden bg-gray-800 border border-gray-600 text-white !left-1/2 !-translate-x-1/2">
                   <DialogHeader>
                     <DialogTitle className="text-2xl font-bold text-white">
-                      Crear Nueva Clase de {newClass.sport === 'DANCE' ? 'Baile' : 'Voleibol'}
+                      {isEditing ? 'Editar Clase' : 'Crear Nueva Clase'} de {newClass.sport === 'DANCE' ? 'Baile' : 'Voleibol'}
                     </DialogTitle>
                   </DialogHeader>
                   
@@ -863,7 +1027,7 @@ export function ClassManagementNew() {
 
                       <div className="space-y-3">
                         {newClass.schedules.map((schedule, index) => (
-                          <div key={index} className="flex items-center gap-3 p-3 bg-gray-700/50 rounded-lg">
+                          <div key={index} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 p-3 bg-gray-700/50 rounded-lg">
                             <div className="flex-1">
                               <Label className="text-gray-300 text-sm">Día</Label>
                               <Select 
@@ -924,19 +1088,19 @@ export function ClassManagementNew() {
                       <Button
                         type="button"
                         variant="outline"
-                        onClick={() => setShowCreateDialog(false)}
+                        onClick={closeDialog}
                         className="border-gray-600 text-gray-300 hover:bg-gray-700"
                       >
                         Cancelar
                       </Button>
                       <Button
                         type="button"
-                        onClick={createClass}
+                        onClick={isEditing ? updateClass : createClass}
                         className="bg-blue-600 hover:bg-blue-700 text-white"
                         disabled={!newClass.name || !newClass.trainerId || (newClass.sport === 'VOLLEYBALL' && !newClass.locationId)}
                       >
-                        <Plus className="h-4 w-4 mr-2" />
-                        Crear Clase
+                        {isEditing ? <Edit className="h-4 w-4 mr-2" /> : <Plus className="h-4 w-4 mr-2" />}
+                        {isEditing ? 'Actualizar Clase' : 'Crear Clase'}
                       </Button>
                     </div>
                   </div>
@@ -949,8 +1113,8 @@ export function ClassManagementNew() {
 
       {/* Lista de clases paginada */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-        {renderClassesList(classes, loading, deleteClass, setSelectedClass, setShowEnrollDialog)}
-      </div>
+        {renderClassesList(classes, loading, deleteClass, setSelectedClass, setShowEnrollDialog, setViewingEnrolled, openEditDialog)}
+              </div>
 
       {/* Paginación */}
       {totalPages > 1 && (
@@ -975,56 +1139,92 @@ export function ClassManagementNew() {
         </div>
       )}
 
-      {/* Dialog para inscribir estudiante */}
-      <Dialog open={showEnrollDialog} onOpenChange={setShowEnrollDialog}>
+      {/* Dialog para inscribir estudiante o ver inscritos */}
+      <Dialog open={showEnrollDialog} onOpenChange={(open) => {
+        setShowEnrollDialog(open)
+        if (!open) setViewingEnrolled(false)
+      }}>
         <DialogContent className="max-w-2xl bg-gray-800 border border-gray-600 text-white">
-                      <DialogHeader>
+          <DialogHeader>
             <DialogTitle className="text-xl font-bold text-white">
-              Inscribir Estudiante en {selectedClass?.name}
+              {viewingEnrolled ? 'Estudiantes inscritos en' : 'Inscribir Estudiante en'} {selectedClass?.name}
             </DialogTitle>
-                      </DialogHeader>
-                      <div className="space-y-4">
-                        {availableStudents.length === 0 ? (
-              <p className="text-gray-400 text-center py-8">
-                No hay estudiantes disponibles para inscribir en esta clase.
-              </p>
-            ) : (
-              <>
-                <p className="text-gray-300">
-                  Selecciona un estudiante para inscribir en esta clase:
-                </p>
+          </DialogHeader>
+          <div className="space-y-4">
+            {viewingEnrolled ? (
+              selectedClass && selectedClass.enrollments.length === 0 ? (
+                <p className="text-gray-400 text-center py-8">No hay estudiantes inscritos en esta clase.</p>
+              ) : (
                 <div className="max-h-80 overflow-y-auto space-y-2">
-                            {availableStudents.map((student) => (
-                    <div
-                      key={student.id}
-                      className="flex items-center justify-between p-4 bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors"
-                    >
+                  {selectedClass?.enrollments.map(({ student }) => (
+                    <div key={student.id} className="flex items-center justify-between p-4 bg-gray-700/50 rounded-lg">
                       <div className="flex items-center space-x-3">
                         <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
                           <span className="text-white font-bold text-sm">
                             {student.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
                           </span>
                         </div>
-                                <div>
+                        <div>
                           <p className="font-medium text-white">{student.name}</p>
                           <p className="text-sm text-gray-400">ID: {student.id}</p>
                           <p className="text-sm text-gray-400">{student.email}</p>
                         </div>
-                                </div>
-                                <Button 
-                        onClick={() => selectedClass && enrollStudent(student.id, selectedClass.id)}
-                        className="bg-green-600 hover:bg-green-700 text-white"
-                                >
-                                  Inscribir
-                                </Button>
-                              </div>
-                            ))}
-                          </div>
-              </>
-                        )}
                       </div>
-                    </DialogContent>
-                  </Dialog>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => removeEnrollment(selectedClass?.enrollments.find(e => e.student.id === student.id)?.id!, selectedClass!.id)}
+                        className="border-red-500 text-red-400 hover:bg-red-950"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )
+            ) : (
+              availableStudents.length === 0 ? (
+                <p className="text-gray-400 text-center py-8">
+                  No hay estudiantes disponibles para inscribir en esta clase.
+                </p>
+              ) : (
+                <>
+                  <p className="text-gray-300">
+                    Selecciona un estudiante para inscribir en esta clase:
+                  </p>
+                  <div className="max-h-80 overflow-y-auto space-y-2">
+                    {availableStudents.map((student) => (
+                      <div
+                        key={student.id}
+                        className="flex items-center justify-between p-4 bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors"
+                      >
+                        <div className="flex items-center space-x-3">
+                          <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
+                            <span className="text-white font-bold text-sm">
+                              {student.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                            </span>
+                          </div>
+                          <div>
+                            <p className="font-medium text-white">{student.name}</p>
+                            <p className="text-sm text-gray-400">ID: {student.id}</p>
+                            <p className="text-sm text-gray-400">{student.email}</p>
+                          </div>
+                        </div>
+                        <Button
+                          onClick={() => selectedClass && enrollStudent(student.id, selectedClass.id)}
+                          className="bg-green-600 hover:bg-green-700 text-white"
+                        >
+                          Inscribir
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 } 

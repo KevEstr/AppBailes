@@ -176,10 +176,6 @@ export default function UsersManagementPage() {
                   Volver al Panel
                 </Button>
               </Link>
-              <div className="flex items-center space-x-3">
-                <Users className="h-8 w-8 text-purple-400" />
-                <h1 className="text-3xl font-bold text-white">Gestión de Usuarios</h1>
-              </div>
             </div>
             <Button 
               onClick={() => setShowCreateForm(!showCreateForm)}
@@ -331,30 +327,30 @@ export default function UsersManagementPage() {
                 {users.map((user) => (
                   <div
                     key={user.id}
-                    className="flex items-center justify-between p-4 bg-gray-700/50 rounded-lg border border-gray-600"
+                    className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 bg-gray-700/50 rounded-lg border border-gray-600"
                   >
-                    <div className="flex items-center space-x-4">
-                      <div className="h-12 w-12 rounded-full bg-gradient-to-r from-purple-500 to-pink-600 flex items-center justify-center">
+                    <div className="flex items-center space-x-4 flex-1 min-w-0">
+                      <div className="h-12 w-12 rounded-full bg-gradient-to-r from-purple-500 to-pink-600 flex items-center justify-center flex-shrink-0">
                         {user.role === "ADMIN" ? (
                           <Shield className="h-6 w-6 text-white" />
                         ) : (
                           <GraduationCap className="h-6 w-6 text-white" />
                         )}
                       </div>
-                      <div>
-                        <h3 className="text-white font-semibold">{user.name}</h3>
-                        <p className="text-gray-400 text-sm">{user.email}</p>
+                      <div className="min-w-0">
+                        <h3 className="text-white font-semibold truncate max-w-[180px] sm:max-w-none">{user.name}</h3>
+                        <p className="text-gray-400 text-sm truncate max-w-[220px] sm:max-w-none">{user.email}</p>
                         {user.trainer && (
-                          <p className="text-blue-400 text-sm">Profesor: {user.trainer.name}</p>
+                          <p className="text-blue-400 text-sm truncate max-w-[220px] sm:max-w-none">Profesor: {user.trainer.name}</p>
                         )}
                       </div>
                     </div>
-                    <div className="flex items-center space-x-3">
+                    <div className="flex items-center flex-wrap gap-2 sm:gap-3">
                       {getRoleBadge(user.role)}
                       <Badge variant={user.isActive ? "default" : "secondary"}>
                         {user.isActive ? "Activo" : "Inactivo"}
                       </Badge>
-                      <div className="flex space-x-2">
+                      <div className="flex gap-2">
                         <Button size="sm" variant="outline" className="border-gray-600 text-gray-300 hover:bg-gray-700">
                           <Edit className="h-4 w-4" />
                         </Button>

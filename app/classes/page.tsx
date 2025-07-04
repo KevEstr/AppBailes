@@ -14,9 +14,11 @@ export default function ClassesPage() {
   return (
     <InternalLayout 
       title="Gestión de Clases" 
-      description="Organiza horarios y grupos de baile"
+      description="Organiza horarios y grupos de clases"
     >
       <ClassManagementNew />
     </InternalLayout>
+
+    
   )
 } 

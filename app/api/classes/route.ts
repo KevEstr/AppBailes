@@ -388,6 +388,7 @@ export async function PUT(request: NextRequest) {
         name: validatedData.name,
         description: validatedData.description,
         trainerId: validatedData.trainerId,
+        locationId: validatedData.locationId,
         capacity: validatedData.capacity,
         price: validatedData.price,
         sport: validatedData.sport,
@@ -406,6 +407,13 @@ export async function PUT(request: NextRequest) {
             id: true,
             name: true,
             email: true
+          }
+        },
+        location: {
+          select: {
+            id: true,
+            name: true,
+            address: true
           }
         },
         schedules: {

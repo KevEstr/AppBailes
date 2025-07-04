@@ -163,13 +163,13 @@ export default function AdminPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-slate-900 to-gray-800">
-      <div className="container mx-auto px-6 py-8">
+      <div className="container mx-auto px-4 sm:px-6 md:px-8 py-8">
         <div className="space-y-12">
           {/* Header del Admin */}
-          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-gray-800/90 via-slate-800/90 to-gray-700/90 p-8 border border-gray-600 shadow-2xl backdrop-blur-sm">
+          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-gray-800/90 via-slate-800/90 to-gray-700/90 p-6 sm:p-8 border border-gray-600 shadow-2xl backdrop-blur-sm w-full">
             <div className="absolute inset-0 bg-gradient-to-r from-purple-300/20 to-pink-300/20"></div>
-            <div className="relative z-10 flex items-center justify-between">
-              <div className="flex items-center space-x-6">
+            <div className="relative z-10 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
+              <div className="flex items-center space-x-4 sm:space-x-6 flex-1 min-w-0">
                 <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-gray-700 shadow-2xl border-4 border-purple-500 relative overflow-hidden">
                   <Image
                     src="/logo.jpg"
@@ -181,29 +181,28 @@ export default function AdminPage() {
                   />
                   <div className="absolute inset-0 bg-gradient-to-r from-purple-400 to-pink-400 opacity-20"></div>
                 </div>
-                <div>
-                  <div className="flex items-center space-x-3 mb-2">
-                    <Shield className="h-6 w-6 text-purple-400" />
-                    <h1 className="text-3xl font-bold text-white">Panel de Administrador</h1>
+                <div className="min-w-0">
+                  <div className="flex items-center space-x-2 sm:space-x-3 mb-1">
+                    <h1 className="text-2xl sm:text-3xl font-bold text-white truncate">Panel de Administrador</h1>
                   </div>
-                  <p className="text-purple-300">Bienvenido, {session.user.name}</p>
-                  <p className="text-gray-400 text-sm">Acceso completo al sistema Paradise Dance Academy</p>
+                  <p className="text-purple-300 text-sm sm:text-base truncate">Bienvenido, {session.user.name}</p>
                 </div>
               </div>
-              <div className="flex items-center space-x-4">
+              <div className="flex flex-wrap items-center gap-3">
                 <Link href="/admin/users">
-                  <Button className="bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 text-white">
-                    <UserPlus className="h-4 w-4 mr-2" />
-                    Gestionar Usuarios
+                  <Button size="sm" className="bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 text-white whitespace-nowrap">
+                    <UserPlus className="h-4 w-4 mr-1" />
+                    Usuarios
                   </Button>
                 </Link>
                 <Button 
                   onClick={handleSignOut}
+                  size="sm"
                   variant="outline" 
-                  className="border-gray-600 text-gray-300 hover:bg-gray-700"
+                  className="border-gray-600 text-gray-300 hover:bg-gray-700 whitespace-nowrap"
                 >
-                  <LogOut className="h-4 w-4 mr-2" />
-                  Cerrar Sesión
+                  <LogOut className="h-4 w-4 mr-1" />
+                  Salir
                 </Button>
               </div>
             </div>
