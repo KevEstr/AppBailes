@@ -5,7 +5,7 @@ Configurar templates profesionales para notificar a los usuarios cuando sus comp
 
 ## 📋 Templates a Crear en Meta for Developers
 
-### 1. Template para Comprobante Aprobado
+### 1. Template para Comprobante Aprobado (Pago Completo)
 
 #### Información básica:
 - **Template Name:** `proof_approved_paradise`
@@ -45,7 +45,57 @@ Configurar templates profesionales para notificar a los usuarios cuando sus comp
 
 ---
 
-### 2. Template para Comprobante Rechazado
+### 2. Template para Comprobante Aprobado (Pago Parcial)
+
+#### Información básica:
+- **Template Name:** `proof_approved_partial_paradise`
+- **Language:** Spanish (ES)  
+- **Category:** UTILITY
+- **Template Type:** TEXT
+
+#### Contenido del template:
+```
+✅ *Pago Parcial Aprobado - Paradise Dance Academy*
+
+¡Hola! Te informamos que tu comprobante de pago ha sido *APROBADO*.
+
+👤 *Estudiante:* {{1}}
+📅 *Período:* {{2}}
+💰 *Monto pagado:* {{3}}
+💳 *Método:* {{4}}
+✅ *Estado:* Pago parcial confirmado
+
+📊 *Resumen del pago:*
+• Monto total del período: {{5}}
+• Pagado hasta ahora: {{3}}
+• *Saldo pendiente: {{6}}*
+
+⏰ *Próximo paso:*
+Debes completar el pago del saldo restante en los próximos 15 días para evitar recargos.
+
+📄 *Tu recibo digital:*
+{{7}}
+
+💡 *Puedes descargarlo o compartirlo desde este enlace*
+
+🔔 *Importante:* Recibirás un recordatorio cuando necesites completar el pago restante.
+
+*Paradise Dance Academy* ✨
+¡Gracias por mantenerte al día con tus pagos! 🩰
+```
+
+#### Parámetros del template:
+1. `{{1}}` - Nombre del estudiante (ej: "María González")
+2. `{{2}}` - Período de pago (ej: "Diciembre 2024")
+3. `{{3}}` - Monto pagado (ej: "$100,000")
+4. `{{4}}` - Método de pago (ej: "Transferencia")
+5. `{{5}}` - Monto total esperado (ej: "$150,000")
+6. `{{6}}` - Saldo pendiente (ej: "$50,000")
+7. `{{7}}` - Recibo digital (ej: "https://example.com/recibo-digital")
+
+---
+
+### 3. Template para Comprobante Rechazado
 
 #### Información básica:
 - **Template Name:** `proof_rejected_paradise`

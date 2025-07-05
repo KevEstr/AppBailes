@@ -207,6 +207,22 @@ Para soporte y preguntas:
 - Crear un issue en GitHub
 - Contactar al equipo de desarrollo
 
+## Cloudinary Setup
+
+Para el almacenamiento de comprobantes de pago en producción, se utiliza Cloudinary. Sigue estos pasos para configurarlo:
+
+1. Crea una cuenta en [Cloudinary](https://cloudinary.com/)
+2. Obtén las credenciales de tu cuenta (Cloud Name, API Key, API Secret)
+3. Agrega las siguientes variables de entorno en tu archivo `.env`:
+
+```env
+CLOUDINARY_CLOUD_NAME=your_cloud_name
+CLOUDINARY_API_KEY=your_api_key
+CLOUDINARY_API_SECRET=your_api_secret
+```
+
+Los comprobantes de pago se almacenarán automáticamente en la carpeta `payment-proofs` de tu cuenta de Cloudinary.
+
 ---
 
 **¡Hecho con ❤️ para academias de baile!** 🕺💃

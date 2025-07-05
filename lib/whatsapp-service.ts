@@ -604,6 +604,10 @@ ${data.paymentLink}
     amount: number;
     paymentMethod: string;
     receiptUrl?: string;
+    isPartialPayment?: boolean;
+    expectedAmount?: number;
+    remainingAmount?: number;
+    paymentStatus?: string;
   }): Promise<WhatsAppResponse> {
     this.initialize(); // Lazy initialization
     try {
@@ -613,17 +617,12 @@ ${data.paymentLink}
       console.log('   👤 Estudiante:', data.studentName);
       console.log('   📱 Teléfono:', formattedPhone);
       console.log('   💰 Monto:', data.amount);
+      console.log('   💸 Pago parcial:', data.isPartialPayment ? 'SÍ' : 'NO');
       
       // PRIORIDAD 1: Intentar template personalizado
       try {
         console.log('🎯 Intentando template personalizado de aprobación...');
-        return await this.sendProofApprovedTemplate({
-          studentName: data.studentName,
-          period: data.period,
-          amount: data.amount,
-          paymentMethod: data.paymentMethod,
-          receiptUrl: data.receiptUrl
-        }, formattedPhone);
+        return await this.sendProofApprovedTemplate(data, formattedPhone);
       } catch (templateError) {
         console.log('⚠️ Template personalizado falló, usando fallback...');
         console.error('Error con template personalizado:', templateError);
@@ -688,47 +687,51 @@ ${data.paymentLink}
     amount: number;
     paymentMethod: string;
     receiptUrl?: string;
+    isPartialPayment?: boolean;
+    expectedAmount?: number;
+    remainingAmount?: number;
+    paymentStatus?: string;
   }, formattedPhone: string): Promise<WhatsAppResponse> {
+    
+    // Usar template diferente según si es pago parcial o completo
+    const templateName = data.isPartialPayment 
+      ? 'proof_approved_partial_paradise'
+      : 'proof_approved_paradise';
+
     const requestBody = {
       messaging_product: 'whatsapp',
       to: formattedPhone,
       type: 'template',
       template: {
-        name: 'proof_approved_paradise', // Template aprobado para notificaciones de aprobación
+        name: templateName,
         language: {
           code: 'es_CO'
         },
         components: [
           {
             type: 'body',
-            parameters: [
-              {
-                type: 'text',
-                text: data.studentName // {{1}} - Nombre del estudiante
-              },
-              {
-                type: 'text',
-                text: data.period // {{2}} - Período
-              },
-              {
-                type: 'text',
-                text: `$${data.amount.toLocaleString()}` // {{3}} - Monto
-              },
-              {
-                type: 'text',
-                text: data.paymentMethod // {{4}} - Método de pago
-              },
-              {
-                type: 'text',
-                text: data.receiptUrl || 'Sin recibo disponible' // {{5}} - URL del recibo digital
-              }
+            parameters: data.isPartialPayment ? [
+              { type: 'text', text: data.studentName },                                    // {{1}} Estudiante
+              { type: 'text', text: data.period },                                        // {{2}} Período
+              { type: 'text', text: `$${data.amount.toLocaleString()}` },                // {{3}} Monto pagado
+              { type: 'text', text: data.paymentMethod },                                // {{4}} Método
+              { type: 'text', text: `$${(data.expectedAmount || 0).toLocaleString()}` }, // {{5}} Monto total
+              { type: 'text', text: `$${data.amount.toLocaleString()}` },                // {{6}} Pagado
+              { type: 'text', text: `$${(data.remainingAmount || 0).toLocaleString()}` },// {{7}} Saldo pendiente
+              { type: 'text', text: data.receiptUrl || 'Sin recibo disponible' }         // {{8}} URL recibo
+            ] : [
+              { type: 'text', text: data.studentName },                                    // {{1}} Estudiante
+              { type: 'text', text: data.period },                                        // {{2}} Período
+              { type: 'text', text: `$${data.amount.toLocaleString()}` },                // {{3}} Monto
+              { type: 'text', text: data.paymentMethod },                                // {{4}} Método
+              { type: 'text', text: data.receiptUrl || 'Sin recibo disponible' }         // {{5}} URL recibo
             ]
           }
         ]
       }
     };
     
-    console.log('📋 Template de aprobación:', JSON.stringify(requestBody, null, 2));
+    console.log(`📋 Template de aprobación (${data.isPartialPayment ? 'parcial' : 'completo'}):`, JSON.stringify(requestBody, null, 2));
     
     const response = await fetch(this.baseUrl, {
       method: 'POST',
@@ -746,7 +749,7 @@ ${data.paymentLink}
       throw new Error(`Proof approved template error: ${JSON.stringify(responseData)}`);
     }
 
-    console.log('✅ Template de aprobación enviado exitosamente');
+    console.log(`✅ Template de aprobación ${data.isPartialPayment ? 'parcial' : 'completo'} enviado exitosamente`);
     return responseData;
   }
 
@@ -940,32 +943,51 @@ ${data.paymentLink}
     amount: number;
     paymentMethod: string;
     receiptUrl?: string;
+    isPartialPayment?: boolean;
+    expectedAmount?: number;
+    remainingAmount?: number;
+    paymentStatus?: string;
   }, formattedPhone: string): Promise<void> {
-    const approvedMessage = `✅ *Comprobante Aprobado - Paradise Dance Academy*
+    const message = data.isPartialPayment 
+      ? `¡Hola! Te informamos que tu comprobante de pago ha sido APROBADO.
 
-¡Hola! Te informamos que tu comprobante de pago ha sido *APROBADO*.
+👤 Estudiante: ${data.studentName}
+📅 Período: ${data.period}
+💰 Monto pagado: $${data.amount.toLocaleString()}
+💳 Método: ${data.paymentMethod}
+✅ Estado: Pago parcial confirmado
 
-👤 *Estudiante:* ${data.studentName}
-📅 *Período:* ${data.period}
-💰 *Monto:* $${data.amount.toLocaleString()}
-📋 *Método:* ${data.paymentMethod}
-✅ *Estado:* Pago confirmado
+📊 Resumen del pago:
+* Monto total del período: $${(data.expectedAmount || 0).toLocaleString()}
+* Pagado hasta ahora: $${data.amount.toLocaleString()}
+* Saldo pendiente: $${(data.remainingAmount || 0).toLocaleString()}
 
-🎉 *¡Perfecto!* El pago ha sido registrado exitosamente en nuestro sistema.
+⏰ Próximo paso:
+Debes completar el pago del saldo restante para evitar deudas.
 
-${data.receiptUrl ? `📄 *Tu recibo digital:*\n${data.receiptUrl}\n\n💡 *Puedes descargarlo o compartirlo desde este enlace*\n` : ''}*Paradise Dance Academy* ✨
-¡Gracias por ser parte de nuestra familia de baile! 🩰`;
+📄 Tu recibo digital:
+${data.receiptUrl || 'Sin recibo disponible'}`
+      : `¡Hola! Te informamos que tu comprobante de pago ha sido APROBADO.
+
+👤 Estudiante: ${data.studentName}
+📅 Período: ${data.period}
+💰 Monto pagado: $${data.amount.toLocaleString()}
+💳 Método: ${data.paymentMethod}
+✅ Estado: Pago completo confirmado
+
+📄 Tu recibo digital:
+${data.receiptUrl || 'Sin recibo disponible'}`;
 
     const followUpBody = {
       messaging_product: 'whatsapp',
       to: formattedPhone,
       type: 'text',
       text: {
-        body: approvedMessage
+        body: message
       }
     };
 
-    console.log('📋 Enviando mensaje de aprobación...');
+    console.log('📋 Enviando mensaje de seguimiento de aprobación...');
 
     const response = await fetch(this.baseUrl, {
       method: 'POST',
@@ -977,12 +999,12 @@ ${data.receiptUrl ? `📄 *Tu recibo digital:*\n${data.receiptUrl}\n\n💡 *Pued
     });
 
     const responseData = await response.json();
-    console.log('📨 Approved follow-up response:', response.status, responseData);
+    console.log('📨 Follow-up response:', response.status, responseData);
 
     if (response.ok) {
-      console.log('✅ Mensaje de aprobación enviado exitosamente');
+      console.log('✅ Mensaje de seguimiento de aprobación enviado exitosamente');
     } else {
-      console.log('⚠️ Mensaje de aprobación falló (normal en modo desarrollo)');
+      console.log('⚠️ Mensaje de seguimiento de aprobación falló');
     }
   }
 

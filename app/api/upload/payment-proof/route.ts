@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { writeFile } from 'fs/promises';
-import { join } from 'path';
-import { mkdir } from 'fs/promises';
+import { cloudinaryService } from '@/lib/cloudinary-service';
 
 export async function POST(request: NextRequest) {
   try {
@@ -32,42 +30,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Crear nombre único para el archivo
-    const timestamp = Date.now();
-    const randomString = Math.random().toString(36).substring(2, 15);
-    const extension = file.name.split('.').pop();
-    const fileName = `proof_${timestamp}_${randomString}.${extension}`;
-
-    // Crear directorio si no existe
-    const uploadDir = join(process.cwd(), 'public', 'uploads', 'payment-proofs');
-    try {
-      await mkdir(uploadDir, { recursive: true });
-    } catch (error) {
-      // El directorio ya existe
-    }
-
-    // Guardar archivo
+    // Convertir archivo a buffer
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
-    const filePath = join(uploadDir, fileName);
-    
-    await writeFile(filePath, buffer);
 
-    // Retornar URL del archivo
-    const fileUrl = `/uploads/payment-proofs/${fileName}`;
-
-    return NextResponse.json({
-      message: 'Archivo subido exitosamente',
-      url: fileUrl,
-      fileName: fileName,
-      size: file.size,
-      type: file.type
+    // Subir a Cloudinary
+    const fileUrl = await cloudinaryService.uploadFile(buffer, {
+      folder: 'payment-proofs'
     });
 
+    // Retornar URL del archivo
+    return NextResponse.json({ url: fileUrl }, { status: 200 });
   } catch (error) {
     console.error('Error al subir archivo:', error);
     return NextResponse.json(
-      { message: 'Error interno del servidor' },
+      { message: 'Error al procesar el archivo' },
       { status: 500 }
     );
   }
