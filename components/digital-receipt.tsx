@@ -128,20 +128,16 @@ export function DigitalReceipt({ data, isPreview = false }: DigitalReceiptProps)
             <div className="flex justify-between items-start mb-8">
               {/* Logo y datos de la academia */}
               <div className="flex items-start space-x-8">
-                <div className="relative w-[110px] h-[110px]">
-                  <div className="absolute inset-0 rounded-full overflow-hidden" style={{ 
+                <Image
+                  src="/logo.jpg"
+                  alt="Paradise Dance Academy"
+                  width={110}
+                  height={110}
+                  className="rounded-full shadow-[0_0_25px_rgba(0,212,255,0.5)]"
+                  style={{
                     border: '4px solid #00d4ff',
-                    boxShadow: '0 0 25px rgba(0, 212, 255, 0.5), inset 0 0 15px rgba(0, 212, 255, 0.2)'
-                  }}>
-                    <Image
-                      src="/logo.jpg"
-                      alt="Paradise Dance Academy"
-                      width={110}
-                      height={110}
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                </div>
+                  }}
+                />
                 <div>
                   <h1 className="text-2xl font-bold mb-2" style={{ color: '#00d4ff' }}>
                     Paradise Dance Academy
