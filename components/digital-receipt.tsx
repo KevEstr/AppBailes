@@ -129,7 +129,7 @@ export function DigitalReceipt({ data, isPreview = false }: DigitalReceiptProps)
               {/* Logo y datos de la academia */}
               <div className="flex items-start space-x-8">
                 <div className="relative w-[110px] h-[110px]">
-                  <div className="absolute inset-0 rounded-full" style={{ 
+                  <div className="absolute inset-0 rounded-full overflow-hidden" style={{ 
                     border: '4px solid #00d4ff',
                     boxShadow: '0 0 25px rgba(0, 212, 255, 0.5), inset 0 0 15px rgba(0, 212, 255, 0.2)'
                   }}>
@@ -138,7 +138,7 @@ export function DigitalReceipt({ data, isPreview = false }: DigitalReceiptProps)
                       alt="Paradise Dance Academy"
                       width={110}
                       height={110}
-                      className="rounded-full object-cover"
+                      className="w-full h-full object-cover"
                     />
                   </div>
                 </div>
