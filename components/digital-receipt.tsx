@@ -161,7 +161,7 @@ export function DigitalReceipt({ data, isPreview = false }: DigitalReceiptProps)
                   boxShadow: '0 8px 25px rgba(0, 212, 255, 0.3)'
                 }}>
                   <div className="text-white font-bold text-sm mb-1">RECIBO DIGITAL</div>
-                  <div className="text-white font-black text-3xl" style={{ textShadow: '2px 2px 4px rgba(0,0,0,0.5)' }}>
+                  <div className="text-white font-black text-2xl" style={{ textShadow: '2px 2px 4px rgba(0,0,0,0.5)' }}>
                     #{data.receiptNumber}
                   </div>
                 </div>
@@ -193,10 +193,6 @@ export function DigitalReceipt({ data, isPreview = false }: DigitalReceiptProps)
                     <div className="flex justify-between">
                       <span>Monto:</span>
                       <span className="font-bold">${data.amount.toLocaleString()}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Método:</span>
-                      <span>{data.paymentMethod}</span>
                     </div>
                     <div className="flex justify-between">
                       <span>Fecha:</span>
