@@ -48,10 +48,36 @@ export async function GET(request: NextRequest) {
     if (date) {
       const startOfDay = new Date(`${date}T00:00:00.000Z`);
       const endOfDay = new Date(`${date}T23:59:59.999Z`);
-      where.date = {
-        gte: startOfDay,
-        lte: endOfDay,
-      };
+      
+      // Para clases que cruzan medianoche, también incluir sesiones que empiezan el día anterior
+      const previousDay = new Date(startOfDay);
+      previousDay.setDate(previousDay.getDate() - 1);
+      
+      where.OR = [
+        {
+          // Sesiones que empiezan hoy
+          startTime: {
+            gte: startOfDay,
+            lte: endOfDay,
+          },
+        },
+        {
+          // Sesiones que empezaron ayer pero terminan hoy
+          AND: [
+            {
+              startTime: {
+                gte: new Date(previousDay.setHours(0, 0, 0, 0)),
+                lte: new Date(previousDay.setHours(23, 59, 59, 999)),
+              },
+            },
+            {
+              endTime: {
+                gte: startOfDay,
+              },
+            },
+          ],
+        },
+      ];
     }
 
     if (status) {
@@ -64,6 +90,8 @@ export async function GET(request: NextRequest) {
       };
     }
 
+    console.log('🔍 Buscando sesiones con criterios:', JSON.stringify(where, null, 2));
+
     const sessions = await prisma.classSession.findMany({
       where,
       include: {
@@ -74,6 +102,9 @@ export async function GET(request: NextRequest) {
                 id: true,
                 name: true,
               },
+            },
+            schedules: {
+              where: { isActive: true },
             },
             enrollments: {
               where: { isActive: true },
@@ -108,6 +139,19 @@ export async function GET(request: NextRequest) {
         },
       },
       orderBy: [{ date: "asc" }, { startTime: "asc" }],
+    });
+
+    console.log(`✅ Encontradas ${sessions.length} sesiones`);
+    sessions.forEach((session, index) => {
+      console.log(`📝 Sesión ${index + 1}:`, {
+        id: session.id,
+        date: session.date,
+        startTime: session.startTime,
+        endTime: session.endTime,
+        status: session.status,
+        enrollments: session.danceClass.enrollments.length,
+        attendances: session._count.attendances,
+      });
     });
 
     return NextResponse.json({ success: true, sessions });

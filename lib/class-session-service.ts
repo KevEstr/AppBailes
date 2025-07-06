@@ -1,9 +1,10 @@
-import { PrismaClient } from '@prisma/client'
+import { PrismaClient, SessionStatus } from '@prisma/client'
 
 interface ClassSchedule {
   dayOfWeek: number
   startTime: string
   endTime: string
+  isActive: boolean
 }
 
 interface GenerateSessionsParams {
@@ -31,6 +32,11 @@ export class ClassSessionService {
       let totalSessions = 0
 
       for (const schedule of schedules) {
+        if (!schedule.isActive) {
+          console.log(`⏭️ Saltando horario inactivo: ${this.getDayName(schedule.dayOfWeek)} ${schedule.startTime}-${schedule.endTime}`)
+          continue
+        }
+
         console.log(`⏰ Procesando horario: ${this.getDayName(schedule.dayOfWeek)} ${schedule.startTime}-${schedule.endTime}`)
         
         // Encontrar todas las fechas que coinciden con este día de la semana
@@ -40,7 +46,6 @@ export class ClassSessionService {
         
         // Crear sesiones
         for (const sessionDate of sessionDates) {
-          // Verificar si ya existe una sesión para esta fecha y horario específico
           const [startHour, startMinute] = schedule.startTime.split(':').map(Number)
           const [endHour, endMinute] = schedule.endTime.split(':').map(Number)
           
@@ -54,6 +59,19 @@ export class ClassSessionService {
           if (endHour < startHour) {
             endDateTime.setDate(endDateTime.getDate() + 1)
           }
+
+          // Determinar el estado inicial de la sesión
+          const now = new Date()
+          let initialStatus: SessionStatus = 'SCHEDULED'
+
+          // Si la sesión ya debería haber comenzado
+          if (startDateTime <= now && now <= endDateTime) {
+            initialStatus = 'IN_PROGRESS'
+          } 
+          // Si la sesión ya debería haber terminado
+          else if (now > endDateTime) {
+            initialStatus = 'COMPLETED'
+          }
           
           // Buscar sesiones existentes considerando el cruce de medianoche
           const existingSession = await this.prisma.classSession.findFirst({
@@ -61,20 +79,21 @@ export class ClassSessionService {
               classId: classId,
               AND: [
                 {
-                  date: {
-                    gte: this.getStartOfDay(sessionDate),
-                    lt: this.getEndOfDay(
-                      endHour < startHour 
-                        ? new Date(sessionDate.getTime() + 24 * 60 * 60 * 1000)
-                        : sessionDate
-                    )
+                  startTime: {
+                    gte: this.getStartOfDay(startDateTime),
+                    lt: this.getEndOfDay(endDateTime)
                   }
                 },
                 {
-                  startTime: {
-                    gte: startDateTime,
-                    lt: endDateTime
-                  }
+                  OR: [
+                    { startTime: startDateTime },
+                    {
+                      AND: [
+                        { startTime: { lte: startDateTime } },
+                        { endTime: { gte: endDateTime } }
+                      ]
+                    }
+                  ]
                 }
               ]
             }
@@ -85,18 +104,18 @@ export class ClassSessionService {
             continue
           }
           
-          await this.prisma.classSession.create({
+          const newSession = await this.prisma.classSession.create({
             data: {
               classId: classId,
               date: sessionDate,
               startTime: startDateTime,
               endTime: endDateTime,
-              status: 'SCHEDULED'
+              status: initialStatus
             }
           })
           
           totalSessions++
-          console.log(`✅ Sesión creada para ${sessionDate.toDateString()} ${schedule.startTime}-${schedule.endTime}`)
+          console.log(`✅ Sesión creada para ${sessionDate.toDateString()} ${schedule.startTime}-${schedule.endTime} (Estado: ${initialStatus})`)
         }
       }
       
