@@ -1080,98 +1080,110 @@ export default function ClassAttendanceTikTok() {
           {/* Contenido Principal */}
           <div className="flex-1 w-full flex flex-col items-center justify-between min-h-[calc(100vh-8rem)] max-w-2xl mx-auto">
             {/* Contenido del Estudiante */}
-            <div className="w-full flex flex-col items-center p-4 pb-2">
+            <div className="w-full flex flex-col items-center pb-2">
               {/* Avatar y Nombre */}
-              <div className="text-center">
-                <Avatar className="w-36 h-36 md:w-44 md:h-44 mx-auto ring-4 ring-blue-500/30">
-                  <AvatarImage src={currentStudent.avatar} className="object-cover" />
-                  <AvatarFallback className="bg-gradient-to-r from-purple-600 to-blue-600 text-5xl md:text-6xl font-bold text-white">
-                    {currentStudent.name.split(' ').map(n => n[0]).join('').toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
-                <h2 className="mt-2 text-2xl md:text-3xl font-bold text-white leading-tight">{currentStudent.name}</h2>
-                {currentStudent.hasDebt && (
-                  <Badge className="mt-1 bg-red-500/20 text-red-400 border-red-500 text-base md:text-lg px-3 py-1">
-                    <AlertCircle className="h-5 w-5 mr-1" />
-                    Tiene deuda pendiente
-                  </Badge>
-                )}
-                {currentStudent.status && (
-                  <Badge 
-                    className={`mt-1 ${getStatusColor(currentStudent.status)} text-white px-3 py-1 text-base md:text-lg`}
-                  >
-                    <div className="flex items-center space-x-2">
-                      {getStatusIcon(currentStudent.status)}
-                      <span>{getStatusText(currentStudent.status)}</span>
+              <div className="text-center relative w-full">
+                <div className="relative inline-block">
+                  <Avatar className="w-40 h-40 md:w-48 md:h-48 mx-auto ring-4 ring-blue-500/30">
+                    <AvatarImage src={currentStudent.avatar} className="object-cover" />
+                    <AvatarFallback className="bg-gradient-to-r from-purple-600 to-blue-600 text-6xl md:text-7xl font-bold text-white">
+                      {currentStudent.name.split(' ').map(n => n[0]).join('').toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  {currentStudent.hasDebt && (
+                    <div className="absolute -top-2 -right-2 animate-pulse">
+                      <div className="bg-red-500 text-white rounded-full p-2 shadow-lg shadow-red-500/30">
+                        <AlertCircle className="h-6 w-6" />
+                      </div>
                     </div>
-                  </Badge>
-                )}
+                  )}
+                </div>
+                
+                <div className="mt-3 space-y-1.5">
+                  <h2 className="text-2xl md:text-3xl font-bold text-white leading-tight">{currentStudent.name}</h2>
+                  {currentStudent.hasDebt && (
+                    <p className="text-red-400 text-sm md:text-base flex items-center justify-center gap-1.5">
+                      <AlertCircle className="h-4 w-4" />
+                      Tiene pagos pendientes
+                    </p>
+                  )}
+                  {currentStudent.status && (
+                    <Badge 
+                      className={`${getStatusColor(currentStudent.status)} text-white px-3 py-1 text-base md:text-lg`}
+                    >
+                      <div className="flex items-center space-x-2">
+                        {getStatusIcon(currentStudent.status)}
+                        <span>{getStatusText(currentStudent.status)}</span>
+                      </div>
+                    </Badge>
+                  )}
+                </div>
               </div>
             </div>
 
             {/* Botones de Acción */}
-            <div className="w-full px-4 pb-4 space-y-3 bg-gray-800/95 backdrop-blur-sm border-t border-gray-700">
-              <div className="grid grid-cols-2 gap-3 pt-3">
+            <div className="w-full space-y-3 bg-gray-800/95 backdrop-blur-sm border-t border-gray-700">
+              <div className="grid grid-cols-2 gap-3 p-3">
                 <Button
                   onClick={() => handleAttendanceAndNext(currentStudent.id, 'present')}
-                  className={`h-16 md:h-20 rounded-2xl text-lg md:text-xl font-medium transition-all duration-300 ${
+                  className={`h-20 md:h-24 rounded-2xl text-lg md:text-xl font-medium transition-all duration-300 ${
                     currentStudent.status === 'present' 
                       ? 'bg-green-600 hover:bg-green-700 text-white shadow-lg shadow-green-600/20' 
                       : 'bg-green-600/10 hover:bg-green-600/20 text-green-500 hover:text-green-400'
                   }`}
                 >
-                  <Check className="h-7 w-7 md:h-8 md:w-8 mr-2" />
+                  <Check className="h-8 w-8 md:h-10 md:w-10 mr-2" />
                   Presente
                 </Button>
                 
                 <Button
                   onClick={() => handleAttendanceAndNext(currentStudent.id, 'absent')}
-                  className={`h-16 md:h-20 rounded-2xl text-lg md:text-xl font-medium transition-all duration-300 ${
+                  className={`h-20 md:h-24 rounded-2xl text-lg md:text-xl font-medium transition-all duration-300 ${
                     currentStudent.status === 'absent' 
                       ? 'bg-red-600 hover:bg-red-700 text-white shadow-lg shadow-red-600/20' 
                       : 'bg-red-600/10 hover:bg-red-600/20 text-red-500 hover:text-red-400'
                   }`}
                 >
-                  <X className="h-7 w-7 md:h-8 md:w-8 mr-2" />
+                  <X className="h-8 w-8 md:h-10 md:w-10 mr-2" />
                   Ausente
                 </Button>
               </div>
                   
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-3 px-3 pb-3">
                 <Button
                   onClick={() => handleAttendanceAndNext(currentStudent.id, 'late')}
-                  className={`h-16 md:h-20 rounded-2xl text-lg md:text-xl font-medium transition-all duration-300 ${
+                  className={`h-20 md:h-24 rounded-2xl text-lg md:text-xl font-medium transition-all duration-300 ${
                     currentStudent.status === 'late' 
                       ? 'bg-yellow-600 hover:bg-yellow-700 text-white shadow-lg shadow-yellow-600/20' 
                       : 'bg-yellow-600/10 hover:bg-yellow-600/20 text-yellow-500 hover:text-yellow-400'
                   }`}
                 >
-                  <ClockIcon className="h-7 w-7 md:h-8 md:w-8 mr-2" />
+                  <ClockIcon className="h-8 w-8 md:h-10 md:w-10 mr-2" />
                   Tarde
                 </Button>
                 
                 <Button
                   onClick={() => handleAttendanceAndNext(currentStudent.id, 'change_request')}
-                  className={`h-16 md:h-20 rounded-2xl text-lg md:text-xl font-medium transition-all duration-300 ${
+                  className={`h-20 md:h-24 rounded-2xl text-lg md:text-xl font-medium transition-all duration-300 ${
                     currentStudent.status === 'change_request' 
                       ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-600/20' 
                       : 'bg-blue-600/10 hover:bg-blue-600/20 text-blue-500 hover:text-blue-400'
                   }`}
                 >
-                  <AlertIcon className="h-7 w-7 md:h-8 md:w-8 mr-2" />
+                  <AlertIcon className="h-8 w-8 md:h-10 md:w-10 mr-2" />
                   Cambio
                 </Button>
               </div>
               
               {/* Botón para finalizar modificación si estamos en modo edición */}
               {currentSession?.status === 'COMPLETED' && (
-                <div className="pt-1">
+                <div className="px-3 pb-3">
                   <Button
                     onClick={() => setSessionAlreadyCompleted(true)}
-                    className="w-full bg-gray-600 hover:bg-gray-700 text-white h-12 text-lg"
+                    className="w-full bg-gray-600 hover:bg-gray-700 text-white h-14 text-lg rounded-xl"
                     variant="outline"
                   >
-                    <CheckCircleIcon className="mr-2 h-5 w-5" />
+                    <CheckCircleIcon className="mr-2 h-6 w-6" />
                     Finalizar Modificación
                   </Button>
                 </div>
