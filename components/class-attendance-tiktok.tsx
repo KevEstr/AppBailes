@@ -76,21 +76,27 @@ export default function ClassAttendanceTikTok() {
     data: classesData, 
     loading: classesLoading,
     error: classesError 
-  } = useParadiseApi<{success: boolean, classes: DanceClass[]}>('/classes?active=true')
+  } = useParadiseApi<{success: boolean, classes: DanceClass[]}>('/api/classes')
 
   useEffect(() => {
+    console.log('Classes data:', classesData)
+    console.log('Loading state:', classesLoading)
+    console.log('Error state:', classesError)
+
     if (classesData?.success) {
+      console.log('Setting classes:', classesData.classes)
       setClasses(classesData.classes)
       setLoading(false)
-    }
-  }, [classesData])
-
-  useEffect(() => {
-    if (classesError) {
-      console.error("Error loading classes:", classesError)
+    } else if (classesError) {
+      console.error('Error loading classes:', classesError)
+      toast({
+        title: "Error al cargar clases",
+        description: "No se pudieron cargar las clases. Por favor, intenta de nuevo.",
+        variant: "destructive",
+      })
       setLoading(false)
     }
-  }, [classesError])
+  }, [classesData, classesError, toast])
 
   const loadTodaySession = useCallback(async () => {
     if (!selectedClass) return
@@ -246,15 +252,32 @@ export default function ClassAttendanceTikTok() {
     }
   }
 
-  if (loading) {
+  if (loading || classesLoading) {
     return (
       <div className="w-full h-full flex items-center justify-center p-4">
-        <Card className="border-0 shadow-xl rounded-2xl bg-gray-800/90 border border-gray-600">
-          <CardContent className="p-8 text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
-            <p className="text-gray-400 mt-4">Cargando clases...</p>
-          </CardContent>
-        </Card>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
+          <p className="text-gray-400 mt-4">Cargando clases...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (classesError) {
+    return (
+      <div className="w-full h-full flex items-center justify-center p-4">
+        <div className="text-center">
+          <AlertIcon className="h-12 w-12 text-red-500 mx-auto mb-4" />
+          <h3 className="text-xl font-semibold text-white mb-2">Error al cargar clases</h3>
+          <p className="text-gray-400">No se pudieron cargar las clases. Por favor, intenta de nuevo.</p>
+          <Button 
+            onClick={() => window.location.reload()} 
+            className="mt-4"
+            variant="outline"
+          >
+            Reintentar
+          </Button>
+        </div>
       </div>
     )
   }
@@ -264,43 +287,56 @@ export default function ClassAttendanceTikTok() {
   return (
     <div className="w-full h-full bg-gray-900">
       {!selectedClass ? (
-        <div className="w-full p-4 md:p-8">
-          <div className="max-w-2xl w-full mx-auto">
-            <h1 className="text-3xl md:text-4xl font-bold text-white mb-8 text-center">
-              Toma de Asistencia
-            </h1>
+        <div className="w-full p-4 md:p-6">
+          <div className="w-full max-w-5xl mx-auto">
+            <div className="flex items-center justify-between mb-6">
+              <h1 className="text-2xl md:text-3xl font-bold text-white">
+                Toma de Asistencia
+              </h1>
+              <p className="text-gray-400 text-sm md:text-base">
+                {classes.length} clases disponibles
+              </p>
+            </div>
             
-            <Card className="border-0 shadow-xl rounded-2xl bg-gray-800/90 border border-gray-600">
-              <CardContent className="p-6 md:p-8">
-                <Label className="text-xl font-semibold text-white mb-4 block">
-                  Selecciona una Clase
-                </Label>
-                
-                <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
-                  {classes.map((danceClass) => (
-                    <Button
-                      key={danceClass.id}
-                      onClick={() => setSelectedClass(danceClass.id)}
-                      className="w-full h-auto p-4 bg-gray-700/50 hover:bg-gray-700 text-left flex items-center space-x-4 rounded-xl border border-gray-600"
-                    >
-                      <div className="w-12 h-12 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flex items-center justify-center flex-shrink-0">
-                        <span className="text-white text-lg font-bold">
-                          {danceClass.name.charAt(0)}
-                        </span>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="font-semibold text-lg text-white truncate">
-                          {danceClass.name}
-                        </div>
-                        <div className="text-sm text-gray-400 truncate">
-                          Instructor: {danceClass.trainer.name}
-                        </div>
-                      </div>
-                    </Button>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
+              {classes.map((danceClass) => (
+                <Button
+                  key={danceClass.id}
+                  onClick={() => setSelectedClass(danceClass.id)}
+                  className="h-auto p-4 bg-gray-800 hover:bg-gray-700 text-left flex items-center space-x-4 rounded-xl border border-gray-700 transition-all duration-200 hover:border-gray-600 group"
+                >
+                  <div className="w-12 h-12 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center flex-shrink-0 group-hover:from-blue-500 group-hover:to-indigo-500 transition-all duration-200">
+                    <span className="text-white text-lg font-bold">
+                      {danceClass.name.charAt(0)}
+                    </span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-semibold text-lg text-white truncate">
+                      {danceClass.name}
+                    </div>
+                    <div className="text-sm text-gray-400 truncate flex items-center gap-2">
+                      <UserIcon className="h-4 w-4" />
+                      {danceClass.trainer.name}
+                    </div>
+                  </div>
+                </Button>
+              ))}
+            </div>
+
+            {(!classes || classes.length === 0) && (
+              <div className="text-center py-12">
+                <UsersIcon className="h-12 w-12 text-gray-600 mx-auto mb-4" />
+                <h3 className="text-xl font-semibold text-gray-400 mb-2">No hay clases disponibles</h3>
+                <p className="text-gray-500">No se encontraron clases activas en este momento</p>
+                <Button 
+                  onClick={() => window.location.reload()} 
+                  className="mt-4"
+                  variant="outline"
+                >
+                  Recargar
+                </Button>
+              </div>
+            )}
           </div>
         </div>
       ) : !currentSession ? (
@@ -344,15 +380,15 @@ export default function ClassAttendanceTikTok() {
           </Card>
         </div>
       ) : currentStudent ? (
-        <div className="w-full flex flex-col bg-gradient-to-b from-gray-800 to-gray-900">
+        <div className="w-full flex flex-col bg-gradient-to-b from-gray-800 to-gray-900 relative">
           {/* Header con botón de retroceso */}
-          <div className="sticky top-0 z-10 p-4 flex items-center border-b border-gray-700 bg-gray-800">
+          <div className="sticky top-0 z-20 p-4 flex items-center border-b border-gray-700 bg-gray-800/95 backdrop-blur-sm">
             <Button
               variant="ghost"
               onClick={() => setSelectedClass(null)}
               className="text-gray-400 hover:text-white"
             >
-              <ArrowLeftIcon className="h-6 w-6" />
+              <ArrowLeftIcon className="h-5 w-5" />
             </Button>
             <div className="ml-4">
               <h2 className="text-lg font-semibold text-white">
@@ -365,7 +401,7 @@ export default function ClassAttendanceTikTok() {
           </div>
 
           {/* Barra de Progreso */}
-          <div className="w-full flex space-x-1 p-2 bg-gray-800/50 sticky top-[72px] z-10">
+          <div className="w-full flex space-x-1 p-2 bg-gray-800/95 backdrop-blur-sm sticky top-[72px] z-20">
             {students.map((_, idx) => (
               <div 
                 key={idx} 
@@ -378,91 +414,94 @@ export default function ClassAttendanceTikTok() {
             ))}
           </div>
 
-          {/* Contenido del Estudiante */}
-          <div className="flex-1 w-full flex flex-col items-center p-4 md:p-6 overflow-y-auto">
-            {/* Avatar y Nombre */}
-            <div className="text-center mb-8 md:mb-12 mt-4">
-              <Avatar className="w-32 h-32 md:w-48 md:h-48 mx-auto ring-4 md:ring-8 ring-blue-500/30">
-                <AvatarImage src={currentStudent.avatar} className="object-cover" />
-                <AvatarFallback className="bg-gradient-to-r from-purple-600 to-blue-600 text-4xl md:text-5xl font-bold text-white">
-                  {currentStudent.name.split(' ').map(n => n[0]).join('').toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
-              <h2 className="mt-4 md:mt-6 text-2xl md:text-3xl font-bold text-white">{currentStudent.name}</h2>
-              {currentStudent.hasDebt && (
-                <Badge className="mt-2 md:mt-3 bg-red-500/20 text-red-400 border-red-500 text-base md:text-lg px-3 md:px-4 py-1 md:py-2">
-                  Tiene deuda pendiente
-                </Badge>
+          {/* Contenido Principal */}
+          <div className="flex-1 w-full flex flex-col items-center justify-between min-h-[calc(100vh-8rem)]">
+            {/* Contenido del Estudiante */}
+            <div className="w-full flex flex-col items-center p-4 md:p-6">
+              {/* Avatar y Nombre */}
+              <div className="text-center mb-6 md:mb-8 mt-4">
+                <Avatar className="w-28 h-28 md:w-36 md:h-36 mx-auto ring-4 ring-blue-500/30">
+                  <AvatarImage src={currentStudent.avatar} className="object-cover" />
+                  <AvatarFallback className="bg-gradient-to-r from-purple-600 to-blue-600 text-3xl md:text-4xl font-bold text-white">
+                    {currentStudent.name.split(' ').map(n => n[0]).join('').toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+                <h2 className="mt-4 text-xl md:text-2xl font-bold text-white">{currentStudent.name}</h2>
+                {currentStudent.hasDebt && (
+                  <Badge className="mt-2 bg-red-500/20 text-red-400 border-red-500 text-sm md:text-base px-3 py-1">
+                    Tiene deuda pendiente
+                  </Badge>
+                )}
+              </div>
+
+              {/* Estado Actual */}
+              {currentStudent.status && (
+                <div className="mb-6">
+                  <Badge 
+                    className={`${getStatusColor(currentStudent.status)} text-white px-4 py-2 text-base md:text-lg`}
+                  >
+                    <div className="flex items-center space-x-2">
+                      {getStatusIcon(currentStudent.status)}
+                      <span>{getStatusText(currentStudent.status)}</span>
+                    </div>
+                  </Badge>
+                </div>
               )}
             </div>
 
-            {/* Estado Actual */}
-            {currentStudent.status && (
-              <div className="mb-8 md:mb-12">
-                <Badge 
-                  className={`${getStatusColor(currentStudent.status)} text-white px-4 md:px-6 py-2 md:py-3 text-lg md:text-xl`}
+            {/* Botones de Acción */}
+            <div className="w-full p-4 space-y-2 bg-gray-800/95 backdrop-blur-sm border-t border-gray-700">
+              <div className="grid grid-cols-2 gap-2 max-w-2xl mx-auto">
+                <Button
+                  onClick={() => handleAttendanceAndNext(currentStudent.id, 'present')}
+                  className={`h-12 md:h-14 rounded-xl text-base md:text-lg font-medium transition-all duration-300 ${
+                    currentStudent.status === 'present' 
+                      ? 'bg-green-600 hover:bg-green-700 text-white shadow-lg shadow-green-600/20' 
+                      : 'bg-green-600/10 hover:bg-green-600/20 text-green-500 hover:text-green-400'
+                  }`}
                 >
-                  <div className="flex items-center space-x-3">
-                    {getStatusIcon(currentStudent.status)}
-                    <span>{getStatusText(currentStudent.status)}</span>
-                  </div>
-                </Badge>
+                  <Check className="h-5 w-5 md:h-6 md:w-6 mr-2" />
+                  Presente
+                </Button>
+                
+                <Button
+                  onClick={() => handleAttendanceAndNext(currentStudent.id, 'absent')}
+                  className={`h-12 md:h-14 rounded-xl text-base md:text-lg font-medium transition-all duration-300 ${
+                    currentStudent.status === 'absent' 
+                      ? 'bg-red-600 hover:bg-red-700 text-white shadow-lg shadow-red-600/20' 
+                      : 'bg-red-600/10 hover:bg-red-600/20 text-red-500 hover:text-red-400'
+                  }`}
+                >
+                  <X className="h-5 w-5 md:h-6 md:w-6 mr-2" />
+                  Ausente
+                </Button>
               </div>
-            )}
-          </div>
-
-          {/* Botones de Acción */}
-          <div className="w-full p-4 md:p-6 space-y-3 md:space-y-4 bg-gray-800/50 border-t border-gray-700 sticky bottom-0">
-            <div className="grid grid-cols-2 gap-3 md:gap-4">
-              <Button
-                onClick={() => handleAttendanceAndNext(currentStudent.id, 'present')}
-                className={`h-16 md:h-20 rounded-xl md:rounded-2xl text-lg md:text-xl font-medium transition-all duration-300 ${
-                  currentStudent.status === 'present' 
-                    ? 'bg-green-500 hover:bg-green-600 text-white' 
-                    : 'bg-green-500/20 hover:bg-green-500/30 text-green-400'
-                }`}
-              >
-                <Check className="h-6 w-6 md:h-8 md:w-8 mr-2 md:mr-3" />
-                Presente
-              </Button>
               
-              <Button
-                onClick={() => handleAttendanceAndNext(currentStudent.id, 'absent')}
-                className={`h-16 md:h-20 rounded-xl md:rounded-2xl text-lg md:text-xl font-medium transition-all duration-300 ${
-                  currentStudent.status === 'absent' 
-                    ? 'bg-red-500 hover:bg-red-600 text-white' 
-                    : 'bg-red-500/20 hover:bg-red-500/30 text-red-400'
-                }`}
-              >
-                <X className="h-6 w-6 md:h-8 md:w-8 mr-2 md:mr-3" />
-                Ausente
-              </Button>
-            </div>
-            
-            <div className="grid grid-cols-2 gap-3 md:gap-4">
-              <Button
-                onClick={() => handleAttendanceAndNext(currentStudent.id, 'late')}
-                className={`h-16 md:h-20 rounded-xl md:rounded-2xl text-lg md:text-xl font-medium transition-all duration-300 ${
-                  currentStudent.status === 'late' 
-                    ? 'bg-yellow-500 hover:bg-yellow-600 text-white' 
-                    : 'bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-400'
-                }`}
-              >
-                <ClockIcon className="h-6 w-6 md:h-8 md:w-8 mr-2 md:mr-3" />
-                Tarde
-              </Button>
-              
-              <Button
-                onClick={() => handleAttendanceAndNext(currentStudent.id, 'change_request')}
-                className={`h-16 md:h-20 rounded-xl md:rounded-2xl text-lg md:text-xl font-medium transition-all duration-300 ${
-                  currentStudent.status === 'change_request' 
-                    ? 'bg-blue-500 hover:bg-blue-600 text-white' 
-                    : 'bg-blue-500/20 hover:bg-blue-500/30 text-blue-400'
-                }`}
-              >
-                <AlertIcon className="h-6 w-6 md:h-8 md:w-8 mr-2 md:mr-3" />
-                Cambio
-              </Button>
+              <div className="grid grid-cols-2 gap-2 max-w-2xl mx-auto">
+                <Button
+                  onClick={() => handleAttendanceAndNext(currentStudent.id, 'late')}
+                  className={`h-12 md:h-14 rounded-xl text-base md:text-lg font-medium transition-all duration-300 ${
+                    currentStudent.status === 'late' 
+                      ? 'bg-yellow-600 hover:bg-yellow-700 text-white shadow-lg shadow-yellow-600/20' 
+                      : 'bg-yellow-600/10 hover:bg-yellow-600/20 text-yellow-500 hover:text-yellow-400'
+                  }`}
+                >
+                  <ClockIcon className="h-5 w-5 md:h-6 md:w-6 mr-2" />
+                  Tarde
+                </Button>
+                
+                <Button
+                  onClick={() => handleAttendanceAndNext(currentStudent.id, 'change_request')}
+                  className={`h-12 md:h-14 rounded-xl text-base md:text-lg font-medium transition-all duration-300 ${
+                    currentStudent.status === 'change_request' 
+                      ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-600/20' 
+                      : 'bg-blue-600/10 hover:bg-blue-600/20 text-blue-500 hover:text-blue-400'
+                  }`}
+                >
+                  <AlertIcon className="h-5 w-5 md:h-6 md:w-6 mr-2" />
+                  Cambio
+                </Button>
+              </div>
             </div>
           </div>
         </div>
