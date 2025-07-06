@@ -1080,30 +1080,30 @@ export default function ClassAttendanceTikTok() {
           {/* Contenido Principal */}
           <div className="flex-1 w-full flex flex-col items-center justify-between min-h-[calc(100vh-8rem)] max-w-2xl mx-auto">
             {/* Contenido del Estudiante */}
-            <div className="w-full flex flex-col items-center pb-2 mt-8 md:mt-12">
+            <div className="w-full flex flex-col items-center pb-2 mt-12 md:mt-16">
               {/* Avatar y Nombre */}
               <div className="text-center relative w-full">
                 <div className="relative inline-block">
-                  <Avatar className="w-40 h-40 md:w-48 md:h-48 mx-auto ring-4 ring-blue-500/30">
+                  <Avatar className="w-44 h-44 md:w-52 md:h-52 mx-auto ring-4 ring-blue-500/30">
                     <AvatarImage src={currentStudent.avatar} className="object-cover" />
-                    <AvatarFallback className="bg-gradient-to-r from-purple-600 to-blue-600 text-6xl md:text-7xl font-bold text-white">
+                    <AvatarFallback className="bg-gradient-to-r from-purple-600 to-blue-600 text-7xl md:text-8xl font-bold text-white">
                       {currentStudent.name.split(' ').map(n => n[0]).join('').toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
                   {currentStudent.hasDebt && (
                     <div className="absolute -top-2 -right-2 animate-pulse">
                       <div className="bg-red-500 text-white rounded-full p-2 shadow-lg shadow-red-500/30">
-                        <AlertCircle className="h-6 w-6" />
+                        <AlertCircle className="h-7 w-7" />
                       </div>
                     </div>
                   )}
                 </div>
                 
-                <div className="mt-3 space-y-1.5">
-                  <h2 className="text-2xl md:text-3xl font-bold text-white leading-tight">{currentStudent.name}</h2>
+                <div className="mt-4 space-y-2">
+                  <h2 className="text-3xl md:text-4xl font-bold text-white leading-tight">{currentStudent.name}</h2>
                   {currentStudent.hasDebt && (
-                    <p className="text-red-400 text-sm md:text-base flex items-center justify-center gap-1.5">
-                      <AlertCircle className="h-4 w-4" />
+                    <p className="text-red-400 text-base md:text-lg flex items-center justify-center gap-1.5">
+                      <AlertCircle className="h-5 w-5" />
                       Tiene pagos pendientes
                     </p>
                   )}
