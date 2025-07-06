@@ -18,7 +18,8 @@ import {
   CheckCircle as CheckCircleIcon,
   History as HistoryIcon,
   Eye as EyeIcon,
-  RefreshCw as RefreshIcon
+  RefreshCw as RefreshIcon,
+  AlertCircle as AlertCircleIcon
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { Select, SelectItem, SelectValue, SelectTrigger, SelectContent } from '@/components/ui/select'
@@ -1077,103 +1078,122 @@ export default function ClassAttendanceTikTok() {
           </div>
 
           {/* Contenido Principal */}
-          <div className="flex-1 w-full flex flex-col items-center justify-between min-h-[calc(100vh-8rem)] max-w-2xl mx-auto">
-            {/* Contenido del Estudiante */}
-            <div className="w-full flex flex-col items-center p-4 md:p-6 pb-0">
-              {/* Avatar y Nombre */}
-              <div className="text-center mb-4">
-                <Avatar className="w-32 h-32 md:w-40 md:h-40 mx-auto ring-4 ring-blue-500/30">
-                  <AvatarImage src={currentStudent.avatar} className="object-cover" />
-                  <AvatarFallback className="bg-gradient-to-r from-purple-600 to-blue-600 text-4xl md:text-5xl font-bold text-white">
-                    {currentStudent.name.split(' ').map(n => n[0]).join('').toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
-                <h2 className="mt-3 text-xl md:text-2xl font-bold text-white">{currentStudent.name}</h2>
-                {currentStudent.hasDebt && (
-                  <Badge className="mt-2 bg-red-500/20 text-red-400 border-red-500 text-sm md:text-base px-3 py-1">
-                    Tiene deuda pendiente
-                  </Badge>
-                )}
-                {currentStudent.status && (
-                  <Badge 
-                    className={`mt-2 ${getStatusColor(currentStudent.status)} text-white px-3 py-1 text-sm md:text-base`}
-                  >
-                    <div className="flex items-center space-x-2">
-                      {getStatusIcon(currentStudent.status)}
-                      <span>{getStatusText(currentStudent.status)}</span>
-                    </div>
-                  </Badge>
-                )}
-              </div>
+          <div className="flex-1 w-full flex flex-col h-[calc(100vh-8rem)] max-w-2xl mx-auto">
+            {/* Barra de progreso */}
+            <div className="w-full flex space-x-1 p-2 bg-gray-800/95 backdrop-blur-sm sticky top-[72px] z-20">
+              {students.map((_, idx) => (
+                <div 
+                  key={idx} 
+                  className={`h-1 flex-1 rounded-full ${
+                    idx < currentStudentIndex ? 'bg-blue-500' : 
+                    idx === currentStudentIndex ? 'bg-blue-500/50' : 
+                    'bg-gray-700'
+                  }`}
+                ></div>
+              ))}
             </div>
 
-            {/* Botones de Acción */}
-            <div className="w-full p-4 space-y-2 bg-gray-800/95 backdrop-blur-sm border-t border-gray-700">
-              <div className="grid grid-cols-2 gap-2">
-                <Button
-                  onClick={() => handleAttendanceAndNext(currentStudent.id, 'present')}
-                  className={`h-14 md:h-16 rounded-xl text-base md:text-lg font-medium transition-all duration-300 ${
-                    currentStudent.status === 'present' 
-                      ? 'bg-green-600 hover:bg-green-700 text-white shadow-lg shadow-green-600/20' 
-                      : 'bg-green-600/10 hover:bg-green-600/20 text-green-500 hover:text-green-400'
-                  }`}
-                >
-                  <Check className="h-6 w-6 md:h-7 md:w-7 mr-2" />
-                  Presente
-                </Button>
+            {/* Contenedor flexible para el contenido principal */}
+            <div className="flex-1 flex flex-col justify-between overflow-hidden">
+              {/* Sección superior con avatar y nombre */}
+              <div className="w-full flex flex-col items-center px-4 pt-4 pb-2">
+                <div className="relative w-24 h-24 md:w-32 md:h-32">
+                  <Avatar className="w-full h-full ring-4 ring-blue-500/30">
+                    <AvatarImage src={currentStudent.avatar} className="object-cover" />
+                    <AvatarFallback className="bg-gradient-to-r from-purple-600 to-blue-600 text-3xl md:text-4xl font-bold text-white">
+                      {currentStudent.name.split(' ').map(n => n[0]).join('').toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  {currentStudent.hasDebt && (
+                    <Badge className="absolute -top-2 -right-2 bg-red-500 text-white border-0">
+                      <AlertCircleIcon className="h-3 w-3" />
+                    </Badge>
+                  )}
+                </div>
                 
-                <Button
-                  onClick={() => handleAttendanceAndNext(currentStudent.id, 'absent')}
-                  className={`h-14 md:h-16 rounded-xl text-base md:text-lg font-medium transition-all duration-300 ${
-                    currentStudent.status === 'absent' 
-                      ? 'bg-red-600 hover:bg-red-700 text-white shadow-lg shadow-red-600/20' 
-                      : 'bg-red-600/10 hover:bg-red-600/20 text-red-500 hover:text-red-400'
-                  }`}
-                >
-                  <X className="h-6 w-6 md:h-7 md:w-7 mr-2" />
-                  Ausente
-                </Button>
+                <div className="text-center mt-2 space-y-1">
+                  <h2 className="text-lg md:text-xl font-bold text-white leading-tight">{currentStudent.name}</h2>
+                  {currentStudent.status && (
+                    <Badge 
+                      className={`${getStatusColor(currentStudent.status)} text-white px-2 py-0.5 text-sm`}
+                    >
+                      <div className="flex items-center space-x-1">
+                        {getStatusIcon(currentStudent.status)}
+                        <span>{getStatusText(currentStudent.status)}</span>
+                      </div>
+                    </Badge>
+                  )}
+                </div>
               </div>
-                  
-              <div className="grid grid-cols-2 gap-2">
-                <Button
-                  onClick={() => handleAttendanceAndNext(currentStudent.id, 'late')}
-                  className={`h-14 md:h-16 rounded-xl text-base md:text-lg font-medium transition-all duration-300 ${
-                    currentStudent.status === 'late' 
-                      ? 'bg-yellow-600 hover:bg-yellow-700 text-white shadow-lg shadow-yellow-600/20' 
-                      : 'bg-yellow-600/10 hover:bg-yellow-600/20 text-yellow-500 hover:text-yellow-400'
-                  }`}
-                >
-                  <ClockIcon className="h-6 w-6 md:h-7 md:w-7 mr-2" />
-                  Tarde
-                </Button>
-                
-                <Button
-                  onClick={() => handleAttendanceAndNext(currentStudent.id, 'change_request')}
-                  className={`h-14 md:h-16 rounded-xl text-base md:text-lg font-medium transition-all duration-300 ${
-                    currentStudent.status === 'change_request' 
-                      ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-600/20' 
-                      : 'bg-blue-600/10 hover:bg-blue-600/20 text-blue-500 hover:text-blue-400'
-                  }`}
-                >
-                  <AlertIcon className="h-6 w-6 md:h-7 md:w-7 mr-2" />
-                  Cambio
-                </Button>
-              </div>
-                
-              {/* Botón para finalizar modificación si estamos en modo edición */}
-              {currentSession?.status === 'COMPLETED' && (
-                <div className="pt-2">
+
+              {/* Botones de Acción */}
+              <div className="w-full p-3 space-y-2 bg-gray-800/95 backdrop-blur-sm border-t border-gray-700">
+                <div className="grid grid-cols-2 gap-2">
                   <Button
-                    onClick={() => setSessionAlreadyCompleted(true)}
-                    className="w-full bg-gray-600 hover:bg-gray-700 text-white"
-                    variant="outline"
+                    onClick={() => handleAttendanceAndNext(currentStudent.id, 'present')}
+                    className={`h-12 md:h-14 rounded-xl text-base font-medium transition-all duration-300 ${
+                      currentStudent.status === 'present' 
+                        ? 'bg-green-600 hover:bg-green-700 text-white shadow-lg shadow-green-600/20' 
+                        : 'bg-green-600/10 hover:bg-green-600/20 text-green-500 hover:text-green-400'
+                    }`}
                   >
-                    <CheckCircleIcon className="mr-2 h-4 w-4" />
-                    Finalizar Modificación
+                    <Check className="h-5 w-5 md:h-6 md:w-6 mr-1.5" />
+                    Presente
+                  </Button>
+                  
+                  <Button
+                    onClick={() => handleAttendanceAndNext(currentStudent.id, 'absent')}
+                    className={`h-12 md:h-14 rounded-xl text-base font-medium transition-all duration-300 ${
+                      currentStudent.status === 'absent' 
+                        ? 'bg-red-600 hover:bg-red-700 text-white shadow-lg shadow-red-600/20' 
+                        : 'bg-red-600/10 hover:bg-red-600/20 text-red-500 hover:text-red-400'
+                    }`}
+                  >
+                    <X className="h-5 w-5 md:h-6 md:w-6 mr-1.5" />
+                    Ausente
                   </Button>
                 </div>
-              )}
+                    
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    onClick={() => handleAttendanceAndNext(currentStudent.id, 'late')}
+                    className={`h-12 md:h-14 rounded-xl text-base font-medium transition-all duration-300 ${
+                      currentStudent.status === 'late' 
+                        ? 'bg-yellow-600 hover:bg-yellow-700 text-white shadow-lg shadow-yellow-600/20' 
+                        : 'bg-yellow-600/10 hover:bg-yellow-600/20 text-yellow-500 hover:text-yellow-400'
+                    }`}
+                  >
+                    <ClockIcon className="h-5 w-5 md:h-6 md:w-6 mr-1.5" />
+                    Tarde
+                  </Button>
+                  
+                  <Button
+                    onClick={() => handleAttendanceAndNext(currentStudent.id, 'change_request')}
+                    className={`h-12 md:h-14 rounded-xl text-base font-medium transition-all duration-300 ${
+                      currentStudent.status === 'change_request' 
+                        ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-600/20' 
+                        : 'bg-blue-600/10 hover:bg-blue-600/20 text-blue-500 hover:text-blue-400'
+                    }`}
+                  >
+                    <AlertIcon className="h-5 w-5 md:h-6 md:w-6 mr-1.5" />
+                    Cambio
+                  </Button>
+                </div>
+                
+                {/* Botón para finalizar modificación si estamos en modo edición */}
+                {currentSession?.status === 'COMPLETED' && (
+                  <div className="pt-1">
+                    <Button
+                      onClick={() => setSessionAlreadyCompleted(true)}
+                      className="w-full bg-gray-600 hover:bg-gray-700 text-white h-10"
+                      variant="outline"
+                    >
+                      <CheckCircleIcon className="mr-1.5 h-4 w-4" />
+                      Finalizar Modificación
+                    </Button>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
