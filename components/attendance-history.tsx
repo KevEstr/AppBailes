@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts"
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from "recharts"
 import { TrendingUp, Calendar, CheckCircle, Clock, XCircle, BarChart3 } from "lucide-react"
 
 interface AttendanceData {
@@ -180,7 +180,9 @@ export function AttendanceHistory() {
                   innerRadius={60}
                   outerRadius={120}
                   dataKey="value"
-                  label={({ name, value }) => `${name}: ${value}`}
+                  labelLine={true}
+                  label={({ name, value, percent }) => `${name}: ${value} (${(percent * 100).toFixed(1)}%)`}
+                  paddingAngle={2}
                 >
                   {pieData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.color} />
@@ -188,11 +190,21 @@ export function AttendanceHistory() {
                 </Pie>
                 <Tooltip
                   contentStyle={{
-                    backgroundColor: "#44403c",
-                    border: "none",
-                    borderRadius: "16px",
+                    backgroundColor: "#1f2937",
+                    border: "1px solid #374151",
+                    borderRadius: "0.75rem",
+                    padding: "0.75rem",
                     color: "white",
+                    boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1)"
                   }}
+                  formatter={(value, name) => [`${value} estudiantes`, name]}
+                />
+                <Legend
+                  verticalAlign="bottom"
+                  height={36}
+                  formatter={(value, entry) => (
+                    <span style={{ color: "white", marginLeft: "0.5rem" }}>{value}</span>
+                  )}
                 />
               </PieChart>
             </ResponsiveContainer>
