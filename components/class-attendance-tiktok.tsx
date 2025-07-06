@@ -13,11 +13,14 @@ import {
   AlertTriangle as AlertIcon,
   User as UserIcon,
   Users as UsersIcon,
-  ArrowLeft as ArrowLeftIcon
+  ArrowLeft as ArrowLeftIcon,
+  Calendar as CalendarIcon,
+  CheckCircle as CheckCircleIcon
 } from 'lucide-react'
 import { useParadiseApi } from '@/hooks/use-paradise-api'
 import { useToast } from '@/hooks/use-toast'
 import { Select, SelectItem, SelectValue, SelectTrigger, SelectContent } from '@/components/ui/select'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 
 interface Student {
   id: number
@@ -67,24 +70,28 @@ export default function ClassAttendanceTikTok() {
   const { toast } = useToast()
   const [classes, setClasses] = useState<DanceClass[]>([])
   const [selectedClass, setSelectedClass] = useState<number | null>(null)
+  const [showConfirmation, setShowConfirmation] = useState(false)
   const [currentSession, setCurrentSession] = useState<ClassSession | null>(null)
   const [students, setStudents] = useState<Student[]>([])
   const [loading, setLoading] = useState(true)
   const [currentStudentIndex, setCurrentStudentIndex] = useState(0)
+  const [showSummary, setShowSummary] = useState(false)
+  const [attendanceSummary, setAttendanceSummary] = useState({
+    present: 0,
+    absent: 0,
+    late: 0,
+    change_request: 0,
+    total: 0
+  })
 
   const { 
     data: classesData, 
     loading: classesLoading,
     error: classesError 
-  } = useParadiseApi<{success: boolean, classes: DanceClass[]}>('/api/classes')
+  } = useParadiseApi<{success: boolean, classes: DanceClass[]}>('classes?active=true')
 
   useEffect(() => {
-    console.log('Classes data:', classesData)
-    console.log('Loading state:', classesLoading)
-    console.log('Error state:', classesError)
-
     if (classesData?.success) {
-      console.log('Setting classes:', classesData.classes)
       setClasses(classesData.classes)
       setLoading(false)
     } else if (classesError) {
@@ -208,18 +215,63 @@ export default function ClassAttendanceTikTok() {
     }
   }, [currentSession, students, toast])
 
+  const handleClassSelection = (classId: number) => {
+    setSelectedClass(classId)
+    setShowConfirmation(true)
+  }
+
+  const confirmStartAttendance = async () => {
+    setShowConfirmation(false)
+    await loadTodaySession()
+  }
+
+  const cancelClassSelection = () => {
+    setSelectedClass(null)
+    setShowConfirmation(false)
+  }
+
   const handleAttendanceAndNext = async (studentId: number, status: string) => {
     await markAttendance(studentId, status)
     if (currentStudentIndex < students.length - 1) {
       setCurrentStudentIndex(prev => prev + 1)
     } else {
-      setSelectedClass(null)
-      setCurrentStudentIndex(0)
-      toast({
-        title: "✅ Completado",
-        description: "Has terminado de tomar asistencia",
-      })
+      // Calcular resumen
+      const summary = students.reduce((acc, student) => {
+        if (student.status === 'present') acc.present++
+        else if (student.status === 'absent') acc.absent++
+        else if (student.status === 'late') acc.late++
+        else if (student.status === 'change_request') acc.change_request++
+        return acc
+      }, { present: 0, absent: 0, late: 0, change_request: 0, total: students.length })
+      
+      setAttendanceSummary(summary)
+      setShowSummary(true)
     }
+  }
+
+  const finishAttendance = () => {
+    setShowSummary(false)
+    setSelectedClass(null)
+    setCurrentStudentIndex(0)
+    setCurrentSession(null)
+    setStudents([])
+    toast({
+      title: "✅ Asistencia completada",
+      description: "La asistencia ha sido registrada exitosamente",
+    })
+  }
+
+  const getDayName = (date: Date) => {
+    const days = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado']
+    return days[date.getDay()]
+  }
+
+  const formatTime = (time: string) => {
+    return new Date(`2000-01-01T${time}`).toLocaleTimeString('es-ES', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    })
   }
 
   const getStatusColor = (status: string) => {
@@ -282,10 +334,111 @@ export default function ClassAttendanceTikTok() {
     )
   }
 
+  const selectedClassData = classes.find(c => c.id === selectedClass)
   const currentStudent = students[currentStudentIndex]
+  const today = new Date()
 
   return (
     <div className="w-full h-full bg-gray-900">
+      {/* Confirmation Dialog */}
+      <Dialog open={showConfirmation} onOpenChange={setShowConfirmation}>
+        <DialogContent className="bg-gray-800 border-gray-700 text-white max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold flex items-center gap-2">
+              <CalendarIcon className="h-6 w-6 text-blue-500" />
+              Confirmar Asistencia
+            </DialogTitle>
+          </DialogHeader>
+          
+          {selectedClassData && (
+            <div className="space-y-4 py-4">
+              <div className="text-center">
+                <div className="w-16 h-16 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <span className="text-white text-2xl font-bold">
+                    {selectedClassData.name.charAt(0)}
+                  </span>
+                </div>
+                <h3 className="text-lg font-semibold">{selectedClassData.name}</h3>
+                <p className="text-gray-400">Instructor: {selectedClassData.trainer.name}</p>
+              </div>
+              
+              <div className="bg-gray-700/50 rounded-lg p-4 space-y-2">
+                <div className="flex items-center gap-2">
+                  <CalendarIcon className="h-4 w-4 text-blue-400" />
+                  <span className="text-sm">Fecha: {getDayName(today)}, {today.toLocaleDateString('es-ES')}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <UsersIcon className="h-4 w-4 text-green-400" />
+                  <span className="text-sm">Estudiantes inscritos: {selectedClassData.enrollments.length}</span>
+                </div>
+              </div>
+              
+              <p className="text-center text-gray-300">
+                ¿Estás seguro de que quieres tomar la asistencia de esta clase?
+              </p>
+            </div>
+          )}
+          
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={cancelClassSelection}>
+              Cancelar
+            </Button>
+            <Button onClick={confirmStartAttendance} className="bg-blue-600 hover:bg-blue-700">
+              Comenzar Asistencia
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Summary Dialog */}
+      <Dialog open={showSummary} onOpenChange={setShowSummary}>
+        <DialogContent className="bg-gray-800 border-gray-700 text-white max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold flex items-center gap-2">
+              <CheckCircleIcon className="h-6 w-6 text-green-500" />
+              Resumen de Asistencia
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="text-center">
+              <h3 className="text-lg font-semibold mb-2">{currentSession?.danceClass.name}</h3>
+              <p className="text-gray-400">{getDayName(today)}, {today.toLocaleDateString('es-ES')}</p>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-green-500/20 rounded-lg p-3 text-center">
+                <div className="text-2xl font-bold text-green-400">{attendanceSummary.present}</div>
+                <div className="text-sm text-green-300">Presentes</div>
+              </div>
+              <div className="bg-red-500/20 rounded-lg p-3 text-center">
+                <div className="text-2xl font-bold text-red-400">{attendanceSummary.absent}</div>
+                <div className="text-sm text-red-300">Ausentes</div>
+              </div>
+              <div className="bg-yellow-500/20 rounded-lg p-3 text-center">
+                <div className="text-2xl font-bold text-yellow-400">{attendanceSummary.late}</div>
+                <div className="text-sm text-yellow-300">Tardanzas</div>
+              </div>
+              <div className="bg-blue-500/20 rounded-lg p-3 text-center">
+                <div className="text-2xl font-bold text-blue-400">{attendanceSummary.change_request}</div>
+                <div className="text-sm text-blue-300">Cambios</div>
+              </div>
+            </div>
+            
+            <div className="bg-gray-700/50 rounded-lg p-4 text-center">
+              <div className="text-lg font-semibold">Total de estudiantes</div>
+              <div className="text-2xl font-bold text-blue-400">{attendanceSummary.total}</div>
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button onClick={finishAttendance} className="w-full bg-green-600 hover:bg-green-700">
+              Finalizar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {!selectedClass ? (
         <div className="w-full p-4 md:p-6">
           <div className="w-full max-w-5xl mx-auto">
@@ -302,7 +455,7 @@ export default function ClassAttendanceTikTok() {
               {classes.map((danceClass) => (
                 <Button
                   key={danceClass.id}
-                  onClick={() => setSelectedClass(danceClass.id)}
+                  onClick={() => handleClassSelection(danceClass.id)}
                   className="h-auto p-4 bg-gray-800 hover:bg-gray-700 text-left flex items-center space-x-4 rounded-xl border border-gray-700 transition-all duration-200 hover:border-gray-600 group"
                 >
                   <div className="w-12 h-12 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center flex-shrink-0 group-hover:from-blue-500 group-hover:to-indigo-500 transition-all duration-200">
