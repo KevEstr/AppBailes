@@ -422,6 +422,41 @@ export async function PUT(request: NextRequest) {
       }
     })
 
+    // Si se actualizaron los horarios, regenerar las sesiones
+    if (validatedData.schedules) {
+      try {
+        // Primero eliminar las sesiones futuras existentes
+        const today = new Date()
+        today.setHours(0, 0, 0, 0)
+        
+        await prisma.classSession.deleteMany({
+          where: {
+            classId: classId,
+            date: {
+              gte: today
+            },
+            // No eliminar sesiones que ya tienen asistencia
+            attendances: {
+              none: {}
+            }
+          }
+        })
+
+        // Luego generar nuevas sesiones
+        const sessionService = new ClassSessionService(prisma)
+        const sessionResult = await sessionService.generateSessionsForClass({
+          classId: classId,
+          schedules: validatedData.schedules,
+          startDate: today,
+          weeksToGenerate: 8
+        })
+        
+        console.log(`✅ Sesiones regeneradas automáticamente: ${sessionResult.totalSessions}`)
+      } catch (sessionError) {
+        console.error('⚠️ Error regenerando sesiones (la clase se actualizó exitosamente):', sessionError)
+      }
+    }
+
     return NextResponse.json({ success: true, class: updatedClass })
   } catch (error) {
     if (error instanceof z.ZodError) {

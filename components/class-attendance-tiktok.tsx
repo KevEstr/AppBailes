@@ -15,12 +15,15 @@ import {
   Users as UsersIcon,
   ArrowLeft as ArrowLeftIcon,
   Calendar as CalendarIcon,
-  CheckCircle as CheckCircleIcon
+  CheckCircle as CheckCircleIcon,
+  History as HistoryIcon,
+  Eye as EyeIcon,
+  RefreshCw as RefreshIcon
 } from 'lucide-react'
-import { useParadiseApi } from '@/hooks/use-paradise-api'
 import { useToast } from '@/hooks/use-toast'
 import { Select, SelectItem, SelectValue, SelectTrigger, SelectContent } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 interface Student {
   id: number
@@ -28,6 +31,14 @@ interface Student {
   avatar: string
   hasDebt: boolean
   status?: "present" | "late" | "absent" | "change_request"
+}
+
+interface ClassSchedule {
+  id: number
+  dayOfWeek: number
+  startTime: string
+  endTime: string
+  isActive: boolean
 }
 
 interface DanceClass {
@@ -38,6 +49,7 @@ interface DanceClass {
     id: number
     name: string
   }
+  schedules: ClassSchedule[]
   enrollments: {
     student: {
       id: number
@@ -53,7 +65,7 @@ interface ClassSession {
   date: string
   startTime: string
   endTime: string
-  status: string
+  status: 'SCHEDULED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED'
   danceClass: DanceClass
   attendances: {
     id: number
@@ -64,6 +76,20 @@ interface ClassSession {
       avatar: string
     }
   }[]
+  _count: {
+    attendances: number
+  }
+}
+
+interface AttendanceHistory {
+  sessionId: number
+  date: string
+  status: string
+  present: number
+  absent: number
+  late: number
+  change_request: number
+  total: number
 }
 
 export default function ClassAttendanceTikTok() {
@@ -76,6 +102,10 @@ export default function ClassAttendanceTikTok() {
   const [loading, setLoading] = useState(true)
   const [currentStudentIndex, setCurrentStudentIndex] = useState(0)
   const [showSummary, setShowSummary] = useState(false)
+  const [showHistory, setShowHistory] = useState(false)
+  const [attendanceHistory, setAttendanceHistory] = useState<AttendanceHistory[]>([])
+  const [sessionAlreadyCompleted, setSessionAlreadyCompleted] = useState(false)
+  const [canRetakeAttendance, setCanRetakeAttendance] = useState(false)
   const [attendanceSummary, setAttendanceSummary] = useState({
     present: 0,
     absent: 0,
@@ -84,43 +114,243 @@ export default function ClassAttendanceTikTok() {
     total: 0
   })
 
-  const { 
-    data: classesData, 
-    loading: classesLoading,
-    error: classesError 
-  } = useParadiseApi<{success: boolean, classes: DanceClass[]}>('classes?active=true')
+  // Función para verificar si una clase está activa en este momento
+  const isClassActiveNow = useCallback((schedules: ClassSchedule[]) => {
+    const now = new Date()
+    const currentDay = now.getDay() // 0 = Domingo, 1 = Lunes, etc.
+    const currentTime = now.getHours() * 60 + now.getMinutes() // Minutos desde medianoche
+    
+    // console.log('🕐 DEBUG - Verificando horarios:', {
+    //   currentDay,
+    //   currentTime,
+    //   currentHour: now.getHours(),
+    //   currentMinute: now.getMinutes(),
+    //   schedules: schedules.map(s => ({
+    //     dayOfWeek: s.dayOfWeek,
+    //     startTime: s.startTime,
+    //     endTime: s.endTime,
+    //     isActive: s.isActive
+    //   }))
+    // })
+    
+    return schedules.some(schedule => {
+      if (schedule.dayOfWeek !== currentDay || !schedule.isActive) {
+        // console.log('❌ Horario descartado:', {
+        //   reason: schedule.dayOfWeek !== currentDay ? 'Día diferente' : 'No activo',
+        //   scheduleDayOfWeek: schedule.dayOfWeek,
+        //   currentDay,
+        //   isActive: schedule.isActive
+        // })
+        return false
+      }
+      
+      const [startHour, startMinute] = schedule.startTime.split(':').map(Number)
+      const [endHour, endMinute] = schedule.endTime.split(':').map(Number)
+      
+      const startTime = startHour * 60 + startMinute
+      const endTime = endHour * 60 + endMinute
+      
+      // Manejar horarios que cruzan medianoche (ej: 23:00 - 01:00)
+      let isActive = false
+      if (endTime < startTime) {
+        // Horario cruza medianoche
+        isActive = currentTime >= startTime || currentTime <= endTime
+      } else {
+        // Horario normal
+        isActive = currentTime >= startTime && currentTime <= endTime
+      }
+      
+      // console.log('⏰ Verificando horario:', {
+      //   startTime: schedule.startTime,
+      //   endTime: schedule.endTime,
+      //   startTimeMinutes: startTime,
+      //   endTimeMinutes: endTime,
+      //   currentTime,
+      //   crossesMidnight: endTime < startTime,
+      //   isActive
+      // })
+      
+      return isActive
+    })
+  }, [])
 
-  useEffect(() => {
-    if (classesData?.success) {
-      setClasses(classesData.classes)
-      setLoading(false)
-    } else if (classesError) {
-      console.error('Error loading classes:', classesError)
+  // Función para verificar si se puede retomar asistencia
+  const canRetakeAttendanceNow = useCallback((session: ClassSession) => {
+    if (!session || session.status === 'CANCELLED') return false
+    
+    const now = new Date()
+    
+    // Buscar el horario de la clase para obtener la hora de finalización real
+    const classSchedules = session.danceClass.schedules
+    const currentDay = now.getDay()
+    
+    const todaySchedule = classSchedules.find(schedule => 
+      schedule.dayOfWeek === currentDay && schedule.isActive
+    )
+    
+    if (!todaySchedule) return false
+    
+    // Crear la fecha de finalización basada en el horario de la clase
+    const today = new Date()
+    const [endHour, endMinute] = todaySchedule.endTime.split(':').map(Number)
+    
+    const classEndTime = new Date(today)
+    classEndTime.setHours(endHour, endMinute, 0, 0)
+    
+    // Si la clase cruza medianoche (ej: 23:00 - 01:00), ajustar la fecha
+    const [startHour] = todaySchedule.startTime.split(':').map(Number)
+    if (endHour < startHour) {
+      classEndTime.setDate(classEndTime.getDate() + 1)
+    }
+    
+    // console.log('🔄 DEBUG - Verificando retoma de asistencia:', {
+    //   now: now.toLocaleTimeString(),
+    //   classEndTime: classEndTime.toLocaleTimeString(),
+    //   canRetake: now <= classEndTime,
+    //   sessionStatus: session.status,
+    //   todaySchedule
+    // })
+    
+    // Permitir retomar asistencia si la clase aún no ha terminado
+    return now <= classEndTime
+  }, [])
+
+  // Cargar clases activas en este momento
+  const loadActiveClasses = useCallback(async () => {
+    try {
+      setLoading(true)
+      const response = await fetch('/api/classes?active=true')
+      const data = await response.json()
+      
+      // console.log('📡 DEBUG - Respuesta del API:', data)
+      
+      if (data.success) {
+        // console.log('📚 DEBUG - Clases recibidas:', data.classes.length)
+        // data.classes.forEach((danceClass: DanceClass, index: number) => {
+        //   console.log(`📖 Clase ${index + 1}:`, {
+        //     id: danceClass.id,
+        //     name: danceClass.name,
+        //     schedules: danceClass.schedules
+        //   })
+        // })
+        
+        // Filtrar solo las clases que están activas en este momento
+        const activeClasses = data.classes.filter((danceClass: DanceClass) => {
+          const isActive = isClassActiveNow(danceClass.schedules)
+          // console.log(`🔍 Clase "${danceClass.name}" es activa:`, isActive)
+          return isActive
+        })
+        
+        // console.log('✅ DEBUG - Clases activas encontradas:', activeClasses.length)
+        setClasses(activeClasses)
+      } else {
+        // console.error('❌ Error en respuesta del API:', data)
+        toast({
+          title: "Error al cargar clases",
+          description: "No se pudieron cargar las clases. Por favor, intenta de nuevo.",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error('Error loading classes:', error)
       toast({
         title: "Error al cargar clases",
         description: "No se pudieron cargar las clases. Por favor, intenta de nuevo.",
         variant: "destructive",
       })
+    } finally {
       setLoading(false)
     }
-  }, [classesData, classesError, toast])
+  }, [isClassActiveNow, toast])
+
+  useEffect(() => {
+    loadActiveClasses()
+    
+    // Recargar cada minuto para mantener actualizada la lista
+    const interval = setInterval(loadActiveClasses, 60000)
+    return () => clearInterval(interval)
+  }, [loadActiveClasses])
+
+  const handleClassSelection = (classId: number) => {
+    setSelectedClass(classId)
+    setShowConfirmation(true)
+  }
+
+  const confirmStartAttendance = async () => {
+    setShowConfirmation(false)
+    await loadTodaySession()
+  }
+
+  const cancelClassSelection = () => {
+    setSelectedClass(null)
+    setShowConfirmation(false)
+  }
 
   const loadTodaySession = useCallback(async () => {
     if (!selectedClass) return
 
     try {
-      const today = new Date().toISOString().split('T')[0]
-      const response = await fetch(`/api/class-sessions?classId=${selectedClass}&date=${today}`)
-      const data = await response.json()
+      const now = new Date()
+      const today = now.toISOString().split('T')[0]
       
-      console.log('Session data:', data)
+      // Para clases que cruzan medianoche, también buscar en el día anterior
+      const yesterday = new Date(now)
+      yesterday.setDate(yesterday.getDate() - 1)
+      const yesterdayStr = yesterday.toISOString().split('T')[0]
       
-      if (data.success && data.sessions.length > 0) {
-        const session = data.sessions[0]
-        console.log('Session enrollments:', session.danceClass.enrollments)
+      // Buscar sesiones tanto de hoy como de ayer
+      const [todayResponse, yesterdayResponse] = await Promise.all([
+        fetch(`/api/class-sessions?classId=${selectedClass}&date=${today}`),
+        fetch(`/api/class-sessions?classId=${selectedClass}&date=${yesterdayStr}`)
+      ])
+      
+      const todayData = await todayResponse.json()
+      const yesterdayData = await yesterdayResponse.json()
+      
+      // Combinar todas las sesiones
+      const allSessions = [
+        ...(todayData.success ? todayData.sessions : []),
+        ...(yesterdayData.success ? yesterdayData.sessions : [])
+      ]
+      
+      // Encontrar la sesión que corresponde al horario actual
+      const currentSession = allSessions.find(session => {
+        const sessionClass = session.danceClass
+        if (!sessionClass.schedules) return false
         
+        return sessionClass.schedules.some((schedule: ClassSchedule) => {
+          if (!schedule.isActive) return false
+          
+          const currentDay = now.getDay()
+          const currentTime = now.getHours() * 60 + now.getMinutes()
+          
+          // Verificar si es el día correcto
+          if (schedule.dayOfWeek !== currentDay) return false
+          
+          const [startHour, startMinute] = schedule.startTime.split(':').map(Number)
+          const [endHour, endMinute] = schedule.endTime.split(':').map(Number)
+          
+          const startTime = startHour * 60 + startMinute
+          const endTime = endHour * 60 + endMinute
+          
+          // Manejar horarios que cruzan medianoche
+          if (endTime < startTime) {
+            return currentTime >= startTime || currentTime <= endTime
+          } else {
+            return currentTime >= startTime && currentTime <= endTime
+          }
+        })
+      })
+      
+             if (currentSession) {
+        const session = currentSession
         setCurrentSession(session)
         
+        const canRetake = canRetakeAttendanceNow(session)
+        setCanRetakeAttendance(canRetake)
+        
+
+        // Preparar datos de estudiantes con asistencias existentes
         const enrolledStudents = session.danceClass.enrollments.map((enrollment: any) => ({
           id: enrollment.student.id,
           name: enrollment.student.name,
@@ -128,11 +358,22 @@ export default function ClassAttendanceTikTok() {
           hasDebt: enrollment.student.hasDebt,
           status: session.attendances.find((att: any) => att.student.id === enrollment.student.id)?.status?.toLowerCase() || undefined
         }))
-        
-        console.log('Processed students:', enrolledStudents)
         setStudents(enrolledStudents)
+        
+        // Verificar si la sesión ya fue completada Y no se puede retomar
+        if (session.status === 'COMPLETED' && !canRetake) {
+          setSessionAlreadyCompleted(true)
+        } else {
+          setSessionAlreadyCompleted(false)
+          // Si la sesión está completada pero se puede retomar, mostrar mensaje especial
+          if (session.status === 'COMPLETED' && canRetake) {
+            toast({
+              title: "🔄 Sesión completada - Modificación disponible",
+              description: "Puedes modificar la asistencia mientras la clase esté activa",
+            })
+          }
+        }
       } else {
-        console.log('No session found or error:', data)
         toast({
           title: "❌ No hay sesión hoy",
           description: "No hay una sesión programada para hoy en esta clase",
@@ -147,14 +388,47 @@ export default function ClassAttendanceTikTok() {
         variant: "destructive",
       })
     }
-  }, [selectedClass, toast])
+  }, [selectedClass, canRetakeAttendanceNow, toast])
 
-  useEffect(() => {
-    if (selectedClass) {
-      console.log('Loading session for class:', selectedClass)
-      loadTodaySession()
+  const loadAttendanceHistory = useCallback(async () => {
+    if (!selectedClass) return
+
+    try {
+      const response = await fetch(`/api/class-sessions?classId=${selectedClass}&status=COMPLETED`)
+      const data = await response.json()
+      
+      if (data.success) {
+        const history = data.sessions.map((session: ClassSession) => {
+          const attendances = session.attendances || []
+          const summary = attendances.reduce((acc, att) => {
+            const status = att.status.toLowerCase()
+            if (status === 'present') acc.present++
+            else if (status === 'absent') acc.absent++
+            else if (status === 'late') acc.late++
+            else if (status === 'change_request') acc.change_request++
+            return acc
+          }, { present: 0, absent: 0, late: 0, change_request: 0 })
+          
+          return {
+            sessionId: session.id,
+            date: session.date,
+            status: session.status,
+            ...summary,
+            total: session.danceClass.enrollments.length
+          }
+        })
+        
+        setAttendanceHistory(history)
+      }
+    } catch (error) {
+      console.error("Error loading attendance history:", error)
+      toast({
+        title: "❌ Error",
+        description: "No se pudo cargar el historial",
+        variant: "destructive",
+      })
     }
-  }, [selectedClass, loadTodaySession])
+  }, [selectedClass, toast])
 
   const markAttendance = useCallback(async (studentId: number, status: string) => {
     if (!currentSession) {
@@ -215,26 +489,43 @@ export default function ClassAttendanceTikTok() {
     }
   }, [currentSession, students, toast])
 
-  const handleClassSelection = (classId: number) => {
-    setSelectedClass(classId)
-    setShowConfirmation(true)
-  }
-
-  const confirmStartAttendance = async () => {
-    setShowConfirmation(false)
-    await loadTodaySession()
-  }
-
-  const cancelClassSelection = () => {
-    setSelectedClass(null)
-    setShowConfirmation(false)
-  }
-
   const handleAttendanceAndNext = async (studentId: number, status: string) => {
     await markAttendance(studentId, status)
+    
+    // Si estamos en modo de modificación (sesión ya completada), no avanzar automáticamente
+    if (currentSession?.status === 'COMPLETED') {
+      toast({
+        title: "✅ Asistencia actualizada",
+        description: "Usa las flechas para navegar entre estudiantes",
+      })
+      return
+    }
+    
+    // Modo normal: avanzar al siguiente estudiante
     if (currentStudentIndex < students.length - 1) {
       setCurrentStudentIndex(prev => prev + 1)
     } else {
+      await completeSession()
+    }
+  }
+
+  const completeSession = async () => {
+    if (!currentSession) return
+
+    try {
+      // Marcar sesión como completada
+      const response = await fetch(`/api/class-sessions?id=${currentSession.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          status: 'COMPLETED'
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Error al completar sesión')
+      }
+
       // Calcular resumen
       const summary = students.reduce((acc, student) => {
         if (student.status === 'present') acc.present++
@@ -246,6 +537,13 @@ export default function ClassAttendanceTikTok() {
       
       setAttendanceSummary(summary)
       setShowSummary(true)
+    } catch (error) {
+      console.error("Error completing session:", error)
+      toast({
+        title: "❌ Error",
+        description: "No se pudo completar la sesión",
+        variant: "destructive",
+      })
     }
   }
 
@@ -255,15 +553,40 @@ export default function ClassAttendanceTikTok() {
     setCurrentStudentIndex(0)
     setCurrentSession(null)
     setStudents([])
+    setSessionAlreadyCompleted(false)
+    setCanRetakeAttendance(false)
     toast({
       title: "✅ Asistencia completada",
       description: "La asistencia ha sido registrada exitosamente",
     })
   }
 
+  const viewHistory = () => {
+    loadAttendanceHistory()
+    setShowHistory(true)
+  }
+
+  const retakeAttendance = () => {
+    setSessionAlreadyCompleted(false)
+    
+    // Encontrar el primer estudiante sin asistencia o reiniciar desde el primero
+    const firstUnmarkedIndex = students.findIndex(student => !student.status)
+    setCurrentStudentIndex(firstUnmarkedIndex >= 0 ? firstUnmarkedIndex : 0)
+    
+    toast({
+      title: "🔄 Modificando asistencia",
+      description: "Puedes cambiar la asistencia de cualquier estudiante",
+    })
+  }
+
   const getDayName = (date: Date) => {
     const days = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado']
     return days[date.getDay()]
+  }
+
+  const getDayNameFromNumber = (dayNumber: number) => {
+    const days = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado']
+    return days[dayNumber] || 'Desconocido'
   }
 
   const formatTime = (time: string) => {
@@ -273,7 +596,7 @@ export default function ClassAttendanceTikTok() {
       hour12: false
     })
   }
-
+  
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'present': return 'bg-green-500'
@@ -304,31 +627,12 @@ export default function ClassAttendanceTikTok() {
     }
   }
 
-  if (loading || classesLoading) {
+  if (loading) {
     return (
       <div className="w-full h-full flex items-center justify-center p-4">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
-          <p className="text-gray-400 mt-4">Cargando clases...</p>
-        </div>
-      </div>
-    )
-  }
-
-  if (classesError) {
-    return (
-      <div className="w-full h-full flex items-center justify-center p-4">
-        <div className="text-center">
-          <AlertIcon className="h-12 w-12 text-red-500 mx-auto mb-4" />
-          <h3 className="text-xl font-semibold text-white mb-2">Error al cargar clases</h3>
-          <p className="text-gray-400">No se pudieron cargar las clases. Por favor, intenta de nuevo.</p>
-          <Button 
-            onClick={() => window.location.reload()} 
-            className="mt-4"
-            variant="outline"
-          >
-            Reintentar
-          </Button>
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
+            <p className="text-gray-400 mt-4">Cargando clases activas...</p>
         </div>
       </div>
     )
@@ -371,7 +675,18 @@ export default function ClassAttendanceTikTok() {
                   <UsersIcon className="h-4 w-4 text-green-400" />
                   <span className="text-sm">Estudiantes inscritos: {selectedClassData.enrollments.length}</span>
                 </div>
-              </div>
+                {selectedClassData.schedules.length > 0 && (
+                  <div className="mt-2">
+                    <p className="text-sm font-medium text-gray-300 mb-1">Horarios:</p>
+                    {selectedClassData.schedules.map((schedule, index) => (
+                      <div key={index} className="flex items-center gap-2 text-sm text-gray-400">
+                        <ClockIcon className="h-3 w-3" />
+                        {getDayNameFromNumber(schedule.dayOfWeek)} {formatTime(schedule.startTime)} - {formatTime(schedule.endTime)}
+                      </div>
+                    ))}
+                  </div>
+                )}
+            </div>
               
               <p className="text-center text-gray-300">
                 ¿Estás seguro de que quieres tomar la asistencia de esta clase?
@@ -383,8 +698,80 @@ export default function ClassAttendanceTikTok() {
             <Button variant="outline" onClick={cancelClassSelection}>
               Cancelar
             </Button>
+            <Button onClick={viewHistory} variant="secondary" className="flex items-center gap-2">
+              <HistoryIcon className="h-4 w-4" />
+              Historial
+            </Button>
             <Button onClick={confirmStartAttendance} className="bg-blue-600 hover:bg-blue-700">
               Comenzar Asistencia
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* History Dialog */}
+      <Dialog open={showHistory} onOpenChange={setShowHistory}>
+        <DialogContent className="bg-gray-800 border-gray-700 text-white max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold flex items-center gap-2">
+              <HistoryIcon className="h-6 w-6 text-blue-500" />
+              Historial de Asistencias
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="max-h-96 overflow-y-auto">
+            {attendanceHistory.length === 0 ? (
+              <div className="text-center py-8">
+                <HistoryIcon className="h-12 w-12 text-gray-600 mx-auto mb-4" />
+                <p className="text-gray-400">No hay historial de asistencias</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {attendanceHistory.map((record, index) => (
+                  <div key={index} className="bg-gray-700/50 rounded-lg p-4">
+                    <div className="flex justify-between items-start mb-2">
+                      <div>
+                        <p className="font-medium text-white">
+                          {new Date(record.date).toLocaleDateString('es-ES', {
+                            weekday: 'long',
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric'
+                          })}
+                        </p>
+                        <p className="text-sm text-gray-400">Sesión #{record.sessionId}</p>
+                      </div>
+                      <Badge className="bg-green-500/20 text-green-400">
+                        Completada
+                      </Badge>
+                    </div>
+                    <div className="grid grid-cols-4 gap-2 text-sm">
+                      <div className="text-center">
+                        <div className="text-green-400 font-bold">{record.present}</div>
+                        <div className="text-gray-400">Presentes</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-red-400 font-bold">{record.absent}</div>
+                        <div className="text-gray-400">Ausentes</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-yellow-400 font-bold">{record.late}</div>
+                        <div className="text-gray-400">Tardanzas</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-blue-400 font-bold">{record.change_request}</div>
+                        <div className="text-gray-400">Cambios</div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          
+          <DialogFooter>
+            <Button onClick={() => setShowHistory(false)} variant="outline">
+              Cerrar
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -446,9 +833,17 @@ export default function ClassAttendanceTikTok() {
               <h1 className="text-2xl md:text-3xl font-bold text-white">
                 Toma de Asistencia
               </h1>
-              <p className="text-gray-400 text-sm md:text-base">
-                {classes.length} clases disponibles
-              </p>
+              <div className="text-right">
+                <p className="text-gray-400 text-sm md:text-base">
+                  {classes.length} clases activas ahora
+                </p>
+                <p className="text-gray-500 text-xs">
+                  {new Date().toLocaleTimeString('es-ES', { 
+                    hour: '2-digit', 
+                    minute: '2-digit' 
+                  })}
+                </p>
+              </div>
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
@@ -471,6 +866,15 @@ export default function ClassAttendanceTikTok() {
                       <UserIcon className="h-4 w-4" />
                       {danceClass.trainer.name}
                     </div>
+                    {danceClass.schedules.length > 0 && (
+                      <div className="text-xs text-gray-500 mt-1">
+                        {danceClass.schedules.map((schedule, index) => (
+                          <span key={index} className="mr-2">
+                            {getDayNameFromNumber(schedule.dayOfWeek)} {formatTime(schedule.startTime)}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </Button>
               ))}
@@ -478,15 +882,16 @@ export default function ClassAttendanceTikTok() {
 
             {(!classes || classes.length === 0) && (
               <div className="text-center py-12">
-                <UsersIcon className="h-12 w-12 text-gray-600 mx-auto mb-4" />
-                <h3 className="text-xl font-semibold text-gray-400 mb-2">No hay clases disponibles</h3>
-                <p className="text-gray-500">No se encontraron clases activas en este momento</p>
+                <ClockIcon className="h-12 w-12 text-gray-600 mx-auto mb-4" />
+                <h3 className="text-xl font-semibold text-gray-400 mb-2">No hay clases activas ahora</h3>
+                <p className="text-gray-500">No se encontraron clases en curso en este momento</p>
                 <Button 
-                  onClick={() => window.location.reload()} 
+                  onClick={loadActiveClasses} 
                   className="mt-4"
                   variant="outline"
                 >
-                  Recargar
+                  <RefreshIcon className="h-4 w-4 mr-2" />
+                  Actualizar
                 </Button>
               </div>
             )}
@@ -532,24 +937,122 @@ export default function ClassAttendanceTikTok() {
             </CardContent>
           </Card>
         </div>
+            ) : sessionAlreadyCompleted ? (
+        <div className="w-full p-4 flex items-center justify-center">
+          <Card className="border-0 shadow-xl rounded-2xl bg-gray-800/90 border border-gray-600 max-w-md">
+            <CardContent className="p-8 text-center space-y-4">
+              <div className="w-20 h-20 mx-auto bg-gradient-to-r from-green-600 to-emerald-600 rounded-full flex items-center justify-center">
+                <CheckCircleIcon className="w-10 h-10 text-white" />
+              </div>
+              <h3 className="text-xl font-bold text-white">Asistencia ya registrada</h3>
+              <p className="text-gray-400 text-sm">
+                {canRetakeAttendance 
+                  ? "La asistencia fue tomada, pero puedes modificarla mientras la clase esté activa"
+                  : "La asistencia para esta clase ya fue tomada y la clase ha finalizado"
+                }
+              </p>
+              
+              <div className="bg-gray-700/50 rounded-lg p-4 space-y-2">
+                <h4 className="font-semibold text-white">Resumen actual:</h4>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div className="text-center">
+                    <div className="text-green-400 font-bold">
+                      {students.filter(s => s.status === 'present').length}
+                    </div>
+                    <div className="text-gray-400">Presentes</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-red-400 font-bold">
+                      {students.filter(s => s.status === 'absent').length}
+                    </div>
+                    <div className="text-gray-400">Ausentes</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-yellow-400 font-bold">
+                      {students.filter(s => s.status === 'late').length}
+                    </div>
+                    <div className="text-gray-400">Tardanzas</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-blue-400 font-bold">
+                      {students.filter(s => s.status === 'change_request').length}
+                    </div>
+                    <div className="text-gray-400">Cambios</div>
+                  </div>
+                </div>
+                </div>
+
+              <div className="space-y-2">
+                {canRetakeAttendance && (
+                  <Button
+                    onClick={retakeAttendance}
+                    className="w-full bg-yellow-600 hover:bg-yellow-700 text-lg py-3"
+                  >
+                    <RefreshIcon className="mr-2 h-5 w-5" />
+                    Modificar Asistencia
+                  </Button>
+                )}
+                <Button
+                  onClick={() => setSelectedClass(null)}
+                  className="w-full"
+                  variant="outline"
+                >
+                  <ArrowLeftIcon className="mr-2 h-4 w-4" />
+                  Volver a selección
+                </Button>
+                <Button
+                  onClick={viewHistory}
+                  className="w-full bg-blue-600 hover:bg-blue-700"
+                >
+                  <HistoryIcon className="mr-2 h-4 w-4" />
+                  Ver historial completo
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       ) : currentStudent ? (
         <div className="w-full flex flex-col bg-gradient-to-b from-gray-800 to-gray-900 relative">
           {/* Header con botón de retroceso */}
-          <div className="sticky top-0 z-20 p-4 flex items-center border-b border-gray-700 bg-gray-800/95 backdrop-blur-sm">
-            <Button
-              variant="ghost"
-              onClick={() => setSelectedClass(null)}
-              className="text-gray-400 hover:text-white"
-            >
-              <ArrowLeftIcon className="h-5 w-5" />
-            </Button>
-            <div className="ml-4">
-              <h2 className="text-lg font-semibold text-white">
-                {currentSession.danceClass.name}
-              </h2>
-              <p className="text-sm text-gray-400">
-                {currentStudentIndex + 1} de {students.length} estudiantes
-              </p>
+          <div className="sticky top-0 z-20 p-4 flex items-center justify-between border-b border-gray-700 bg-gray-800/95 backdrop-blur-sm">
+            <div className="flex items-center">
+              <Button
+                variant="ghost"
+                onClick={() => setSelectedClass(null)}
+                className="text-gray-400 hover:text-white"
+              >
+                <ArrowLeftIcon className="h-5 w-5" />
+              </Button>
+              <div className="ml-4">
+                <h2 className="text-lg font-semibold text-white">
+                  {currentSession.danceClass.name}
+                </h2>
+                <p className="text-sm text-gray-400">
+                  {currentStudentIndex + 1} de {students.length} estudiantes
+                </p>
+              </div>
+            </div>
+            
+            {/* Navegación entre estudiantes */}
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setCurrentStudentIndex(Math.max(0, currentStudentIndex - 1))}
+                disabled={currentStudentIndex === 0}
+                className="text-gray-400 hover:text-white disabled:opacity-30"
+              >
+                ←
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setCurrentStudentIndex(Math.min(students.length - 1, currentStudentIndex + 1))}
+                disabled={currentStudentIndex === students.length - 1}
+                className="text-gray-400 hover:text-white disabled:opacity-30"
+              >
+                →
+              </Button>
             </div>
           </div>
 
@@ -602,10 +1105,10 @@ export default function ClassAttendanceTikTok() {
               )}
             </div>
 
-            {/* Botones de Acción */}
+                            {/* Botones de Acción */}
             <div className="w-full p-4 space-y-2 bg-gray-800/95 backdrop-blur-sm border-t border-gray-700">
               <div className="grid grid-cols-2 gap-2 max-w-2xl mx-auto">
-                <Button
+                  <Button
                   onClick={() => handleAttendanceAndNext(currentStudent.id, 'present')}
                   className={`h-12 md:h-14 rounded-xl text-base md:text-lg font-medium transition-all duration-300 ${
                     currentStudent.status === 'present' 
@@ -614,10 +1117,10 @@ export default function ClassAttendanceTikTok() {
                   }`}
                 >
                   <Check className="h-5 w-5 md:h-6 md:w-6 mr-2" />
-                  Presente
-                </Button>
-                
-                <Button
+                    Presente
+                  </Button>
+                  
+                  <Button
                   onClick={() => handleAttendanceAndNext(currentStudent.id, 'absent')}
                   className={`h-12 md:h-14 rounded-xl text-base md:text-lg font-medium transition-all duration-300 ${
                     currentStudent.status === 'absent' 
@@ -626,12 +1129,12 @@ export default function ClassAttendanceTikTok() {
                   }`}
                 >
                   <X className="h-5 w-5 md:h-6 md:w-6 mr-2" />
-                  Ausente
-                </Button>
+                    Ausente
+                  </Button>
               </div>
-              
+                  
               <div className="grid grid-cols-2 gap-2 max-w-2xl mx-auto">
-                <Button
+                  <Button
                   onClick={() => handleAttendanceAndNext(currentStudent.id, 'late')}
                   className={`h-12 md:h-14 rounded-xl text-base md:text-lg font-medium transition-all duration-300 ${
                     currentStudent.status === 'late' 
@@ -640,10 +1143,10 @@ export default function ClassAttendanceTikTok() {
                   }`}
                 >
                   <ClockIcon className="h-5 w-5 md:h-6 md:w-6 mr-2" />
-                  Tarde
-                </Button>
-                
-                <Button
+                    Tarde
+                  </Button>
+                  
+                  <Button
                   onClick={() => handleAttendanceAndNext(currentStudent.id, 'change_request')}
                   className={`h-12 md:h-14 rounded-xl text-base md:text-lg font-medium transition-all duration-300 ${
                     currentStudent.status === 'change_request' 
@@ -652,9 +1155,23 @@ export default function ClassAttendanceTikTok() {
                   }`}
                 >
                   <AlertIcon className="h-5 w-5 md:h-6 md:w-6 mr-2" />
-                  Cambio
-                </Button>
-              </div>
+                    Cambio
+                  </Button>
+                </div>
+                
+                {/* Botón para finalizar modificación si estamos en modo edición */}
+                {currentSession?.status === 'COMPLETED' && (
+                  <div className="max-w-2xl mx-auto pt-2">
+                    <Button
+                      onClick={() => setSessionAlreadyCompleted(true)}
+                      className="w-full bg-gray-600 hover:bg-gray-700 text-white"
+                      variant="outline"
+                    >
+                      <CheckCircleIcon className="mr-2 h-4 w-4" />
+                      Finalizar Modificación
+                    </Button>
+                  </div>
+                )}
             </div>
           </div>
         </div>
