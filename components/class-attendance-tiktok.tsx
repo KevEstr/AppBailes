@@ -1080,7 +1080,7 @@ export default function ClassAttendanceTikTok() {
           {/* Contenido Principal */}
           <div className="flex-1 w-full flex flex-col items-center justify-between min-h-[calc(100vh-8rem)] max-w-2xl mx-auto">
             {/* Contenido del Estudiante */}
-            <div className="w-full flex flex-col items-center pb-2">
+            <div className="w-full flex flex-col items-center pb-2 mt-8 md:mt-12">
               {/* Avatar y Nombre */}
               <div className="text-center relative w-full">
                 <div className="relative inline-block">
