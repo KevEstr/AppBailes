@@ -40,30 +40,50 @@ export class ClassSessionService {
         
         // Crear sesiones
         for (const sessionDate of sessionDates) {
-          // Verificar si ya existe una sesión para esta fecha
+          // Verificar si ya existe una sesión para esta fecha y horario específico
+          const [startHour, startMinute] = schedule.startTime.split(':').map(Number)
+          const [endHour, endMinute] = schedule.endTime.split(':').map(Number)
+          
+          const startDateTime = new Date(sessionDate)
+          startDateTime.setHours(startHour, startMinute, 0, 0)
+          
+          const endDateTime = new Date(sessionDate)
+          endDateTime.setHours(endHour, endMinute, 0, 0)
+          
+          // Ajustar la fecha de fin si la clase cruza medianoche
+          if (endHour < startHour) {
+            endDateTime.setDate(endDateTime.getDate() + 1)
+          }
+          
+          // Buscar sesiones existentes considerando el cruce de medianoche
           const existingSession = await this.prisma.classSession.findFirst({
             where: {
               classId: classId,
-              date: {
-                gte: this.getStartOfDay(sessionDate),
-                lt: this.getEndOfDay(sessionDate)
-              }
+              AND: [
+                {
+                  date: {
+                    gte: this.getStartOfDay(sessionDate),
+                    lt: this.getEndOfDay(
+                      endHour < startHour 
+                        ? new Date(sessionDate.getTime() + 24 * 60 * 60 * 1000)
+                        : sessionDate
+                    )
+                  }
+                },
+                {
+                  startTime: {
+                    gte: startDateTime,
+                    lt: endDateTime
+                  }
+                }
+              ]
             }
           })
           
           if (existingSession) {
-            console.log(`⚠️  Sesión ya existe para ${sessionDate.toDateString()}`)
+            console.log(`⚠️  Sesión ya existe para ${sessionDate.toDateString()} ${schedule.startTime}-${schedule.endTime}`)
             continue
           }
-          
-          // Crear fechas y horas completas
-          const startDateTime = new Date(sessionDate)
-          const [startHour, startMinute] = schedule.startTime.split(':')
-          startDateTime.setHours(parseInt(startHour), parseInt(startMinute), 0, 0)
-          
-          const endDateTime = new Date(sessionDate)
-          const [endHour, endMinute] = schedule.endTime.split(':')
-          endDateTime.setHours(parseInt(endHour), parseInt(endMinute), 0, 0)
           
           await this.prisma.classSession.create({
             data: {
@@ -76,7 +96,7 @@ export class ClassSessionService {
           })
           
           totalSessions++
-          console.log(`✅ Sesión creada para ${sessionDate.toDateString()}`)
+          console.log(`✅ Sesión creada para ${sessionDate.toDateString()} ${schedule.startTime}-${schedule.endTime}`)
         }
       }
       

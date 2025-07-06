@@ -321,8 +321,8 @@ export default function ClassAttendanceTikTok() {
         return sessionClass.schedules.some((schedule: ClassSchedule) => {
           if (!schedule.isActive) return false
           
+          const now = new Date()
           const currentDay = now.getDay()
-          const currentTime = now.getHours() * 60 + now.getMinutes()
           
           // Verificar si es el día correcto
           if (schedule.dayOfWeek !== currentDay) return false
@@ -330,15 +330,21 @@ export default function ClassAttendanceTikTok() {
           const [startHour, startMinute] = schedule.startTime.split(':').map(Number)
           const [endHour, endMinute] = schedule.endTime.split(':').map(Number)
           
-          const startTime = startHour * 60 + startMinute
-          const endTime = endHour * 60 + endMinute
+          // Crear objetos Date para comparación precisa
+          const classDate = new Date(session.date)
+          const startTime = new Date(classDate)
+          startTime.setHours(startHour, startMinute, 0, 0)
           
-          // Manejar horarios que cruzan medianoche
-          if (endTime < startTime) {
-            return currentTime >= startTime || currentTime <= endTime
-          } else {
-            return currentTime >= startTime && currentTime <= endTime
+          const endTime = new Date(classDate)
+          endTime.setHours(endHour, endMinute, 0, 0)
+          
+          // Si la clase cruza medianoche (ej: 23:00 - 01:00)
+          if (endHour < startHour) {
+            endTime.setDate(endTime.getDate() + 1)
           }
+          
+          // Verificar si estamos dentro del rango de tiempo de la clase
+          return now >= startTime && now <= endTime
         })
       })
       
