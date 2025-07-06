@@ -142,7 +142,7 @@ const renderClassesList = (
             <p className="text-gray-300 mb-2 text-sm sm:text-base truncate">{danceClass.description || "Sin descripción"}</p>
             <div className="space-y-1 text-xs sm:text-sm text-gray-400">
               <div className="flex items-center space-x-2">
-            <GraduationCap className="h-4 w-4" />
+                <GraduationCap className="h-4 w-4" />
                 <span className="truncate">{danceClass.trainer.name}</span>
               </div>
               {danceClass.location && (
@@ -153,12 +153,24 @@ const renderClassesList = (
               )}
             </div>
           </div>
-          <div className="flex flex-row sm:flex-col gap-2 sm:gap-0 items-center sm:items-end mt-2 sm:mt-0">
-            <Button variant="outline" size="sm" onClick={() => openEditDialog(danceClass)} className="border-blue-500 text-blue-400 hover:bg-blue-950 hover:text-blue-300">
-              <Edit className="h-4 w-4 text-blue-400" />
+          <div className="flex flex-row sm:flex-col items-center gap-3 mt-2 sm:mt-0 sm:ml-4">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => openEditDialog(danceClass)} 
+              className="border-blue-500 text-blue-400 hover:bg-blue-950 hover:text-blue-300 transition-colors duration-200 w-10 h-10 rounded-xl"
+              title="Editar clase"
+            >
+              <Edit className="h-4 w-4" />
             </Button>
-            <Button variant="outline" size="sm" onClick={() => deleteClass(danceClass.id)} className="border-red-500 text-red-400 hover:bg-red-950 hover:text-red-300">
-              <Trash2 className="h-4 w-4 text-red-400" />
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => deleteClass(danceClass.id)} 
+              className="border-red-500 text-red-400 hover:bg-red-950 hover:text-red-300 transition-colors duration-200 w-10 h-10 rounded-xl"
+              title="Eliminar clase"
+            >
+              <Trash2 className="h-4 w-4" />
             </Button>
           </div>
       </div>

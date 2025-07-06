@@ -407,12 +407,12 @@ export function PaymentDashboard({ periodId }: PaymentDashboardProps) {
                     </div>
 
                     {/* Acciones */}
-                    <div className="flex gap-2">
+                    <div className="flex flex-col sm:flex-row gap-2">
                       {payment.paymentFormId && (
                         <Button
                           size="sm"
                           variant="outline"
-                          className="flex-1 bg-gray-700 border-gray-600 text-white hover:bg-gray-600"
+                          className="w-full sm:flex-1 bg-gray-700 border-gray-600 text-white hover:bg-gray-600"
                           onClick={() => window.open(`/payment/${payment.paymentFormId}`, '_blank')}
                         >
                           <ExternalLink className="h-4 w-4 mr-1" />
@@ -424,7 +424,7 @@ export function PaymentDashboard({ periodId }: PaymentDashboardProps) {
                         <Button
                           size="sm"
                           variant="outline"
-                          className="flex-1 bg-blue-700 border-blue-600 text-white hover:bg-blue-600"
+                          className="w-full sm:flex-1 bg-blue-700 border-blue-600 text-white hover:bg-blue-600"
                           onClick={() => router.push('/admin/monthly-payments/review')}
                         >
                           <Eye className="h-4 w-4 mr-1" />
@@ -436,7 +436,7 @@ export function PaymentDashboard({ periodId }: PaymentDashboardProps) {
                         <Button
                           size="sm"
                           variant="outline"
-                          className="flex-1 bg-orange-700 border-orange-600 text-white hover:bg-orange-600"
+                          className="w-full sm:flex-1 bg-orange-700 border-orange-600 text-white hover:bg-orange-600"
                           onClick={() => {
                             // Aquí podrías abrir un modal para crear recordatorio de deuda
                             alert(`Saldo pendiente: ${formatCurrency(remainingAmount)}`);
