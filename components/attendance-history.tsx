@@ -51,7 +51,9 @@ export function AttendanceHistory() {
     { name: "Presentes", value: attendanceData.reduce((sum, day) => sum + day.present, 0), color: "#10B981" },
     { name: "Tarde", value: attendanceData.reduce((sum, day) => sum + day.late, 0), color: "#F59E0B" },
     { name: "Ausentes", value: attendanceData.reduce((sum, day) => sum + day.absent, 0), color: "#EF4444" },
-  ]
+  ].filter(item => item.value > 0);
+
+  const hasAttendanceData = pieData.length > 0;
 
   const getPercentageColor = (percentage: number) => {
     if (percentage >= 90) return "text-emerald-600"
@@ -171,43 +173,55 @@ export function AttendanceHistory() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie
-                  data={pieData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={120}
-                  dataKey="value"
-                  labelLine={true}
-                  label={({ name, value, percent }) => `${name}: ${value} (${(percent * 100).toFixed(1)}%)`}
-                  paddingAngle={2}
-                >
-                  {pieData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "#1f2937",
-                    border: "1px solid #374151",
-                    borderRadius: "0.75rem",
-                    padding: "0.75rem",
-                    color: "white",
-                    boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1)"
-                  }}
-                  formatter={(value, name) => [`${value} estudiantes`, name]}
-                />
-                <Legend
-                  verticalAlign="bottom"
-                  height={36}
-                  formatter={(value, entry) => (
-                    <span style={{ color: "white", marginLeft: "0.5rem" }}>{value}</span>
-                  )}
-                />
-              </PieChart>
-            </ResponsiveContainer>
+            {!hasAttendanceData ? (
+              <div className="flex flex-col items-center justify-center h-[300px] text-center">
+                <div className="w-20 h-20 bg-gray-700/50 rounded-full flex items-center justify-center mb-4">
+                  <PieChart className="w-10 h-10 text-gray-400" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-300 mb-2">Sin datos de asistencia</h3>
+                <p className="text-sm text-gray-400 max-w-[250px]">
+                  No hay registros de asistencia para el período seleccionado
+                </p>
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie
+                    data={pieData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={120}
+                    dataKey="value"
+                    labelLine={true}
+                    label={({ name, value, percent }) => `${name}: ${value} (${(percent * 100).toFixed(1)}%)`}
+                    paddingAngle={2}
+                  >
+                    {pieData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "#1f2937",
+                      border: "1px solid #374151",
+                      borderRadius: "0.75rem",
+                      padding: "0.75rem",
+                      color: "white",
+                      boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1)"
+                    }}
+                    formatter={(value, name) => [`${value} estudiantes`, name]}
+                  />
+                  <Legend
+                    verticalAlign="bottom"
+                    height={36}
+                    formatter={(value, entry) => (
+                      <span style={{ color: "white", marginLeft: "0.5rem" }}>{value}</span>
+                    )}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            )}
           </CardContent>
         </Card>
       </div>
