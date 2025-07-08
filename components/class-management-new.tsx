@@ -1157,12 +1157,12 @@ export function ClassManagementNew() {
         if (!open) setViewingEnrolled(false)
       }}>
         <DialogContent className="max-w-2xl bg-gray-800 border border-gray-600 text-white">
-          <DialogHeader>
+                      <DialogHeader>
             <DialogTitle className="text-xl font-bold text-white">
               {viewingEnrolled ? 'Estudiantes inscritos en' : 'Inscribir Estudiante en'} {selectedClass?.name}
             </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
+                      </DialogHeader>
+                      <div className="space-y-4">
             {viewingEnrolled ? (
               selectedClass && selectedClass.enrollments.length === 0 ? (
                 <p className="text-gray-400 text-center py-8">No hay estudiantes inscritos en esta clase.</p>
@@ -1196,47 +1196,47 @@ export function ClassManagementNew() {
               )
             ) : (
               availableStudents.length === 0 ? (
-                <p className="text-gray-400 text-center py-8">
-                  No hay estudiantes disponibles para inscribir en esta clase.
+              <p className="text-gray-400 text-center py-8">
+                No hay estudiantes disponibles para inscribir en esta clase.
+              </p>
+            ) : (
+              <>
+                <p className="text-gray-300">
+                  Selecciona un estudiante para inscribir en esta clase:
                 </p>
-              ) : (
-                <>
-                  <p className="text-gray-300">
-                    Selecciona un estudiante para inscribir en esta clase:
-                  </p>
-                  <div className="max-h-80 overflow-y-auto space-y-2">
-                    {availableStudents.map((student) => (
-                      <div
-                        key={student.id}
-                        className="flex items-center justify-between p-4 bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors"
-                      >
-                        <div className="flex items-center space-x-3">
-                          <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
-                            <span className="text-white font-bold text-sm">
-                              {student.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
-                            </span>
-                          </div>
-                          <div>
-                            <p className="font-medium text-white">{student.name}</p>
-                            <p className="text-sm text-gray-400">ID: {student.id}</p>
-                            <p className="text-sm text-gray-400">{student.email}</p>
-                          </div>
+                <div className="max-h-80 overflow-y-auto space-y-2">
+                            {availableStudents.map((student) => (
+                    <div
+                      key={student.id}
+                      className="flex items-center justify-between p-4 bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors"
+                    >
+                      <div className="flex items-center space-x-3">
+                        <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
+                          <span className="text-white font-bold text-sm">
+                            {student.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                          </span>
                         </div>
-                        <Button
-                          onClick={() => selectedClass && enrollStudent(student.id, selectedClass.id)}
-                          className="bg-green-600 hover:bg-green-700 text-white"
-                        >
-                          Inscribir
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                </>
+                                <div>
+                          <p className="font-medium text-white">{student.name}</p>
+                          <p className="text-sm text-gray-400">ID: {student.id}</p>
+                          <p className="text-sm text-gray-400">{student.email}</p>
+                        </div>
+                                </div>
+                                <Button 
+                        onClick={() => selectedClass && enrollStudent(student.id, selectedClass.id)}
+                        className="bg-green-600 hover:bg-green-700 text-white"
+                                >
+                                  Inscribir
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+              </>
               )
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
+                        )}
+                      </div>
+                    </DialogContent>
+                  </Dialog>
     </div>
   )
 } 
