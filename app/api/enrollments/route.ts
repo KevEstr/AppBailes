@@ -3,23 +3,32 @@ import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
 
 const createEnrollmentSchema = z.object({
-  studentId: z.number().int().positive('ID de estudiante debe ser un número positivo'),
+  studentId: z.string().min(1, 'ID de estudiante es requerido'),
   classId: z.number().int().positive('ID de clase debe ser un número positivo')
 })
 
 // GET - Obtener inscripciones
 export async function GET(request: NextRequest) {
+  // Declarar variables en ámbito más amplio para debugging
+  let status, page, limit, search, validPage, validLimit, skip
+  
   try {
+    console.log('🔍 Iniciando GET /api/enrollments')
+    
     const searchParams = request.nextUrl.searchParams
-    const status = searchParams.get('status')
-    const page = parseInt(searchParams.get('page') || '1')
-    const limit = parseInt(searchParams.get('limit') || '10')
-    const search = searchParams.get('search')
+    status = searchParams.get('status')
+    page = parseInt(searchParams.get('page') || '1')
+    limit = parseInt(searchParams.get('limit') || '10')
+    search = searchParams.get('search')
+
+    console.log('📊 Parámetros recibidos:', { status, page, limit, search })
 
     // Validar y ajustar parámetros de paginación
-    const validPage = Math.max(1, page)
-    const validLimit = Math.min(50, Math.max(1, limit)) // Máximo 50 registros por página
-    const skip = (validPage - 1) * validLimit
+    validPage = Math.max(1, page)
+    validLimit = Math.min(50, Math.max(1, limit)) // Máximo 50 registros por página
+    skip = (validPage - 1) * validLimit
+    
+    console.log('✅ Parámetros validados:', { validPage, validLimit, skip })
 
     // Construir consulta base
     const baseQuery: any = {
@@ -32,10 +41,13 @@ export async function GET(request: NextRequest) {
         { student: { name: { contains: search, mode: 'insensitive' } } },
         { student: { phone: { contains: search, mode: 'insensitive' } } },
         { student: { email: { contains: search, mode: 'insensitive' } } },
-        { student: { id: isNaN(parseInt(search)) ? undefined : parseInt(search) } }
+        { student: { id: { contains: search, mode: 'insensitive' } } } // Buscar por cédula como string
       ].filter(Boolean)
     }
 
+    console.log('🗄️ Ejecutando consultas a la base de datos...')
+    console.log('📋 Query construida:', JSON.stringify(baseQuery, null, 2))
+    
     // Ejecutar consultas en paralelo para mejor rendimiento
     const [enrollments, total] = await Promise.all([
       prisma.classEnrollment.findMany({
@@ -81,6 +93,11 @@ export async function GET(request: NextRequest) {
         where: baseQuery
       })
     ])
+    
+    console.log('✅ Consultas completadas:', { 
+      enrollmentsCount: enrollments.length, 
+      totalCount: total 
+    })
 
     // Calcular metadatos de paginación
     const totalPages = Math.ceil(total / validLimit)
@@ -100,10 +117,60 @@ export async function GET(request: NextRequest) {
       }
     })
   } catch (error) {
-    console.error('Error fetching enrollments:', error)
+    // Log detallado del error para debugging
+    console.error('❌ Error detallado en /api/enrollments GET:', {
+      message: error instanceof Error ? error.message : 'Error desconocido',
+      stack: error instanceof Error ? error.stack : 'No stack trace',
+      name: error instanceof Error ? error.name : 'Unknown',
+      cause: error instanceof Error ? error.cause : undefined,
+      params: {
+        status,
+        page,
+        limit, 
+        search,
+        validPage,
+        validLimit,
+        skip
+      }
+    })
+    
+    // Determinar tipo de error específico
+    let errorMessage = 'Error interno del servidor'
+    let statusCode = 500
+    
+    if (error instanceof Error) {
+      // Error de Prisma
+      if (error.message.includes('prisma') || error.message.includes('database')) {
+        errorMessage = 'Error de conexión a la base de datos'
+        console.error('🔌 Error de base de datos detectado')
+      }
+      // Error de validación
+      else if (error.message.includes('validation') || error.message.includes('invalid')) {
+        errorMessage = 'Error de validación de datos'
+        statusCode = 400
+      }
+      // Error de permisos
+      else if (error.message.includes('permission') || error.message.includes('access')) {
+        errorMessage = 'Error de permisos de acceso'
+        statusCode = 403
+      }
+      // Error específico para debugging en desarrollo
+      else if (process.env.NODE_ENV === 'development') {
+        errorMessage = `Error específico: ${error.message}`
+      }
+    }
+    
     return NextResponse.json(
-      { success: false, error: 'Error interno del servidor' },
-      { status: 500 }
+      { 
+        success: false, 
+        error: errorMessage,
+        details: process.env.NODE_ENV === 'development' ? {
+          message: error instanceof Error ? error.message : 'Unknown error',
+          type: error instanceof Error ? error.constructor.name : 'Unknown'
+        } : undefined,
+        timestamp: new Date().toISOString()
+      },
+      { status: statusCode }
     )
   }
 }

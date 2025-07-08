@@ -8,7 +8,7 @@ datasource db {
 }
 
 model Student {
-  id        BigInt   @id // Cédula colombiana (sin autoincrement)
+  id        String   @id // Cédula colombiana (sin autoincrement)
   name                    String
   email                   String?
   phone                   String
@@ -39,7 +39,7 @@ model Student {
 
 model StudentEnrollmentData {
   id                Int      @id @default(autoincrement())
-  studentId         BigInt   @unique
+  studentId         String   @unique
   
   // Información Personal Completa
   documentType      String?
@@ -152,7 +152,7 @@ model ClassSession {
 
 model ClassEnrollment {
   id         Int        @id @default(autoincrement())
-  studentId  BigInt
+  studentId  String
   classId    Int
   enrolledAt DateTime   @default(now())
   isActive   Boolean    @default(true)
@@ -177,7 +177,7 @@ model Attendance {
   updatedAt DateTime         @updatedAt
   sessionId Int?
   id        Int              @id @default(autoincrement())
-  studentId BigInt
+  studentId String
   session   ClassSession?    @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   student   Student          @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
@@ -195,7 +195,7 @@ model Receipt {
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
   id            Int           @id @default(autoincrement())
-  studentId     BigInt
+  studentId     String
   student       Student       @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
   @@map("receipts")
@@ -211,7 +211,7 @@ model Debt {
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
   id           Int       @id @default(autoincrement())
-  studentId    BigInt
+  studentId    String
   student      Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
   @@map("debts")
@@ -291,7 +291,7 @@ model PaymentPeriod {
 
 model MonthlyPayment {
   id             Int                  @id @default(autoincrement())
-  studentId      BigInt
+  studentId      String
   periodId       Int
   feeConfigId    Int
   expectedAmount Float
@@ -313,7 +313,7 @@ model MonthlyPayment {
 
 model PaymentForm {
   id               String            @id @default(cuid())
-  studentId        BigInt
+  studentId        String
   periodId         Int
   monthlyPaymentId Int
   studentName      String
@@ -404,7 +404,7 @@ enum PaymentProofStatus {
 
 model ScheduledWhatsAppSend {
   id              Int                     @id @default(autoincrement())
-  studentId       BigInt
+  studentId       String
   message         String
   scheduledFor    DateTime
   scheduledDate   DateTime?               // Campo adicional para compatibilidad
@@ -503,7 +503,7 @@ model ServiceRate {
 
 model ServiceOrder {
   id            Int               @id @default(autoincrement())
-  studentId     BigInt
+  studentId     String
   serviceId     Int
   quantity      Int               @default(1)
   unitPrice     Float
@@ -572,7 +572,7 @@ model FinancialTransaction {
   description String
   reference   String?
   date        DateTime              @default(now())
-  studentId   BigInt?
+  studentId   String?
   relatedId   Int?                  // ID relacionado (receipt, service_payment, etc)
   relatedType String?               // Tipo de registro relacionado
   createdAt   DateTime              @default(now())

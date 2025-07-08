@@ -7,9 +7,9 @@ export async function GET(
 ) {
   try {
     const { id } = await params
-    const studentId = parseInt(id)
+    const studentId = id.trim() // Cédula como string
 
-    if (isNaN(studentId)) {
+    if (!studentId || studentId.length === 0) {
       return NextResponse.json(
         { error: 'ID de estudiante inválido' },
         { status: 400 }
@@ -57,11 +57,11 @@ export async function PUT(
 ) {
   try {
     const { id } = await params
-    const studentId = parseInt(id)
+    const studentId = id.trim() // Cédula como string
 
-    console.log('PUT Request - Student ID:', id, 'Parsed:', studentId)
+    console.log('PUT Request - Student ID:', id, 'Cleaned:', studentId)
 
-    if (isNaN(studentId)) {
+    if (!studentId || studentId.length === 0) {
       console.log('Invalid student ID:', id)
       return NextResponse.json(
         { error: 'ID de estudiante inválido' },

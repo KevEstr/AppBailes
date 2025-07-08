@@ -54,11 +54,11 @@ export async function POST(request: Request) {
   try {
     const data = await request.json()
 
-    // Validar que la cédula sea un número válido
-    const cedula = parseInt(data.id)
-    if (!cedula || cedula <= 0) {
+    // Validar que la cédula sea válida (ahora es string)
+    const cedula = data.id?.toString().trim()
+    if (!cedula || cedula.length === 0) {
       return NextResponse.json({ 
-        error: "La cédula debe ser un número válido" 
+        error: "La cédula es requerida" 
       }, { status: 400 })
     }
 
@@ -91,7 +91,7 @@ export async function POST(request: Request) {
 
     const student = await prisma.student.create({
       data: {
-        id: cedula, // Usar la cédula como ID
+        id: cedula, // Usar la cédula como string
         name: data.name,
         email: data.email,
         phone: data.phone,
