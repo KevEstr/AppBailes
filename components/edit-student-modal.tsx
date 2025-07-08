@@ -62,7 +62,8 @@ const documentTypes = [
   { value: 'CC', label: 'Cédula de Ciudadanía' },
   { value: 'TI', label: 'Tarjeta de Identidad' },
   { value: 'RC', label: 'Registro Civil' },
-  { value: 'CE', label: 'Cédula de Extranjería' }
+  { value: 'CE', label: 'Cédula de Extranjería' },
+  { value: 'PEP', label: 'Permiso Especial de Permanencia' }
 ]
 
 const relationshipOptions = [
@@ -82,7 +83,8 @@ const mapDocumentTypeToCode = (type?: string) => {
     'Cédula de Ciudadanía': 'CC',
     'Tarjeta de Identidad': 'TI',
     'Registro Civil': 'RC',
-    'Cédula de Extranjería': 'CE'
+    'Cédula de Extranjería': 'CE',
+    'Permiso Especial de Permanencia': 'PEP'
   }
   
   return fullToCodeMapping[type as keyof typeof fullToCodeMapping] || type

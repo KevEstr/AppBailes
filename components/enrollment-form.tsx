@@ -111,7 +111,8 @@ const DOCUMENT_TYPES = [
   { value: "CC", label: "Cédula de Ciudadanía" },
   { value: "TI", label: "Tarjeta de Identidad" }, 
   { value: "RC", label: "Registro Civil" },
-  { value: "CE", label: "Cédula de Extranjería" }
+  { value: "CE", label: "Cédula de Extranjería" },
+  { value: "PEP", label: "Permiso Especial de Permanencia" }
 ]
 
 const BLOOD_TYPES = ["O+", "O-", "A+", "A-", "B+", "B-", "AB+", "AB-"]
@@ -1021,17 +1022,32 @@ export function EnrollmentForm() {
                   
                   <div className="max-h-60 overflow-y-auto bg-gray-900/50 p-4 rounded-lg border border-gray-600">
                     <p className="text-gray-300 text-sm leading-relaxed">
-                      Yo manifiesto de forma voluntaria e irrevocable, que me hago responsable de los riesgos que 
-                  pueden derivarse de la práctica de {formData.sport === 'DANCE' ? 'baile' : 'voleibol'}. 
-                      Entiendo que la participación en estas actividades conlleva riesgos inherentes de lesión, 
-                      y acepto participar bajo mi propia responsabilidad.
-                      <br /><br />
-                      Declaro que mi estado de salud es adecuado para la práctica de estas actividades y que he 
-                      proporcionado información veraz sobre mi condición médica. En caso de ser menor de edad, 
-                      el acudiente autoriza la participación y asume la responsabilidad correspondiente.
-                      <br /><br />
-                      Autorizo el uso de imágenes y videos con fines promocionales de la institución, respetando 
-                      siempre la dignidad y privacidad del participante.
+                    Yo manifiesto de forma voluntaria e irrevocable, que me hago responsable, y en consecuencia 
+                    exonero en su totalidad la academia Paradise, en adelante LA ACADEMIA, por cualquier daño 
+                    o perjuicio que le pueda llegar a ocurrir a mi persona o a mi representado, en adelante EL MENOR, 
+                    durante los entrenamientos, competencias y diferentes actividades que realice LA ACADEMIA, o cualquier 
+                    perjuicio que se derive de las actividades ya mencionadas. Por lo tanto exonero irrevocablemente de 
+                    toda responsabilidad de cualquier tipo a LA ACADEMIA, por cualquier reclamo que tenga que ver con los 
+                    perjuicios descritos que pueda sufrir el MENOR y/o mi persona en mención. En efecto, todos los reclamos a cualquier 
+                    causa, son declarados por medio de este documento como renunciados incondicionalmente, absoluta e irrevocablemente 
+                    por mi parte, como representante legal del MENOR y/o de mi persona. Consecuentemente, en el momento que el MENOR que 
+                    yo represento y/o mi persona, sufra algún perjuicio, me comprometo a asumir la responsabilidad por ello, y a asumir 
+                    costos y gastos que se requieran para la atención de los perjuicios. Así mismo me comprometo a mantener la cobertura 
+                    en salud del MENOR y/o mi persona en una EPS u otra entidad equivalente, y a dirigirme únicamente a la EPS o entidad 
+                    a la que este afiliado, para que se preste la atención medica y/o tratamiento necesario. Yo como representante del MENOR 
+                    y/o de mi persona tengo claro que la participación en LA ACADEMIA es completamente voluntaria y no existe ninguna obligación y/o 
+                    subordinación por LA ACADEMIA, y por ende asumo cualquier riesgo que se presente con en LA ACADEMIA. Finalmente, manifiesto a LA ACADEMIA, 
+                    que el MENOR por mi representado y/o mi persona, está cubierto por una EPS u otra entidad equivalente, tal y como consta en el 
+                    documento que me comprometo a portar cada vez que EL MENOR y/o mi persona asista a las actividades de LA ACADEMIA.
+                    Todo esto con el interés de que en caso de accidente el entrenador de LA ACADEMIA pueda desplazarse con EL MENOR 
+                    al Centro de Salud más cercano para su atención gracias a la afiliación a la EPS, y así poderle informar 
+                    a su acudiente para su desplazamiento al mismo centro en caso de no estar en el entrenamiento. 
+                    <br /><br />
+                    Ademas autorización de uso de imágenes y videos, autorizo al LA ACADEMIA a utilizar fotografías y vídeos en los que aparezca 
+                    EL MENOR y/o mi persona durante su participación en actividades deportivas para fines promocionales y educativos, 
+                    incluyendo pero no limitado a publicaciones en redes sociales, páginas web y material impreso.
+                    <br /><br />
+                    Entiendo que estas imágenes pueden ser compartidas públicamente y que LA ACADEMIA no asumirá responsabilidad por el uso de terceros.
                     </p>
                   </div>
 
