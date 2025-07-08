@@ -3,6 +3,31 @@ import { prisma } from "@/lib/prisma"
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 
+// ⚡ HELPER FUNCTION PARA CONVERTIR BIGINT A NÚMEROS
+function convertBigIntToNumber(obj: any): any {
+  if (obj === null || obj === undefined) {
+    return obj
+  }
+  
+  if (typeof obj === 'bigint') {
+    return Number(obj)
+  }
+  
+  if (Array.isArray(obj)) {
+    return obj.map(convertBigIntToNumber)
+  }
+  
+  if (typeof obj === 'object') {
+    const converted: any = {}
+    for (const [key, value] of Object.entries(obj)) {
+      converted[key] = convertBigIntToNumber(value)
+    }
+    return converted
+  }
+  
+  return obj
+}
+
 // ⚡ CACHE EN MEMORIA PARA CONSULTAS FRECUENTES
 let debtsCache: {
   data: any;
@@ -86,7 +111,7 @@ export async function GET(request: Request) {
     }
 
     // ⚡ CONSULTA COMPLETA OPTIMIZADA
-    const debts = await prisma.debt.findMany({
+    const debtsRaw = await prisma.debt.findMany({
       where: {
         isPaid: false,
         dueDate: {
@@ -100,6 +125,9 @@ export async function GET(request: Request) {
       ],
       take: 100 // Limitar resultados para evitar sobrecarga
     })
+
+    // ⚡ CONVERTIR BIGINT A NÚMEROS ANTES DE GUARDAR EN CACHE
+    const debts = convertBigIntToNumber(debtsRaw)
 
     // ⚡ ACTUALIZAR CACHE
     debtsCache = {
@@ -166,7 +194,7 @@ export async function POST(request: Request) {
       }, { status: 400 })
     }
 
-    const debt = await prisma.debt.create({
+    const debtRaw = await prisma.debt.create({
       data: {
         studentId: studentId,
         amount: Number.parseFloat(data.amount),
@@ -174,6 +202,9 @@ export async function POST(request: Request) {
         dueDate: new Date(data.dueDate),
       },
     })
+
+    // ⚡ CONVERTIR BIGINT ANTES DE ENVIAR RESPUESTA
+    const debt = convertBigIntToNumber(debtRaw)
 
     // Actualizar estado de deuda del estudiante
     await prisma.student.update({
