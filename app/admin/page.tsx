@@ -17,7 +17,6 @@ import {
   CreditCard,
   Settings,
   LogOut,
-  Shield,
   UserPlus,
   UserCheck,
   ArrowRight

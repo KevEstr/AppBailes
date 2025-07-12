@@ -13,7 +13,6 @@ import { Badge } from "@/components/ui/badge"
 import { 
   Users, 
   UserPlus, 
-  Shield, 
   GraduationCap, 
   ArrowLeft,
   Eye,
@@ -332,7 +331,7 @@ export default function UsersManagementPage() {
                     <div className="flex items-center space-x-4 flex-1 min-w-0">
                       <div className="h-12 w-12 rounded-full bg-gradient-to-r from-purple-500 to-pink-600 flex items-center justify-center flex-shrink-0">
                         {user.role === "ADMIN" ? (
-                          <Shield className="h-6 w-6 text-white" />
+                          <GraduationCap className="h-6 w-6 text-white" />
                         ) : (
                           <GraduationCap className="h-6 w-6 text-white" />
                         )}

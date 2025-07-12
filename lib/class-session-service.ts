@@ -1,4 +1,7 @@
-import { PrismaClient, SessionStatus } from '@prisma/client'
+import { PrismaClient } from '@prisma/client'
+
+// Definir el enum SessionStatus localmente
+type SessionStatus = 'SCHEDULED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED'
 
 interface ClassSchedule {
   dayOfWeek: number
@@ -32,7 +35,8 @@ export class ClassSessionService {
       let totalSessions = 0
 
       for (const schedule of schedules) {
-        if (!schedule.isActive) {
+        // Si isActive es undefined, lo tratamos como true (activo por defecto)
+        if (schedule.isActive === false) {
           console.log(`⏭️ Saltando horario inactivo: ${this.getDayName(schedule.dayOfWeek)} ${schedule.startTime}-${schedule.endTime}`)
           continue
         }

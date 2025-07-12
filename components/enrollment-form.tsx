@@ -7,7 +7,6 @@ import {
   Phone, 
   MapPin, 
   Heart, 
-  Shield, 
   UserCheck, 
   GraduationCap,
   Dumbbell,
@@ -928,7 +927,7 @@ export function EnrollmentForm() {
             {!formData.isAdult && (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 bg-gray-800/50 p-4 rounded-lg border border-gray-600">
                 <div className="col-span-full flex items-center gap-2 mb-2">
-                  <Shield className="h-5 w-5 text-blue-400" />
+                  <MapPin className="h-5 w-5 text-blue-400" />
                   <h3 className="text-lg font-semibold text-white">Información del Acudiente</h3>
                 </div>
 
@@ -1097,7 +1096,7 @@ export function EnrollmentForm() {
               {currentStep === 2 && <User className="h-4 w-4 sm:h-6 sm:w-6 text-white" />}
               {currentStep === 3 && <MapPin className="h-4 w-4 sm:h-6 sm:w-6 text-white" />}
               {currentStep === 4 && <UserCheck className="h-4 w-4 sm:h-6 sm:w-6 text-white" />}
-              {currentStep === 5 && <Shield className="h-4 w-4 sm:h-6 sm:w-6 text-white" />}
+              {currentStep === 5 && <MapPin className="h-4 w-4 sm:h-6 sm:w-6 text-white" />}
             </div>
             <div>
               <h2 className="text-lg sm:text-2xl font-bold text-white">

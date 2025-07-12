@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useToast } from "@/hooks/use-toast"
-import { User, MapPin, Heart, Phone, Shield, DollarSign } from 'lucide-react'
+import { User, MapPin, Heart, Phone, DollarSign } from 'lucide-react'
 import { InteractiveMap } from './interactive-map'
 
 
@@ -523,7 +523,7 @@ export default function EditStudentModal({ isOpen, onClose, student, onStudentUp
             <CardHeader className="pb-3 sm:pb-6">
               <CardTitle className="flex items-center gap-2 text-base sm:text-lg text-white">
                 <div className="rounded-lg bg-gradient-to-r from-indigo-500 to-blue-500 p-1.5">
-                  <Shield className="h-4 w-4 text-white" />
+                  <MapPin className="h-4 w-4 text-white" />
                 </div>
                 Estado Legal
               </CardTitle>
@@ -546,7 +546,7 @@ export default function EditStudentModal({ isOpen, onClose, student, onStudentUp
               <CardHeader className="pb-3 sm:pb-6">
                 <CardTitle className="flex items-center gap-2 text-base sm:text-lg text-white">
                   <div className="rounded-lg bg-gradient-to-r from-purple-500 to-violet-500 p-1.5">
-                    <Shield className="h-4 w-4 text-white" />
+                    <MapPin className="h-4 w-4 text-white" />
                   </div>
                   Información del Acudiente
                 </CardTitle>
