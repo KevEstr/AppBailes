@@ -1,25 +1,31 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Badge } from '@/components/ui/badge';
-import { 
-  TrendingUp, 
-  DollarSign, 
-  Receipt, 
-  Users, 
+import { useState, useEffect } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
+import {
+  TrendingUp,
+  DollarSign,
+  Receipt,
+  Users,
   Download,
   BarChart3,
   PieChart,
   FileText,
   ArrowUpRight,
-  ArrowDownRight
-} from 'lucide-react';
-import { formatCurrency } from '@/lib/utils';
-import { toast } from 'sonner';
+  ArrowDownRight,
+} from "lucide-react";
+import { formatCurrency } from "@/lib/utils";
+import { toast } from "sonner";
 
 interface FinancialSummary {
   totalIncome: number;
@@ -69,12 +75,14 @@ interface FinancialReport {
 }
 
 export function FinancialDashboard() {
-  const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
+  const [dashboardData, setDashboardData] = useState<DashboardData | null>(
+    null
+  );
   const [reports, setReports] = useState<FinancialReport[]>([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
-  const [selectedPeriod, setSelectedPeriod] = useState('month');
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const [selectedPeriod, setSelectedPeriod] = useState("month");
+  const [activeTab, setActiveTab] = useState("dashboard");
 
   useEffect(() => {
     loadData();
@@ -83,19 +91,19 @@ export function FinancialDashboard() {
   const loadData = async () => {
     try {
       setLoading(true);
-      await Promise.all([
-        loadDashboard(),
-        loadReports()
-      ]);
+      await Promise.all([loadDashboard(), loadReports()]);
     } catch (error) {
-      toast.error('Error al cargar datos financieros');
+      console.error(error);
+      toast.error("Error al cargar datos financieros");
     } finally {
       setLoading(false);
     }
   };
 
   const loadDashboard = async () => {
-    const response = await fetch(`/api/admin/financial-dashboard?period=${selectedPeriod}`);
+    const response = await fetch(
+      `/api/admin/financial-dashboard?period=${selectedPeriod}`
+    );
     if (response.ok) {
       const data = await response.json();
       setDashboardData(data);
@@ -103,7 +111,7 @@ export function FinancialDashboard() {
   };
 
   const loadReports = async () => {
-    const response = await fetch('/api/admin/financial-reports');
+    const response = await fetch("/api/admin/financial-reports");
     if (response.ok) {
       const data = await response.json();
       setReports(data);
@@ -114,25 +122,26 @@ export function FinancialDashboard() {
     try {
       setGenerating(true);
       const now = new Date();
-      const response = await fetch('/api/admin/financial-reports', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const response = await fetch("/api/admin/financial-reports", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           year: now.getFullYear(),
           month: now.getMonth() + 1,
-          reportType: 'MONTHLY'
-        })
+          reportType: "MONTHLY",
+        }),
       });
 
       if (response.ok) {
         await loadReports();
-        toast.success('Reporte generado exitosamente');
+        toast.success("Reporte generado exitosamente");
       } else {
         const error = await response.json();
-        toast.error(error.message || 'Error al generar reporte');
+        toast.error(error.message || "Error al generar reporte");
       }
     } catch (error) {
-      toast.error('Error al generar reporte');
+      console.error(error);
+      toast.error("Error al generar reporte");
     } finally {
       setGenerating(false);
     }
@@ -141,13 +150,15 @@ export function FinancialDashboard() {
   const exportToCSV = (data: any[], filename: string) => {
     const headers = Object.keys(data[0] || {});
     const csvContent = [
-      headers.join(','),
-      ...data.map(row => headers.map(header => `"${row[header] || ''}"`).join(','))
-    ].join('\n');
+      headers.join(","),
+      ...data.map((row) =>
+        headers.map((header) => `"${row[header] || ""}"`).join(",")
+      ),
+    ].join("\n");
 
-    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const blob = new Blob([csvContent], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
+    const link = document.createElement("a");
     link.href = url;
     link.download = filename;
     link.click();
@@ -156,18 +167,18 @@ export function FinancialDashboard() {
 
   const getPaymentMethodColor = (method: string) => {
     const colors: Record<string, string> = {
-      CASH: 'text-green-400',
-      TRANSFER: 'text-blue-400',
-      CARD: 'text-purple-400'
+      CASH: "text-green-400",
+      TRANSFER: "text-blue-400",
+      CARD: "text-purple-400",
     };
-    return colors[method] || 'text-gray-400';
+    return colors[method] || "text-gray-400";
   };
 
   const getPaymentMethodLabel = (method: string) => {
     const labels: Record<string, string> = {
-      CASH: 'Efectivo',
-      TRANSFER: 'Transferencia',
-      CARD: 'Tarjeta'
+      CASH: "Efectivo",
+      TRANSFER: "Transferencia",
+      CARD: "Tarjeta",
     };
     return labels[method] || method;
   };
@@ -185,9 +196,11 @@ export function FinancialDashboard() {
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-3">
           <BarChart3 className="h-8 w-8 text-purple-400" />
-          <h1 className="text-3xl font-bold text-white">Consolidado Financiero</h1>
+          <h1 className="text-3xl font-bold text-white">
+            Consolidado Financiero
+          </h1>
         </div>
-        
+
         <div className="flex items-center space-x-3">
           <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
             <SelectTrigger className="w-40 bg-gray-700 border-gray-600 text-white">
@@ -199,21 +212,29 @@ export function FinancialDashboard() {
               <SelectItem value="year">Este Año</SelectItem>
             </SelectContent>
           </Select>
-          
+
           <Button
             onClick={generateReport}
             disabled={generating}
             className="bg-purple-600 hover:bg-purple-700 text-white"
           >
-            {generating ? 'Generando...' : 'Generar Reporte'}
+            {generating ? "Generando..." : "Generar Reporte"}
           </Button>
         </div>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+      <Tabs
+        value={activeTab}
+        onValueChange={setActiveTab}
+        className="space-y-4"
+      >
         <TabsList className="bg-gray-800 border-gray-600">
-          <TabsTrigger value="dashboard" className="text-white">Dashboard</TabsTrigger>
-          <TabsTrigger value="reports" className="text-white">Reportes</TabsTrigger>
+          <TabsTrigger value="dashboard" className="text-white">
+            Dashboard
+          </TabsTrigger>
+          <TabsTrigger value="reports" className="text-white">
+            Reportes
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="dashboard" className="space-y-6">
@@ -223,7 +244,9 @@ export function FinancialDashboard() {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <Card className="bg-gray-800/90 border-gray-600">
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium text-white">Ingresos Totales</CardTitle>
+                    <CardTitle className="text-sm font-medium text-white">
+                      Ingresos Totales
+                    </CardTitle>
                     <DollarSign className="h-4 w-4 text-green-400" />
                   </CardHeader>
                   <CardContent>
@@ -238,12 +261,16 @@ export function FinancialDashboard() {
 
                 <Card className="bg-gray-800/90 border-gray-600">
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium text-white">Mensualidades</CardTitle>
+                    <CardTitle className="text-sm font-medium text-white">
+                      Mensualidades
+                    </CardTitle>
                     <Receipt className="h-4 w-4 text-blue-400" />
                   </CardHeader>
                   <CardContent>
                     <div className="text-2xl font-bold text-blue-400">
-                      {formatCurrency(dashboardData.summary.monthlyPayments.amount)}
+                      {formatCurrency(
+                        dashboardData.summary.monthlyPayments.amount
+                      )}
                     </div>
                     <p className="text-xs text-gray-400">
                       {dashboardData.summary.monthlyPayments.count} pagos
@@ -253,12 +280,16 @@ export function FinancialDashboard() {
 
                 <Card className="bg-gray-800/90 border-gray-600">
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium text-white">Servicios</CardTitle>
+                    <CardTitle className="text-sm font-medium text-white">
+                      Servicios
+                    </CardTitle>
                     <Users className="h-4 w-4 text-purple-400" />
                   </CardHeader>
                   <CardContent>
                     <div className="text-2xl font-bold text-purple-400">
-                      {formatCurrency(dashboardData.summary.servicePayments.amount)}
+                      {formatCurrency(
+                        dashboardData.summary.servicePayments.amount
+                      )}
                     </div>
                     <p className="text-xs text-gray-400">
                       {dashboardData.summary.servicePayments.count} servicios
@@ -268,12 +299,18 @@ export function FinancialDashboard() {
 
                 <Card className="bg-gray-800/90 border-gray-600">
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium text-white">Crecimiento</CardTitle>
+                    <CardTitle className="text-sm font-medium text-white">
+                      Crecimiento
+                    </CardTitle>
                     <TrendingUp className="h-4 w-4 text-orange-400" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold text-orange-400">+12.5%</div>
-                    <p className="text-xs text-gray-400">vs. período anterior</p>
+                    <div className="text-2xl font-bold text-orange-400">
+                      +12.5%
+                    </div>
+                    <p className="text-xs text-gray-400">
+                      vs. período anterior
+                    </p>
                   </CardContent>
                 </Card>
               </div>
@@ -281,11 +318,18 @@ export function FinancialDashboard() {
               {/* Transacciones recientes */}
               <Card className="bg-gray-800/90 border-gray-600">
                 <CardHeader className="flex flex-row items-center justify-between">
-                  <CardTitle className="text-white">Transacciones Recientes</CardTitle>
+                  <CardTitle className="text-white">
+                    Transacciones Recientes
+                  </CardTitle>
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => exportToCSV(dashboardData.recentTransactions, 'transacciones.csv')}
+                    onClick={() =>
+                      exportToCSV(
+                        dashboardData.recentTransactions,
+                        "transacciones.csv"
+                      )
+                    }
                     className="border-gray-600 text-gray-300"
                   >
                     <Download className="h-4 w-4 mr-2" />
@@ -310,8 +354,12 @@ export function FinancialDashboard() {
                                 <Receipt className="h-5 w-5 text-gray-300" />
                               </div>
                               <div>
-                                <p className="text-white font-medium">{transaction.concept}</p>
-                                <p className="text-gray-400 text-sm">{transaction.studentName}</p>
+                                <p className="text-white font-medium">
+                                  {transaction.concept}
+                                </p>
+                                <p className="text-gray-400 text-sm">
+                                  {transaction.studentName}
+                                </p>
                               </div>
                             </div>
                           </div>
@@ -319,7 +367,11 @@ export function FinancialDashboard() {
                             <p className="text-white font-bold">
                               {formatCurrency(transaction.amount)}
                             </p>
-                            <p className={`text-sm ${getPaymentMethodColor(transaction.paymentMethod)}`}>
+                            <p
+                              className={`text-sm ${getPaymentMethodColor(
+                                transaction.paymentMethod
+                              )}`}
+                            >
                               {getPaymentMethodLabel(transaction.paymentMethod)}
                             </p>
                           </div>
@@ -356,7 +408,7 @@ export function FinancialDashboard() {
                       className="mt-4 bg-purple-600 hover:bg-purple-700"
                       disabled={generating}
                     >
-                      {generating ? 'Generando...' : 'Generar Primer Reporte'}
+                      {generating ? "Generando..." : "Generar Primer Reporte"}
                     </Button>
                   </div>
                 ) : (
@@ -368,10 +420,12 @@ export function FinancialDashboard() {
                       <div className="flex items-center justify-between mb-4">
                         <div>
                           <h3 className="text-white font-semibold">
-                            Reporte {report.reportType} - {report.period.month}/{report.period.year}
+                            Reporte {report.reportType} - {report.period.month}/
+                            {report.period.year}
                           </h3>
                           <p className="text-gray-400 text-sm">
-                            Generado el {new Date(report.generatedAt).toLocaleDateString()}
+                            Generado el{" "}
+                            {new Date(report.generatedAt).toLocaleDateString()}
                           </p>
                         </div>
                         <Badge className="bg-green-600 text-white">
@@ -383,7 +437,9 @@ export function FinancialDashboard() {
                         <div className="text-center p-3 bg-green-950/50 rounded-lg">
                           <div className="flex items-center justify-center space-x-1 mb-1">
                             <ArrowUpRight className="h-4 w-4 text-green-400" />
-                            <span className="text-sm text-green-300">Ingresos</span>
+                            <span className="text-sm text-green-300">
+                              Ingresos
+                            </span>
                           </div>
                           <div className="text-lg font-bold text-green-400">
                             {formatCurrency(report.totalIncome)}
@@ -403,7 +459,9 @@ export function FinancialDashboard() {
                         <div className="text-center p-3 bg-blue-950/50 rounded-lg">
                           <div className="flex items-center justify-center space-x-1 mb-1">
                             <TrendingUp className="h-4 w-4 text-blue-400" />
-                            <span className="text-sm text-blue-300">Ganancia</span>
+                            <span className="text-sm text-blue-300">
+                              Ganancia
+                            </span>
                           </div>
                           <div className="text-lg font-bold text-blue-400">
                             {formatCurrency(report.netProfit)}
@@ -415,7 +473,12 @@ export function FinancialDashboard() {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => exportToCSV([report], `reporte-${report.period.month}-${report.period.year}.csv`)}
+                          onClick={() =>
+                            exportToCSV(
+                              [report],
+                              `reporte-${report.period.month}-${report.period.year}.csv`
+                            )
+                          }
                           className="border-gray-600 text-gray-300"
                         >
                           <Download className="h-4 w-4 mr-2" />
@@ -432,4 +495,4 @@ export function FinancialDashboard() {
       </Tabs>
     </div>
   );
-} 
+}

@@ -1,59 +1,65 @@
-"use client"
+"use client";
 
-import { useSession } from "next-auth/react"
-import { useRouter } from "next/navigation"
-import { useEffect, useState } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Badge } from "@/components/ui/badge"
-import { 
-  Users, 
-  UserPlus, 
-  GraduationCap, 
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import {
+  Users,
+  UserPlus,
+  GraduationCap,
   ArrowLeft,
   Eye,
   EyeOff,
   Trash2,
-  Edit
-} from "lucide-react"
-import Link from "next/link"
-import { Loading } from "@/components/ui/loading"
+  Edit,
+} from "lucide-react";
+import Link from "next/link";
+import { Loading } from "@/components/ui/loading";
 
 interface User {
-  id: number
-  email: string
-  name: string
-  role: string
-  isActive: boolean
-  trainerId?: number
+  id: number;
+  email: string;
+  name: string;
+  role: string;
+  isActive: boolean;
+  trainerId?: number;
   trainer?: {
-    id: number
-    name: string
-  }
-  createdAt: string
+    id: number;
+    name: string;
+  };
+  createdAt: string;
 }
 
 interface Trainer {
-  id: number
-  name: string
-  email: string
+  id: number;
+  name: string;
+  email: string;
 }
 
 export default function UsersManagementPage() {
-  const { data: session, status } = useSession()
-  const router = useRouter()
-  const [users, setUsers] = useState<User[]>([])
-  const [trainers, setTrainers] = useState<Trainer[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [isCreating, setIsCreating] = useState(false)
-  const [showCreateForm, setShowCreateForm] = useState(false)
-  const [showPassword, setShowPassword] = useState(false)
-  const [error, setError] = useState("")
-  const [success, setSuccess] = useState("")
+  const { data: session, status } = useSession();
+  const router = useRouter();
+  const [users, setUsers] = useState<User[]>([]);
+  const [trainers, setTrainers] = useState<Trainer[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isCreating, setIsCreating] = useState(false);
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
 
   // Form state
   const [formData, setFormData] = useState({
@@ -61,57 +67,57 @@ export default function UsersManagementPage() {
     password: "",
     name: "",
     role: "",
-    trainerId: ""
-  })
+    trainerId: "",
+  });
 
   useEffect(() => {
-    if (status === "loading") return
+    if (status === "loading") return;
 
     if (!session) {
-      router.push("/login")
-      return
+      router.push("/login");
+      return;
     }
 
     if (session.user.role !== "ADMIN") {
-      router.push("/login")
-      return
+      router.push("/login");
+      return;
     }
 
-    fetchUsers()
-    fetchTrainers()
-  }, [session, status, router])
+    fetchUsers();
+    fetchTrainers();
+  }, [session, status, router]);
 
   const fetchUsers = async () => {
     try {
-      const response = await fetch("/api/users")
+      const response = await fetch("/api/users");
       if (response.ok) {
-        const data = await response.json()
-        setUsers(data)
+        const data = await response.json();
+        setUsers(data);
       }
     } catch (error) {
-      console.error("Error fetching users:", error)
+      console.error("Error fetching users:", error);
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   const fetchTrainers = async () => {
     try {
-      const response = await fetch("/api/trainers")
+      const response = await fetch("/api/trainers");
       if (response.ok) {
-        const data = await response.json()
-        setTrainers(data)
+        const data = await response.json();
+        setTrainers(data);
       }
     } catch (error) {
-      console.error("Error fetching trainers:", error)
+      console.error("Error fetching trainers:", error);
     }
-  }
+  };
 
   const handleCreateUser = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsCreating(true)
-    setError("")
-    setSuccess("")
+    e.preventDefault();
+    setIsCreating(true);
+    setError("");
+    setSuccess("");
 
     try {
       const response = await fetch("/api/users", {
@@ -120,46 +126,47 @@ export default function UsersManagementPage() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify(formData),
-      })
+      });
 
-      const data = await response.json()
+      const data = await response.json();
 
       if (response.ok) {
-        setSuccess("Usuario creado exitosamente")
+        setSuccess("Usuario creado exitosamente");
         setFormData({
           email: "",
           password: "",
           name: "",
           role: "",
-          trainerId: ""
-        })
-        setShowCreateForm(false)
-        fetchUsers()
+          trainerId: "",
+        });
+        setShowCreateForm(false);
+        fetchUsers();
       } else {
-        setError(data.error || "Error al crear usuario")
+        setError(data.error || "Error al crear usuario");
       }
     } catch (error) {
-      setError("Error de conexión")
+      console.error("Error creating user:", error);
+      setError("Error de conexión");
     } finally {
-      setIsCreating(false)
+      setIsCreating(false);
     }
-  }
+  };
 
   const getRoleBadge = (role: string) => {
     if (role === "ADMIN") {
-      return <Badge className="bg-purple-500 text-white">Admin</Badge>
+      return <Badge className="bg-purple-500 text-white">Admin</Badge>;
     } else if (role === "TEACHER") {
-      return <Badge className="bg-blue-500 text-white">Profesor</Badge>
+      return <Badge className="bg-blue-500 text-white">Profesor</Badge>;
     }
-    return <Badge variant="secondary">{role}</Badge>
-  }
+    return <Badge variant="secondary">{role}</Badge>;
+  };
 
   if (status === "loading" || isLoading) {
-    return <Loading message="Cargando gestión de usuarios..." />
+    return <Loading message="Cargando gestión de usuarios..." />;
   }
 
   if (!session || session.user.role !== "ADMIN") {
-    return null
+    return null;
   }
 
   return (
@@ -170,13 +177,16 @@ export default function UsersManagementPage() {
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
               <Link href="/admin">
-                <Button variant="outline" className="border-gray-600 text-gray-300 hover:bg-gray-700">
+                <Button
+                  variant="outline"
+                  className="border-gray-600 text-gray-300 hover:bg-gray-700"
+                >
                   <ArrowLeft className="h-4 w-4 mr-2" />
                   Volver al Panel
                 </Button>
               </Link>
             </div>
-            <Button 
+            <Button
               onClick={() => setShowCreateForm(!showCreateForm)}
               className="bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 text-white"
             >
@@ -188,13 +198,17 @@ export default function UsersManagementPage() {
           {/* Alerts */}
           {error && (
             <Alert className="border-red-500 bg-red-500/10">
-              <AlertDescription className="text-red-400">{error}</AlertDescription>
+              <AlertDescription className="text-red-400">
+                {error}
+              </AlertDescription>
             </Alert>
           )}
 
           {success && (
             <Alert className="border-green-500 bg-green-500/10">
-              <AlertDescription className="text-green-400">{success}</AlertDescription>
+              <AlertDescription className="text-green-400">
+                {success}
+              </AlertDescription>
             </Alert>
           )}
 
@@ -211,40 +225,55 @@ export default function UsersManagementPage() {
                 <form onSubmit={handleCreateUser} className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="name" className="text-white">Nombre Completo</Label>
+                      <Label htmlFor="name" className="text-white">
+                        Nombre Completo
+                      </Label>
                       <Input
                         id="name"
                         type="text"
                         placeholder="Nombre del usuario"
                         value={formData.name}
-                        onChange={(e) => setFormData({...formData, name: e.target.value})}
+                        onChange={(e) =>
+                          setFormData({ ...formData, name: e.target.value })
+                        }
                         required
                         className="bg-gray-700 border-gray-600 text-white placeholder-gray-400"
                       />
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="email" className="text-white">Email</Label>
+                      <Label htmlFor="email" className="text-white">
+                        Email
+                      </Label>
                       <Input
                         id="email"
                         type="email"
                         placeholder="usuario@email.com"
                         value={formData.email}
-                        onChange={(e) => setFormData({...formData, email: e.target.value})}
+                        onChange={(e) =>
+                          setFormData({ ...formData, email: e.target.value })
+                        }
                         required
                         className="bg-gray-700 border-gray-600 text-white placeholder-gray-400"
                       />
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="password" className="text-white">Contraseña</Label>
+                      <Label htmlFor="password" className="text-white">
+                        Contraseña
+                      </Label>
                       <div className="relative">
                         <Input
                           id="password"
                           type={showPassword ? "text" : "password"}
                           placeholder="••••••••"
                           value={formData.password}
-                          onChange={(e) => setFormData({...formData, password: e.target.value})}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              password: e.target.value,
+                            })
+                          }
                           required
                           className="pr-10 bg-gray-700 border-gray-600 text-white placeholder-gray-400"
                         />
@@ -253,14 +282,30 @@ export default function UsersManagementPage() {
                           onClick={() => setShowPassword(!showPassword)}
                           className="absolute right-3 top-3 text-gray-400 hover:text-white"
                         >
-                          {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                          {showPassword ? (
+                            <EyeOff className="h-4 w-4" />
+                          ) : (
+                            <Eye className="h-4 w-4" />
+                          )}
                         </button>
                       </div>
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="role" className="text-white">Rol</Label>
-                      <Select value={formData.role} onValueChange={(value) => setFormData({...formData, role: value, trainerId: value === "ADMIN" ? "" : formData.trainerId})}>
+                      <Label htmlFor="role" className="text-white">
+                        Rol
+                      </Label>
+                      <Select
+                        value={formData.role}
+                        onValueChange={(value) =>
+                          setFormData({
+                            ...formData,
+                            role: value,
+                            trainerId:
+                              value === "ADMIN" ? "" : formData.trainerId,
+                          })
+                        }
+                      >
                         <SelectTrigger className="bg-gray-700 border-gray-600 text-white">
                           <SelectValue placeholder="Seleccionar rol" />
                         </SelectTrigger>
@@ -273,14 +318,24 @@ export default function UsersManagementPage() {
 
                     {formData.role === "TEACHER" && (
                       <div className="space-y-2 md:col-span-2">
-                        <Label htmlFor="trainerId" className="text-white">Profesor Asociado</Label>
-                        <Select value={formData.trainerId} onValueChange={(value) => setFormData({...formData, trainerId: value})}>
+                        <Label htmlFor="trainerId" className="text-white">
+                          Profesor Asociado
+                        </Label>
+                        <Select
+                          value={formData.trainerId}
+                          onValueChange={(value) =>
+                            setFormData({ ...formData, trainerId: value })
+                          }
+                        >
                           <SelectTrigger className="bg-gray-700 border-gray-600 text-white">
                             <SelectValue placeholder="Seleccionar profesor" />
                           </SelectTrigger>
                           <SelectContent>
                             {trainers.map((trainer) => (
-                              <SelectItem key={trainer.id} value={trainer.id.toString()}>
+                              <SelectItem
+                                key={trainer.id}
+                                value={trainer.id.toString()}
+                              >
                                 {trainer.name} - {trainer.email}
                               </SelectItem>
                             ))}
@@ -318,7 +373,9 @@ export default function UsersManagementPage() {
               <CardTitle className="text-white flex items-center space-x-2">
                 <Users className="h-5 w-5" />
                 <span>Usuarios del Sistema</span>
-                <Badge className="bg-purple-500 text-white">{users.length}</Badge>
+                <Badge className="bg-purple-500 text-white">
+                  {users.length}
+                </Badge>
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -333,10 +390,16 @@ export default function UsersManagementPage() {
                         <GraduationCap className="h-6 w-6 text-white" />
                       </div>
                       <div className="min-w-0">
-                        <h3 className="text-white font-semibold truncate max-w-[180px] sm:max-w-none">{user.name}</h3>
-                        <p className="text-gray-400 text-sm truncate max-w-[220px] sm:max-w-none">{user.email}</p>
+                        <h3 className="text-white font-semibold truncate max-w-[180px] sm:max-w-none">
+                          {user.name}
+                        </h3>
+                        <p className="text-gray-400 text-sm truncate max-w-[220px] sm:max-w-none">
+                          {user.email}
+                        </p>
                         {user.trainer && (
-                          <p className="text-blue-400 text-sm truncate max-w-[220px] sm:max-w-none">Profesor: {user.trainer.name}</p>
+                          <p className="text-blue-400 text-sm truncate max-w-[220px] sm:max-w-none">
+                            Profesor: {user.trainer.name}
+                          </p>
                         )}
                       </div>
                     </div>
@@ -346,10 +409,18 @@ export default function UsersManagementPage() {
                         {user.isActive ? "Activo" : "Inactivo"}
                       </Badge>
                       <div className="flex gap-2">
-                        <Button size="sm" variant="outline" className="border-gray-600 text-gray-300 hover:bg-gray-700">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="border-gray-600 text-gray-300 hover:bg-gray-700"
+                        >
                           <Edit className="h-4 w-4" />
                         </Button>
-                        <Button size="sm" variant="outline" className="border-red-600 text-red-400 hover:bg-red-600 hover:text-white">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="border-red-600 text-red-400 hover:bg-red-600 hover:text-white"
+                        >
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
@@ -369,5 +440,5 @@ export default function UsersManagementPage() {
         </div>
       </div>
     </div>
-  )
-} 
+  );
+}

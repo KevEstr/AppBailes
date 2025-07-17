@@ -1,33 +1,41 @@
-"use client"
+"use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react"
-import Image from "next/image"
-import Link from "next/link"
-import { Card, CardContent } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Receipt, MessageSquare, Clock, BarChart3, AlertTriangle, Sparkles, ArrowRight, GraduationCap, UserPlus, Users } from "lucide-react"
+import { useState, useEffect, useCallback, useMemo } from "react";
+import Image from "next/image";
+import Link from "next/link";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  Receipt,
+  MessageSquare,
+  Clock,
+  BarChart3,
+  AlertTriangle,
+  Sparkles,
+  ArrowRight,
+  GraduationCap,
+  UserPlus,
+  Users,
+} from "lucide-react";
 
-
-import { useSession } from "next-auth/react"
-import { useRouter } from "next/navigation"
-import { ParadiseSkeleton } from "@/components/ui/paradise-skeleton"
-
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
+import { ParadiseSkeleton } from "@/components/ui/paradise-skeleton";
 
 export default function HomePage() {
-  const { data: session, status } = useSession()
-  const router = useRouter()
-// ✅ OPTIMIZACIÓN: Cache para evitar llamadas duplicadas
-let debtsCache: { count: number; timestamp: number } | null = null
-const CACHE_DURATION = 5 * 60 * 1000 // 5 minutos
+  const { data: session, status } = useSession();
+  const router = useRouter();
+  // ✅ OPTIMIZACIÓN: Cache para evitar llamadas duplicadas
+  let debtsCache: { count: number; timestamp: number } | null = null;
   useEffect(() => {
     // ⚡ Si no hay sesión, el middleware ya redirige al login
     // ⚡ Si hay sesión, redirigir según el rol
     if (status === "authenticated" && session?.user?.role) {
-      const redirectUrl = session.user.role === "ADMIN" ? "/admin" : "/teacher"
-      router.replace(redirectUrl)
+      const redirectUrl = session.user.role === "ADMIN" ? "/admin" : "/teacher";
+      router.replace(redirectUrl);
     }
-  }, [session, status, router])
+  }, [session, status, router]);
 
   // ⚡ Mostrar loading mientras se procesa la redirección
   return (
@@ -37,14 +45,14 @@ const CACHE_DURATION = 5 * 60 * 1000 // 5 minutos
           <div className="absolute inset-0 bg-gradient-to-r from-blue-400 to-purple-400 opacity-20 animate-pulse"></div>
           <div className="text-3xl font-bold text-white">P</div>
         </div>
-        
+
         <div className="space-y-3">
           <h1 className="text-2xl font-bold text-white">Paradise Academy</h1>
           <p className="text-blue-300">Redirigiendo al sistema...</p>
         </div>
-        
+
         <ParadiseSkeleton />
       </div>
     </div>
-  )
+  );
 }

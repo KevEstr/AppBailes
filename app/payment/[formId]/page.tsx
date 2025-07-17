@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import { useState, useEffect, use } from 'react';
-import { PaymentForm } from '@/components/monthly-payments/PaymentForm';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { AlertCircle } from 'lucide-react';
+import { useState, useEffect, use } from "react";
+import { PaymentForm } from "@/components/monthly-payments/PaymentForm";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { AlertCircle } from "lucide-react";
 
 interface PaymentFormData {
   id: string;
@@ -42,15 +42,15 @@ export default function PaymentFormPage({ params }: PageProps) {
     try {
       setLoading(true);
       const response = await fetch(`/api/payment-form/${formId}`);
-      
+
       if (!response.ok) {
         if (response.status === 404) {
-          setError('Formulario de pago no encontrado');
+          setError("Formulario de pago no encontrado");
         } else if (response.status === 410) {
-          setError('Este formulario de pago ha expirado');
+          setError("Este formulario de pago ha expirado");
         } else {
           const errorData = await response.json();
-          setError(errorData.message || 'Error al cargar formulario');
+          setError(errorData.message || "Error al cargar formulario");
         }
         return;
       }
@@ -58,7 +58,8 @@ export default function PaymentFormPage({ params }: PageProps) {
       const data = await response.json();
       setFormData(data);
     } catch (err) {
-      setError('Error de conexión. Por favor, intenta de nuevo.');
+      console.error("Error al cargar el formulario de pago:", err);
+      setError("Error de conexión. Por favor, intenta de nuevo.");
     } finally {
       setLoading(false);
     }
@@ -69,7 +70,9 @@ export default function PaymentFormPage({ params }: PageProps) {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Cargando formulario de pago...</p>
+          <p className="text-muted-foreground">
+            Cargando formulario de pago...
+          </p>
         </div>
       </div>
     );
@@ -99,7 +102,9 @@ export default function PaymentFormPage({ params }: PageProps) {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <Card className="max-w-md">
           <CardContent className="text-center py-8">
-            <p className="text-muted-foreground">No se pudo cargar el formulario.</p>
+            <p className="text-muted-foreground">
+              No se pudo cargar el formulario.
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -111,4 +116,4 @@ export default function PaymentFormPage({ params }: PageProps) {
       <PaymentForm formData={formData} />
     </div>
   );
-} 
+}
