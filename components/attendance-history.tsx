@@ -89,7 +89,7 @@ export function AttendanceHistory() {
         <CardContent className="p-8">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label className="text-lg font-bold text-gray-200">Período</label>
+              <h2 className="text-lg font-bold text-gray-200 mb-1">Período</h2>
               <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
                 <SelectTrigger className="border border-gray-600 focus:border-blue-500 rounded-2xl h-14 text-lg bg-gray-700 text-white">
                   <SelectValue />
@@ -112,7 +112,7 @@ export function AttendanceHistory() {
             </div>
 
             <div>
-              <label className="text-lg font-bold text-gray-200">Estudiante</label>
+              <h2 className="text-lg font-bold text-gray-200">Estudiante</h2>
               <Select value={selectedStudent} onValueChange={setSelectedStudent}>
                 <SelectTrigger className="border border-gray-600 focus:border-blue-500 rounded-2xl h-14 text-lg bg-gray-700 text-white">
                   <SelectValue />

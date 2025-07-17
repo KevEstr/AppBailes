@@ -259,7 +259,7 @@ export function InteractiveMap({
       {/* Mapa interactivo */}
       <div>
         <Label className="text-white mb-2 block">
-          Ubicación en el mapa
+          Ubicación en el mapa {" "}
           <span className="text-gray-400 text-sm ml-2">
             (Haz clic en el mapa o arrastra el marcador para ajustar la ubicación)
           </span>

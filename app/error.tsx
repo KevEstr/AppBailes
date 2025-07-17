@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { AlertTriangle, Home, RefreshCw } from "lucide-react"
 import Link from "next/link"
 
-export default function Error({
+export default function GlbError({
   error,
   reset,
 }: {
