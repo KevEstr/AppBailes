@@ -1,16 +1,23 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { CalendarIcon, Plus, Edit2, Trash2, CheckIcon, XIcon } from 'lucide-react';
-import { toast } from 'sonner';
-import { format } from 'date-fns';
-import { es } from 'date-fns/locale';
+import { useState, useEffect } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  CalendarIcon,
+  Plus,
+  Edit2,
+  Trash2,
+  CheckIcon,
+  XIcon,
+} from "lucide-react";
+import { toast } from "sonner";
+import { format } from "date-fns";
+import { es } from "date-fns/locale";
 
 interface PaymentPeriod {
   id: number;
@@ -34,12 +41,11 @@ export default function PaymentPeriodsManager() {
   const [periods, setPeriods] = useState<PaymentPeriod[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
-  const [editingId, setEditingId] = useState<number | null>(null);
   const [newPeriod, setNewPeriod] = useState<NewPeriod>({
     year: new Date().getFullYear(),
     month: new Date().getMonth() + 1,
-    name: '',
-    dueDate: ''
+    name: "",
+    dueDate: "",
   });
 
   useEffect(() => {
@@ -48,16 +54,16 @@ export default function PaymentPeriodsManager() {
 
   const fetchPeriods = async () => {
     try {
-      const response = await fetch('/api/admin/payment-periods');
+      const response = await fetch("/api/admin/payment-periods");
       if (response.ok) {
         const data = await response.json();
         setPeriods(data);
       } else {
-        toast.error('Error al cargar períodos de pago');
+        toast.error("Error al cargar períodos de pago");
       }
     } catch (error) {
-      console.error('Error fetching periods:', error);
-      toast.error('Error de conexión');
+      console.error("Error fetching periods:", error);
+      toast.error("Error de conexión");
     } finally {
       setIsLoading(false);
     }
@@ -65,35 +71,35 @@ export default function PaymentPeriodsManager() {
 
   const createPeriod = async () => {
     if (!newPeriod.name || !newPeriod.dueDate) {
-      toast.error('Todos los campos son obligatorios');
+      toast.error("Todos los campos son obligatorios");
       return;
     }
 
     setIsCreating(true);
     try {
-      const response = await fetch('/api/admin/payment-periods', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newPeriod)
+      const response = await fetch("/api/admin/payment-periods", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newPeriod),
       });
 
       if (response.ok) {
         const created = await response.json();
-        setPeriods(prev => [created, ...prev]);
+        setPeriods((prev) => [created, ...prev]);
         setNewPeriod({
           year: new Date().getFullYear(),
           month: new Date().getMonth() + 1,
-          name: '',
-          dueDate: ''
+          name: "",
+          dueDate: "",
         });
-        toast.success('Período creado exitosamente');
+        toast.success("Período creado exitosamente");
       } else {
         const error = await response.json();
-        toast.error(error.message || 'Error al crear período');
+        toast.error(error.message || "Error al crear período");
       }
     } catch (error) {
-      console.error('Error creating period:', error);
-      toast.error('Error de conexión');
+      console.error("Error creating period:", error);
+      toast.error("Error de conexión");
     } finally {
       setIsCreating(false);
     }
@@ -102,37 +108,49 @@ export default function PaymentPeriodsManager() {
   const togglePeriodStatus = async (id: number, currentStatus: boolean) => {
     try {
       const response = await fetch(`/api/admin/payment-periods`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           id,
-          isActive: !currentStatus
-        })
+          isActive: !currentStatus,
+        }),
       });
 
       if (response.ok) {
-        setPeriods(prev => prev.map(p => 
-          p.id === id ? { ...p, isActive: !currentStatus } : p
-        ));
-        toast.success(`Período ${!currentStatus ? 'activado' : 'desactivado'}`);
+        setPeriods((prev) =>
+          prev.map((p) =>
+            p.id === id ? { ...p, isActive: !currentStatus } : p
+          )
+        );
+        toast.success(`Período ${!currentStatus ? "activado" : "desactivado"}`);
       } else {
-        toast.error('Error al actualizar período');
+        toast.error("Error al actualizar período");
       }
     } catch (error) {
-      console.error('Error updating period:', error);
-      toast.error('Error de conexión');
+      console.error("Error updating period:", error);
+      toast.error("Error de conexión");
     }
   };
 
   const generatePeriodName = (year: number, month: number) => {
     const monthNames = [
-      'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-      'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+      "Enero",
+      "Febrero",
+      "Marzo",
+      "Abril",
+      "Mayo",
+      "Junio",
+      "Julio",
+      "Agosto",
+      "Septiembre",
+      "Octubre",
+      "Noviembre",
+      "Diciembre",
     ];
     return `${monthNames[month - 1]} ${year}`;
   };
 
-  const handleMonthYearChange = (field: 'year' | 'month', value: number) => {
+  const handleMonthYearChange = (field: "year" | "month", value: number) => {
     const updated = { ...newPeriod, [field]: value };
     updated.name = generatePeriodName(updated.year, updated.month);
     setNewPeriod(updated);
@@ -175,7 +193,9 @@ export default function PaymentPeriodsManager() {
                     id="year"
                     type="number"
                     value={newPeriod.year}
-                    onChange={(e) => handleMonthYearChange('year', parseInt(e.target.value))}
+                    onChange={(e) =>
+                      handleMonthYearChange("year", parseInt(e.target.value))
+                    }
                     min={2020}
                     max={2030}
                   />
@@ -186,7 +206,9 @@ export default function PaymentPeriodsManager() {
                     id="month"
                     type="number"
                     value={newPeriod.month}
-                    onChange={(e) => handleMonthYearChange('month', parseInt(e.target.value))}
+                    onChange={(e) =>
+                      handleMonthYearChange("month", parseInt(e.target.value))
+                    }
                     min={1}
                     max={12}
                   />
@@ -198,7 +220,9 @@ export default function PaymentPeriodsManager() {
                 <Input
                   id="name"
                   value={newPeriod.name}
-                  onChange={(e) => setNewPeriod(prev => ({ ...prev, name: e.target.value }))}
+                  onChange={(e) =>
+                    setNewPeriod((prev) => ({ ...prev, name: e.target.value }))
+                  }
                   placeholder="Ej: Enero 2024"
                 />
               </div>
@@ -209,16 +233,21 @@ export default function PaymentPeriodsManager() {
                   id="dueDate"
                   type="date"
                   value={newPeriod.dueDate}
-                  onChange={(e) => setNewPeriod(prev => ({ ...prev, dueDate: e.target.value }))}
+                  onChange={(e) =>
+                    setNewPeriod((prev) => ({
+                      ...prev,
+                      dueDate: e.target.value,
+                    }))
+                  }
                 />
               </div>
 
-              <Button 
-                onClick={createPeriod} 
+              <Button
+                onClick={createPeriod}
                 disabled={isCreating}
                 className="w-full"
               >
-                {isCreating ? 'Creando...' : 'Crear Período'}
+                {isCreating ? "Creando..." : "Crear Período"}
               </Button>
             </CardContent>
           </Card>
@@ -244,15 +273,21 @@ export default function PaymentPeriodsManager() {
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
                           <h3 className="font-semibold">{period.name}</h3>
-                          <Badge variant={period.isActive ? "default" : "secondary"}>
+                          <Badge
+                            variant={period.isActive ? "default" : "secondary"}
+                          >
                             {period.isActive ? "Activo" : "Inactivo"}
                           </Badge>
                         </div>
                         <p className="text-sm text-gray-600">
-                          Vence: {format(new Date(period.dueDate), 'PPP', { locale: es })}
+                          Vence:{" "}
+                          {format(new Date(period.dueDate), "PPP", {
+                            locale: es,
+                          })}
                         </p>
                         <p className="text-xs text-gray-500">
-                          {period.year}/{period.month.toString().padStart(2, '0')}
+                          {period.year}/
+                          {period.month.toString().padStart(2, "0")}
                         </p>
                       </div>
 
@@ -260,7 +295,9 @@ export default function PaymentPeriodsManager() {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => togglePeriodStatus(period.id, period.isActive)}
+                          onClick={() =>
+                            togglePeriodStatus(period.id, period.isActive)
+                          }
                         >
                           {period.isActive ? (
                             <XIcon className="h-4 w-4" />
@@ -279,4 +316,4 @@ export default function PaymentPeriodsManager() {
       </Tabs>
     </div>
   );
-} 
+}
