@@ -512,7 +512,14 @@ export class MonthlyPaymentService {
   /**
    * Obtiene el dashboard de pagos para un período
    */
-  async getPaymentDashboard(periodId: number) {
+  async getPaymentDashboard(periodId: number, options: {
+    page?: number;
+    limit?: number;
+    search?: string;
+  } = {}) {
+    const { page = 1, limit = 10, search } = options;
+    const offset = (page - 1) * limit;
+
     const period = await prisma.paymentPeriod.findUnique({
       where: { id: periodId }
     });
@@ -526,7 +533,44 @@ export class MonthlyPaymentService {
       where: { isActive: true }
     });
 
+    // Construir filtros de búsqueda
+    const searchFilter = search ? {
+      student: {
+        OR: [
+          { name: { contains: search, mode: 'insensitive' as const } },
+          { id: { contains: search, mode: 'insensitive' as const } } // id es el documento
+        ]
+      }
+    } : {};
+
+    const whereClause = {
+      periodId,
+      ...searchFilter
+    };
+
+    // Obtener pagos con paginación
     const payments = await prisma.monthlyPayment.findMany({
+      where: whereClause,
+      include: {
+        student: true,
+        paymentForms: {
+          include: {
+            paymentProofs: true
+          }
+        }
+      },
+      skip: offset,
+      take: limit,
+      orderBy: { student: { name: 'asc' } }
+    });
+
+    // Contar total de pagos (con filtros aplicados)
+    const totalPayments = await prisma.monthlyPayment.count({
+      where: whereClause
+    });
+
+    // Estadísticas sin filtros de búsqueda para mantener consistencia
+    const allPayments = await prisma.monthlyPayment.findMany({
       where: { periodId },
       include: {
         student: true,
@@ -538,8 +582,8 @@ export class MonthlyPaymentService {
       }
     });
 
-    const totalExpected = payments.reduce((sum, p) => sum + p.expectedAmount, 0);
-    const totalCollected = payments
+    const totalExpected = allPayments.reduce((sum, p) => sum + p.expectedAmount, 0);
+    const totalCollected = allPayments
       .filter(p => p.status === 'PAID' || p.status === 'PARTIAL_PAID')
       .reduce((sum, p) => sum + (p.paidAmount || 0), 0);
 
@@ -552,7 +596,7 @@ export class MonthlyPaymentService {
       }
     });
 
-    const overdue = payments.filter(p => 
+    const overdue = allPayments.filter(p => 
       p.status === 'PENDING' && new Date() > period.dueDate
     ).length;
 
@@ -575,7 +619,16 @@ export class MonthlyPaymentService {
         paymentDate: p.paymentDate,
         hasProofs: p.paymentForms.some(f => f.paymentProofs.length > 0),
         paymentFormId: p.paymentForms[0]?.id || null
-      }))
+      })),
+      // Información de paginación
+      pagination: {
+        page,
+        limit,
+        total: totalPayments,
+        totalPages: Math.ceil(totalPayments / limit),
+        hasNext: page < Math.ceil(totalPayments / limit),
+        hasPrev: page > 1
+      }
     };
   }
 

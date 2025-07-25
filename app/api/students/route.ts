@@ -11,6 +11,7 @@ export async function GET(request: Request) {
         isActive,
       },
       include: {
+        user: { select: { email: true } },
         classEnrollments: {
           where: { isActive: true },
           include: {

@@ -17,7 +17,25 @@ export async function GET(
       );
     }
 
-    const dashboard = await monthlyPaymentService.getPaymentDashboard(periodId);
+    // Obtener parámetros de consulta
+    const { searchParams } = new URL(request.url);
+    const page = parseInt(searchParams.get('page') || '1');
+    const limit = parseInt(searchParams.get('limit') || '10');
+    const search = searchParams.get('search') || undefined;
+
+    // Validar parámetros
+    if (page < 1 || limit < 1 || limit > 100) {
+      return NextResponse.json(
+        { message: 'Parámetros de paginación inválidos' },
+        { status: 400 }
+      );
+    }
+
+    const dashboard = await monthlyPaymentService.getPaymentDashboard(periodId, {
+      page,
+      limit,
+      search
+    });
     
     return NextResponse.json(dashboard);
   } catch (error) {

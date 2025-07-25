@@ -9,18 +9,19 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { useToast } from "@/hooks/use-toast"
-import { Search, Eye, Edit, Power, PowerOff, Trash2, MapPin, Users, GraduationCap, Calendar, Phone, Mail, IdCard, Heart, AlertTriangle, UserPlus, ChevronLeft, ChevronRight } from "lucide-react"
+import { Search, Eye, Edit, Power, PowerOff, Trash2, MapPin, Users, GraduationCap, Calendar, Phone, Mail, IdCard, AlertTriangle, UserPlus } from "lucide-react"
 import { StudentDetailModal } from "@/components/student-detail-modal"
 import EditStudentModal from "@/components/edit-student-modal"
+import { AdvancedPagination } from "./ui/advanced-pagination"
 
 
 interface Student {
   id: number
   name: string
-  email?: string
   phone: string
   hasDebt: boolean
   isActive: boolean
+  user?: { email: string }
 }
 
 interface ClassEnrollment {
@@ -73,7 +74,7 @@ export function StudentsManagement() {
   const convertStudentForModal = (localStudent: Student) => ({
     id: localStudent.id.toString(),
     name: localStudent.name,
-    email: localStudent.email || '',
+    email: localStudent.user?.email || '',
     phone: localStudent.phone,
     documentNumber: localStudent.id.toString(),
     city: 'Itagüí',
@@ -125,6 +126,15 @@ export function StudentsManagement() {
   const handleSearch = () => {
     setCurrentPage(1)
     loadEnrollments(1, searchTerm, statusFilter)
+  }
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page)
+  }
+
+  const handleLimitChange = (newLimit: number) => {
+    setCurrentPage(1)
+    loadEnrollments(1, searchTerm, statusFilter, newLimit)
   }
 
   const handleToggleStatus = async (enrollment: ClassEnrollment) => {
@@ -394,10 +404,10 @@ export function StudentsManagement() {
                                 <Phone className="w-3 h-3" />
                                 {enrollment.student.phone}
                               </div>
-                              {enrollment.student.email && (
+                              {enrollment.student.user?.email && (
                                 <div className="flex items-center gap-1 text-gray-400">
                                   <Mail className="w-3 h-3" />
-                                  {enrollment.student.email}
+                                  {enrollment.student.user.email}
                                 </div>
                               )}
                             </div>
@@ -481,124 +491,20 @@ export function StudentsManagement() {
               </div>
 
               {/* Pagination */}
-              <div className="flex flex-col sm:flex-row items-center justify-between mt-6 gap-4">
-                <p className="text-gray-400 text-sm">
-                  Mostrando {((pagination.page - 1) * pagination.limit) + 1} - {Math.min(pagination.page * pagination.limit, pagination.total)} de {pagination.total} estudiantes
-                </p>
-
-                {pagination.totalPages > 1 && (
-                  <div className="flex items-center gap-2">
-                    {/* First Page */}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCurrentPage(1)}
-                      disabled={currentPage === 1}
-                      className="border-gray-600 text-gray-300 hidden sm:flex"
-                    >
-                      <ChevronLeft className="h-4 w-4 mr-1" />
-                      <ChevronLeft className="h-4 w-4" />
-                    </Button>
-
-                    {/* Previous Page */}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                      disabled={currentPage === 1}
-                      className="border-gray-600 text-gray-300"
-                    >
-                      <ChevronLeft className="h-4 w-4" />
-                      <span className="hidden sm:inline ml-1">Anterior</span>
-                    </Button>
-
-                    {/* Page Numbers */}
-                    <div className="hidden sm:flex items-center gap-1">
-                      {Array.from({ length: Math.min(5, pagination.totalPages) }, (_, i) => {
-                        let pageNum;
-                        if (pagination.totalPages <= 5) {
-                          pageNum = i + 1;
-                        } else if (currentPage <= 3) {
-                          pageNum = i + 1;
-                        } else if (currentPage >= pagination.totalPages - 2) {
-                          pageNum = pagination.totalPages - 4 + i;
-                        } else {
-                          pageNum = currentPage - 2 + i;
-                        }
-
-                        if (pageNum <= pagination.totalPages) {
-                          return (
-                            <Button
-                              key={pageNum}
-                              variant={currentPage === pageNum ? "default" : "outline"}
-                              size="sm"
-                              onClick={() => setCurrentPage(pageNum)}
-                              className={currentPage === pageNum 
-                                ? "bg-blue-600 text-white hover:bg-blue-700" 
-                                : "border-gray-600 text-gray-300"}
-                            >
-                              {pageNum}
-                            </Button>
-                          );
-                        }
-                        return null;
-                      })}
-                    </div>
-
-                    {/* Current Page Indicator (Mobile) */}
-                    <span className="sm:hidden text-gray-300 min-w-[80px] text-center">
-                      {currentPage} / {pagination.totalPages}
-                    </span>
-
-                    {/* Next Page */}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCurrentPage(Math.min(pagination.totalPages, currentPage + 1))}
-                      disabled={currentPage === pagination.totalPages}
-                      className="border-gray-600 text-gray-300"
-                    >
-                      <span className="hidden sm:inline mr-1">Siguiente</span>
-                      <ChevronRight className="h-4 w-4" />
-                    </Button>
-
-                    {/* Last Page */}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCurrentPage(pagination.totalPages)}
-                      disabled={currentPage === pagination.totalPages}
-                      className="border-gray-600 text-gray-300 hidden sm:flex"
-                    >
-                      <ChevronRight className="h-4 w-4" />
-                      <ChevronRight className="h-4 w-4 ml-1" />
-                    </Button>
-                  </div>
-                )}
-
-                {/* Items per page selector */}
-                <div className="flex items-center gap-2 sm:ml-4">
-                  <span className="text-sm text-gray-400">Mostrar:</span>
-                  <Select 
-                    value={pagination.limit.toString()}
-                    onValueChange={(value) => {
-                      setCurrentPage(1)
-                      loadEnrollments(1, searchTerm, statusFilter, parseInt(value))
-                    }}
-                  >
-                    <SelectTrigger className="bg-gray-800 border-gray-600 text-white py-2">
-                      <SelectValue placeholder="10" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="5">5</SelectItem>
-                      <SelectItem value="10">10</SelectItem>
-                      <SelectItem value="20">20</SelectItem>
-                      <SelectItem value="30">30</SelectItem>
-                      <SelectItem value="50">50</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
+              <AdvancedPagination
+                pagination={{
+                  page: pagination.page,
+                  limit: pagination.limit,
+                  totalCount: pagination.total,
+                  totalPages: pagination.totalPages,
+                  hasNext: pagination.page < pagination.totalPages,
+                  hasPrev: pagination.page > 1
+                }}
+                currentPage={currentPage}
+                onPageChange={handlePageChange}
+                onLimitChange={handleLimitChange}
+                itemName="estudiantes"
+              />
             </CardContent>
           </Card>
 

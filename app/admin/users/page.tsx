@@ -1,8 +1,7 @@
 "use client"
 
-import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -15,13 +14,16 @@ import {
   UserPlus, 
   GraduationCap, 
   ArrowLeft,
-  Eye,
-  EyeOff,
   Trash2,
-  Edit
+  Edit,
+  Search,
+  RotateCcw
 } from "lucide-react"
 import Link from "next/link"
 import { Loading } from "@/components/ui/loading"
+import { UserModal } from "@/components/users/user-modal"
+import { AdvancedPagination } from "@/components/ui/advanced-pagination"
+import { AuthGuard } from "@/components/auth-guard"
 
 interface User {
   id: number
@@ -43,335 +45,442 @@ interface Trainer {
   email: string
 }
 
-export default function UsersManagementPage() {
-  const { data: session, status } = useSession()
+interface PaginationData {
+  page: number
+  limit: number
+  totalCount: number
+  totalPages: number
+  hasNext: boolean
+  hasPrev: boolean
+}
+
+function UsersManagementContent() {
   const router = useRouter()
   const [users, setUsers] = useState<User[]>([])
   const [trainers, setTrainers] = useState<Trainer[]>([])
+  const [pagination, setPagination] = useState<PaginationData>({
+    page: 1,
+    limit: 10,
+    totalCount: 0,
+    totalPages: 0,
+    hasNext: false,
+    hasPrev: false
+  })
   const [isLoading, setIsLoading] = useState(true)
-  const [isCreating, setIsCreating] = useState(false)
-  const [showCreateForm, setShowCreateForm] = useState(false)
-  const [showPassword, setShowPassword] = useState(false)
+  const [isModalLoading, setIsModalLoading] = useState(false)
+  const [showUserModal, setShowUserModal] = useState(false)
+  const [selectedUser, setSelectedUser] = useState<User | null>(null)
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
 
-  // Form state
-  const [formData, setFormData] = useState({
-    email: "",
-    password: "",
-    name: "",
-    role: "",
-    trainerId: ""
-  })
+  // Filtros y búsqueda
+  const [searchTerm, setSearchTerm] = useState("")
+  const [roleFilter, setRoleFilter] = useState("all")
+  const [currentPage, setCurrentPage] = useState(1)
+  const [limit, setLimit] = useState(10)
 
   useEffect(() => {
-    if (status === "loading") return
+    loadUsers()
+    loadTrainers()
+  }, [currentPage, roleFilter, limit])
 
-    if (!session) {
-      router.push("/login")
-      return
-    }
+  useEffect(() => {
+    loadTrainers()
+  }, [])
 
-    if (session.user.role !== "ADMIN") {
-      router.push("/login")
-      return
-    }
+  useEffect(() => {
+    const delayedSearch = setTimeout(() => {
+      if (searchTerm !== "") {
+        setCurrentPage(1)
+        loadUsers()
+      } else if (searchTerm === "") {
+        loadUsers()
+      }
+    }, 500)
 
-    fetchUsers()
-    fetchTrainers()
-  }, [session, status, router])
+    return () => clearTimeout(delayedSearch)
+  }, [searchTerm, roleFilter, limit])
 
-  const fetchUsers = async () => {
+  const loadUsers = async () => {
     try {
-      const response = await fetch("/api/users")
-      if (response.ok) {
-        const data = await response.json()
-        setUsers(data)
+      setIsLoading(true)
+      const params = new URLSearchParams({
+        page: currentPage.toString(),
+        limit: limit.toString(),
+        role: roleFilter !== "all" ? roleFilter : "",
+        search: searchTerm
+      })
+
+      const response = await fetch(`/api/users?${params}`)
+      const data = await response.json()
+
+      if (data.success) {
+        setUsers(data.users)
+        setPagination(data.pagination)
+      } else {
+        setError(data.error || "Error al cargar usuarios")
       }
     } catch (error) {
-      console.error("Error fetching users:", error)
+      console.error("Error loading users:", error)
+      setError("Error de conexión al cargar usuarios")
     } finally {
       setIsLoading(false)
     }
   }
 
-  const fetchTrainers = async () => {
+  const loadTrainers = async () => {
     try {
       const response = await fetch("/api/trainers")
-      if (response.ok) {
-        const data = await response.json()
-        setTrainers(data)
+      const data = await response.json()
+      
+      if (data.success) {
+        setTrainers(data.trainers)
       }
     } catch (error) {
-      console.error("Error fetching trainers:", error)
+      console.error("Error loading trainers:", error)
     }
   }
 
-  const handleCreateUser = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsCreating(true)
-    setError("")
-    setSuccess("")
+  const handleCreateUser = () => {
+    setSelectedUser(null)
+    setShowUserModal(true)
+  }
+
+  const handleEditUser = (user: User) => {
+    setSelectedUser(user)
+    setShowUserModal(true)
+  }
+
+  const handleDeleteUser = async (userId: number) => {
+    if (!confirm("¿Estás seguro de eliminar este usuario?")) return
 
     try {
-      const response = await fetch("/api/users", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(formData),
+      const response = await fetch(`/api/users/${userId}`, {
+        method: "DELETE"
       })
-
+      
       const data = await response.json()
-
-      if (response.ok) {
-        setSuccess("Usuario creado exitosamente")
-        setFormData({
-          email: "",
-          password: "",
-          name: "",
-          role: "",
-          trainerId: ""
-        })
-        setShowCreateForm(false)
-        fetchUsers()
+      
+      if (data.success) {
+        setSuccess("Usuario eliminado exitosamente")
+        loadUsers()
       } else {
-        setError(data.error || "Error al crear usuario")
+        setError(data.error || "Error al eliminar usuario")
       }
     } catch (error) {
-      setError("Error de conexión")
+      console.error("Error deleting user:", error)
+      setError("Error de conexión al eliminar usuario")
+    }
+  }
+
+  const handleUserSaved = async (userData: any) => {
+    try {
+      setIsModalLoading(true)
+      
+      if (selectedUser) {
+        // Actualizar usuario existente
+        const response = await fetch(`/api/users/${selectedUser.id}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(userData)
+        })
+        
+        const data = await response.json()
+        
+        if (!data.success) {
+          setError(data.error || "Error al actualizar usuario")
+          return
+        }
+      } else {
+        // Crear nuevo usuario
+        const response = await fetch("/api/users", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(userData)
+        })
+        
+        const data = await response.json()
+        
+        if (!data.success) {
+          setError(data.error || "Error al crear usuario")
+          return
+        }
+      }
+      
+      setShowUserModal(false)
+      setSelectedUser(null)
+      setSuccess("Usuario guardado exitosamente")
+      loadUsers()
+    } catch (error) {
+      console.error("Error saving user:", error)
+      setError("Error de conexión al guardar usuario")
     } finally {
-      setIsCreating(false)
+      setIsModalLoading(false)
     }
   }
 
-  const getRoleBadge = (role: string) => {
-    if (role === "ADMIN") {
-      return <Badge className="bg-purple-500 text-white">Admin</Badge>
-    } else if (role === "TEACHER") {
-      return <Badge className="bg-blue-500 text-white">Profesor</Badge>
+  const handleCloseModal = () => {
+    setShowUserModal(false)
+    setSelectedUser(null)
+  }
+
+  const clearMessages = () => {
+    setError("")
+    setSuccess("")
+  }
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page)
+  }
+
+  const handleLimitChange = (newLimit: number) => {
+    setLimit(newLimit)
+    setCurrentPage(1)
+  }
+
+  const resetFilters = () => {
+    setSearchTerm("")
+    setRoleFilter("all")
+    setCurrentPage(1)
+    setLimit(10)
+  }
+
+  const getRoleBadgeColor = (role: string) => {
+    switch (role) {
+      case "ADMIN":
+        return "bg-red-500 text-white"
+      case "TEACHER":
+        return "bg-blue-500 text-white"
+      case "STUDENT":
+        return "bg-green-500 text-white"
+      default:
+        return "bg-gray-500 text-white"
     }
-    return <Badge variant="secondary">{role}</Badge>
   }
 
-  if (status === "loading" || isLoading) {
-    return <Loading message="Cargando gestión de usuarios..." />
-  }
-
-  if (!session || session.user.role !== "ADMIN") {
-    return null
+  if (isLoading && users.length === 0) {
+    return <Loading message="Cargando usuarios..." />
   }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-slate-900 to-gray-800">
-      <div className="container mx-auto px-6 py-8">
+      <div className="container mx-auto px-4 sm:px-6 md:px-8 py-8">
         <div className="space-y-8">
           {/* Header */}
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div className="flex items-center space-x-4">
               <Link href="/admin">
-                <Button variant="outline" className="border-gray-600 text-gray-300 hover:bg-gray-700">
+                <Button variant="outline" size="sm" className="border-gray-600 text-gray-300 hover:bg-gray-700">
                   <ArrowLeft className="h-4 w-4 mr-2" />
                   Volver al Panel
                 </Button>
               </Link>
+              <div>
+                <h1 className="text-3xl font-bold text-white flex items-center gap-2">
+                  <Users className="h-8 w-8 text-purple-400" />
+                  Gestión de Usuarios
+                </h1>
+                <p className="text-gray-400 mt-1">Administrar usuarios y roles del sistema</p>
+              </div>
             </div>
             <Button 
-              onClick={() => setShowCreateForm(!showCreateForm)}
+              onClick={handleCreateUser}
               className="bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 text-white"
             >
               <UserPlus className="h-4 w-4 mr-2" />
-              Crear Usuario
+              Nuevo Usuario
             </Button>
           </div>
 
-          {/* Alerts */}
+          {/* Mensajes */}
           {error && (
-            <Alert className="border-red-500 bg-red-500/10">
-              <AlertDescription className="text-red-400">{error}</AlertDescription>
+            <Alert className="border-red-500 bg-red-900/20">
+              <AlertDescription className="text-red-400">
+                {error}
+                <Button variant="ghost" size="sm" onClick={clearMessages} className="ml-2 text-red-400">
+                  ✕
+                </Button>
+              </AlertDescription>
             </Alert>
           )}
 
           {success && (
-            <Alert className="border-green-500 bg-green-500/10">
-              <AlertDescription className="text-green-400">{success}</AlertDescription>
+            <Alert className="border-green-500 bg-green-900/20">
+              <AlertDescription className="text-green-400">
+                {success}
+                <Button variant="ghost" size="sm" onClick={clearMessages} className="ml-2 text-green-400">
+                  ✕
+                </Button>
+              </AlertDescription>
             </Alert>
           )}
 
-          {/* Create User Form */}
-          {showCreateForm && (
-            <Card className="border-0 bg-gray-800/90 shadow-2xl backdrop-blur-sm border border-gray-600">
-              <CardHeader>
-                <CardTitle className="text-white flex items-center space-x-2">
-                  <UserPlus className="h-5 w-5" />
-                  <span>Crear Nuevo Usuario</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <form onSubmit={handleCreateUser} className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="name" className="text-white">Nombre Completo</Label>
-                      <Input
-                        id="name"
-                        type="text"
-                        placeholder="Nombre del usuario"
-                        value={formData.name}
-                        onChange={(e) => setFormData({...formData, name: e.target.value})}
-                        required
-                        className="bg-gray-700 border-gray-600 text-white placeholder-gray-400"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="email" className="text-white">Email</Label>
-                      <Input
-                        id="email"
-                        type="email"
-                        placeholder="usuario@email.com"
-                        value={formData.email}
-                        onChange={(e) => setFormData({...formData, email: e.target.value})}
-                        required
-                        className="bg-gray-700 border-gray-600 text-white placeholder-gray-400"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="password" className="text-white">Contraseña</Label>
-                      <div className="relative">
-                        <Input
-                          id="password"
-                          type={showPassword ? "text" : "password"}
-                          placeholder="••••••••"
-                          value={formData.password}
-                          onChange={(e) => setFormData({...formData, password: e.target.value})}
-                          required
-                          className="pr-10 bg-gray-700 border-gray-600 text-white placeholder-gray-400"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowPassword(!showPassword)}
-                          className="absolute right-3 top-3 text-gray-400 hover:text-white"
-                        >
-                          {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="role" className="text-white">Rol</Label>
-                      <Select value={formData.role} onValueChange={(value) => setFormData({...formData, role: value, trainerId: value === "ADMIN" ? "" : formData.trainerId})}>
-                        <SelectTrigger className="bg-gray-700 border-gray-600 text-white">
-                          <SelectValue placeholder="Seleccionar rol" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="ADMIN">Administrador</SelectItem>
-                          <SelectItem value="TEACHER">Profesor</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    {formData.role === "TEACHER" && (
-                      <div className="space-y-2 md:col-span-2">
-                        <Label htmlFor="trainerId" className="text-white">Profesor Asociado</Label>
-                        <Select value={formData.trainerId} onValueChange={(value) => setFormData({...formData, trainerId: value})}>
-                          <SelectTrigger className="bg-gray-700 border-gray-600 text-white">
-                            <SelectValue placeholder="Seleccionar profesor" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {trainers.map((trainer) => (
-                              <SelectItem key={trainer.id} value={trainer.id.toString()}>
-                                {trainer.name} - {trainer.email}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="flex space-x-4">
-                    <Button
-                      type="submit"
-                      disabled={isCreating}
-                      className="bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 text-white"
-                    >
-                      {isCreating ? "Creando..." : "Crear Usuario"}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => setShowCreateForm(false)}
-                      className="border-gray-600 text-gray-300 hover:bg-gray-700"
-                    >
-                      Cancelar
-                    </Button>
-                  </div>
-                </form>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Users List */}
-          <Card className="border-0 bg-gray-800/90 shadow-2xl backdrop-blur-sm border border-gray-600">
+          {/* Filtros y Búsqueda */}
+          <Card className="border-gray-600 bg-gray-800/90">
             <CardHeader>
-              <CardTitle className="text-white flex items-center space-x-2">
-                <Users className="h-5 w-5" />
-                <span>Usuarios del Sistema</span>
-                <Badge className="bg-purple-500 text-white">{users.length}</Badge>
+              <CardTitle className="text-white flex items-center gap-2">
+                <Search className="h-5 w-5" />
+                Filtros y Búsqueda
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {users.map((user) => (
-                  <div
-                    key={user.id}
-                    className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 bg-gray-700/50 rounded-lg border border-gray-600"
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div>
+                  <Label htmlFor="search" className="text-gray-300">Buscar</Label>
+                  <Input
+                    id="search"
+                    placeholder="Nombre o email..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="bg-gray-700 border-gray-600 text-white"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="role" className="text-gray-300">Rol</Label>
+                  <Select value={roleFilter} onValueChange={setRoleFilter}>
+                    <SelectTrigger className="bg-gray-700 border-gray-600 text-white">
+                      <SelectValue placeholder="Todos los roles" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-gray-700 border-gray-600">
+                      <SelectItem value="all">Todos los roles</SelectItem>
+                      <SelectItem value="ADMIN">Administrador</SelectItem>
+                      <SelectItem value="TEACHER">Profesor</SelectItem>
+                      <SelectItem value="STUDENT">Estudiante</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="limit" className="text-gray-300">Por página</Label>
+                  <Select value={limit.toString()} onValueChange={(value) => handleLimitChange(parseInt(value))}>
+                    <SelectTrigger className="bg-gray-700 border-gray-600 text-white">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-gray-700 border-gray-600">
+                      <SelectItem value="5">5</SelectItem>
+                      <SelectItem value="10">10</SelectItem>
+                      <SelectItem value="20">20</SelectItem>
+                      <SelectItem value="50">50</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex items-end">
+                  <Button
+                    variant="outline"
+                    onClick={resetFilters}
+                    className="w-full border-gray-600 text-gray-300 hover:bg-gray-700"
                   >
-                    <div className="flex items-center space-x-4 flex-1 min-w-0">
-                      <div className="h-12 w-12 rounded-full bg-gradient-to-r from-purple-500 to-pink-600 flex items-center justify-center flex-shrink-0">
-                        {user.role === "ADMIN" ? (
-                          <GraduationCap className="h-6 w-6 text-white" />
-                        ) : (
-                          <GraduationCap className="h-6 w-6 text-white" />
-                        )}
-                      </div>
-                      <div className="min-w-0">
-                        <h3 className="text-white font-semibold truncate max-w-[180px] sm:max-w-none">{user.name}</h3>
-                        <p className="text-gray-400 text-sm truncate max-w-[220px] sm:max-w-none">{user.email}</p>
-                        {user.trainer && (
-                          <p className="text-blue-400 text-sm truncate max-w-[220px] sm:max-w-none">Profesor: {user.trainer.name}</p>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex items-center flex-wrap gap-2 sm:gap-3">
-                      {getRoleBadge(user.role)}
-                      <Badge variant={user.isActive ? "default" : "secondary"}>
-                        {user.isActive ? "Activo" : "Inactivo"}
-                      </Badge>
-                      <div className="flex gap-2">
-                        <Button size="sm" variant="outline" className="border-gray-600 text-gray-300 hover:bg-gray-700">
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button size="sm" variant="outline" className="border-red-600 text-red-400 hover:bg-red-600 hover:text-white">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-
-                {users.length === 0 && (
-                  <div className="text-center py-8">
-                    <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                    <p className="text-gray-400">No hay usuarios registrados</p>
-                  </div>
-                )}
+                    <RotateCcw className="h-4 w-4 mr-2" />
+                    Limpiar
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>
+
+          {/* Lista de Usuarios */}
+          <Card className="border-gray-600 bg-gray-800/90">
+            <CardHeader>
+              <CardTitle className="text-white">
+                Usuarios ({pagination.totalCount})
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {isLoading ? (
+                <div className="text-center py-8">
+                  <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                  <p className="text-gray-400">Cargando usuarios...</p>
+                </div>
+              ) : users.length === 0 ? (
+                <div className="text-center py-12">
+                  <Users className="h-12 w-12 text-gray-500 mx-auto mb-4" />
+                  <p className="text-gray-400 text-lg">No se encontraron usuarios</p>
+                  <p className="text-gray-500">Intenta ajustar los filtros de búsqueda</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {users.map((user) => (
+                    <div
+                      key={user.id}
+                      className="flex items-center justify-between p-4 border border-gray-600 rounded-lg bg-gray-700/50 hover:bg-gray-600/50 transition-colors"
+                    >
+                      <div className="flex items-center space-x-4">
+                        <div className="h-10 w-10 rounded-full bg-gradient-to-r from-purple-400 to-pink-400 flex items-center justify-center text-white font-bold">
+                          {(user.name?.charAt(0) || user.email?.charAt(0) || '?').toUpperCase()}
+                        </div>
+                        <div>
+                          <h3 className="text-white font-semibold">{user.name || user.email || 'Sin nombre'}</h3>
+                          <p className="text-gray-400 text-sm">{user.email}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-3">
+                        <Badge className={getRoleBadgeColor(user.role)}>
+                          {user.role}
+                        </Badge>
+                        <Badge variant={user.isActive ? "default" : "secondary"}>
+                          {user.isActive ? "Activo" : "Inactivo"}
+                        </Badge>
+                        <div className="flex space-x-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleEditUser(user)}
+                            className="border-gray-600 text-gray-300 hover:bg-gray-700"
+                          >
+                            <Edit className="h-3 w-3" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleDeleteUser(user.id)}
+                            className="border-red-600 text-red-400 hover:bg-red-900/50"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Paginación */}
+          {pagination.totalPages > 1 && (
+            <AdvancedPagination
+              pagination={pagination}
+              currentPage={currentPage}
+              onPageChange={handlePageChange}
+              onLimitChange={handleLimitChange}
+              itemName="usuarios"
+            />
+          )}
         </div>
       </div>
+
+      {/* Modal de Usuario */}
+      {showUserModal && (
+        <UserModal
+          isOpen={showUserModal}
+          user={selectedUser}
+          trainers={trainers}
+          isLoading={isModalLoading}
+          onSave={handleUserSaved}
+          onClose={handleCloseModal}
+        />
+      )}
     </div>
   )
-} 
+}
+
+export default function UsersManagementPage() {
+  return (
+    <AuthGuard requiredRole="ADMIN">
+      <UsersManagementContent />
+    </AuthGuard>
+  )
+}

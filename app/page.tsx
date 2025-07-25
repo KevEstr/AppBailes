@@ -1,31 +1,31 @@
 "use client"
 
-import { useState, useEffect, useCallback, useMemo } from "react"
-import Image from "next/image"
-import Link from "next/link"
-import { Card, CardContent } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Receipt, MessageSquare, Clock, BarChart3, AlertTriangle, Sparkles, ArrowRight, GraduationCap, UserPlus, Users } from "lucide-react"
-
-
+import { useEffect } from "react"
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import { ParadiseSkeleton } from "@/components/ui/paradise-skeleton"
 
-
 export default function HomePage() {
   const { data: session, status } = useSession()
   const router = useRouter()
-// ✅ OPTIMIZACIÓN: Cache para evitar llamadas duplicadas
-let debtsCache: { count: number; timestamp: number } | null = null
-const CACHE_DURATION = 5 * 60 * 1000 // 5 minutos
+
   useEffect(() => {
     // ⚡ Si no hay sesión, el middleware ya redirige al login
     // ⚡ Si hay sesión, redirigir según el rol
     if (status === "authenticated" && session?.user?.role) {
-      const redirectUrl = session.user.role === "ADMIN" ? "/admin" : "/teacher"
-      router.replace(redirectUrl)
+      switch (session.user.role) {
+        case "ADMIN":
+          router.replace("/admin")
+          break
+        case "TEACHER":
+          router.replace("/teacher")
+          break
+        case "STUDENT":
+          router.replace("/student")
+          break
+        default:
+          router.replace("/login")
+      }
     }
   }, [session, status, router])
 

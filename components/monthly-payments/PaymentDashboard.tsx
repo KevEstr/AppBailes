@@ -1,9 +1,19 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { 
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from '@/components/ui/pagination';
 import { 
   DollarSign, 
   Users, 
@@ -15,7 +25,8 @@ import {
   Link as LinkIcon,
   ExternalLink,
   AlertCircle,
-  Eye
+  Eye,
+  Search
 } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import { WhatsAppSender } from './WhatsAppSender';
@@ -40,7 +51,7 @@ interface PaymentDashboardData {
   payments: Array<{
     id: number;
     student: {
-      id: number;
+      id: string;
       name: string;
       phone: string;
     };
@@ -51,6 +62,14 @@ interface PaymentDashboardData {
     hasProofs: boolean;
     paymentFormId?: string;
   }>;
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+    hasNext: boolean;
+    hasPrev: boolean;
+  };
 }
 
 export function PaymentDashboard({ periodId }: PaymentDashboardProps) {
@@ -58,16 +77,35 @@ export function PaymentDashboard({ periodId }: PaymentDashboardProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [copiedLink, setCopiedLink] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [searchDebounced, setSearchDebounced] = useState('');
   const router = useRouter();
 
   useEffect(() => {
     loadDashboardData();
-  }, [periodId]);
+  }, [periodId, currentPage, searchDebounced]);
+
+  // Debounce para búsqueda
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSearchDebounced(searchTerm);
+      setCurrentPage(1); // Resetear página al buscar
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
 
   const loadDashboardData = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`/api/admin/payment-dashboard/${periodId}`);
+      const params = new URLSearchParams({
+        page: currentPage.toString(),
+        limit: '10',
+        ...(searchDebounced && { search: searchDebounced })
+      });
+      
+      const response = await fetch(`/api/admin/payment-dashboard/${periodId}?${params}`);
       
       if (!response.ok) {
         throw new Error('Error al cargar datos del dashboard');
@@ -202,12 +240,44 @@ export function PaymentDashboard({ periodId }: PaymentDashboardProps) {
         periodId={data.period.id}
         periodName={data.period.name}
         students={data.payments.map(p => ({
-          id: p.student.id,
+          id: parseInt(p.student.id), // Convertir string a number para compatibilidad
           name: p.student.name,
           parentPhone: p.student.phone, // El phone del estudiante es el teléfono del acudiente
           hasForm: !!p.paymentFormId
         }))}
       />
+
+      {/* Barra de Búsqueda */}
+      <Card className="bg-gray-800/90 border-gray-600">
+        <CardHeader>
+          <CardTitle className="text-white flex items-center gap-2">
+            <Search className="h-5 w-5 text-blue-400" />
+            Buscar Estudiantes
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex gap-4 items-center">
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Input
+                placeholder="Buscar por nombre o documento..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 bg-gray-700 border-gray-600 text-white placeholder-gray-400"
+              />
+            </div>
+            {searchTerm && (
+              <Button
+                variant="outline"
+                onClick={() => setSearchTerm('')}
+                className="bg-gray-700 border-gray-600 text-white hover:bg-gray-600"
+              >
+                Limpiar
+              </Button>
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Enlaces de Formularios */}
       {data.payments.length > 0 && (
@@ -220,6 +290,9 @@ export function PaymentDashboard({ periodId }: PaymentDashboardProps) {
             <p className="text-gray-400 text-sm">
               Copia estos enlaces y compártelos con los acudientes para que puedan realizar el pago
             </p>
+            <p className="text-gray-300 text-sm">
+              Mostrando {data.payments.length} de {data.pagination.total} estudiantes
+            </p>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -228,7 +301,9 @@ export function PaymentDashboard({ periodId }: PaymentDashboardProps) {
                   <div className="flex justify-between items-center">
                     <div>
                       <div className="font-medium text-white">{payment.student.name}</div>
-                      <div className="text-sm text-gray-400">{formatCurrency(payment.expectedAmount)}</div>
+                      <div className="text-sm text-gray-400">
+                        Doc: {payment.student.id} | {formatCurrency(payment.expectedAmount)}
+                      </div>
                     </div>
                     <div className="flex gap-2">
                       <Button
@@ -263,6 +338,59 @@ export function PaymentDashboard({ periodId }: PaymentDashboardProps) {
                 </div>
               ))}
             </div>
+            
+            {/* Paginación */}
+            {data.pagination.totalPages > 1 && (
+              <div className="mt-6 flex justify-center">
+                <Pagination>
+                  <PaginationContent>
+                    <PaginationItem>
+                      <PaginationPrevious 
+                        onClick={() => data.pagination.hasPrev && setCurrentPage(currentPage - 1)}
+                        className={`${!data.pagination.hasPrev ? 'pointer-events-none opacity-50' : 'cursor-pointer'} 
+                          bg-gray-700 border-gray-600 text-white hover:bg-gray-600`}
+                      />
+                    </PaginationItem>
+                    
+                    {/* Páginas */}
+                    {Array.from({ length: data.pagination.totalPages }, (_, i) => i + 1)
+                      .filter(page => {
+                        const current = currentPage;
+                        return page === 1 || page === data.pagination.totalPages || 
+                               (page >= current - 1 && page <= current + 1);
+                      })
+                      .map((page, index, array) => (
+                        <React.Fragment key={page}>
+                          {index > 0 && array[index - 1] !== page - 1 && (
+                            <PaginationItem>
+                              <PaginationEllipsis className="text-gray-400" />
+                            </PaginationItem>
+                          )}
+                          <PaginationItem>
+                            <PaginationLink
+                              onClick={() => setCurrentPage(page)}
+                              isActive={page === currentPage}
+                              className={`cursor-pointer ${page === currentPage 
+                                ? 'bg-blue-600 text-white border-blue-500' 
+                                : 'bg-gray-700 border-gray-600 text-white hover:bg-gray-600'}`}
+                            >
+                              {page}
+                            </PaginationLink>
+                          </PaginationItem>
+                        </React.Fragment>
+                      ))}
+                    
+                    <PaginationItem>
+                      <PaginationNext 
+                        onClick={() => data.pagination.hasNext && setCurrentPage(currentPage + 1)}
+                        className={`${!data.pagination.hasNext ? 'pointer-events-none opacity-50' : 'cursor-pointer'} 
+                          bg-gray-700 border-gray-600 text-white hover:bg-gray-600`}
+                      />
+                    </PaginationItem>
+                  </PaginationContent>
+                </Pagination>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}

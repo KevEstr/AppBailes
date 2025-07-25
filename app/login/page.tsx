@@ -19,34 +19,33 @@ export default function LoginPage() {
   const [error, setError] = useState("")
   const router = useRouter()
 
+  console.log("LoginPage component loaded")
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
     setError("")
+    
+    console.log("Starting login process...")
 
     try {
+      console.log("Attempting to sign in with:", email)
+      
+      // Usar signIn con redirect automático - esto es más confiable
       const result = await signIn("credentials", {
         email,
         password,
-        redirect: false,
+        callbackUrl: "/",
       })
-
-      if (result?.error) {
-        setError("Credenciales inválidas. Por favor, verifica tu email y contraseña.")
-      } else {
-        // Obtener la sesión para redirigir según el rol
-        const session = await getSession()
-        if (session?.user?.role === "ADMIN") {
-          router.push("/admin")
-        } else if (session?.user?.role === "TEACHER") {
-          router.push("/teacher")
-        } else {
-          router.push("/")
-        }
-      }
+      
+      // Si llegamos aquí significa que hubo un error (no debería llegar aquí si es exitoso)
+      console.log("SignIn didn't redirect, there might be an error")
+      setError("Credenciales inválidas. Por favor, verifica tu email y contraseña.")
+      setIsLoading(false)
+      
     } catch (error) {
+      console.error("Login error:", error)
       setError("Error de conexión. Por favor, intenta nuevamente.")
-    } finally {
       setIsLoading(false)
     }
   }

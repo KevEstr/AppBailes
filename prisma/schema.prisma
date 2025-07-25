@@ -10,14 +10,16 @@ datasource db {
 model Student {
   id        String   @id // Cédula colombiana (sin autoincrement)
   name                    String
-  email                   String?
   phone                   String
   avatar                  String?
   hasDebt                 Boolean                   @default(false)
   isActive                Boolean                   @default(true)
+  userId                  Int?                      @unique  // Nueva relación con User
   createdAt               DateTime                  @default(now())
   updatedAt               DateTime                  @updatedAt
 
+  // Relations
+  user                    User?                     @relation(fields: [userId], references: [id], onDelete: SetNull)
   enrollmentData   StudentEnrollmentData?
   attendances             Attendance[]
   classEnrollments        ClassEnrollment[]
@@ -32,8 +34,8 @@ model Student {
 
   @@index([name])
   @@index([phone])
-  @@index([email])
   @@index([isActive])
+  @@index([userId])
   @@map("students")
 }
 
@@ -436,13 +438,15 @@ model User {
   id        Int      @id @default(autoincrement())
   email     String   @unique
   password  String
-  name      String
   role      UserRole @default(STUDENT)
   isActive  Boolean  @default(true)
   trainerId Int?     @unique
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  
+  // Relations
   trainer   Trainer? @relation(fields: [trainerId], references: [id], onDelete: SetNull)
+  student   Student? // Relación con Student
 
   @@map("users")
 }

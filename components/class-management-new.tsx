@@ -41,10 +41,10 @@ interface Location {
 interface Student {
   id: number // Cédula del estudiante
   name: string
-  email: string
   phone: string
   avatar?: string
   hasDebt: boolean
+  user?: { email: string }
 }
 
 interface ClassSchedule {
@@ -1179,7 +1179,7 @@ export function ClassManagementNew() {
                         <div>
                           <p className="font-medium text-white">{student.name}</p>
                           <p className="text-sm text-gray-400">ID: {student.id}</p>
-                          <p className="text-sm text-gray-400">{student.email}</p>
+                          <p className="text-sm text-gray-400">{student.user?.email}</p>
                         </div>
                       </div>
                       <Button
@@ -1219,7 +1219,7 @@ export function ClassManagementNew() {
                                 <div>
                           <p className="font-medium text-white">{student.name}</p>
                           <p className="text-sm text-gray-400">ID: {student.id}</p>
-                          <p className="text-sm text-gray-400">{student.email}</p>
+                          <p className="text-sm text-gray-400">{student.user?.email}</p>
                         </div>
                                 </div>
                                 <Button 

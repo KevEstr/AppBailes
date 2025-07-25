@@ -50,10 +50,10 @@ interface EnrollmentDetail {
   student: {
     id: number
     name: string
-    email?: string
     phone: string
     hasDebt: boolean
     isActive: boolean
+    user?: { email: string }
     enrollmentData?: StudentEnrollmentData
     debts: Array<{
       id: number
@@ -106,7 +106,7 @@ interface StudentDetailModalProps {
     student: {
       id: number
       name: string
-      email?: string
+      user?: { email: string }
       phone: string
       hasDebt: boolean
       isActive: boolean
@@ -149,10 +149,10 @@ export function StudentDetailModal({ enrollment }: StudentDetailModalProps) {
             student: {
               id: data.student.id,
               name: data.student.name,
-              email: data.student.email,
               phone: data.student.phone,
               hasDebt: enrollment.student.hasDebt,
               isActive: enrollment.student.isActive,
+              user: data.student.user,
               enrollmentData: data.student.enrollmentData ? {
                 ...data.student.enrollmentData,
                 id: data.student.enrollmentData.id,
@@ -193,10 +193,10 @@ export function StudentDetailModal({ enrollment }: StudentDetailModalProps) {
             student: {
               id: enrollment.student.id,
               name: enrollment.student.name,
-              email: enrollment.student.email,
               phone: enrollment.student.phone,
               hasDebt: enrollment.student.hasDebt,
               isActive: enrollment.student.isActive,
+              user: enrollment.student.user,
               enrollmentData: undefined,
               debts: [],
               receipts: [],
@@ -231,18 +231,18 @@ export function StudentDetailModal({ enrollment }: StudentDetailModalProps) {
           isActive: true,
           enrolledAt: new Date().toISOString(),
           createdAt: new Date().toISOString(),
-          student: {
-            id: enrollment.student.id,
-            name: enrollment.student.name,
-            email: enrollment.student.email,
-            phone: enrollment.student.phone,
-            hasDebt: enrollment.student.hasDebt,
-            isActive: enrollment.student.isActive,
-            enrollmentData: undefined,
-            debts: [],
-            receipts: [],
-            attendances: []
-          },
+            student: {
+              id: enrollment.student.id,
+              name: enrollment.student.name,
+              phone: enrollment.student.phone,
+              hasDebt: enrollment.student.hasDebt,
+              isActive: enrollment.student.isActive,
+              user: enrollment.student.user,
+              enrollmentData: undefined,
+              debts: [],
+              receipts: [],
+              attendances: []
+            },
           danceClass: {
             id: 0,
             name: enrollment.danceClass.name,
@@ -357,10 +357,10 @@ export function StudentDetailModal({ enrollment }: StudentDetailModalProps) {
                   <Phone className="w-3 h-3" />
                   {detailData.student.phone}
                 </span>
-                {detailData.student.email && (
+                {detailData.student.user?.email && (
                   <span className="flex items-center gap-1">
                     <Mail className="w-3 h-3" />
-                    <span className="truncate max-w-32 sm:max-w-none">{detailData.student.email}</span>
+                    <span className="truncate max-w-32 sm:max-w-none">{detailData.student.user.email}</span>
                   </span>
                 )}
               </div>

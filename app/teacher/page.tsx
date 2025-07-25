@@ -1,6 +1,6 @@
 "use client"
 
-import { useSession, signOut } from "next-auth/react"
+import { signOut } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -21,6 +21,7 @@ import {
 import Link from "next/link"
 import Image from "next/image"
 import { Loading } from "@/components/ui/loading"
+import { AuthGuard } from "@/components/auth-guard"
 
 interface DanceClass {
   id: number
@@ -48,43 +49,58 @@ interface DanceClass {
   }[]
 }
 
-export default function TeacherPage() {
-  const { data: session, status } = useSession()
+function TeacherContent() {
   const router = useRouter()
   const [classes, setClasses] = useState<DanceClass[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [userSession, setUserSession] = useState<any>(null)
 
   useEffect(() => {
-    if (status === "loading") return
+    const loadData = async () => {
+      try {
+        // Cargar sesión
+        const sessionResponse = await fetch("/api/auth/session")
+        const session = await sessionResponse.json()
+        setUserSession(session)
 
-    if (!session) {
-      router.push("/login")
-      return
+        // Cargar clases del profesor
+        if (session?.user?.trainerId) {
+          await fetchTeacherClasses(session.user.trainerId)
+        }
+      } catch (error) {
+        console.error("Error loading teacher data:", error)
+        setIsLoading(false)
+      }
     }
 
-    if (session.user.role !== "TEACHER") {
-      router.push("/login")
-      return
-    }
+    loadData()
+  }, [])
 
-    fetchTeacherClasses()
-  }, [session, status, router])
-
-  const fetchTeacherClasses = async () => {
+  const fetchTeacherClasses = async (trainerId: number) => {
     try {
-      if (!session?.user?.trainerId) {
+      if (!trainerId) {
         console.error("No trainer ID found for user")
         setIsLoading(false)
         return
       }
+
+      const response = await fetch(`/api/teachers/${trainerId}/classes`)
       
-      const response = await fetch(`/api/teachers/${session.user.trainerId}/classes`)
-      if (response.ok) {
-        const data = await response.json()
-        setClasses(data)
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+      
+      const data = await response.json()
+      
+      if (data.success) {
+        setClasses(data.classes || [])
+      } else {
+        console.error("Failed to fetch classes:", data.error)
+        setClasses([])
       }
     } catch (error) {
       console.error("Error fetching teacher classes:", error)
+      setClasses([])
     } finally {
       setIsLoading(false)
     }
@@ -94,36 +110,43 @@ export default function TeacherPage() {
     signOut({ callbackUrl: "/login" })
   }
 
-  const getDayName = (dayOfWeek: number) => {
+  const getDayName = (dayNumber: number) => {
     const days = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"]
-    return days[dayOfWeek]
+    return days[dayNumber] || "Día desconocido"
   }
 
-  const formatTime = (time: string) => {
-    return time.slice(0, 5) // Remove seconds
+  const formatTime = (timeString: string) => {
+    return timeString.slice(0, 5)
   }
 
-  const getActiveStudentsCount = (enrollments: any[]) => {
-    return enrollments.filter(enrollment => enrollment.isActive).length
+  const getActiveEnrollments = (enrollments: any[]) => {
+    return enrollments.filter(enrollment => enrollment.isActive)
   }
 
-  if (status === "loading" || isLoading) {
-    return <Loading message="Cargando panel de profesor..." />
+  if (isLoading) {
+    return <Loading />
   }
 
-  if (!session || session.user.role !== "TEACHER") {
-    return null
+  if (!userSession || userSession.user?.role !== "TEACHER") {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-slate-900 to-gray-800 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <div className="text-white text-xl">Verificando permisos...</div>
+        </div>
+      </div>
+    )
   }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-slate-900 to-gray-800">
-      <div className="container mx-auto px-6 py-8">
-        <div className="space-y-12">
+      <div className="container mx-auto px-4 sm:px-6 md:px-8 py-8">
+        <div className="space-y-8">
           {/* Header del Profesor */}
-          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-gray-800/90 via-slate-800/90 to-gray-700/90 p-8 border border-gray-600 shadow-2xl backdrop-blur-sm">
+          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-gray-800/90 via-slate-800/90 to-gray-700/90 p-6 sm:p-8 border border-gray-600 shadow-2xl backdrop-blur-sm">
             <div className="absolute inset-0 bg-gradient-to-r from-blue-300/20 to-green-300/20"></div>
-            <div className="relative z-10 flex items-center justify-between">
-              <div className="flex items-center space-x-6">
+            <div className="relative z-10 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
+              <div className="flex items-center space-x-4 sm:space-x-6">
                 <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-gray-700 shadow-2xl border-4 border-blue-500 relative overflow-hidden">
                   <Image
                     src="/logo.jpg"
@@ -136,181 +159,179 @@ export default function TeacherPage() {
                   <div className="absolute inset-0 bg-gradient-to-r from-blue-400 to-green-400 opacity-20"></div>
                 </div>
                 <div>
-                  <div className="flex items-center space-x-3 mb-2">
-                    <GraduationCap className="h-6 w-6 text-blue-400" />
-                    <h1 className="text-3xl font-bold text-white">Panel de Profesor</h1>
-                  </div>
-                  <p className="text-blue-300">Bienvenido, {session.user.name}</p>
-                  <p className="text-gray-400 text-sm">
-                    {session.user.trainerName && `Profesor: ${session.user.trainerName}`}
+                  <h1 className="text-2xl sm:text-3xl font-bold text-white">Panel de Profesor</h1>
+                  <p className="text-blue-300">Bienvenido, {userSession.user?.name}</p>
+                  <p className="text-blue-200 text-sm">
+                    {userSession.user?.trainerName && `Profesor: ${userSession.user.trainerName}`}
                   </p>
                 </div>
               </div>
-              <div className="flex items-center space-x-4">
-                <div className="text-right">
-                  <p className="text-white font-semibold">{classes.length} Clases Asignadas</p>
-                  <p className="text-blue-400 text-sm">
-                    {classes.reduce((total, cls) => total + getActiveStudentsCount(cls.enrollments), 0)} Estudiantes Totales
-                  </p>
-                </div>
+              <div className="flex items-center gap-3">
                 <Button 
                   onClick={handleSignOut}
+                  size="sm"
                   variant="outline" 
                   className="border-gray-600 text-gray-300 hover:bg-gray-700"
                 >
-                  <LogOut className="h-4 w-4 mr-2" />
-                  Cerrar Sesión
+                  <LogOut className="h-4 w-4 mr-1" />
+                  Salir
                 </Button>
               </div>
             </div>
           </div>
 
-          {/* Acciones Rápidas */}
+          {/* Estadísticas rápidas */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <Link href="/teacher/attendance">
-              <Card className="group cursor-pointer border-0 bg-gray-800/90 shadow-2xl transition-all duration-500 hover:shadow-3xl hover:-translate-y-2 border border-gray-600 hover:border-blue-500">
-                <CardContent className="p-6">
-                  <div className="flex items-center space-x-4">
-                    <div className="h-12 w-12 rounded-full bg-gradient-to-r from-blue-500 to-green-500 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-                      <CheckCircle className="h-6 w-6 text-white" />
-                    </div>
-                    <div>
-                      <h3 className="text-white font-semibold group-hover:text-blue-300 transition-colors">Tomar Asistencia</h3>
-                      <p className="text-gray-400 text-sm">Registrar asistencia de estudiantes</p>
-                    </div>
+            <Card className="border-0 bg-gradient-to-r from-blue-800/90 to-blue-700/90 shadow-xl">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-blue-300 text-sm font-medium">Total de Clases</p>
+                    <p className="text-2xl font-bold text-white">{classes.length}</p>
                   </div>
-                </CardContent>
-              </Card>
-            </Link>
+                  <GraduationCap className="h-8 w-8 text-blue-400" />
+                </div>
+              </CardContent>
+            </Card>
 
-            <Link href="/teacher/students">
-              <Card className="group cursor-pointer border-0 bg-gray-800/90 shadow-2xl transition-all duration-500 hover:shadow-3xl hover:-translate-y-2 border border-gray-600 hover:border-green-500">
-                <CardContent className="p-6">
-                  <div className="flex items-center space-x-4">
-                    <div className="h-12 w-12 rounded-full bg-gradient-to-r from-green-500 to-blue-500 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-                      <Users className="h-6 w-6 text-white" />
-                    </div>
-                    <div>
-                      <h3 className="text-white font-semibold group-hover:text-green-300 transition-colors">Mis Estudiantes</h3>
-                      <p className="text-gray-400 text-sm">Ver lista de estudiantes</p>
-                    </div>
+            <Card className="border-0 bg-gradient-to-r from-green-800/90 to-green-700/90 shadow-xl">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-green-300 text-sm font-medium">Estudiantes Activos</p>
+                    <p className="text-2xl font-bold text-white">
+                      {classes.reduce((total, cls) => total + getActiveEnrollments(cls.enrollments).length, 0)}
+                    </p>
                   </div>
-                </CardContent>
-              </Card>
-            </Link>
+                  <Users className="h-8 w-8 text-green-400" />
+                </div>
+              </CardContent>
+            </Card>
 
-            <Link href="/teacher/schedule">
-              <Card className="group cursor-pointer border-0 bg-gray-800/90 shadow-2xl transition-all duration-500 hover:shadow-3xl hover:-translate-y-2 border border-gray-600 hover:border-purple-500">
-                <CardContent className="p-6">
-                  <div className="flex items-center space-x-4">
-                    <div className="h-12 w-12 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-                      <Calendar className="h-6 w-6 text-white" />
-                    </div>
-                    <div>
-                      <h3 className="text-white font-semibold group-hover:text-purple-300 transition-colors">Mi Horario</h3>
-                      <p className="text-gray-400 text-sm">Ver horarios de clases</p>
-                    </div>
+            <Card className="border-0 bg-gradient-to-r from-purple-800/90 to-purple-700/90 shadow-xl">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-purple-300 text-sm font-medium">Clases Activas</p>
+                    <p className="text-2xl font-bold text-white">
+                      {classes.filter(cls => cls.isActive).length}
+                    </p>
                   </div>
-                </CardContent>
-              </Card>
-            </Link>
+                  <CheckCircle className="h-8 w-8 text-purple-400" />
+                </div>
+              </CardContent>
+            </Card>
           </div>
 
-          {/* Mis Clases */}
-          <div>
-            <div className="flex items-center space-x-3 mb-6">
-              <BookOpen className="h-6 w-6 text-blue-400" />
-              <h2 className="text-2xl font-bold text-white">Mis Clases</h2>
-              <Badge className="bg-blue-500 text-white">{classes.length}</Badge>
-            </div>
+          {/* Lista de Clases */}
+          <Card className="border-0 bg-gray-800/90 shadow-xl">
+            <CardHeader>
+              <CardTitle className="text-white flex items-center gap-2">
+                <BookOpen className="h-5 w-5" />
+                Mis Clases
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-6">
+              {classes.length === 0 ? (
+                <div className="text-center py-12">
+                  <GraduationCap className="h-12 w-12 text-gray-500 mx-auto mb-4" />
+                  <p className="text-gray-400 text-lg">No tienes clases asignadas</p>
+                  <p className="text-gray-500">Contacta al administrador para asignar clases</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {classes.map((danceClass) => (
+                    <Card key={danceClass.id} className="border border-gray-600 bg-gray-700/50 hover:bg-gray-600/50 transition-colors">
+                      <CardContent className="p-6">
+                        <div className="flex items-start justify-between mb-4">
+                          <div>
+                            <h3 className="text-lg font-semibold text-white mb-1">{danceClass.name}</h3>
+                            {danceClass.description && (
+                              <p className="text-gray-400 text-sm">{danceClass.description}</p>
+                            )}
+                          </div>
+                          <Badge 
+                            variant={danceClass.isActive ? "default" : "secondary"}
+                            className={danceClass.isActive ? "bg-green-600" : "bg-gray-600"}
+                          >
+                            {danceClass.isActive ? "Activa" : "Inactiva"}
+                          </Badge>
+                        </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {classes.map((danceClass) => (
-                <Card key={danceClass.id} className="border-0 bg-gray-800/90 shadow-2xl backdrop-blur-sm border border-gray-600 hover:border-blue-500 transition-all duration-300">
-                  <CardHeader className="pb-4">
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="text-white text-lg">{danceClass.name}</CardTitle>
-                      <Badge variant={danceClass.isActive ? "default" : "secondary"}>
-                        {danceClass.isActive ? "Activa" : "Inactiva"}
-                      </Badge>
-                    </div>
-                    {danceClass.description && (
-                      <p className="text-gray-400 text-sm">{danceClass.description}</p>
-                    )}
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    {/* Estudiantes */}
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-2">
-                        <Users className="h-4 w-4 text-blue-400" />
-                        <span className="text-gray-300 text-sm">Estudiantes</span>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <span className="text-white font-semibold">
-                          {getActiveStudentsCount(danceClass.enrollments)}
-                        </span>
-                        <span className="text-gray-400">/ {danceClass.capacity}</span>
-                      </div>
-                    </div>
-
-                    {/* Horarios */}
-                    <div className="space-y-2">
-                      <div className="flex items-center space-x-2">
-                        <Clock className="h-4 w-4 text-green-400" />
-                        <span className="text-gray-300 text-sm">Horarios</span>
-                      </div>
-                      <div className="space-y-1">
-                        {danceClass.schedules
-                          .filter(schedule => schedule.isActive)
-                          .map((schedule) => (
-                            <div key={schedule.id} className="flex items-center justify-between text-sm">
-                              <span className="text-gray-400">{getDayName(schedule.dayOfWeek)}</span>
-                              <span className="text-white">
-                                {formatTime(schedule.startTime)} - {formatTime(schedule.endTime)}
-                              </span>
+                        {/* Horarios */}
+                        <div className="mb-4">
+                          <p className="text-sm font-medium text-gray-300 mb-2">Horarios:</p>
+                          {danceClass.schedules.filter(schedule => schedule.isActive).length === 0 ? (
+                            <p className="text-gray-500 text-sm">Sin horarios asignados</p>
+                          ) : (
+                            <div className="space-y-1">
+                              {danceClass.schedules
+                                .filter(schedule => schedule.isActive)
+                                .map((schedule) => (
+                                  <div key={schedule.id} className="flex items-center gap-2 text-sm text-gray-400">
+                                    <Calendar className="h-3 w-3" />
+                                    <span>{getDayName(schedule.dayOfWeek)}</span>
+                                    <Clock className="h-3 w-3 ml-2" />
+                                    <span>{formatTime(schedule.startTime)} - {formatTime(schedule.endTime)}</span>
+                                  </div>
+                                ))}
                             </div>
-                          ))}
-                      </div>
-                    </div>
+                          )}
+                        </div>
 
-                    {/* Precio */}
-                    {danceClass.price && (
-                      <div className="flex items-center justify-between">
-                        <span className="text-gray-300 text-sm">Precio</span>
-                        <span className="text-green-400 font-semibold">${danceClass.price}</span>
-                      </div>
-                    )}
+                        {/* Estudiantes */}
+                        <div className="mb-4">
+                          <div className="flex items-center justify-between mb-2">
+                            <p className="text-sm font-medium text-gray-300">Estudiantes:</p>
+                            <Badge variant="outline" className="border-gray-500 text-gray-300">
+                              {getActiveEnrollments(danceClass.enrollments).length}/{danceClass.capacity}
+                            </Badge>
+                          </div>
+                          
+                          {getActiveEnrollments(danceClass.enrollments).length === 0 ? (
+                            <p className="text-gray-500 text-sm">Sin estudiantes inscritos</p>
+                          ) : (
+                            <div className="space-y-1">
+                              {getActiveEnrollments(danceClass.enrollments).slice(0, 3).map((enrollment) => (
+                                <div key={enrollment.id} className="flex items-center gap-2 text-sm text-gray-400">
+                                  <User className="h-3 w-3" />
+                                  <span>{enrollment.student.name}</span>
+                                </div>
+                              ))}
+                              {getActiveEnrollments(danceClass.enrollments).length > 3 && (
+                                <p className="text-xs text-gray-500">
+                                  +{getActiveEnrollments(danceClass.enrollments).length - 3} más...
+                                </p>
+                              )}
+                            </div>
+                          )}
+                        </div>
 
-                    {/* Acciones */}
-                    <div className="flex space-x-2 pt-4">
-                      <Link href={`/teacher/classes/${danceClass.id}/attendance`} className="flex-1">
-                        <Button className="w-full bg-gradient-to-r from-blue-500 to-green-500 hover:from-blue-600 hover:to-green-600 text-white text-sm">
-                          <CheckCircle className="h-4 w-4 mr-2" />
-                          Asistencia
-                        </Button>
-                      </Link>
-                      <Link href={`/teacher/classes/${danceClass.id}/students`}>
-                        <Button variant="outline" className="border-gray-600 text-gray-300 hover:bg-gray-700">
-                          <Users className="h-4 w-4" />
-                        </Button>
-                      </Link>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-
-              {classes.length === 0 && (
-                <div className="col-span-full text-center py-12">
-                  <GraduationCap className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-xl font-semibold text-white mb-2">No tienes clases asignadas</h3>
-                  <p className="text-gray-400">Contacta al administrador para que te asigne clases</p>
+                        {/* Botones de acción */}
+                        <div className="flex gap-2 mt-4">
+                          <Link href={`/attendance?classId=${danceClass.id}`} className="flex-1">
+                            <Button size="sm" className="w-full bg-blue-600 hover:bg-blue-700">
+                              <Clock className="h-4 w-4 mr-1" />
+                              Asistencia
+                            </Button>
+                          </Link>
+                          <Link href={`/classes/${danceClass.id}`} className="flex-1">
+                            <Button size="sm" variant="outline" className="w-full border-gray-500 text-gray-300">
+                              <ArrowRight className="h-4 w-4 mr-1" />
+                              Ver Detalles
+                            </Button>
+                          </Link>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
                 </div>
               )}
-            </div>
-          </div>
+            </CardContent>
+          </Card>
 
-          {/* Footer Info */}
-          <Card className="border-0 bg-gradient-to-r from-gray-800/90 via-slate-800/90 to-gray-700/90 shadow-xl rounded-2xl border-2 border-gray-600">
+          {/* Información del Sistema */}
+          <Card className="border-0 bg-gradient-to-r from-gray-800/90 via-slate-800/90 to-gray-700/90 shadow-xl">
             <CardContent className="p-6 text-center">
               <div className="flex items-center justify-center space-x-4 mb-4">
                 <div className="h-4 w-4 rounded-full bg-gradient-to-r from-blue-600 to-green-600 animate-pulse shadow-lg shadow-blue-500/50"></div>
@@ -326,4 +347,12 @@ export default function TeacherPage() {
       </div>
     </div>
   )
-} 
+}
+
+export default function TeacherPage() {
+  return (
+    <AuthGuard requiredRole="TEACHER">
+      <TeacherContent />
+    </AuthGuard>
+  )
+}

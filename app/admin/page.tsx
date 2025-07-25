@@ -1,7 +1,6 @@
 "use client"
 
-import { useSession, signOut } from "next-auth/react"
-import { useRouter } from "next/navigation"
+import { signOut } from "next-auth/react"
 import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -23,50 +22,34 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
-import { Loading } from "@/components/ui/loading"
+import { AuthGuard } from "@/components/auth-guard"
 
-export default function AdminPage() {
-  const { data: session, status } = useSession()
-  const router = useRouter()
+function AdminContent() {
   const [pendingDebts, setPendingDebts] = useState(0)
+  const [userSession, setUserSession] = useState<any>(null)
 
   useEffect(() => {
-    if (status === "loading") return
-
-    if (!session) {
-      router.push("/login")
-      return
-    }
-
-    if (session.user.role !== "ADMIN") {
-      router.push("/login")
-      return
-    }
-
-    // Cargar datos de deudas pendientes
-    const fetchDebts = async () => {
+    const loadData = async () => {
       try {
-        const response = await fetch("/api/debts")
-        const data = await response.json()
-        setPendingDebts(data.count || 0)
+        // Cargar sesión
+        const sessionResponse = await fetch("/api/auth/session")
+        const session = await sessionResponse.json()
+        setUserSession(session)
+
+        // Cargar datos de deudas pendientes
+        const debtsResponse = await fetch("/api/debts")
+        const debtsData = await debtsResponse.json()
+        setPendingDebts(debtsData.count || 0)
       } catch (error) {
-        console.error("Error fetching debts:", error)
+        console.error("Error loading admin data:", error)
       }
     }
 
-    fetchDebts()
-  }, [session, status, router])
+    loadData()
+  }, [])
 
   const handleSignOut = () => {
     signOut({ callbackUrl: "/login" })
-  }
-
-  if (status === "loading") {
-    return <Loading message="Cargando panel de administrador..." />
-  }
-
-  if (!session || session.user.role !== "ADMIN") {
-    return null
   }
 
   const adminMenuItems = [
@@ -184,7 +167,7 @@ export default function AdminPage() {
                   <div className="flex items-center space-x-2 sm:space-x-3 mb-1">
                     <h1 className="text-2xl sm:text-3xl font-bold text-white truncate">Panel de Administrador</h1>
                   </div>
-                  <p className="text-purple-300 text-sm sm:text-base truncate">Bienvenido, {session.user.name}</p>
+                  <p className="text-purple-300 text-sm sm:text-base truncate">Bienvenido, {userSession?.user?.name || 'Administrador'}</p>
                 </div>
               </div>
               <div className="flex flex-wrap items-center gap-3">
@@ -269,4 +252,12 @@ export default function AdminPage() {
       </div>
     </div>
   )
-} 
+}
+
+export default function AdminPage() {
+  return (
+    <AuthGuard requiredRole="ADMIN">
+      <AdminContent />
+    </AuthGuard>
+  )
+}

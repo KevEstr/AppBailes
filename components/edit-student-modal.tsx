@@ -17,11 +17,11 @@ import { InteractiveMap } from './interactive-map'
 interface Student {
   id: string
   name: string
+  email?: string // <-- Añadido para el formulario
   documentType?: string
   documentNumber: string
   birthDate?: string
   phone: string
-  email: string
   address?: string
   addressLatitude?: number
   addressLongitude?: number
@@ -41,6 +41,11 @@ interface Student {
   guardianRelation?: string
   guardianPhone?: string
   monthlyFee: number
+  // Relación con User
+  user?: {
+    id: number
+    email: string
+  }
   // Legacy fields for compatibility
   age?: number
   maritalStatus?: string
@@ -112,70 +117,38 @@ export default function EditStudentModal({ isOpen, onClose, student, onStudentUp
 
   useEffect(() => {
     if (student) {
-      // Cargar los datos completos del estudiante desde la API
-      const loadStudentData = async () => {
-        try {
-          const response = await fetch(`/api/students/${student.id}`)
-          const data = await response.json()
-          
-          if (data.success && data.student) {
-            const fullStudentData = {
-              id: student.id.toString(),
-              name: data.student.name,
-              email: data.student.email,
-              phone: data.student.phone,
-              documentNumber: student.id.toString(), // El ID es el número de documento
-              documentType: mapDocumentTypeToCode(data.student.enrollmentData?.documentType) || 'CC',
-              birthDate: data.student.enrollmentData?.birthDate || '',
-              address: data.student.enrollmentData?.address || '',
-              addressLatitude: data.student.enrollmentData?.addressLatitude || 0,
-              addressLongitude: data.student.enrollmentData?.addressLongitude || 0,
-              neighborhood: data.student.enrollmentData?.neighborhood || '',
-              city: data.student.enrollmentData?.city || 'Itagüí',
-              hasSisben: data.student.enrollmentData?.hasSisben || false,
-              eps: data.student.enrollmentData?.eps || '',
-              bloodType: data.student.enrollmentData?.bloodType || '',
-              hasRestrictions: data.student.enrollmentData?.hasRestrictions || false,
-              restrictionsDescription: data.student.enrollmentData?.restrictionsDescription || '',
-              medicalConditions: data.student.enrollmentData?.medicalConditions || '',
-              isAdult: data.student.enrollmentData?.isAdult !== undefined ? data.student.enrollmentData.isAdult : true,
-              emergencyContactName: data.student.enrollmentData?.emergencyContactName || '',
-              emergencyContactRelation: mapRelationshipToCode(data.student.enrollmentData?.emergencyContactRelation) || '',
-              emergencyContactPhone: data.student.enrollmentData?.emergencyContactPhone || '',
-              guardianName: data.student.enrollmentData?.guardianName || '',
-              guardianRelation: mapRelationshipToCode(data.student.enrollmentData?.guardianRelation) || '',
-              guardianPhone: data.student.enrollmentData?.guardianPhone || '',
-              monthlyFee: data.student.enrollmentData?.monthlyFee || 0
-            }
-            setFormData(fullStudentData)
-          } else {
-            // Si no se pueden cargar los datos completos, usar los básicos
-            setFormData({ 
-              ...student,
-              id: student.id.toString(),
-              documentNumber: student.id.toString(),
-              city: 'Itagüí',
-              monthlyFee: 0,
-              addressLatitude: undefined,
-              addressLongitude: undefined
-            })
-          }
-        } catch (error) {
-          console.error('Error loading student data:', error)
-          // Fallback a datos básicos
-          setFormData({ 
-            ...student,
-            id: student.id.toString(),
-            documentNumber: student.id.toString(),
-            city: 'Itagüí',
-            monthlyFee: 0,
-            addressLatitude: undefined,
-            addressLongitude: undefined
-          })
-        }
+      // Traer el email desde student.email (inyectado por el backend) o desde la relación user
+      const initialData = {
+        id: student.id.toString(),
+        name: student.name,
+        email: student.email || student.user?.email || '',
+        phone: student.phone,
+        documentNumber: student.documentNumber || student.id.toString(),
+        documentType: student.documentType || 'CC',
+        birthDate: student.birthDate || '',
+        address: student.address || '',
+        addressLatitude: student.addressLatitude,
+        addressLongitude: student.addressLongitude,
+        neighborhood: student.neighborhood || '',
+        city: student.city || 'Itagüí',
+        hasSisben: student.hasSisben || false,
+        eps: student.eps || '',
+        bloodType: student.bloodType || '',
+        hasRestrictions: student.hasRestrictions || false,
+        restrictionsDescription: student.restrictionsDescription || '',
+        medicalConditions: student.medicalConditions || '',
+        isAdult: student.isAdult ?? true,
+        emergencyContactName: student.emergencyContactName || '',
+        emergencyContactRelation: student.emergencyContactRelation || '',
+        emergencyContactPhone: student.emergencyContactPhone || '',
+        guardianName: student.guardianName || '',
+        guardianRelation: student.guardianRelation || '',
+        guardianPhone: student.guardianPhone || '',
+        monthlyFee: student.monthlyFee || 0
       }
-      
-      loadStudentData()
+      setFormData(initialData)
+    } else {
+      setFormData(null)
     }
   }, [student])
 
@@ -184,23 +157,56 @@ export default function EditStudentModal({ isOpen, onClose, student, onStudentUp
     setFormData(prev => prev ? { ...prev, [field]: value } : null)
   }
 
+  // Al actualizar, enviar solo el nombre a /api/students/profile y el email a /api/users/[id] si cambió
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!formData) return
 
     setLoading(true)
     try {
-      const response = await fetch(`/api/students/${formData.id}`, {
+      // Separar los datos planos y los de inscripción
+      const {
+        name, phone, documentType, birthDate, address, addressLatitude, addressLongitude, neighborhood, city, hasSisben, eps, bloodType, hasRestrictions, restrictionsDescription, medicalConditions, isAdult, monthlyFee, email, user, documentNumber,
+        emergencyContactName, emergencyContactRelation, emergencyContactPhone,
+        guardianName, guardianRelation, guardianPhone,
+        ...rest
+      } = formData;
+
+      // Datos de inscripción (enrollmentData)
+      const enrollmentData = {
+        documentType,
+        birthDate,
+        address,
+        neighborhood,
+        city,
+        hasSisben,
+        eps,
+        bloodType,
+        hasRestrictions,
+        restrictionsDescription,
+        medicalConditions,
+        emergencyContactName,
+        emergencyContactRelation,
+        emergencyContactPhone,
+        guardianName,
+        guardianRelation,
+        guardianPhone
+      };
+
+      // Enviar datos planos, enrollmentData y email en una sola petición
+      const studentRes = await fetch(`/api/students/profile`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          name,
+          phone,
+          email: formData.email, // Enviar email para que el backend lo actualice en User
+          enrollmentData
+        }),
       })
-      console.log(response)
-      console.log(response.ok)
-      if (!response.ok) {
-        console.log(response)
+      if (!studentRes.ok) {
         throw new Error('Error al actualizar el estudiante')
       }
 
@@ -208,9 +214,9 @@ export default function EditStudentModal({ isOpen, onClose, student, onStudentUp
         title: "Éxito",
         description: "Estudiante actualizado correctamente",
       })
-      
-      onStudentUpdated()
-      onClose()
+      // Esperar a que el padre refresque el estudiante antes de cerrar el modal
+      onStudentUpdated();
+      onClose();
     } catch (error) {
       toast({
         title: "Error",

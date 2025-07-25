@@ -5,6 +5,7 @@ import { NextResponse } from "next/server"
 const ADMIN_ROUTES = ["/admin", "/receipts", "/messages", "/debts", "/history"]
 const SHARED_ROUTES = ["/classes", "/attendance"]
 const TEACHER_ROUTES = ["/teacher"]
+const STUDENT_ROUTES = ["/student"]
 const PUBLIC_ROUTES = ["/login"]  // ⚡ REMOVIDO "/" de rutas públicas - ahora requiere autenticación
 const PAYMENT_ROUTES = ["/payment/", "/recibo/"]  // ⚡ RUTAS PÚBLICAS DE PAGO Y RECIBOS
 
@@ -20,6 +21,11 @@ export default withAuth(
       return NextResponse.next()
     }
 
+    // ⚡ PERMITIR RUTAS API - ESTAS MANEJAN SU PROPIA AUTENTICACIÓN
+    if (pathname.startsWith("/api/")) {
+      return NextResponse.next()
+    }
+
     // ⚡ OPTIMIZACIÓN: Solo log en desarrollo
     if (process.env.NODE_ENV === 'development') {
       console.log("🔒 Middleware:", { pathname, role: token?.role })
@@ -32,14 +38,30 @@ export default withAuth(
 
     // ⚡ REDIRECCIÓN OPTIMIZADA PARA LOGIN CON TOKEN VÁLIDO
     if (pathname === "/login" && token) {
-      const redirectUrl = token.role === "ADMIN" ? "/admin" : "/teacher"
-      return NextResponse.redirect(new URL(redirectUrl, req.url))
+      switch (token.role) {
+        case "ADMIN":
+          return NextResponse.redirect(new URL("/admin", req.url))
+        case "TEACHER":
+          return NextResponse.redirect(new URL("/teacher", req.url))
+        case "STUDENT":
+          return NextResponse.redirect(new URL("/student", req.url))
+        default:
+          return NextResponse.redirect(new URL("/login", req.url))
+      }
     }
 
     // ⚡ REDIRECCIÓN DE PÁGINA PRINCIPAL PARA USUARIOS AUTENTICADOS
     if (pathname === "/" && token) {
-      const redirectUrl = token.role === "ADMIN" ? "/admin" : "/teacher"
-      return NextResponse.redirect(new URL(redirectUrl, req.url))
+      switch (token.role) {
+        case "ADMIN":
+          return NextResponse.redirect(new URL("/admin", req.url))
+        case "TEACHER":
+          return NextResponse.redirect(new URL("/teacher", req.url))
+        case "STUDENT":
+          return NextResponse.redirect(new URL("/student", req.url))
+        default:
+          return NextResponse.redirect(new URL("/login", req.url))
+      }
     }
 
     // ⚡ PERMITIR SOLO LOGIN SIN TOKEN
@@ -52,20 +74,21 @@ export default withAuth(
       return NextResponse.redirect(new URL("/login", req.url))
     }
 
-    // ⚡ VERIFICACIÓN OBLIGATORIA DE ROLES VÁLIDOS (ADMIN o TEACHER)
-    if (token.role !== "ADMIN" && token.role !== "TEACHER") {
+    // ⚡ VERIFICACIÓN OBLIGATORIA DE ROLES VÁLIDOS (ADMIN, TEACHER o STUDENT)
+    if (token.role !== "ADMIN" && token.role !== "TEACHER" && token.role !== "STUDENT") {
       return NextResponse.redirect(new URL("/login", req.url))
     }
 
     // ⚡ VERIFICACIÓN OPTIMIZADA POR ROLES
     if (token.role === "ADMIN") {
-      // Admin: bloquear solo teacher routes
-      if (TEACHER_ROUTES.some(route => pathname.startsWith(route))) {
+      // Admin: bloquear solo teacher y student routes
+      if (TEACHER_ROUTES.some(route => pathname.startsWith(route)) ||
+          STUDENT_ROUTES.some(route => pathname.startsWith(route))) {
         return NextResponse.redirect(new URL("/admin", req.url))
       }
     } 
     else if (token.role === "TEACHER") {
-      // Teacher: verificar permisos permitidos
+      // Teacher: verificar permisos permitidos (bloquear admin y student routes)
       const isAllowed = 
         PUBLIC_ROUTES.includes(pathname) ||
         SHARED_ROUTES.some(route => pathname.startsWith(route)) ||
@@ -73,6 +96,17 @@ export default withAuth(
 
       if (!isAllowed) {
         return NextResponse.redirect(new URL("/teacher", req.url))
+      }
+    }
+    else if (token.role === "STUDENT") {
+      // Student: solo permitir rutas de estudiante y compartidas
+      const isAllowed = 
+        PUBLIC_ROUTES.includes(pathname) ||
+        SHARED_ROUTES.some(route => pathname.startsWith(route)) ||
+        STUDENT_ROUTES.some(route => pathname.startsWith(route))
+
+      if (!isAllowed) {
+        return NextResponse.redirect(new URL("/student", req.url))
       }
     }
 
@@ -113,7 +147,7 @@ export default withAuth(
         }
 
         // ⚡ TODAS LAS DEMÁS RUTAS REQUIEREN TOKEN CON ROLES VÁLIDOS
-        return !!token && (token.role === "ADMIN" || token.role === "TEACHER")
+        return !!token && (token.role === "ADMIN" || token.role === "TEACHER" || token.role === "STUDENT")
       },
     },
   }

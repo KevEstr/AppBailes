@@ -54,7 +54,7 @@ export async function GET(request: Request) {
           id: true,
           name: true,
           phone: true,
-          email: true
+          user: { select: { email: true } }
         }
       }
     }

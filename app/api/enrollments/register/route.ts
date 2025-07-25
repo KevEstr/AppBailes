@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import bcrypt from 'bcryptjs';
 
 export async function POST(request: NextRequest) {
   try {
@@ -21,9 +22,9 @@ export async function POST(request: NextRequest) {
       }, { status: 400 })
     }
 
-    // Validar que documentNumber sea un número válido
-    const documentNumberInt = parseInt(data.documentNumber)
-    if (isNaN(documentNumberInt) || documentNumberInt <= 0) {
+    // Validar que documentNumber sea un número válido (solo dígitos, no vacío)
+    const documentNumberStr = String(data.documentNumber).trim()
+    if (!/^[0-9]+$/.test(documentNumberStr) || documentNumberStr.length === 0) {
       console.log('❌ Número de documento inválido:', data.documentNumber)
       return NextResponse.json({
         success: false,
@@ -31,35 +32,63 @@ export async function POST(request: NextRequest) {
       }, { status: 400 })
     }
 
-    console.log('🔍 Buscando estudiante con ID:', documentNumberInt)
+    console.log('🔍 Buscando estudiante con ID:', documentNumberStr)
+
+    // Buscar o crear usuario (User) asociado al estudiante
+    let user = null;
+    if (!data.email) {
+      return NextResponse.json({
+        success: false,
+        error: 'El email es requerido para el registro'
+      }, { status: 400 });
+    }
+
+    // Buscar usuario existente por email
+    user = await prisma.user.findUnique({
+      where: { email: data.email }
+    });
+
+    if (!user) {
+      // Hashear la contraseña antes de guardar
+      const hashedPassword = await bcrypt.hash(documentNumberStr, 10);
+      user = await prisma.user.create({
+        data: {
+          email: data.email,
+          password: hashedPassword,
+          role: 'STUDENT',
+          isActive: true
+        }
+      });
+      console.log('✅ Usuario creado:', user.id);
+    } else {
+      console.log('👤 Usuario ya existe:', user.id);
+    }
 
     // Verificar si el estudiante ya existe
     let student = await prisma.student.findUnique({
-      where: { id: documentNumberInt }
-    })
+      where: { id: documentNumberStr }
+    });
 
-    console.log('👤 Resultado búsqueda estudiante:', student ? 'Encontrado' : 'No encontrado')
+    console.log('👤 Resultado búsqueda estudiante:', student ? 'Encontrado' : 'No encontrado');
 
-    // Si no existe, crear el estudiante
+    // Si no existe, crear el estudiante y asociar userId
     if (!student) {
-      console.log('🆕 Creando nuevo estudiante...')
-      
+      console.log('🆕 Creando nuevo estudiante...');
       try {
         student = await prisma.student.create({
           data: {
-            id: documentNumberInt,
+            id: documentNumberStr,
             name: data.studentName,
             phone: data.phone,
-            email: data.email || null,
-            avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(data.studentName)}`
+            avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(data.studentName)}`,
+            userId: user.id
           }
-        })
+        });
 
-        console.log('✅ Estudiante creado exitosamente:', student.id)
+        console.log('✅ Estudiante creado exitosamente:', student.id);
 
         // Crear información extendida de inscripción con todos los datos
-        console.log('📝 Creando datos extendidos de inscripción...')
-        
+        console.log('📝 Creando datos extendidos de inscripción...');
         await prisma.studentEnrollmentData.create({
           data: {
             studentId: student.id,
@@ -85,25 +114,23 @@ export async function POST(request: NextRequest) {
             guardianPhone: data.guardianPhone || null,
             monthlyFee: null // Se definirá por la administración
           }
-        })
+        });
 
-        console.log('✅ Datos extendidos creados exitosamente')
+        console.log('✅ Datos extendidos creados exitosamente');
 
       } catch (createError: unknown) {
-        console.error('❌ Error creando estudiante:', createError)
-        
+        console.error('❌ Error creando estudiante:', createError);
         // Verificar si es error de duplicado
         if (createError && typeof createError === 'object' && 'code' in createError && createError.code === 'P2002') {
           return NextResponse.json({
             success: false,
             error: 'Ya existe un estudiante con este número de documento, email o teléfono'
-          }, { status: 400 })
+          }, { status: 400 });
         }
-        
-        throw createError
+        throw createError;
       }
     } else {
-      console.log('👤 Estudiante ya existe, actualizando información extendida si es necesario...')
+      console.log('👤 Estudiante ya existe, actualizando información extendida si es necesario...');
     }
 
     // Verificar que student existe antes de continuar

@@ -57,10 +57,10 @@ export async function GET(request: NextRequest) {
             select: {
               id: true,
               name: true,
-              email: true,
               phone: true,
               hasDebt: true,
-              isActive: true
+              isActive: true,
+              user: { select: { email: true } }
             }
           },
           danceClass: {
