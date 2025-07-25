@@ -1,14 +1,20 @@
-"use client"
+"use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Textarea } from "@/components/ui/textarea"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Badge } from "@/components/ui/badge"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Label } from "@/components/ui/label"
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import {
   Send,
   MessageCircle,
@@ -19,24 +25,28 @@ import {
   Zap,
   Check,
   Loader2,
-} from "lucide-react"
-import { useToast } from "@/hooks/use-toast"
+} from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 interface Student {
-  id: number // Cédula del estudiante
-  name: string
-  phone: string
-  email: string
-  hasDebt: boolean
-  avatar?: string
-  classes: { id: number; name: string }[]
+  id: number; // Cédula del estudiante
+  name: string;
+  phone: string;
+  email: string;
+  hasDebt: boolean;
+  avatar?: string;
+  classes: { id: number; name: string }[];
 }
 
 interface MessageTemplate {
-  id: string
-  name: string
-  message: string
-  type: 'PAYMENT_REMINDER' | 'TRAINING_REMINDER' | 'ABSENCE_INQUIRY' | 'GENERAL'
+  id: string;
+  name: string;
+  message: string;
+  type:
+    | "PAYMENT_REMINDER"
+    | "TRAINING_REMINDER"
+    | "ABSENCE_INQUIRY"
+    | "GENERAL";
 }
 
 // ✅ OPTIMIZACIÓN: Memoizar plantillas para evitar recreación
@@ -44,84 +54,88 @@ const messageTemplates: MessageTemplate[] = [
   {
     id: "payment_reminder",
     name: "Recordatorio de Pago",
-    message: "Hola {nombre}! Te recordamos que tienes un pago pendiente. ¡Gracias por ser parte de Paradise Dance Academy! 💃",
-    type: "PAYMENT_REMINDER"
+    message:
+      "Hola {nombre}! Te recordamos que tienes un pago pendiente. ¡Gracias por ser parte de Paradise Dance Academy! 💃",
+    type: "PAYMENT_REMINDER",
   },
   {
-    id: "training_reminder", 
+    id: "training_reminder",
     name: "Recordatorio de Entrenamiento",
-    message: "¡Hola {nombre}! Te esperamos mañana en tu clase de {clase}. ¡No faltes! 🕺",
-    type: "TRAINING_REMINDER"
+    message:
+      "¡Hola {nombre}! Te esperamos mañana en tu clase de {clase}. ¡No faltes! 🕺",
+    type: "TRAINING_REMINDER",
   },
   {
     id: "absence_inquiry",
     name: "Consulta de Ausencia",
-    message: "Hola {nombre}, notamos tu ausencia en la clase de {clase}. ¿Todo está bien? 🤗",
-    type: "ABSENCE_INQUIRY"
+    message:
+      "Hola {nombre}, notamos tu ausencia en la clase de {clase}. ¿Todo está bien? 🤗",
+    type: "ABSENCE_INQUIRY",
   },
   {
     id: "general",
     name: "Mensaje General",
-    message: "¡Hola {nombre}! Esperamos verte pronto en Paradise Dance Academy. ¡Síguenos en nuestras redes! ✨",
-    type: "GENERAL"
-  }
-]
+    message:
+      "¡Hola {nombre}! Esperamos verte pronto en Paradise Dance Academy. ¡Síguenos en nuestras redes! ✨",
+    type: "GENERAL",
+  },
+];
 
 export function MassiveMessages() {
-  const { toast } = useToast()
-  const [students, setStudents] = useState<Student[]>([])
-  const [selectedStudents, setSelectedStudents] = useState<number[]>([])
-  const [messageType, setMessageType] = useState<string>("")
-  const [customMessage, setCustomMessage] = useState("")
-  const [filterType, setFilterType] = useState("all")
-  const [loading, setLoading] = useState(false)
+  const { toast } = useToast();
+  const [students, setStudents] = useState<Student[]>([]);
+  const [selectedStudents, setSelectedStudents] = useState<number[]>([]);
+  const [messageType, setMessageType] = useState<string>("");
+  const [customMessage, setCustomMessage] = useState("");
+  const [filterType, setFilterType] = useState("all");
+  const [loading, setLoading] = useState(false);
 
   // ✅ OPTIMIZACIÓN: useCallback para loadStudents
   const loadStudents = useCallback(async () => {
     try {
-      const response = await fetch("/api/students?active=true")
-      const data = await response.json()
+      const response = await fetch("/api/students?active=true");
+      const data = await response.json();
       if (data.success) {
-        setStudents(data.students)
+        setStudents(data.students);
       }
     } catch (error) {
-      console.error("Error loading students:", error)
+      console.error("Error loading students:", error);
     }
-  }, [])
+  }, []);
 
   useEffect(() => {
-    loadStudents()
-  }, [loadStudents])
+    loadStudents();
+  }, [loadStudents]);
 
   // ✅ OPTIMIZACIÓN: Estudiantes filtrados memoizados
   const filteredStudents = useMemo(() => {
     switch (filterType) {
       case "debt":
-        return students.filter(s => s.hasDebt)
+        return students.filter((s) => s.hasDebt);
       case "no_debt":
-        return students.filter(s => !s.hasDebt)
+        return students.filter((s) => !s.hasDebt);
       default:
-        return students
+        return students;
     }
-  }, [students, filterType])
+  }, [students, filterType]);
 
   // ✅ OPTIMIZACIÓN: useCallback para funciones de selección
   const toggleStudentSelection = useCallback((studentId: number) => {
-    setSelectedStudents(prev =>
+    setSelectedStudents((prev) =>
       prev.includes(studentId)
-        ? prev.filter(id => id !== studentId)
+        ? prev.filter((id) => id !== studentId)
         : [...prev, studentId]
-    )
-  }, [])
+    );
+  }, []);
 
   const selectAllFiltered = useCallback(() => {
-    const filteredIds = filteredStudents.map(s => s.id)
-    setSelectedStudents(filteredIds)
-  }, [filteredStudents])
+    const filteredIds = filteredStudents.map((s) => s.id);
+    setSelectedStudents(filteredIds);
+  }, [filteredStudents]);
 
   const clearSelection = useCallback(() => {
-    setSelectedStudents([])
-  }, [])
+    setSelectedStudents([]);
+  }, []);
 
   // ✅ OPTIMIZACIÓN: useCallback para envío de mensajes
   const sendMassiveMessages = useCallback(async () => {
@@ -129,21 +143,21 @@ export function MassiveMessages() {
       toast({
         title: "❌ Error",
         description: "Selecciona al menos un estudiante",
-        variant: "destructive"
-      })
-      return
+        variant: "destructive",
+      });
+      return;
     }
 
     if (!customMessage.trim()) {
       toast({
-        title: "❌ Error", 
+        title: "❌ Error",
         description: "Escribe un mensaje",
-        variant: "destructive"
-      })
-      return
+        variant: "destructive",
+      });
+      return;
     }
 
-    setLoading(true)
+    setLoading(true);
     try {
       const response = await fetch("/api/massive-messages", {
         method: "POST",
@@ -151,51 +165,46 @@ export function MassiveMessages() {
         body: JSON.stringify({
           studentIds: selectedStudents,
           message: customMessage,
-          type: messageType || "GENERAL"
-        })
-      })
+          type: messageType || "GENERAL",
+        }),
+      });
 
-      const data = await response.json()
+      const data = await response.json();
 
       if (data.success) {
         toast({
           title: "✅ Mensajes Enviados",
-          description: `${selectedStudents.length} mensajes enviados exitosamente`
-        })
-        setSelectedStudents([])
-        setCustomMessage("")
-        setMessageType("")
+          description: `${selectedStudents.length} mensajes enviados exitosamente`,
+        });
+        setSelectedStudents([]);
+        setCustomMessage("");
+        setMessageType("");
       } else {
         toast({
           title: "❌ Error",
           description: data.error || "Error al enviar mensajes",
-          variant: "destructive"
-        })
+          variant: "destructive",
+        });
       }
     } catch (error) {
+      console.error("Error sending messages:", error);
       toast({
         title: "❌ Error",
         description: "Error al enviar mensajes",
-        variant: "destructive"
-      })
+        variant: "destructive",
+      });
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }, [selectedStudents, customMessage, messageType, toast])
-
-  // ✅ OPTIMIZACIÓN: Plantilla seleccionada memoizada
-  const selectedTemplate = useMemo(() => 
-    messageTemplates.find(t => t.id === messageType),
-    [messageType]
-  )
+  }, [selectedStudents, customMessage, messageType, toast]);
 
   // ✅ OPTIMIZACIÓN: useCallback para actualizar mensaje
   const updateMessageFromTemplate = useCallback((templateId: string) => {
-    const template = messageTemplates.find(t => t.id === templateId)
+    const template = messageTemplates.find((t) => t.id === templateId);
     if (template) {
-      setCustomMessage(template.message)
+      setCustomMessage(template.message);
     }
-  }, [])
+  }, []);
 
   return (
     <div className="max-w-7xl mx-auto">
@@ -207,8 +216,12 @@ export function MassiveMessages() {
               <MessageCircle className="h-8 w-8 text-white" />
             </div>
             <div>
-              <span className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">Notificaciones Paradise</span>
-              <p className="text-blue-300 mt-2 text-lg">Comunícate con tu familia de baile</p>
+              <span className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+                Notificaciones Paradise
+              </span>
+              <p className="text-blue-300 mt-2 text-lg">
+                Comunícate con tu familia de baile
+              </p>
             </div>
           </CardTitle>
         </CardHeader>
@@ -218,16 +231,20 @@ export function MassiveMessages() {
         {/* Panel de configuración de mensaje */}
         <Card className="border-0 shadow-2xl rounded-3xl bg-gray-800/90 border border-gray-600 backdrop-blur-sm">
           <CardHeader>
-            <CardTitle className="text-2xl font-bold text-white">Configurar Mensaje</CardTitle>
+            <CardTitle className="text-2xl font-bold text-white">
+              Configurar Mensaje
+            </CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
             <div>
-              <Label className="text-lg font-semibold text-gray-200">Plantilla de Mensaje</Label>
-              <Select 
-                value={messageType} 
+              <Label className="text-lg font-semibold text-gray-200">
+                Plantilla de Mensaje
+              </Label>
+              <Select
+                value={messageType}
                 onValueChange={(value) => {
-                  setMessageType(value)
-                  updateMessageFromTemplate(value)
+                  setMessageType(value);
+                  updateMessageFromTemplate(value);
                 }}
               >
                 <SelectTrigger className="border border-gray-600 focus:border-blue-500 rounded-2xl h-14 text-lg bg-gray-700 text-white">
@@ -235,12 +252,24 @@ export function MassiveMessages() {
                 </SelectTrigger>
                 <SelectContent className="bg-gray-700 border-gray-600">
                   {messageTemplates.map((template) => (
-                    <SelectItem key={template.id} value={template.id} className="text-white hover:bg-blue-600">
+                    <SelectItem
+                      key={template.id}
+                      value={template.id}
+                      className="text-white hover:bg-blue-600"
+                    >
                       <div className="flex items-center space-x-3">
-                        {template.type === 'PAYMENT_REMINDER' && <DollarSign className="w-5 h-5 text-red-600" />}
-                        {template.type === 'TRAINING_REMINDER' && <Zap className="w-5 h-5 text-blue-600" />}
-                        {template.type === 'ABSENCE_INQUIRY' && <AlertTriangle className="w-5 h-5 text-amber-600" />}
-                        {template.type === 'GENERAL' && <MessageCircle className="w-5 h-5 text-green-600" />}
+                        {template.type === "PAYMENT_REMINDER" && (
+                          <DollarSign className="w-5 h-5 text-red-600" />
+                        )}
+                        {template.type === "TRAINING_REMINDER" && (
+                          <Zap className="w-5 h-5 text-blue-600" />
+                        )}
+                        {template.type === "ABSENCE_INQUIRY" && (
+                          <AlertTriangle className="w-5 h-5 text-amber-600" />
+                        )}
+                        {template.type === "GENERAL" && (
+                          <MessageCircle className="w-5 h-5 text-green-600" />
+                        )}
                         <div>
                           <div className="font-medium">{template.name}</div>
                         </div>
@@ -252,7 +281,10 @@ export function MassiveMessages() {
             </div>
 
             <div>
-              <Label htmlFor="message" className="text-lg font-semibold text-gray-200">
+              <Label
+                htmlFor="message"
+                className="text-lg font-semibold text-gray-200"
+              >
                 Mensaje Personalizado
               </Label>
               <Textarea
@@ -265,7 +297,7 @@ export function MassiveMessages() {
               />
               <div className="flex items-center justify-between mt-2">
                 <span className="text-sm text-gray-400">
-                  Variables: {'{'}nombre{'}'}, {'{'}clase{'}'}, {'{'}fecha{'}'}
+                  Variables: {"{"}nombre{"}"}, {"{"}clase{"}"}, {"{"}fecha{"}"}
                 </span>
                 <span className="text-sm text-gray-400">
                   {customMessage.length}/500 caracteres
@@ -276,9 +308,13 @@ export function MassiveMessages() {
             {customMessage && (
               <Card className="bg-gray-700/50 border border-gray-600">
                 <CardContent className="p-4">
-                  <h4 className="font-semibold text-white mb-2">Vista Previa:</h4>
+                  <h4 className="font-semibold text-white mb-2">
+                    Vista Previa:
+                  </h4>
                   <div className="bg-gray-600/50 p-3 rounded-lg border border-gray-500">
-                    <p className="text-gray-300 whitespace-pre-line">{customMessage}</p>
+                    <p className="text-gray-300 whitespace-pre-line">
+                      {customMessage}
+                    </p>
                   </div>
                 </CardContent>
               </Card>
@@ -290,8 +326,13 @@ export function MassiveMessages() {
         <Card className="border-0 shadow-2xl rounded-3xl bg-gray-800/90 border border-gray-600 backdrop-blur-sm">
           <CardHeader>
             <div className="flex items-center justify-between">
-              <span className="text-2xl font-bold text-white">Seleccionar Estudiantes</span>
-              <Badge variant="outline" className="text-lg px-4 py-2 border-purple-500 text-purple-400 bg-purple-950/50">
+              <span className="text-2xl font-bold text-white">
+                Seleccionar Estudiantes
+              </span>
+              <Badge
+                variant="outline"
+                className="text-lg px-4 py-2 border-purple-500 text-purple-400 bg-purple-950/50"
+              >
                 {selectedStudents.length} seleccionados
               </Badge>
             </div>
@@ -299,28 +340,45 @@ export function MassiveMessages() {
           <CardContent className="space-y-6">
             <div className="flex items-center space-x-4">
               <div className="flex-1">
-                <Label className="text-lg font-semibold text-gray-200">Filtrar por</Label>
+                <Label className="text-lg font-semibold text-gray-200">
+                  Filtrar por
+                </Label>
                 <Select value={filterType} onValueChange={setFilterType}>
                   <SelectTrigger className="border border-gray-600 focus:border-blue-500 rounded-2xl h-14 text-lg bg-gray-700 text-white">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent className="bg-gray-700 border-gray-600">
-                    <SelectItem value="all" className="text-white hover:bg-blue-600">👥 Todos los estudiantes</SelectItem>
-                    <SelectItem value="debt" className="text-white hover:bg-blue-600">💰 Con deudas</SelectItem>
-                    <SelectItem value="no_debt" className="text-white hover:bg-blue-600">✨ Sin deudas</SelectItem>
+                    <SelectItem
+                      value="all"
+                      className="text-white hover:bg-blue-600"
+                    >
+                      👥 Todos los estudiantes
+                    </SelectItem>
+                    <SelectItem
+                      value="debt"
+                      className="text-white hover:bg-blue-600"
+                    >
+                      💰 Con deudas
+                    </SelectItem>
+                    <SelectItem
+                      value="no_debt"
+                      className="text-white hover:bg-blue-600"
+                    >
+                      ✨ Sin deudas
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
-              
+
               <div className="flex items-center space-x-2">
-                <Button 
+                <Button
                   onClick={selectAllFiltered}
                   variant="outline"
                   className="border-gray-600 text-gray-300 hover:bg-gray-700 hover:text-white"
                 >
                   Todos
                 </Button>
-                <Button 
+                <Button
                   onClick={clearSelection}
                   variant="outline"
                   className="border-gray-600 text-gray-300 hover:bg-gray-700 hover:text-white"
@@ -332,12 +390,12 @@ export function MassiveMessages() {
 
             <div className="max-h-96 overflow-y-auto space-y-3">
               {filteredStudents.map((student) => (
-                <Card 
-                  key={student.id} 
+                <Card
+                  key={student.id}
                   className={`cursor-pointer transition-all duration-300 hover:scale-105 border ${
-                    selectedStudents.includes(student.id) 
-                      ? 'border-blue-500 bg-blue-950/50' 
-                      : 'border-gray-600 bg-gray-700/50 hover:border-gray-500'
+                    selectedStudents.includes(student.id)
+                      ? "border-blue-500 bg-blue-950/50"
+                      : "border-gray-600 bg-gray-700/50 hover:border-gray-500"
                   }`}
                   onClick={() => toggleStudentSelection(student.id)}
                 >
@@ -345,27 +403,40 @@ export function MassiveMessages() {
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-3">
                         <div className="w-12 h-12 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full flex items-center justify-center border border-blue-500">
-                          <span className="text-white font-bold text-lg">{student.name.charAt(0)}</span>
+                          <span className="text-white font-bold text-lg">
+                            {student.name.charAt(0)}
+                          </span>
                         </div>
                         <div>
-                          <h4 className="font-semibold text-white">{student.name}</h4>
+                          <h4 className="font-semibold text-white">
+                            {student.name}
+                          </h4>
                           <div className="flex items-center space-x-2 text-sm text-gray-400">
                             <span>📱 {student.phone}</span>
-                            {student.hasDebt && <Badge variant="destructive" className="text-xs">Deuda</Badge>}
+                            {student.hasDebt && (
+                              <Badge variant="destructive" className="text-xs">
+                                Deuda
+                              </Badge>
+                            )}
                           </div>
                         </div>
                       </div>
                       <div className="flex items-center space-x-2">
                         {student.classes && student.classes.length > 0 && (
-                          <Badge variant="outline" className="border-gray-500 text-gray-300">
+                          <Badge
+                            variant="outline"
+                            className="border-gray-500 text-gray-300"
+                          >
                             {student.classes.length} clases
                           </Badge>
                         )}
-                        <div className={`w-5 h-5 rounded-full border-2 ${
-                          selectedStudents.includes(student.id) 
-                            ? 'bg-blue-500 border-blue-500' 
-                            : 'border-gray-500'
-                        }`}>
+                        <div
+                          className={`w-5 h-5 rounded-full border-2 ${
+                            selectedStudents.includes(student.id)
+                              ? "bg-blue-500 border-blue-500"
+                              : "border-gray-500"
+                          }`}
+                        >
                           {selectedStudents.includes(student.id) && (
                             <Check className="w-3 h-3 text-white m-0.5" />
                           )}
@@ -386,12 +457,15 @@ export function MassiveMessages() {
           <CardContent className="p-8">
             <div className="flex items-center justify-between mb-6">
               <div>
-                <h3 className="text-2xl font-bold text-white">¿Listo para enviar?</h3>
+                <h3 className="text-2xl font-bold text-white">
+                  ¿Listo para enviar?
+                </h3>
                 <p className="text-gray-300">
-                  Mensaje será enviado a {selectedStudents.length} estudiante{selectedStudents.length !== 1 ? 's' : ''}
+                  Mensaje será enviado a {selectedStudents.length} estudiante
+                  {selectedStudents.length !== 1 ? "s" : ""}
                 </p>
               </div>
-              <Button 
+              <Button
                 onClick={sendMassiveMessages}
                 disabled={loading}
                 className="h-14 px-8 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-2xl text-lg font-bold transition-all duration-300 hover:shadow-xl"
@@ -409,19 +483,25 @@ export function MassiveMessages() {
                 )}
               </Button>
             </div>
-            
+
             <div className="bg-gray-700/50 p-4 rounded-2xl border border-gray-600">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
                 <div>
-                  <div className="text-2xl font-bold text-blue-400">{selectedStudents.length}</div>
+                  <div className="text-2xl font-bold text-blue-400">
+                    {selectedStudents.length}
+                  </div>
                   <div className="text-sm text-gray-400">Destinatarios</div>
                 </div>
                 <div>
-                  <div className="text-2xl font-bold text-purple-400">{customMessage.length}</div>
+                  <div className="text-2xl font-bold text-purple-400">
+                    {customMessage.length}
+                  </div>
                   <div className="text-sm text-gray-400">Caracteres</div>
                 </div>
                 <div>
-                  <div className="text-2xl font-bold text-green-400">WhatsApp</div>
+                  <div className="text-2xl font-bold text-green-400">
+                    WhatsApp
+                  </div>
                   <div className="text-sm text-gray-400">Plataforma</div>
                 </div>
               </div>
@@ -430,5 +510,5 @@ export function MassiveMessages() {
         </Card>
       )}
     </div>
-  )
+  );
 }

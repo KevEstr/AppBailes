@@ -1,5 +1,6 @@
-"use client"
+"use client";
 
+<<<<<<< HEAD
 import { useEffect } from "react"
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
@@ -9,10 +10,41 @@ export default function HomePage() {
   const { data: session, status } = useSession()
   const router = useRouter()
 
+=======
+import { useState, useEffect, useCallback, useMemo } from "react";
+import Image from "next/image";
+import Link from "next/link";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  Receipt,
+  MessageSquare,
+  Clock,
+  BarChart3,
+  AlertTriangle,
+  Sparkles,
+  ArrowRight,
+  GraduationCap,
+  UserPlus,
+  Users,
+} from "lucide-react";
+
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
+import { ParadiseSkeleton } from "@/components/ui/paradise-skeleton";
+
+export default function HomePage() {
+  const { data: session, status } = useSession();
+  const router = useRouter();
+  // ✅ OPTIMIZACIÓN: Cache para evitar llamadas duplicadas
+  let debtsCache: { count: number; timestamp: number } | null = null;
+>>>>>>> a27d72b416061a86f4a9e1664e2da8e641b0a93c
   useEffect(() => {
     // ⚡ Si no hay sesión, el middleware ya redirige al login
     // ⚡ Si hay sesión, redirigir según el rol
     if (status === "authenticated" && session?.user?.role) {
+<<<<<<< HEAD
       switch (session.user.role) {
         case "ADMIN":
           router.replace("/admin")
@@ -26,8 +58,12 @@ export default function HomePage() {
         default:
           router.replace("/login")
       }
+=======
+      const redirectUrl = session.user.role === "ADMIN" ? "/admin" : "/teacher";
+      router.replace(redirectUrl);
+>>>>>>> a27d72b416061a86f4a9e1664e2da8e641b0a93c
     }
-  }, [session, status, router])
+  }, [session, status, router]);
 
   // ⚡ Mostrar loading mientras se procesa la redirección
   return (
@@ -37,14 +73,14 @@ export default function HomePage() {
           <div className="absolute inset-0 bg-gradient-to-r from-blue-400 to-purple-400 opacity-20 animate-pulse"></div>
           <div className="text-3xl font-bold text-white">P</div>
         </div>
-        
+
         <div className="space-y-3">
           <h1 className="text-2xl font-bold text-white">Paradise Academy</h1>
           <p className="text-blue-300">Redirigiendo al sistema...</p>
         </div>
-        
+
         <ParadiseSkeleton />
       </div>
     </div>
-  )
+  );
 }

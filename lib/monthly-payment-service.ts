@@ -1,12 +1,11 @@
-import { prisma } from '@/lib/prisma';
-import { generateId } from '@/lib/utils';
-import { whatsappService } from '@/lib/whatsapp-service';
-import { DigitalReceiptService } from '@/lib/digital-receipt-service';
+import { prisma } from "@/lib/prisma";
+import { generateId } from "@/lib/utils";
+import { whatsappService } from "@/lib/whatsapp-service";
+import { DigitalReceiptService } from "@/lib/digital-receipt-service";
 
 export class MonthlyPaymentService {
-  
   // ========== CONFIGURACIÓN DE MENSUALIDADES ==========
-  
+
   /**
    * Establece el valor de la mensualidad
    */
@@ -19,10 +18,10 @@ export class MonthlyPaymentService {
     // Desactivar configuración anterior
     await prisma.monthlyFeeConfig.updateMany({
       where: { isActive: true },
-      data: { 
+      data: {
         isActive: false,
-        validUntil: new Date()
-      }
+        validUntil: new Date(),
+      },
     });
 
     // Crear nueva configuración
@@ -32,8 +31,8 @@ export class MonthlyPaymentService {
         description: data.description,
         isActive: true,
         validFrom: data.validFrom || new Date(),
-        createdBy: data.createdBy
-      }
+        createdBy: data.createdBy,
+      },
     });
   }
 
@@ -43,7 +42,7 @@ export class MonthlyPaymentService {
   async getCurrentMonthlyFee() {
     return await prisma.monthlyFeeConfig.findFirst({
       where: { isActive: true },
-      orderBy: { validFrom: 'desc' }
+      orderBy: { validFrom: "desc" },
     });
   }
 
@@ -58,8 +57,18 @@ export class MonthlyPaymentService {
     dueDate: Date;
   }) {
     const monthNames = [
-      'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-      'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+      "Enero",
+      "Febrero",
+      "Marzo",
+      "Abril",
+      "Mayo",
+      "Junio",
+      "Julio",
+      "Agosto",
+      "Septiembre",
+      "Octubre",
+      "Noviembre",
+      "Diciembre",
     ];
 
     const name = `${monthNames[data.month - 1]} ${data.year}`;
@@ -70,8 +79,8 @@ export class MonthlyPaymentService {
         month: data.month,
         name,
         dueDate: data.dueDate,
-        isActive: true
-      }
+        isActive: true,
+      },
     });
   }
 
@@ -80,21 +89,21 @@ export class MonthlyPaymentService {
    */
   async generateMonthlyPayments(periodId: number) {
     const period = await prisma.paymentPeriod.findUnique({
-      where: { id: periodId }
+      where: { id: periodId },
     });
 
     if (!period) {
-      throw new Error('Período no encontrado');
+      throw new Error("Período no encontrado");
     }
 
     const currentFeeConfig = await this.getCurrentMonthlyFee();
     if (!currentFeeConfig) {
-      throw new Error('No hay configuración de mensualidad activa');
+      throw new Error("No hay configuración de mensualidad activa");
     }
 
     // Obtener estudiantes activos
     const activeStudents = await prisma.student.findMany({
-      where: { isActive: true }
+      where: { isActive: true },
     });
 
     const monthlyPayments = [];
@@ -105,9 +114,9 @@ export class MonthlyPaymentService {
         where: {
           studentId_periodId: {
             studentId: student.id,
-            periodId: period.id
-          }
-        }
+            periodId: period.id,
+          },
+        },
       });
 
       if (!existingPayment) {
@@ -117,8 +126,8 @@ export class MonthlyPaymentService {
             periodId: period.id,
             feeConfigId: currentFeeConfig.id,
             expectedAmount: currentFeeConfig.amount,
-            status: 'PENDING'
-          }
+            status: "PENDING",
+          },
         });
 
         monthlyPayments.push(monthlyPayment);
@@ -135,14 +144,14 @@ export class MonthlyPaymentService {
    */
   async generatePaymentForms(periodId: number) {
     const monthlyPayments = await prisma.monthlyPayment.findMany({
-      where: { 
+      where: {
         periodId,
-        status: 'PENDING'
+        status: "PENDING",
       },
       include: {
         student: true,
-        period: true
-      }
+        period: true,
+      },
     });
 
     const paymentForms = [];
@@ -152,13 +161,13 @@ export class MonthlyPaymentService {
       const existingForm = await prisma.paymentForm.findFirst({
         where: {
           monthlyPaymentId: payment.id,
-          status: { in: ['ACTIVE', 'USED'] }
-        }
+          status: { in: ["ACTIVE", "USED"] },
+        },
       });
 
       if (!existingForm) {
         const formId = generateId(); // Generar CUID único
-        
+
         const paymentForm = await prisma.paymentForm.create({
           data: {
             id: formId,
@@ -167,14 +176,14 @@ export class MonthlyPaymentService {
             monthlyPaymentId: payment.id,
             studentName: payment.student.name,
             amount: payment.expectedAmount,
-            status: 'ACTIVE',
-            expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 días
-          }
+            status: "ACTIVE",
+            expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 días
+          },
         });
 
         paymentForms.push({
           ...paymentForm,
-          url: `/payment/${formId}`
+          url: `/payment/${formId}`,
         });
       }
     }
@@ -193,23 +202,23 @@ export class MonthlyPaymentService {
         period: true,
         monthlyPayment: true,
         paymentProofs: {
-          orderBy: { uploadedAt: 'desc' }
-        }
-      }
+          orderBy: { uploadedAt: "desc" },
+        },
+      },
     });
 
     if (!form) {
-      throw new Error('Formulario no encontrado');
+      throw new Error("Formulario no encontrado");
     }
 
     // Verificar si el formulario está expirado
     if (form.expiresAt && form.expiresAt < new Date()) {
       await prisma.paymentForm.update({
         where: { id: formId },
-        data: { status: 'EXPIRED' }
+        data: { status: "EXPIRED" },
       });
-      
-      throw new Error('Formulario expirado');
+
+      throw new Error("Formulario expirado");
     }
 
     return form;
@@ -220,18 +229,23 @@ export class MonthlyPaymentService {
   /**
    * Sube un comprobante de pago
    */
-  async uploadPaymentProof(formId: string, data: {
-    payerName: string;
-    payerPhone?: string;
-    payerEmail?: string;
-    amount: number;
-    paymentMethod: 'CASH' | 'TRANSFER' | 'CARD';
-    proofImageUrl: string;
-  }) {
+  async uploadPaymentProof(
+    formId: string,
+    data: {
+      payerName: string;
+      payerPhone?: string;
+      payerEmail?: string;
+      amount: number;
+      paymentMethod: "CASH" | "TRANSFER" | "CARD";
+      proofImageUrl: string;
+    }
+  ) {
     const form = await this.getPaymentForm(formId);
 
-    if (form.status !== 'ACTIVE') {
-      throw new Error('Formulario no está disponible para recibir comprobantes');
+    if (form.status !== "ACTIVE") {
+      throw new Error(
+        "Formulario no está disponible para recibir comprobantes"
+      );
     }
 
     // Crear comprobante
@@ -244,23 +258,23 @@ export class MonthlyPaymentService {
         amount: data.amount,
         paymentMethod: data.paymentMethod,
         proofImageUrl: data.proofImageUrl,
-        status: 'PENDING'
-      }
+        status: "PENDING",
+      },
     });
 
     // Actualizar formulario como usado
     await prisma.paymentForm.update({
       where: { id: formId },
-      data: { 
-        status: 'USED',
-        usedAt: new Date()
-      }
+      data: {
+        status: "USED",
+        usedAt: new Date(),
+      },
     });
 
     // Actualizar pago mensual
     await prisma.monthlyPayment.update({
       where: { id: form.monthlyPaymentId },
-      data: { status: 'PENDING_REVIEW' }
+      data: { status: "PENDING_REVIEW" },
     });
 
     return paymentProof;
@@ -269,29 +283,17 @@ export class MonthlyPaymentService {
   /**
    * Revisa y aprueba/rechaza un comprobante
    */
-  async reviewPaymentProof(proofId: number, data: {
-    status: 'APPROVED' | 'REJECTED' | 'NEEDS_REVIEW';
-    reviewedBy: string;
-    reviewNotes?: string;
-    approvedAmount?: number;
-  }) {
-    const proof = await prisma.paymentProof.findUnique({
-      where: { id: proofId },
-      include: {
-        paymentForm: {
-          include: {
-            student: true,
-            period: true,
-            monthlyPayment: true
-          }
-        }
-      }
-    });
-
-    if (!proof) {
-      throw new Error('Comprobante no encontrado');
+  async reviewPaymentProof(
+    proofId: number,
+    data: {
+      status: "APPROVED" | "REJECTED" | "NEEDS_REVIEW";
+      reviewedBy: string;
+      reviewNotes?: string;
+      approvedAmount?: number;
     }
-
+  ) {
+    const proof = await this.getPaymentProofForReview(proofId);
+    
     // Actualizar comprobante
     const updatedProof = await prisma.paymentProof.update({
       where: { id: proofId },
@@ -299,210 +301,17 @@ export class MonthlyPaymentService {
         status: data.status,
         reviewedAt: new Date(),
         reviewedBy: data.reviewedBy,
-        reviewNotes: data.reviewNotes
-      }
+        reviewNotes: data.reviewNotes,
+      },
     });
 
-    // Si se aprueba, procesar el pago
-    if (data.status === 'APPROVED') {
-      const paidAmount = data.approvedAmount || proof.amount;
-      const monthlyPayment = proof.paymentForm.monthlyPayment;
-      const student = proof.paymentForm.student;
-      const period = proof.paymentForm.period;
-      
-      // Validar que el monto pagado no sea mayor al esperado
-      if (paidAmount > monthlyPayment.expectedAmount) {
-        throw new Error('El monto pagado no puede ser mayor al monto esperado');
-      }
-
-      // Calcular si es pago completo o parcial
-      const remainingAmount = monthlyPayment.expectedAmount - paidAmount;
-      const isPartialPayment = remainingAmount > 0;
-      
-      let paymentStatus: 'PAID' | 'PARTIAL_PAID' = isPartialPayment ? 'PARTIAL_PAID' : 'PAID';
-
-      console.log(`💰 Procesando pago: $${paidAmount.toLocaleString()} de $${monthlyPayment.expectedAmount.toLocaleString()}`);
-      if (isPartialPayment) {
-        console.log(`📊 Pago parcial detectado. Faltante: $${remainingAmount.toLocaleString()}`);
-      } else {
-        console.log(`✅ Pago completo procesado`);
-      }
-
-      // Actualizar el pago mensual
-      await prisma.monthlyPayment.update({
-        where: { id: monthlyPayment.id },
-        data: {
-          status: paymentStatus,
-          paidAmount: paidAmount,
-          paymentDate: new Date(),
-          approvedBy: data.reviewedBy,
-          notes: isPartialPayment 
-            ? `Pago parcial: $${paidAmount.toLocaleString()} de $${monthlyPayment.expectedAmount.toLocaleString()}. Pendiente: $${remainingAmount.toLocaleString()}`
-            : `Pago completo: $${paidAmount.toLocaleString()}`
-        }
-      });
-
-      // ========== CREAR DEUDA AUTOMÁTICA PARA PAGOS PARCIALES ==========
-      
-      if (isPartialPayment) {
-        try {
-          console.log('📋 Creando deuda automática por pago parcial...');
-          
-          // Verificar si ya existe una deuda para este período
-          const existingDebt = await prisma.debt.findFirst({
-            where: {
-              studentId: student.id,
-              concept: {
-                contains: period.name
-              },
-              isPaid: false
-            }
-          });
-
-          if (!existingDebt) {
-            // Crear nueva deuda por el monto faltante
-            const newDebt = await prisma.debt.create({
-              data: {
-                studentId: student.id,
-                amount: remainingAmount,
-                concept: `Saldo pendiente - ${period.name}`,
-                dueDate: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000), // 15 días para pagar el resto
-              }
-            });
-
-            console.log(`✅ Deuda automática creada: ID ${newDebt.id} por $${remainingAmount.toLocaleString()}`);
-          } else {
-            console.log(`⚠️ Ya existe una deuda para ${period.name}, no se crea nueva deuda`);
-          }
-        } catch (debtError) {
-          console.error('❌ Error creando deuda automática:', debtError);
-          // No fallar la operación principal si falla la creación de deuda
-        }
-      }
-
-      // Actualizar estado de deuda del estudiante
-      await this.updateStudentDebtStatus(monthlyPayment.studentId);
-
-      // ========== GENERAR RECIBO DIGITAL ==========
-      
-      try {
-        console.log('📄 Generando recibo digital...');
-        const receiptData = await DigitalReceiptService.createReceiptFromMonthlyPayment(
-          monthlyPayment.id,
-          paidAmount,
-          proof.paymentMethod,
-          data.reviewedBy
-        );
-        
-        console.log(`✅ Recibo digital generado: ${receiptData.receiptNumber}`);
-        console.log(`🔗 URL del recibo: ${DigitalReceiptService.generateReceiptUrl(receiptData.id)}`);
-        
-      } catch (receiptError) {
-        console.error('❌ Error generando recibo digital:', receiptError);
-        // No fallar la operación principal si falla la generación del recibo
-      }
+    // Procesar según el estado
+    if (data.status === "APPROVED") {
+      await this.processApprovedPayment(proof, data);
     }
 
-    // ========== ENVIAR NOTIFICACIONES DE WHATSAPP MEJORADAS ==========
-    
-    try {
-      const student = proof.paymentForm.student;
-      const period = proof.paymentForm.period;
-      const monthlyPayment = proof.paymentForm.monthlyPayment;
-      
-      // Solo enviar si el estudiante tiene teléfono configurado
-      if (student.phone) {
-        const paymentMethodLabels = {
-          'TRANSFER': 'Transferencia',
-          'CASH': 'Efectivo',
-          'CARD': 'Tarjeta'
-        };
-
-        if (data.status === 'APPROVED') {
-          const paidAmount = data.approvedAmount || proof.amount;
-          const remainingAmount = monthlyPayment.expectedAmount - paidAmount;
-          const isPartialPayment = remainingAmount > 0;
-          
-          console.log('📤 Enviando notificación de comprobante APROBADO...');
-          
-          // Agregar URL del recibo digital si existe
-          let receiptUrl = undefined;
-          try {
-            const existingReceipt = await prisma.receipt.findFirst({
-              where: {
-                studentId: student.id,
-                concept: {
-                  contains: period.name
-                },
-                createdAt: {
-                  gte: new Date(Date.now() - 5 * 60 * 1000) // Últimos 5 minutos
-                }
-              },
-              orderBy: { createdAt: 'desc' }
-            });
-            
-            if (existingReceipt) {
-              receiptUrl = `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/recibo/${existingReceipt.id}`;
-              console.log(`📄 Recibo encontrado para envío: ${receiptUrl}`);
-            }
-          } catch (receiptSearchError) {
-            console.log('⚠️ No se pudo buscar recibo digital para el mensaje');
-          }
-
-          // Preparar datos de notificación mejorados
-          const notificationData = {
-            studentName: student.name,
-            parentPhone: student.phone,
-            period: period.name,
-            amount: paidAmount,
-            paymentMethod: paymentMethodLabels[proof.paymentMethod] || proof.paymentMethod,
-            receiptUrl,
-            // Información específica para pagos parciales
-            isPartialPayment,
-            expectedAmount: monthlyPayment.expectedAmount,
-            remainingAmount: isPartialPayment ? remainingAmount : 0,
-            paymentStatus: isPartialPayment ? 'PARTIAL' : 'COMPLETE'
-          };
-          
-          await whatsappService.sendProofApprovedNotification(notificationData);
-          console.log('✅ Notificación de aprobación enviada exitosamente');
-          
-        } else if (data.status === 'REJECTED') {
-          console.log('📤 Enviando notificación de comprobante RECHAZADO...');
-          
-          // Obtener el link del formulario de pago si existe un formulario activo
-          const activeForm = await prisma.paymentForm.findFirst({
-            where: {
-              studentId: student.id,
-              periodId: period.id,
-              status: 'ACTIVE'
-            }
-          });
-          
-          const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
-          const paymentLink = activeForm ? `${baseUrl}/payment/${activeForm.id}` : undefined;
-          
-          const notificationData = {
-            studentName: student.name,
-            parentPhone: student.phone,
-            period: period.name,
-            amount: proof.amount,
-            paymentMethod: paymentMethodLabels[proof.paymentMethod] || proof.paymentMethod,
-            rejectionReason: data.reviewNotes || 'No se especificó motivo del rechazo',
-            paymentLink,
-            expectedAmount: monthlyPayment.expectedAmount
-          };
-          
-          await whatsappService.sendProofRejectedNotification(notificationData);
-          console.log('✅ Notificación de rechazo enviada exitosamente');
-        }
-      } else {
-        console.log('⚠️ Estudiante sin teléfono configurado, notificación no enviada');
-      }
-    } catch (whatsappError) {
-      console.error('❌ Error enviando notificación de WhatsApp:', whatsappError);
-      // No fallar la operación principal si falla WhatsApp
-    }
+    // Enviar notificaciones
+    await this.sendPaymentNotification(proof, data);
 
     return updatedProof;
   }
@@ -521,16 +330,16 @@ export class MonthlyPaymentService {
     const offset = (page - 1) * limit;
 
     const period = await prisma.paymentPeriod.findUnique({
-      where: { id: periodId }
+      where: { id: periodId },
     });
 
     if (!period) {
-      throw new Error('Período no encontrado');
+      throw new Error("Período no encontrado");
     }
 
     // Estadísticas generales
     const totalStudents = await prisma.student.count({
-      where: { isActive: true }
+      where: { isActive: true },
     });
 
     // Construir filtros de búsqueda
@@ -564,43 +373,29 @@ export class MonthlyPaymentService {
       orderBy: { student: { name: 'asc' } }
     });
 
-    // Contar total de pagos (con filtros aplicados)
-    const totalPayments = await prisma.monthlyPayment.count({
-      where: whereClause
-    });
-
-    // Estadísticas sin filtros de búsqueda para mantener consistencia
-    const allPayments = await prisma.monthlyPayment.findMany({
-      where: { periodId },
-      include: {
-        student: true,
-        paymentForms: {
-          include: {
-            paymentProofs: true
-          }
-        }
-      }
-    });
-
-    const totalExpected = allPayments.reduce((sum, p) => sum + p.expectedAmount, 0);
-    const totalCollected = allPayments
-      .filter(p => p.status === 'PAID' || p.status === 'PARTIAL_PAID')
+    const totalExpected = payments.reduce(
+      (sum, p) => sum + p.expectedAmount,
+      0
+    );
+    const totalCollected = payments
+      .filter((p) => p.status === "PAID" || p.status === "PARTIAL_PAID")
       .reduce((sum, p) => sum + (p.paidAmount || 0), 0);
 
     const pendingReview = await prisma.paymentProof.count({
       where: {
-        status: 'PENDING',
+        status: "PENDING",
         paymentForm: {
-          periodId
-        }
-      }
+          periodId,
+        },
+      },
     });
 
-    const overdue = allPayments.filter(p => 
-      p.status === 'PENDING' && new Date() > period.dueDate
+    const overdue = payments.filter(
+      (p) => p.status === "PENDING" && new Date() > period.dueDate
     ).length;
 
-    const collectionRate = totalExpected > 0 ? (totalCollected / totalExpected) * 100 : 0;
+    const collectionRate =
+      totalExpected > 0 ? (totalCollected / totalExpected) * 100 : 0;
 
     return {
       period,
@@ -610,25 +405,16 @@ export class MonthlyPaymentService {
       pendingReview,
       overdue,
       collectionRate: Math.round(collectionRate * 100) / 100,
-      payments: payments.map(p => ({
+      payments: payments.map((p) => ({
         id: p.id,
         student: p.student,
         expectedAmount: p.expectedAmount,
         paidAmount: p.paidAmount,
         status: p.status,
         paymentDate: p.paymentDate,
-        hasProofs: p.paymentForms.some(f => f.paymentProofs.length > 0),
-        paymentFormId: p.paymentForms[0]?.id || null
+        hasProofs: p.paymentForms.some((f) => f.paymentProofs.length > 0),
+        paymentFormId: p.paymentForms[0]?.id || null,
       })),
-      // Información de paginación
-      pagination: {
-        page,
-        limit,
-        total: totalPayments,
-        totalPages: Math.ceil(totalPayments / limit),
-        hasNext: page < Math.ceil(totalPayments / limit),
-        hasPrev: page > 1
-      }
     };
   }
 
@@ -637,17 +423,17 @@ export class MonthlyPaymentService {
    */
   async getPendingProofs() {
     return await prisma.paymentProof.findMany({
-      where: { status: 'PENDING' },
+      where: { status: "PENDING" },
       include: {
         paymentForm: {
           include: {
             student: true,
             period: true,
-            monthlyPayment: true
-          }
-        }
+            monthlyPayment: true,
+          },
+        },
       },
-      orderBy: { uploadedAt: 'asc' }
+      orderBy: { uploadedAt: "asc" },
     });
   }
 
@@ -660,8 +446,8 @@ export class MonthlyPaymentService {
       include: {
         student: true,
         period: true,
-        monthlyPayment: true
-      }
+        monthlyPayment: true,
+      },
     });
   }
 
@@ -670,29 +456,33 @@ export class MonthlyPaymentService {
   /**
    * Actualiza el estado de deuda de un estudiante
    */
-  private async updateStudentDebtStatus(studentId: number) {
+  private async updateStudentDebtStatus(studentId: string) {
     const unpaidPayments = await prisma.monthlyPayment.count({
       where: {
         studentId,
-        status: { in: ['PENDING', 'OVERDUE', 'PARTIAL_PAID'] }
-      }
+        status: { in: ["PENDING", "OVERDUE", "PARTIAL_PAID"] },
+      },
     });
 
     const unpaidDebts = await prisma.debt.count({
       where: {
         studentId,
-        isPaid: false
-      }
+        isPaid: false,
+      },
     });
 
-    const hasDebt = (unpaidPayments + unpaidDebts) > 0;
+    const hasDebt = unpaidPayments + unpaidDebts > 0;
 
     await prisma.student.update({
       where: { id: studentId },
-      data: { hasDebt }
+      data: { hasDebt },
     });
 
-    console.log(`📊 Estado de deuda actualizado para estudiante ${studentId}: ${hasDebt ? 'CON DEUDA' : 'SIN DEUDA'}`);
+    console.log(
+      `📊 Estado de deuda actualizado para estudiante ${studentId}: ${
+        hasDebt ? "CON DEUDA" : "SIN DEUDA"
+      }`
+    );
     console.log(`   - Pagos pendientes/parciales: ${unpaidPayments}`);
     console.log(`   - Deudas adicionales: ${unpaidDebts}`);
   }
@@ -700,60 +490,66 @@ export class MonthlyPaymentService {
   /**
    * Obtiene información detallada de deudas de un estudiante
    */
-  async getStudentDebtInfo(studentId: number) {
+  async getStudentDebtInfo(studentId: string) {
     const student = await prisma.student.findUnique({
       where: { id: studentId },
       include: {
         monthlyPayments: {
           where: {
-            status: { in: ['PENDING', 'OVERDUE', 'PARTIAL_PAID'] }
+            status: { in: ["PENDING", "OVERDUE", "PARTIAL_PAID"] },
           },
           include: {
             period: true,
-            feeConfig: true
+            feeConfig: true,
           },
-          orderBy: { createdAt: 'desc' }
+          orderBy: { createdAt: "desc" },
         },
         debts: {
           where: { isPaid: false },
-          orderBy: { dueDate: 'asc' }
-        }
-      }
+          orderBy: { dueDate: "asc" },
+        },
+      },
     });
 
     if (!student) {
-      throw new Error('Estudiante no encontrado');
+      throw new Error("Estudiante no encontrado");
     }
 
     // Calcular deudas de pagos parciales
     const partialPaymentDebts = student.monthlyPayments
-      .filter(payment => payment.status === 'PARTIAL_PAID')
-      .map(payment => ({
+      .filter((payment) => payment.status === "PARTIAL_PAID")
+      .map((payment) => ({
         id: payment.id,
-        type: 'PARTIAL_PAYMENT',
+        type: "PARTIAL_PAYMENT",
         concept: `Saldo pendiente - ${payment.period.name}`,
         amount: payment.expectedAmount - (payment.paidAmount || 0),
         paidAmount: payment.paidAmount || 0,
         expectedAmount: payment.expectedAmount,
         dueDate: payment.period.dueDate,
         period: payment.period.name,
-        isOverdue: new Date() > payment.period.dueDate
+        isOverdue: new Date() > payment.period.dueDate,
       }));
 
     // Deudas regulares
-    const regularDebts = student.debts.map(debt => ({
+    const regularDebts = student.debts.map((debt) => ({
       id: debt.id,
-      type: 'REGULAR_DEBT',
+      type: "REGULAR_DEBT",
       concept: debt.concept,
       amount: debt.amount,
       dueDate: debt.dueDate,
       isOverdue: new Date() > debt.dueDate,
-      lastReminder: debt.lastReminder
+      lastReminder: debt.lastReminder,
     }));
 
     // Calcular totales
-    const totalPartialDebt = partialPaymentDebts.reduce((sum, debt) => sum + debt.amount, 0);
-    const totalRegularDebt = regularDebts.reduce((sum, debt) => sum + debt.amount, 0);
+    const totalPartialDebt = partialPaymentDebts.reduce(
+      (sum, debt) => sum + debt.amount,
+      0
+    );
+    const totalRegularDebt = regularDebts.reduce(
+      (sum, debt) => sum + debt.amount,
+      0
+    );
     const totalDebt = totalPartialDebt + totalRegularDebt;
 
     return {
@@ -761,7 +557,7 @@ export class MonthlyPaymentService {
         id: student.id,
         name: student.name,
         phone: student.phone,
-        hasDebt: student.hasDebt
+        hasDebt: student.hasDebt,
       },
       partialPaymentDebts,
       regularDebts,
@@ -769,8 +565,8 @@ export class MonthlyPaymentService {
         partialPaymentDebt: totalPartialDebt,
         regularDebt: totalRegularDebt,
         totalDebt,
-        debtCount: partialPaymentDebts.length + regularDebts.length
-      }
+        debtCount: partialPaymentDebts.length + regularDebts.length,
+      },
     };
   }
 
@@ -779,21 +575,296 @@ export class MonthlyPaymentService {
    */
   async markOverduePayments() {
     const today = new Date();
-    
+
     const overduePayments = await prisma.monthlyPayment.updateMany({
       where: {
-        status: 'PENDING',
+        status: "PENDING",
         period: {
           dueDate: {
-            lt: today
-          }
-        }
+            lt: today,
+          },
+        },
       },
-      data: { status: 'OVERDUE' }
+      data: { status: "OVERDUE" },
     });
 
     return overduePayments;
   }
+
+  // ========== MÉTODOS AUXILIARES PARA REVISIÓN DE COMPROBANTES ==========
+
+  /**
+   * Obtiene el comprobante de pago con todas las relaciones necesarias
+   */
+  private async getPaymentProofForReview(proofId: number) {
+    const proof = await prisma.paymentProof.findUnique({
+      where: { id: proofId },
+      include: {
+        paymentForm: {
+          include: {
+            student: true,
+            period: true,
+            monthlyPayment: true,
+          },
+        },
+      },
+    });
+
+    if (!proof) {
+      throw new Error("Comprobante no encontrado");
+    }
+
+    return proof;
+  }
+
+  /**
+   * Procesa un pago aprobado
+   */
+  private async processApprovedPayment(proof: any, data: any) {
+    const paidAmount = data.approvedAmount || proof.amount;
+    const monthlyPayment = proof.paymentForm.monthlyPayment;
+    const student = proof.paymentForm.student;
+    const period = proof.paymentForm.period;
+
+    // Validar monto
+    if (paidAmount > monthlyPayment.expectedAmount) {
+      throw new Error("El monto pagado no puede ser mayor al monto esperado");
+    }
+
+    // Calcular estado del pago
+    const remainingAmount = monthlyPayment.expectedAmount - paidAmount;
+    const isPartialPayment = remainingAmount > 0;
+    const paymentStatus: "PAID" | "PARTIAL_PAID" = isPartialPayment ? "PARTIAL_PAID" : "PAID";
+
+    console.log(`💰 Procesando pago: $${paidAmount.toLocaleString()} de $${monthlyPayment.expectedAmount.toLocaleString()}`);
+
+    // Actualizar el pago mensual
+    await this.updateMonthlyPaymentStatus(monthlyPayment.id, paidAmount, paymentStatus, remainingAmount, data.reviewedBy);
+
+    // Crear deuda automática si es pago parcial
+    if (isPartialPayment) {
+      await this.createAutomaticDebt(student, period, remainingAmount);
+    }
+
+    // Actualizar estado de deuda del estudiante
+    await this.updateStudentDebtStatus(monthlyPayment.studentId);
+
+    // Generar recibo digital
+    await this.generateDigitalReceipt(monthlyPayment.id, paidAmount, proof.paymentMethod, data.reviewedBy);
+  }
+
+  /**
+   * Actualiza el pago mensual con la información procesada
+   */
+  private async updateMonthlyPaymentStatus(
+    monthlyPaymentId: number,
+    paidAmount: number,
+    paymentStatus: "PAID" | "PARTIAL_PAID",
+    remainingAmount: number,
+    reviewedBy: string
+  ) {
+    const isPartialPayment = paymentStatus === "PARTIAL_PAID";
+    
+    await prisma.monthlyPayment.update({
+      where: { id: monthlyPaymentId },
+      data: {
+        status: paymentStatus,
+        paidAmount: paidAmount,
+        paymentDate: new Date(),
+        approvedBy: reviewedBy,
+        notes: isPartialPayment
+          ? `Pago parcial: $${paidAmount.toLocaleString()} de $${(paidAmount + remainingAmount).toLocaleString()}. Pendiente: $${remainingAmount.toLocaleString()}`
+          : `Pago completo: $${paidAmount.toLocaleString()}`,
+      },
+    });
+  }
+
+  /**
+   * Crea una deuda automática para pagos parciales
+   */
+  private async createAutomaticDebt(student: any, period: any, remainingAmount: number) {
+    try {
+      console.log("📋 Creando deuda automática por pago parcial...");
+
+      // Verificar si ya existe una deuda para este período
+      const existingDebt = await prisma.debt.findFirst({
+        where: {
+          studentId: student.id,
+          concept: { contains: period.name },
+          isPaid: false,
+        },
+      });
+
+      if (!existingDebt) {
+        const newDebt = await prisma.debt.create({
+          data: {
+            studentId: student.id,
+            amount: remainingAmount,
+            concept: `Saldo pendiente - ${period.name}`,
+            dueDate: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000), // 15 días
+          },
+        });
+
+        console.log(`✅ Deuda automática creada: ID ${newDebt.id} por $${remainingAmount.toLocaleString()}`);
+      } else {
+        console.log(`⚠️ Ya existe una deuda para ${period.name}, no se crea nueva deuda`);
+      }
+    } catch (debtError) {
+      console.error("❌ Error creando deuda automática:", debtError);
+    }
+  }
+
+  /**
+   * Genera un recibo digital para el pago
+   */
+  private async generateDigitalReceipt(
+    monthlyPaymentId: number,
+    paidAmount: number,
+    paymentMethod: string,
+    reviewedBy: string
+  ) {
+    try {
+      console.log("📄 Generando recibo digital...");
+      const receiptData = await DigitalReceiptService.createReceiptFromMonthlyPayment(
+        monthlyPaymentId,
+        paidAmount,
+        paymentMethod,
+        reviewedBy
+      );
+
+      console.log(`✅ Recibo digital generado: ${receiptData.receiptNumber}`);
+      console.log(`🔗 URL del recibo: ${DigitalReceiptService.generateReceiptUrl(receiptData.id)}`);
+    } catch (receiptError) {
+      console.error("❌ Error generando recibo digital:", receiptError);
+    }
+  }
+
+  /**
+   * Envía notificaciones de WhatsApp según el estado del comprobante
+   */
+  private async sendPaymentNotification(proof: any, data: any) {
+    try {
+      const student = proof.paymentForm.student;
+      const period = proof.paymentForm.period;
+      const monthlyPayment = proof.paymentForm.monthlyPayment;
+
+      if (!student.phone) {
+        console.log("⚠️ Estudiante sin teléfono configurado, notificación no enviada");
+        return;
+      }
+
+      const paymentMethodLabels = {
+        TRANSFER: "Transferencia",
+        CASH: "Efectivo",
+        CARD: "Tarjeta",
+        OTHER: "Otro",
+      };
+
+      if (data.status === "APPROVED") {
+        await this.sendApprovedNotification(student, period, monthlyPayment, proof, paymentMethodLabels, data.approvedAmount || proof.amount);
+      } else if (data.status === "REJECTED") {
+        await this.sendRejectedNotification(student, period, monthlyPayment, proof, paymentMethodLabels, data.reviewNotes);
+      }
+    } catch (whatsappError) {
+      console.error("❌ Error enviando notificación de WhatsApp:", whatsappError);
+    }
+  }
+
+  /**
+   * Envía notificación de comprobante aprobado
+   */
+  private async sendApprovedNotification(
+    student: any,
+    period: any,
+    monthlyPayment: any,
+    proof: any,
+    paymentMethodLabels: any,
+    paidAmount: number
+  ) {
+    console.log("📤 Enviando notificación de comprobante APROBADO...");
+
+    const remainingAmount = monthlyPayment.expectedAmount - paidAmount;
+    const isPartialPayment = remainingAmount > 0;
+
+    // Agregar URL del recibo digital si existe
+    let receiptUrl = undefined;
+    try {
+      const existingReceipt = await prisma.receipt.findFirst({
+        where: {
+          studentId: student.id,
+          concept: { contains: period.name },
+          createdAt: {
+            gte: new Date(Date.now() - 5 * 60 * 1000), // Últimos 5 minutos
+          },
+        },
+        orderBy: { createdAt: "desc" },
+      });
+
+      if (existingReceipt) {
+        receiptUrl = `${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/recibo/${existingReceipt.id}`;
+        console.log(`📄 Recibo encontrado para envío: ${receiptUrl}`);
+      }
+    } catch (receiptSearchError) {
+      console.error("❌ Error buscando recibo digital:", receiptSearchError);
+      console.log("⚠️ No se pudo buscar recibo digital para el mensaje");
+    }
+
+    const notificationData = {
+      studentName: student.name,
+      parentPhone: student.phone,
+      period: period.name,
+      amount: paidAmount,
+      paymentMethod: paymentMethodLabels[proof.paymentMethod] || proof.paymentMethod,
+      receiptUrl,
+      isPartialPayment,
+      expectedAmount: monthlyPayment.expectedAmount,
+      remainingAmount: isPartialPayment ? remainingAmount : 0,
+      paymentStatus: isPartialPayment ? "PARTIAL" : "COMPLETE",
+    };
+
+    await whatsappService.sendProofApprovedNotification(notificationData);
+    console.log("✅ Notificación de aprobación enviada exitosamente");
+  }
+
+  /**
+   * Envía notificación de comprobante rechazado
+   */
+  private async sendRejectedNotification(
+    student: any,
+    period: any,
+    monthlyPayment: any,
+    proof: any,
+    paymentMethodLabels: any,
+    reviewNotes?: string
+  ) {
+    console.log("📤 Enviando notificación de comprobante RECHAZADO...");
+
+    // Obtener el link del formulario de pago si existe un formulario activo
+    const activeForm = await prisma.paymentForm.findFirst({
+      where: {
+        studentId: student.id,
+        periodId: period.id,
+        status: "ACTIVE",
+      },
+    });
+
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
+    const paymentLink = activeForm ? `${baseUrl}/payment/${activeForm.id}` : undefined;
+
+    const notificationData = {
+      studentName: student.name,
+      parentPhone: student.phone,
+      period: period.name,
+      amount: proof.amount,
+      paymentMethod: paymentMethodLabels[proof.paymentMethod] || proof.paymentMethod,
+      rejectionReason: reviewNotes || "No se especificó motivo del rechazo",
+      paymentLink,
+      expectedAmount: monthlyPayment.expectedAmount,
+    };
+
+    await whatsappService.sendProofRejectedNotification(notificationData);
+    console.log("✅ Notificación de rechazo enviada exitosamente");
+  }
 }
 
-export const monthlyPaymentService = new MonthlyPaymentService(); 
+export const monthlyPaymentService = new MonthlyPaymentService();

@@ -1,52 +1,65 @@
-'use client'
+"use client";
 
-import { useState, useEffect } from 'react'
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Separator } from "@/components/ui/separator"
-import { MapPin, Phone, Mail, IdCard, Heart, Calendar, DollarSign, UserCheck, AlertTriangle, Clock, GraduationCap, User } from "lucide-react"
+import { useState, useEffect } from "react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
+import {
+  MapPin,
+  Phone,
+  Mail,
+  IdCard,
+  Heart,
+  Calendar,
+  DollarSign,
+  UserCheck,
+  AlertTriangle,
+  Clock,
+  GraduationCap,
+  User,
+} from "lucide-react";
 
 interface StudentEnrollmentData {
-  id: number
-  documentType?: string
-  birthDate?: string
-  address?: string
-  addressLatitude?: number
-  addressLongitude?: number
-  neighborhood?: string
-  city?: string
-  hasSisben?: boolean
-  eps?: string
-  bloodType?: string
-  hasRestrictions?: boolean
-  restrictionsDescription?: string
-  medicalConditions?: string
-  isAdult?: boolean
-  emergencyContactName?: string
-  emergencyContactRelation?: string
-  emergencyContactPhone?: string
-  guardianName?: string
-  guardianRelation?: string
-  guardianPhone?: string
-  monthlyFee?: number
+  id: number;
+  documentType?: string;
+  birthDate?: string;
+  address?: string;
+  addressLatitude?: number;
+  addressLongitude?: number;
+  neighborhood?: string;
+  city?: string;
+  hasSisben?: boolean;
+  eps?: string;
+  bloodType?: string;
+  hasRestrictions?: boolean;
+  restrictionsDescription?: string;
+  medicalConditions?: string;
+  isAdult?: boolean;
+  emergencyContactName?: string;
+  emergencyContactRelation?: string;
+  emergencyContactPhone?: string;
+  guardianName?: string;
+  guardianRelation?: string;
+  guardianPhone?: string;
+  monthlyFee?: number;
   // Legacy fields for compatibility
-  age?: number
-  maritalStatus?: string
-  emergencyContact?: string
-  emergencyPhone?: string
-  relationship?: string
-  hasMedicalRestrictions?: boolean
-  medicalRestrictions?: string
+  age?: number;
+  maritalStatus?: string;
+  emergencyContact?: string;
+  emergencyPhone?: string;
+  relationship?: string;
+  hasMedicalRestrictions?: boolean;
+  medicalRestrictions?: string;
 }
 
 interface EnrollmentDetail {
-  id: number
-  studentId: number
-  classId: number
-  isActive: boolean
-  enrolledAt: string
-  createdAt: string
+  id: number;
+  studentId: number;
+  classId: number;
+  isActive: boolean;
+  enrolledAt: string;
+  createdAt: string;
   student: {
     id: number
     name: string
@@ -56,53 +69,53 @@ interface EnrollmentDetail {
     user?: { email: string }
     enrollmentData?: StudentEnrollmentData
     debts: Array<{
-      id: number
-      amount: number
-      concept: string
-      dueDate: string
-    }>
+      id: number;
+      amount: number;
+      concept: string;
+      dueDate: string;
+    }>;
     receipts: Array<{
-      id: number
-      amount: number
-      concept: string
-      createdAt: string
-    }>
+      id: number;
+      amount: number;
+      concept: string;
+      createdAt: string;
+    }>;
     attendances: Array<{
-      id: number
-      status: string
-      date: string
+      id: number;
+      status: string;
+      date: string;
       session?: {
         danceClass: {
-          name: string
-        }
-      }
-    }>
-  }
+          name: string;
+        };
+      };
+    }>;
+  };
   danceClass: {
-    id: number
-    name: string
-    type: string
-    price?: number
+    id: number;
+    name: string;
+    type: string;
+    price?: number;
     trainer: {
-      id: number
-      name: string
-    }
+      id: number;
+      name: string;
+    };
     location?: {
-      id: number
-      name: string
-      address?: string
-    }
+      id: number;
+      name: string;
+      address?: string;
+    };
     schedules: Array<{
-      dayOfWeek: number
-      startTime: string
-      endTime: string
-    }>
-  }
+      dayOfWeek: number;
+      startTime: string;
+      endTime: string;
+    }>;
+  };
 }
 
 interface StudentDetailModalProps {
   enrollment: {
-    id: number
+    id: number;
     student: {
       id: number
       name: string
@@ -112,31 +125,31 @@ interface StudentDetailModalProps {
       isActive: boolean
     }
     danceClass: {
-      name: string
-      type: string
+      name: string;
+      type: string;
       trainer: {
-        name: string
-      }
+        name: string;
+      };
       location?: {
-        name: string
-        address?: string
-      }
-    }
-  }
+        name: string;
+        address?: string;
+      };
+    };
+  };
 }
 
 export function StudentDetailModal({ enrollment }: StudentDetailModalProps) {
-  const [detailData, setDetailData] = useState<EnrollmentDetail | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [mapError, setMapError] = useState(false)
+  const [detailData, setDetailData] = useState<EnrollmentDetail | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [mapError, setMapError] = useState(false);
 
   useEffect(() => {
     const fetchDetailData = async () => {
       try {
-        const studentId = enrollment.student.id
-        const response = await fetch(`/api/students/${studentId}`)
-        const data = await response.json()
-        
+        const studentId = enrollment.student.id;
+        const response = await fetch(`/api/students/${studentId}`);
+        const data = await response.json();
+
         if (data.success && data.student) {
           // Create detail data structure from API response
           const detailData: EnrollmentDetail = {
@@ -161,7 +174,7 @@ export function StudentDetailModal({ enrollment }: StudentDetailModalProps) {
               } : undefined,
               debts: [],
               receipts: [],
-              attendances: []
+              attendances: [],
             },
             danceClass: {
               id: 0,
@@ -170,17 +183,19 @@ export function StudentDetailModal({ enrollment }: StudentDetailModalProps) {
               price: undefined,
               trainer: {
                 id: 0,
-                name: enrollment.danceClass.trainer.name
+                name: enrollment.danceClass.trainer.name,
               },
-              location: enrollment.danceClass.location ? {
-                id: 0,
-                name: enrollment.danceClass.location.name,
-                address: enrollment.danceClass.location.address
-              } : undefined,
-              schedules: []
-            }
-          }
-          setDetailData(detailData)
+              location: enrollment.danceClass.location
+                ? {
+                    id: 0,
+                    name: enrollment.danceClass.location.name,
+                    address: enrollment.danceClass.location.address,
+                  }
+                : undefined,
+              schedules: [],
+            },
+          };
+          setDetailData(detailData);
         } else {
           // Fallback to basic data
           const mockDetailData: EnrollmentDetail = {
@@ -200,7 +215,7 @@ export function StudentDetailModal({ enrollment }: StudentDetailModalProps) {
               enrollmentData: undefined,
               debts: [],
               receipts: [],
-              attendances: []
+              attendances: [],
             },
             danceClass: {
               id: 0,
@@ -209,20 +224,22 @@ export function StudentDetailModal({ enrollment }: StudentDetailModalProps) {
               price: undefined,
               trainer: {
                 id: 0,
-                name: enrollment.danceClass.trainer.name
+                name: enrollment.danceClass.trainer.name,
               },
-              location: enrollment.danceClass.location ? {
-                id: 0,
-                name: enrollment.danceClass.location.name,
-                address: enrollment.danceClass.location.address
-              } : undefined,
-              schedules: []
-            }
-          }
-          setDetailData(mockDetailData)
+              location: enrollment.danceClass.location
+                ? {
+                    id: 0,
+                    name: enrollment.danceClass.location.name,
+                    address: enrollment.danceClass.location.address,
+                  }
+                : undefined,
+              schedules: [],
+            },
+          };
+          setDetailData(mockDetailData);
         }
       } catch (error) {
-        console.error('Error fetching detail data:', error)
+        console.error("Error fetching detail data:", error);
         // Fallback to basic data
         const mockDetailData: EnrollmentDetail = {
           id: enrollment.id,
@@ -250,82 +267,97 @@ export function StudentDetailModal({ enrollment }: StudentDetailModalProps) {
             price: undefined,
             trainer: {
               id: 0,
-              name: enrollment.danceClass.trainer.name
+              name: enrollment.danceClass.trainer.name,
             },
-            location: enrollment.danceClass.location ? {
-              id: 0,
-              name: enrollment.danceClass.location.name,
-              address: enrollment.danceClass.location.address
-            } : undefined,
-            schedules: []
-          }
-        }
-        setDetailData(mockDetailData)
+            location: enrollment.danceClass.location
+              ? {
+                  id: 0,
+                  name: enrollment.danceClass.location.name,
+                  address: enrollment.danceClass.location.address,
+                }
+              : undefined,
+            schedules: [],
+          },
+        };
+        setDetailData(mockDetailData);
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
-    }
-    fetchDetailData()
-  }, [enrollment])
+    };
+    fetchDetailData();
+  }, [enrollment]);
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('es-CO', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    })
-  }
+    return new Date(dateString).toLocaleDateString("es-CO", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+  };
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('es-CO', {
-      style: 'currency',
-      currency: 'COP'
-    }).format(amount)
-  }
+    return new Intl.NumberFormat("es-CO", {
+      style: "currency",
+      currency: "COP",
+    }).format(amount);
+  };
 
   const getDayName = (dayOfWeek: number) => {
-    const days = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado']
-    return days[dayOfWeek]
-  }
+    const days = [
+      "Domingo",
+      "Lunes",
+      "Martes",
+      "Miércoles",
+      "Jueves",
+      "Viernes",
+      "Sábado",
+    ];
+    return days[dayOfWeek];
+  };
 
   const getAttendanceStatusBadge = (status: string) => {
     const statusMap = {
-      'PRESENT': { label: 'Asistió', className: 'bg-green-600' },
-      'LATE': { label: 'Tardanza', className: 'bg-yellow-600' },
-      'ABSENT': { label: 'Faltó', className: 'bg-red-600' },
-      'CHANGE_REQUEST': { label: 'Cambio solicitado', className: 'bg-blue-600' }
-    }
-    const config = statusMap[status as keyof typeof statusMap] || { label: status, className: 'bg-gray-600' }
-    return <Badge className={config.className}>{config.label}</Badge>
-  }
+      PRESENT: { label: "Asistió", className: "bg-green-600" },
+      LATE: { label: "Tardanza", className: "bg-yellow-600" },
+      ABSENT: { label: "Faltó", className: "bg-red-600" },
+      CHANGE_REQUEST: { label: "Cambio solicitado", className: "bg-blue-600" },
+    };
+    const config = statusMap[status as keyof typeof statusMap] || {
+      label: status,
+      className: "bg-gray-600",
+    };
+    return <Badge className={config.className}>{config.label}</Badge>;
+  };
 
   const generateGoogleMapsUrl = (enrollmentData: StudentEnrollmentData) => {
-    if (!process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY) return null
-    
+    if (!process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY) return null;
+
     // Si tenemos coordenadas, usar esas
     if (enrollmentData.addressLatitude && enrollmentData.addressLongitude) {
-      return `https://www.google.com/maps/embed/v1/place?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&q=${enrollmentData.addressLatitude},${enrollmentData.addressLongitude}&zoom=16`
+      return `https://www.google.com/maps/embed/v1/place?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&q=${enrollmentData.addressLatitude},${enrollmentData.addressLongitude}&zoom=16`;
     }
-    
+
     // Si no tenemos coordenadas pero sí dirección, usar la dirección
     if (enrollmentData.address) {
-      const encodedAddress = encodeURIComponent(`${enrollmentData.address}, Itagüí, Antioquia, Colombia`)
-      return `https://www.google.com/maps/embed/v1/place?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&q=${encodedAddress}`
+      const encodedAddress = encodeURIComponent(
+        `${enrollmentData.address}, Itagüí, Antioquia, Colombia`
+      );
+      return `https://www.google.com/maps/embed/v1/place?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&q=${encodedAddress}`;
     }
-    
-    return null
-  }
 
-  const mapUrl = detailData?.student.enrollmentData 
+    return null;
+  };
+
+  const mapUrl = detailData?.student.enrollmentData
     ? generateGoogleMapsUrl(detailData.student.enrollmentData)
-    : null
+    : null;
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-96">
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-400"></div>
       </div>
-    )
+    );
   }
 
   if (!detailData) {
@@ -333,7 +365,7 @@ export function StudentDetailModal({ enrollment }: StudentDetailModalProps) {
       <div className="text-center text-gray-400 py-8">
         <p>No se pudieron cargar los detalles del estudiante.</p>
       </div>
-    )
+    );
   }
 
   return (
@@ -344,10 +376,16 @@ export function StudentDetailModal({ enrollment }: StudentDetailModalProps) {
           {/* Avatar y nombre */}
           <div className="flex items-center gap-3 flex-1">
             <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-lg sm:text-xl">
-              {detailData.student.name.split(' ').map(n => n[0]).join('').substring(0, 2)}
+              {detailData.student.name
+                .split(" ")
+                .map((n) => n[0])
+                .join("")
+                .substring(0, 2)}
             </div>
             <div className="flex-1 min-w-0">
-              <h2 className="text-xl sm:text-2xl font-bold text-white truncate">{detailData.student.name}</h2>
+              <h2 className="text-xl sm:text-2xl font-bold text-white truncate">
+                {detailData.student.name}
+              </h2>
               <div className="flex flex-wrap items-center gap-2 mt-1 text-sm text-slate-300">
                 <span className="flex items-center gap-1">
                   <IdCard className="w-3 h-3" />
@@ -366,12 +404,16 @@ export function StudentDetailModal({ enrollment }: StudentDetailModalProps) {
               </div>
             </div>
           </div>
-          
+
           {/* Estados */}
           <div className="flex flex-wrap gap-2">
-            <Badge 
-              variant={detailData.student.isActive ? "default" : "secondary"} 
-              className={`${detailData.student.isActive ? "bg-green-600 hover:bg-green-700" : "bg-gray-600"} text-white border-0`}
+            <Badge
+              variant={detailData.student.isActive ? "default" : "secondary"}
+              className={`${
+                detailData.student.isActive
+                  ? "bg-green-600 hover:bg-green-700"
+                  : "bg-gray-600"
+              } text-white border-0`}
             >
               {detailData.student.isActive ? "Activo" : "Inactivo"}
             </Badge>
@@ -386,7 +428,6 @@ export function StudentDetailModal({ enrollment }: StudentDetailModalProps) {
 
       {/* Grid Principal - Responsive */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        
         {/* Información Personal */}
         <Card className="bg-slate-800 border-slate-700 hover:bg-slate-800/80 transition-colors">
           <CardHeader className="pb-3">
@@ -403,19 +444,26 @@ export function StudentDetailModal({ enrollment }: StudentDetailModalProps) {
                 {detailData.student.enrollmentData.documentType && (
                   <div className="flex justify-between items-center">
                     <span className="text-slate-300">Tipo de documento:</span>
-                    <span className="font-medium text-white">{detailData.student.enrollmentData.documentType}</span>
+                    <span className="font-medium text-white">
+                      {detailData.student.enrollmentData.documentType}
+                    </span>
                   </div>
                 )}
                 {detailData.student.enrollmentData.birthDate && (
                   <div className="flex justify-between items-center">
                     <span className="text-slate-300">Fecha de nacimiento:</span>
-                    <span className="font-medium text-white">{formatDate(detailData.student.enrollmentData.birthDate)}</span>
+                    <span className="font-medium text-white">
+                      {formatDate(detailData.student.enrollmentData.birthDate)}
+                    </span>
                   </div>
                 )}
                 {detailData.student.enrollmentData.bloodType && (
                   <div className="flex justify-between items-center">
                     <span className="text-slate-300">Tipo de sangre:</span>
-                    <Badge variant="outline" className="border-red-400 text-red-400 bg-red-950/30">
+                    <Badge
+                      variant="outline"
+                      className="border-red-400 text-red-400 bg-red-950/30"
+                    >
                       <Heart className="w-3 h-3 mr-1" />
                       {detailData.student.enrollmentData.bloodType}
                     </Badge>
@@ -424,37 +472,68 @@ export function StudentDetailModal({ enrollment }: StudentDetailModalProps) {
                 {detailData.student.enrollmentData.eps && (
                   <div className="flex justify-between items-center">
                     <span className="text-slate-300">EPS:</span>
-                    <span className="font-medium text-white">{detailData.student.enrollmentData.eps}</span>
+                    <span className="font-medium text-white">
+                      {detailData.student.enrollmentData.eps}
+                    </span>
                   </div>
                 )}
                 <div className="flex justify-between items-center">
                   <span className="text-slate-300">Estado:</span>
-                  <Badge className={`${detailData.student.enrollmentData.isAdult !== false ? "bg-blue-600" : "bg-orange-600"} text-white border-0`}>
-                    {detailData.student.enrollmentData.isAdult !== false ? "Mayor de edad" : "Menor de edad"}
+                  <Badge
+                    className={`${
+                      detailData.student.enrollmentData.isAdult !== false
+                        ? "bg-blue-600"
+                        : "bg-orange-600"
+                    } text-white border-0`}
+                  >
+                    {detailData.student.enrollmentData.isAdult !== false
+                      ? "Mayor de edad"
+                      : "Menor de edad"}
                   </Badge>
                 </div>
-                
+
                 {/* Contacto de emergencia */}
-                {(detailData.student.enrollmentData.emergencyContactName || detailData.student.enrollmentData.emergencyContact) && (
+                {(detailData.student.enrollmentData.emergencyContactName ||
+                  detailData.student.enrollmentData.emergencyContact) && (
                   <>
                     <Separator className="bg-slate-700" />
                     <div className="space-y-2 pt-1">
-                      <div className="text-orange-400 font-medium text-xs uppercase tracking-wide">Contacto de Emergencia</div>
+                      <div className="text-orange-400 font-medium text-xs uppercase tracking-wide">
+                        Contacto de Emergencia
+                      </div>
                       <div className="space-y-2">
                         <div className="flex justify-between items-center">
                           <span className="text-slate-300">Nombre:</span>
-                          <span className="font-medium text-white text-right max-w-40 truncate">{detailData.student.enrollmentData.emergencyContactName || detailData.student.enrollmentData.emergencyContact}</span>
+                          <span className="font-medium text-white text-right max-w-40 truncate">
+                            {detailData.student.enrollmentData
+                              .emergencyContactName ||
+                              detailData.student.enrollmentData
+                                .emergencyContact}
+                          </span>
                         </div>
-                        {(detailData.student.enrollmentData.emergencyContactPhone || detailData.student.enrollmentData.emergencyPhone) && (
+                        {(detailData.student.enrollmentData
+                          .emergencyContactPhone ||
+                          detailData.student.enrollmentData.emergencyPhone) && (
                           <div className="flex justify-between items-center">
                             <span className="text-slate-300">Teléfono:</span>
-                            <span className="font-medium text-white">{detailData.student.enrollmentData.emergencyContactPhone || detailData.student.enrollmentData.emergencyPhone}</span>
+                            <span className="font-medium text-white">
+                              {detailData.student.enrollmentData
+                                .emergencyContactPhone ||
+                                detailData.student.enrollmentData
+                                  .emergencyPhone}
+                            </span>
                           </div>
                         )}
-                        {(detailData.student.enrollmentData.emergencyContactRelation || detailData.student.enrollmentData.relationship) && (
+                        {(detailData.student.enrollmentData
+                          .emergencyContactRelation ||
+                          detailData.student.enrollmentData.relationship) && (
                           <div className="flex justify-between items-center">
                             <span className="text-slate-300">Parentesco:</span>
-                            <span className="font-medium text-white capitalize">{detailData.student.enrollmentData.emergencyContactRelation || detailData.student.enrollmentData.relationship}</span>
+                            <span className="font-medium text-white capitalize">
+                              {detailData.student.enrollmentData
+                                .emergencyContactRelation ||
+                                detailData.student.enrollmentData.relationship}
+                            </span>
                           </div>
                         )}
                       </div>
@@ -463,37 +542,55 @@ export function StudentDetailModal({ enrollment }: StudentDetailModalProps) {
                 )}
 
                 {/* Información del acudiente */}
-                {detailData.student.enrollmentData.isAdult === false && detailData.student.enrollmentData.guardianName && (
-                  <>
-                    <Separator className="bg-slate-700" />
-                    <div className="space-y-2 pt-1">
-                      <div className="text-purple-400 font-medium text-xs uppercase tracking-wide">Información del Acudiente</div>
-                      <div className="space-y-2">
-                        <div className="flex justify-between items-center">
-                          <span className="text-slate-300">Nombre:</span>
-                          <span className="font-medium text-white text-right max-w-40 truncate">{detailData.student.enrollmentData.guardianName}</span>
+                {detailData.student.enrollmentData.isAdult === false &&
+                  detailData.student.enrollmentData.guardianName && (
+                    <>
+                      <Separator className="bg-slate-700" />
+                      <div className="space-y-2 pt-1">
+                        <div className="text-purple-400 font-medium text-xs uppercase tracking-wide">
+                          Información del Acudiente
                         </div>
-                        {detailData.student.enrollmentData.guardianRelation && (
+                        <div className="space-y-2">
                           <div className="flex justify-between items-center">
-                            <span className="text-slate-300">Relación:</span>
-                            <span className="font-medium text-white capitalize">{detailData.student.enrollmentData.guardianRelation}</span>
+                            <span className="text-slate-300">Nombre:</span>
+                            <span className="font-medium text-white text-right max-w-40 truncate">
+                              {detailData.student.enrollmentData.guardianName}
+                            </span>
                           </div>
-                        )}
-                        {detailData.student.enrollmentData.guardianPhone && (
-                          <div className="flex justify-between items-center">
-                            <span className="text-slate-300">Teléfono:</span>
-                            <span className="font-medium text-white">{detailData.student.enrollmentData.guardianPhone}</span>
-                          </div>
-                        )}
+                          {detailData.student.enrollmentData
+                            .guardianRelation && (
+                            <div className="flex justify-between items-center">
+                              <span className="text-slate-300">Relación:</span>
+                              <span className="font-medium text-white capitalize">
+                                {
+                                  detailData.student.enrollmentData
+                                    .guardianRelation
+                                }
+                              </span>
+                            </div>
+                          )}
+                          {detailData.student.enrollmentData.guardianPhone && (
+                            <div className="flex justify-between items-center">
+                              <span className="text-slate-300">Teléfono:</span>
+                              <span className="font-medium text-white">
+                                {
+                                  detailData.student.enrollmentData
+                                    .guardianPhone
+                                }
+                              </span>
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  </>
-                )}
+                    </>
+                  )}
               </>
             ) : (
               <div className="text-center py-6">
                 <User className="w-8 h-8 mx-auto text-slate-500 mb-2" />
-                <p className="text-slate-400 text-sm">Información personal no registrada</p>
+                <p className="text-slate-400 text-sm">
+                  Información personal no registrada
+                </p>
               </div>
             )}
           </CardContent>
@@ -514,34 +611,50 @@ export function StudentDetailModal({ enrollment }: StudentDetailModalProps) {
             <CardContent className="space-y-3 text-sm">
               <div className="flex justify-between items-center">
                 <span className="text-slate-300">Clase:</span>
-                <span className="font-medium text-white text-right max-w-40 truncate">{detailData.danceClass.name}</span>
+                <span className="font-medium text-white text-right max-w-40 truncate">
+                  {detailData.danceClass.name}
+                </span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-slate-300">Tipo:</span>
-                <Badge className={`${detailData.danceClass.type === 'DANCE' ? "bg-purple-600" : "bg-orange-600"} text-white border-0`}>
-                  {detailData.danceClass.type === 'DANCE' ? 'Baile' : 'Deporte'}
+                <Badge
+                  className={`${
+                    detailData.danceClass.type === "DANCE"
+                      ? "bg-purple-600"
+                      : "bg-orange-600"
+                  } text-white border-0`}
+                >
+                  {detailData.danceClass.type === "DANCE" ? "Baile" : "Deporte"}
                 </Badge>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-slate-300">Entrenador:</span>
-                <span className="font-medium text-white text-right max-w-40 truncate">{detailData.danceClass.trainer.name}</span>
+                <span className="font-medium text-white text-right max-w-40 truncate">
+                  {detailData.danceClass.trainer.name}
+                </span>
               </div>
               {detailData.danceClass.price && (
                 <div className="flex justify-between items-center">
                   <span className="text-slate-300">Precio:</span>
-                  <span className="font-semibold text-green-400">{formatCurrency(detailData.danceClass.price)}</span>
+                  <span className="font-semibold text-green-400">
+                    {formatCurrency(detailData.danceClass.price)}
+                  </span>
                 </div>
               )}
               {detailData.danceClass.location && (
                 <>
                   <div className="flex justify-between items-center">
                     <span className="text-slate-300">Ubicación:</span>
-                    <span className="font-medium text-white text-right max-w-40 truncate">{detailData.danceClass.location.name}</span>
+                    <span className="font-medium text-white text-right max-w-40 truncate">
+                      {detailData.danceClass.location.name}
+                    </span>
                   </div>
                   {detailData.danceClass.location.address && (
                     <div className="flex items-start gap-2 pt-1">
                       <MapPin className="w-3 h-3 mt-0.5 text-slate-400 flex-shrink-0" />
-                      <span className="text-xs text-slate-300 leading-relaxed">{detailData.danceClass.location.address}</span>
+                      <span className="text-xs text-slate-300 leading-relaxed">
+                        {detailData.danceClass.location.address}
+                      </span>
                     </div>
                   )}
                 </>
@@ -549,26 +662,40 @@ export function StudentDetailModal({ enrollment }: StudentDetailModalProps) {
               <Separator className="bg-slate-700" />
               <div className="flex justify-between items-center">
                 <span className="text-slate-300">Fecha de inscripción:</span>
-                <span className="font-medium text-white">{formatDate(detailData.enrolledAt)}</span>
+                <span className="font-medium text-white">
+                  {formatDate(detailData.enrolledAt)}
+                </span>
               </div>
-              
+
               {/* Horarios integrados aquí */}
-              {detailData.danceClass.schedules && detailData.danceClass.schedules.length > 0 && (
-                <>
-                  <Separator className="bg-slate-700" />
-                  <div className="space-y-2 pt-1">
-                    <div className="text-blue-400 font-medium text-xs uppercase tracking-wide">Horarios</div>
-                    <div className="space-y-1">
-                      {detailData.danceClass.schedules.map((schedule, index) => (
-                        <div key={index} className="flex justify-between items-center p-2 bg-slate-700/50 rounded text-xs">
-                          <span className="font-medium text-white">{getDayName(schedule.dayOfWeek)}</span>
-                          <span className="text-blue-300 font-mono">{schedule.startTime} - {schedule.endTime}</span>
-                        </div>
-                      ))}
+              {detailData.danceClass.schedules &&
+                detailData.danceClass.schedules.length > 0 && (
+                  <>
+                    <Separator className="bg-slate-700" />
+                    <div className="space-y-2 pt-1">
+                      <div className="text-blue-400 font-medium text-xs uppercase tracking-wide">
+                        Horarios
+                      </div>
+                      <div className="space-y-1">
+                        {detailData.danceClass.schedules.map(
+                          (schedule, index) => (
+                            <div
+                              key={index}
+                              className="flex justify-between items-center p-2 bg-slate-700/50 rounded text-xs"
+                            >
+                              <span className="font-medium text-white">
+                                {getDayName(schedule.dayOfWeek)}
+                              </span>
+                              <span className="text-blue-300 font-mono">
+                                {schedule.startTime} - {schedule.endTime}
+                              </span>
+                            </div>
+                          )
+                        )}
+                      </div>
                     </div>
-                  </div>
-                </>
-              )}
+                  </>
+                )}
             </CardContent>
           </Card>
 
@@ -588,29 +715,60 @@ export function StudentDetailModal({ enrollment }: StudentDetailModalProps) {
                 <div className="space-y-3">
                   <div className="flex justify-between items-center">
                     <span className="text-slate-300">SISBEN:</span>
-                    <Badge className={`${detailData.student.enrollmentData.hasSisben ? "bg-green-600" : "bg-slate-600"} text-white border-0`}>
-                      {detailData.student.enrollmentData.hasSisben ? "Sí" : "No"}
+                    <Badge
+                      className={`${
+                        detailData.student.enrollmentData.hasSisben
+                          ? "bg-green-600"
+                          : "bg-slate-600"
+                      } text-white border-0`}
+                    >
+                      {detailData.student.enrollmentData.hasSisben
+                        ? "Sí"
+                        : "No"}
                     </Badge>
                   </div>
-                  
+
                   <div className="flex justify-between items-center">
-                    <span className="text-slate-300">Restricciones médicas:</span>
-                    <Badge className={`${(detailData.student.enrollmentData.hasRestrictions || detailData.student.enrollmentData.hasMedicalRestrictions) ? "bg-red-600" : "bg-green-600"} text-white border-0`}>
-                      {(detailData.student.enrollmentData.hasRestrictions || detailData.student.enrollmentData.hasMedicalRestrictions) ? "Sí" : "No"}
+                    <span className="text-slate-300">
+                      Restricciones médicas:
+                    </span>
+                    <Badge
+                      className={`${
+                        detailData.student.enrollmentData.hasRestrictions ||
+                        detailData.student.enrollmentData.hasMedicalRestrictions
+                          ? "bg-red-600"
+                          : "bg-green-600"
+                      } text-white border-0`}
+                    >
+                      {detailData.student.enrollmentData.hasRestrictions ||
+                      detailData.student.enrollmentData.hasMedicalRestrictions
+                        ? "Sí"
+                        : "No"}
                     </Badge>
                   </div>
                 </div>
-                
+
                 {/* Alertas médicas */}
-                {(detailData.student.enrollmentData.hasRestrictions || detailData.student.enrollmentData.hasMedicalRestrictions) && (
+                {(detailData.student.enrollmentData.hasRestrictions ||
+                  detailData.student.enrollmentData.hasMedicalRestrictions) && (
                   <div className="space-y-3 mt-4">
-                    {(detailData.student.enrollmentData.restrictionsDescription || detailData.student.enrollmentData.medicalRestrictions) && (
+                    {(detailData.student.enrollmentData
+                      .restrictionsDescription ||
+                      detailData.student.enrollmentData
+                        .medicalRestrictions) && (
                       <div className="p-4 bg-red-950/30 border border-red-800/50 rounded-lg">
                         <div className="flex items-start gap-3">
                           <AlertTriangle className="w-5 h-5 mt-0.5 text-red-400 flex-shrink-0" />
                           <div className="flex-1">
-                            <p className="text-sm font-medium text-red-400 mb-2">Restricciones médicas:</p>
-                            <p className="text-sm text-slate-100 leading-relaxed">{detailData.student.enrollmentData.restrictionsDescription || detailData.student.enrollmentData.medicalRestrictions}</p>
+                            <p className="text-sm font-medium text-red-400 mb-2">
+                              Restricciones médicas:
+                            </p>
+                            <p className="text-sm text-slate-100 leading-relaxed">
+                              {detailData.student.enrollmentData
+                                .restrictionsDescription ||
+                                detailData.student.enrollmentData
+                                  .medicalRestrictions}
+                            </p>
                           </div>
                         </div>
                       </div>
@@ -620,8 +778,15 @@ export function StudentDetailModal({ enrollment }: StudentDetailModalProps) {
                         <div className="flex items-start gap-3">
                           <Heart className="w-5 h-5 mt-0.5 text-yellow-400 flex-shrink-0" />
                           <div className="flex-1">
-                            <p className="text-sm font-medium text-yellow-400 mb-2">Condiciones médicas adicionales:</p>
-                            <p className="text-sm text-slate-100 leading-relaxed">{detailData.student.enrollmentData.medicalConditions}</p>
+                            <p className="text-sm font-medium text-yellow-400 mb-2">
+                              Condiciones médicas adicionales:
+                            </p>
+                            <p className="text-sm text-slate-100 leading-relaxed">
+                              {
+                                detailData.student.enrollmentData
+                                  .medicalConditions
+                              }
+                            </p>
                           </div>
                         </div>
                       </div>
@@ -648,26 +813,39 @@ export function StudentDetailModal({ enrollment }: StudentDetailModalProps) {
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
               <div>
-                <span className="text-slate-300 text-xs uppercase tracking-wide">Dirección</span>
-                <p className="text-white font-medium">{detailData.student.enrollmentData.address}</p>
+                <span className="text-slate-300 text-xs uppercase tracking-wide">
+                  Dirección
+                </span>
+                <p className="text-white font-medium">
+                  {detailData.student.enrollmentData.address}
+                </p>
               </div>
               {detailData.student.enrollmentData.neighborhood && (
                 <div>
-                  <span className="text-slate-300 text-xs uppercase tracking-wide">Barrio</span>
-                  <p className="text-white font-medium">{detailData.student.enrollmentData.neighborhood}</p>
+                  <span className="text-slate-300 text-xs uppercase tracking-wide">
+                    Barrio
+                  </span>
+                  <p className="text-white font-medium">
+                    {detailData.student.enrollmentData.neighborhood}
+                  </p>
                 </div>
               )}
               <div>
-                <span className="text-slate-300 text-xs uppercase tracking-wide">Ciudad</span>
-                <p className="text-white font-medium">{detailData.student.enrollmentData.city || 'Itagüí'}</p>
+                <span className="text-slate-300 text-xs uppercase tracking-wide">
+                  Ciudad
+                </span>
+                <p className="text-white font-medium">
+                  {detailData.student.enrollmentData.city || "Itagüí"}
+                </p>
               </div>
             </div>
-            
+
             {mapUrl && !mapError && (
               <div className="mt-4">
                 <div className="aspect-video w-full max-w-2xl mx-auto">
                   <iframe
                     src={mapUrl}
+                    title={`Mapa de ${detailData?.student.name}`}
                     width="100%"
                     height="100%"
                     style={{ border: 0 }}
@@ -680,20 +858,25 @@ export function StudentDetailModal({ enrollment }: StudentDetailModalProps) {
                 </div>
               </div>
             )}
-            
+
             {(mapError || !mapUrl) && (
               <div className="mt-4 p-4 bg-slate-700/50 rounded-lg text-center">
                 <MapPin className="w-8 h-8 mx-auto text-slate-400 mb-2" />
                 <p className="text-slate-300 text-sm mb-3">
-                  {!mapUrl ? 'Mapa no disponible' : 'Error al cargar el mapa'}
+                  {!mapUrl ? "Mapa no disponible" : "Error al cargar el mapa"}
                 </p>
                 <Button
                   variant="outline"
                   size="sm"
                   className="border-slate-600 text-slate-200 hover:bg-slate-600 hover:text-white"
                   onClick={() => {
-                    const address = `${detailData.student.enrollmentData?.address}, Itagüí, Antioquia, Colombia`
-                    window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`, '_blank')
+                    const address = `${detailData.student.enrollmentData?.address}, Itagüí, Antioquia, Colombia`;
+                    window.open(
+                      `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+                        address
+                      )}`,
+                      "_blank"
+                    );
                   }}
                 >
                   Abrir en Google Maps
@@ -720,13 +903,22 @@ export function StudentDetailModal({ enrollment }: StudentDetailModalProps) {
             {detailData.student.debts && detailData.student.debts.length > 0 ? (
               <div className="space-y-2">
                 {detailData.student.debts.map((debt) => (
-                  <div key={debt.id} className="p-3 bg-red-950/30 border border-red-800/50 rounded-lg">
+                  <div
+                    key={debt.id}
+                    className="p-3 bg-red-950/30 border border-red-800/50 rounded-lg"
+                  >
                     <div className="flex justify-between items-start gap-2">
                       <div className="flex-1">
-                        <p className="font-medium text-red-400 text-sm">{debt.concept}</p>
-                        <p className="text-xs text-slate-300">Vence: {formatDate(debt.dueDate)}</p>
+                        <p className="font-medium text-red-400 text-sm">
+                          {debt.concept}
+                        </p>
+                        <p className="text-xs text-slate-300">
+                          Vence: {formatDate(debt.dueDate)}
+                        </p>
                       </div>
-                      <span className="font-bold text-red-400 text-sm">{formatCurrency(debt.amount)}</span>
+                      <span className="font-bold text-red-400 text-sm">
+                        {formatCurrency(debt.amount)}
+                      </span>
                     </div>
                   </div>
                 ))}
@@ -734,7 +926,9 @@ export function StudentDetailModal({ enrollment }: StudentDetailModalProps) {
             ) : (
               <div className="flex flex-col items-center justify-center py-6">
                 <UserCheck className="w-8 h-8 text-green-400 mb-2" />
-                <p className="text-green-400 text-sm font-medium">Sin deudas pendientes</p>
+                <p className="text-green-400 text-sm font-medium">
+                  Sin deudas pendientes
+                </p>
               </div>
             )}
           </CardContent>
@@ -751,16 +945,26 @@ export function StudentDetailModal({ enrollment }: StudentDetailModalProps) {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {detailData.student.receipts && detailData.student.receipts.length > 0 ? (
+            {detailData.student.receipts &&
+            detailData.student.receipts.length > 0 ? (
               <div className="space-y-2">
                 {detailData.student.receipts.map((receipt) => (
-                  <div key={receipt.id} className="p-3 bg-green-950/30 border border-green-800/50 rounded-lg">
+                  <div
+                    key={receipt.id}
+                    className="p-3 bg-green-950/30 border border-green-800/50 rounded-lg"
+                  >
                     <div className="flex justify-between items-start gap-2">
                       <div className="flex-1">
-                        <p className="font-medium text-green-400 text-sm">{receipt.concept}</p>
-                        <p className="text-xs text-slate-300">{formatDate(receipt.createdAt)}</p>
+                        <p className="font-medium text-green-400 text-sm">
+                          {receipt.concept}
+                        </p>
+                        <p className="text-xs text-slate-300">
+                          {formatDate(receipt.createdAt)}
+                        </p>
                       </div>
-                      <span className="font-bold text-green-400 text-sm">{formatCurrency(receipt.amount)}</span>
+                      <span className="font-bold text-green-400 text-sm">
+                        {formatCurrency(receipt.amount)}
+                      </span>
                     </div>
                   </div>
                 ))}
@@ -768,7 +972,9 @@ export function StudentDetailModal({ enrollment }: StudentDetailModalProps) {
             ) : (
               <div className="flex flex-col items-center justify-center py-6">
                 <DollarSign className="w-8 h-8 text-slate-500 mb-2" />
-                <p className="text-slate-400 text-sm">No hay pagos registrados</p>
+                <p className="text-slate-400 text-sm">
+                  No hay pagos registrados
+                </p>
               </div>
             )}
           </CardContent>
@@ -776,33 +982,41 @@ export function StudentDetailModal({ enrollment }: StudentDetailModalProps) {
       </div>
 
       {/* Historial de Asistencias */}
-      {detailData.student.attendances && detailData.student.attendances.length > 0 && (
-        <Card className="bg-slate-800 border-slate-700 hover:bg-slate-800/80 transition-colors">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-blue-400 flex items-center gap-2 text-lg">
-              <div className="p-1.5 rounded-lg bg-blue-500/20">
-                <Calendar className="w-4 h-4" />
-              </div>
-              Historial de Asistencias
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {detailData.student.attendances.map((attendance) => (
-                <div key={attendance.id} className="flex justify-between items-center p-3 bg-slate-700/50 rounded-lg">
-                  <div className="flex-1">
-                    <p className="text-white text-sm font-medium">{formatDate(attendance.date)}</p>
-                    {attendance.session?.danceClass && (
-                      <p className="text-xs text-slate-300">{attendance.session.danceClass.name}</p>
-                    )}
-                  </div>
-                  {getAttendanceStatusBadge(attendance.status)}
+      {detailData.student.attendances &&
+        detailData.student.attendances.length > 0 && (
+          <Card className="bg-slate-800 border-slate-700 hover:bg-slate-800/80 transition-colors">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-blue-400 flex items-center gap-2 text-lg">
+                <div className="p-1.5 rounded-lg bg-blue-500/20">
+                  <Calendar className="w-4 h-4" />
                 </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+                Historial de Asistencias
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {detailData.student.attendances.map((attendance) => (
+                  <div
+                    key={attendance.id}
+                    className="flex justify-between items-center p-3 bg-slate-700/50 rounded-lg"
+                  >
+                    <div className="flex-1">
+                      <p className="text-white text-sm font-medium">
+                        {formatDate(attendance.date)}
+                      </p>
+                      {attendance.session?.danceClass && (
+                        <p className="text-xs text-slate-300">
+                          {attendance.session.danceClass.name}
+                        </p>
+                      )}
+                    </div>
+                    {getAttendanceStatusBadge(attendance.status)}
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
     </div>
-  )
-} 
+  );
+}

@@ -1,4 +1,4 @@
-"use client"
+"use client";
 
 import { useRouter } from "next/navigation"
 import { useEffect, useState, useCallback } from "react"
@@ -26,23 +26,23 @@ import { AdvancedPagination } from "@/components/ui/advanced-pagination"
 import { AuthGuard } from "@/components/auth-guard"
 
 interface User {
-  id: number
-  email: string
-  name: string
-  role: string
-  isActive: boolean
-  trainerId?: number
+  id: number;
+  email: string;
+  name: string;
+  role: string;
+  isActive: boolean;
+  trainerId?: number;
   trainer?: {
-    id: number
-    name: string
-  }
-  createdAt: string
+    id: number;
+    name: string;
+  };
+  createdAt: string;
 }
 
 interface Trainer {
-  id: number
-  name: string
-  email: string
+  id: number;
+  name: string;
+  email: string;
 }
 
 interface PaginationData {
@@ -124,9 +124,9 @@ function UsersManagementContent() {
       console.error("Error loading users:", error)
       setError("Error de conexión al cargar usuarios")
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   const loadTrainers = async () => {
     try {
@@ -139,7 +139,7 @@ function UsersManagementContent() {
     } catch (error) {
       console.error("Error loading trainers:", error)
     }
-  }
+  };
 
   const handleCreateUser = () => {
     setSelectedUser(null)
@@ -221,7 +221,7 @@ function UsersManagementContent() {
     } finally {
       setIsModalLoading(false)
     }
-  }
+  };
 
   const handleCloseModal = () => {
     setShowUserModal(false)
@@ -274,7 +274,10 @@ function UsersManagementContent() {
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div className="flex items-center space-x-4">
               <Link href="/admin">
-                <Button variant="outline" size="sm" className="border-gray-600 text-gray-300 hover:bg-gray-700">
+                <Button
+                  variant="outline"
+                  className="border-gray-600 text-gray-300 hover:bg-gray-700"
+                >
                   <ArrowLeft className="h-4 w-4 mr-2" />
                   Volver al Panel
                 </Button>
