@@ -99,7 +99,19 @@ export function PaymentDashboard({ periodId }: PaymentDashboardProps) {
   const loadDashboardData = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`/api/admin/payment-dashboard/${periodId}`);
+      
+      // Construir parámetros de query
+      const params = new URLSearchParams({
+        page: currentPage.toString(),
+        limit: '10',
+      });
+      
+      // Agregar búsqueda si existe
+      if (searchDebounced.trim()) {
+        params.append('search', searchDebounced.trim());
+      }
+      
+      const response = await fetch(`/api/admin/payment-dashboard/${periodId}?${params.toString()}`);
 
       if (!response.ok) {
         throw new Error("Error al cargar datos del dashboard");

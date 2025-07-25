@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 
 interface Student {
-  id: number;
+  id: string; // Cambiado de number a string para coincidir con el modelo de Student
   name: string;
   parentPhone?: string;
   hasForm: boolean;
@@ -29,7 +29,7 @@ interface WhatsAppSenderProps {
 }
 
 export function WhatsAppSender({ periodId, periodName, students }: WhatsAppSenderProps) {
-  const [selectedStudents, setSelectedStudents] = useState<number[]>([]);
+  const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
   const [sendToAll, setSendToAll] = useState(false);
   const [sending, setSending] = useState(false);
   const [results, setResults] = useState<{
@@ -53,7 +53,7 @@ export function WhatsAppSender({ periodId, periodName, students }: WhatsAppSende
     }
   };
 
-  const handleStudentSelect = (studentId: number, checked: boolean) => {
+  const handleStudentSelect = (studentId: string, checked: boolean) => {
     if (checked) {
       setSelectedStudents(prev => [...prev, studentId]);
     } else {

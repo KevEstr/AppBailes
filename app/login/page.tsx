@@ -22,17 +22,11 @@ export default function LoginPage() {
   console.log("LoginPage component loaded")
 
   const handleSubmit = async (e: React.FormEvent) => {
-<<<<<<< HEAD
     e.preventDefault()
     setIsLoading(true)
     setError("")
     
     console.log("Starting login process...")
-=======
-    e.preventDefault();
-    setIsLoading(true);
-    setError("");
->>>>>>> a27d72b416061a86f4a9e1664e2da8e641b0a93c
 
     try {
       console.log("Attempting to sign in with:", email)
@@ -41,7 +35,6 @@ export default function LoginPage() {
       const result = await signIn("credentials", {
         email,
         password,
-<<<<<<< HEAD
         callbackUrl: "/",
       })
       
@@ -54,31 +47,6 @@ export default function LoginPage() {
       console.error("Login error:", error)
       setError("Error de conexión. Por favor, intenta nuevamente.")
       setIsLoading(false)
-=======
-        redirect: false,
-      });
-
-      if (result?.error) {
-        setError(
-          "Credenciales inválidas. Por favor, verifica tu email y contraseña."
-        );
-      } else {
-        // Obtener la sesión para redirigir según el rol
-        const session = await getSession();
-        if (session?.user?.role === "ADMIN") {
-          router.push("/admin");
-        } else if (session?.user?.role === "TEACHER") {
-          router.push("/teacher");
-        } else {
-          router.push("/");
-        }
-      }
-    } catch (error) {
-      console.error("Error al iniciar sesión:", error);
-      setError("Error de conexión. Por favor, intenta nuevamente.");
-    } finally {
-      setIsLoading(false);
->>>>>>> a27d72b416061a86f4a9e1664e2da8e641b0a93c
     }
   };
 

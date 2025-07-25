@@ -8,7 +8,7 @@ const prisma = new PrismaClient()
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -17,7 +17,8 @@ export async function GET(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const userId = parseInt(params.id)
+    const resolvedParams = await params
+    const userId = parseInt(resolvedParams.id)
     
     if (isNaN(userId)) {
       return NextResponse.json({ error: "Invalid user ID" }, { status: 400 })
@@ -45,7 +46,7 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -54,13 +55,14 @@ export async function PUT(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const userId = parseInt(params.id)
+    const resolvedParams = await params
+    const userId = parseInt(resolvedParams.id)
     
     if (isNaN(userId)) {
       return NextResponse.json({ error: "Invalid user ID" }, { status: 400 })
     }
 
-    const { email, password, role, trainerId, isActive } = await request.json()
+    const { email, password, role, trainerId, isActive, name } = await request.json()
 
     if (!email || !role) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
@@ -68,7 +70,10 @@ export async function PUT(
 
     // Verificar que el usuario existe
     const existingUser = await prisma.user.findUnique({
-      where: { id: userId }
+      where: { id: userId },
+      include: {
+        student: true
+      }
     })
 
     if (!existingUser) {
@@ -126,8 +131,13 @@ export async function PUT(
       updateData.password = await bcrypt.hash(password, 12)
     }
 
-    // Actualizar el nombre en Student si el usuario es estudiante y tiene relación
-    // Ya no se actualiza el nombre aquí, solo en Student directamente
+    // Actualizar el nombre en Student si el usuario tiene relación con un estudiante
+    if (name && existingUser.student) {
+      await prisma.student.update({
+        where: { userId: userId },
+        data: { name: name.trim() }
+      });
+    }
 
     const updatedUser = await prisma.user.update({
       where: { id: userId },
@@ -149,7 +159,7 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -158,7 +168,8 @@ export async function DELETE(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const userId = parseInt(params.id)
+    const resolvedParams = await params
+    const userId = parseInt(resolvedParams.id)
     
     if (isNaN(userId)) {
       return NextResponse.json({ error: "Invalid user ID" }, { status: 400 })
