@@ -29,17 +29,7 @@ export default withAuth(
 
     // ⚡ Log solo en desarrollo y para casos específicos
     if (process.env.NODE_ENV === 'development') {
-      console.log("🔒 Middleware:", { 
-        pathname, 
-        hasToken: !!token, 
-        role: token?.role,
-        email: token?.email?.substring(0, 10) + "..." 
-      })
-    }
-
-    // ⚡ PERMITIR RUTAS PÚBLICAS SIN TOKEN PRIMERO
-    if (PUBLIC_ROUTES.includes(pathname)) {
-      return NextResponse.next()
+      console.log("🔒 Middleware:", { pathname, hasToken: !!token, role: token?.role })
     }
 
     // ⚡ REDIRECCIÓN DE LOGIN CON TOKEN VÁLIDO - evitar bucles
@@ -52,7 +42,7 @@ export default withAuth(
       
       const redirectPath = roleRedirects[token.role as keyof typeof roleRedirects]
       if (redirectPath) {
-        console.log("✅ Redirecting authenticated user from login to:", redirectPath)
+        console.log("Redirecting authenticated user from login to:", redirectPath)
         return NextResponse.redirect(new URL(redirectPath, origin))
       }
     }

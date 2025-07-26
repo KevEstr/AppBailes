@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Eye, EyeOff, LogIn, User, Lock, Sparkles } from "lucide-react";
 import Image from "next/image";
+import { CookieCleaner } from "@/components/cookie-cleaner";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -21,37 +22,88 @@ export default function LoginPage() {
 
   console.log("LoginPage component loaded")
 
+  // Flag para evitar doble submit
+  const [hasSubmitted, setHasSubmitted] = useState(false);
+
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsLoading(true)
-    setError("")
-    
-    console.log("Starting login process...")
+    e.preventDefault();
+    if (isLoading || hasSubmitted) return; // Previene doble submit
+    setIsLoading(true);
+    setHasSubmitted(true);
+    setError("");
 
     try {
-      console.log("Attempting to sign in with:", email)
-      
-      // Usar signIn con redirect automático - esto es más confiable
+      // Limpiar cookies previas para evitar conflictos JWT
+      document.cookie.split(";").forEach(function(c) {
+        document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+      });
+      console.log("🧹 Cleared existing cookies");
+      console.log("🔐 Attempting to sign in...");
+
+      // Usar signIn sin redirect automático para mejor control
       const result = await signIn("credentials", {
-        email,
+        email: email.trim(),
         password,
-        callbackUrl: "/",
-      })
-      
-      // Si llegamos aquí significa que hubo un error (no debería llegar aquí si es exitoso)
-      console.log("SignIn didn't redirect, there might be an error")
-      setError("Credenciales inválidas. Por favor, verifica tu email y contraseña.")
-      setIsLoading(false)
-      
+        redirect: false, // No redirigir automáticamente
+      });
+
+      console.log("📝 SignIn result:", result);
+
+      if (result?.error) {
+        // Manejo especial para CredentialsSignin
+        if (result.error === "CredentialsSignin") {
+          setError("Credenciales inválidas o sesión previa corrupta. Por favor, intenta nuevamente. Si el problema persiste, borra las cookies del navegador.");
+        } else {
+          setError("Error: " + result.error);
+        }
+        setIsLoading(false);
+        setHasSubmitted(false);
+        return;
+      }
+
+      if (result?.ok) {
+        console.log("✅ Login successful, waiting for session...");
+        // Esperar un poco para que la sesión se establezca
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        // Obtener la sesión actualizada
+        const session = await getSession();
+        console.log("📱 Session after login:", session);
+        if (session?.user) {
+          console.log("✅ Session established, redirecting user with role:", session.user.role);
+          // Redirigir basado en el rol
+          switch (session.user.role) {
+            case "ADMIN":
+              router.push("/admin");
+              break;
+            case "TEACHER":
+              router.push("/teacher");
+              break;
+            case "STUDENT":
+              router.push("/student");
+              break;
+            default:
+              router.push("/");
+          }
+        } else {
+          setError("Error al establecer la sesión. Por favor, intenta nuevamente.");
+          setIsLoading(false);
+          setHasSubmitted(false);
+        }
+      } else {
+        setError("Error de autenticación. Por favor, intenta nuevamente.");
+        setIsLoading(false);
+        setHasSubmitted(false);
+      }
     } catch (error) {
-      console.error("Login error:", error)
-      setError("Error de conexión. Por favor, intenta nuevamente.")
-      setIsLoading(false)
+      setError("Error de conexión. Por favor, intenta nuevamente.");
+      setIsLoading(false);
+      setHasSubmitted(false);
     }
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-slate-900 to-gray-800 flex items-center justify-center p-4">
+      <CookieCleaner />
       <div className="w-full max-w-md">
         {/* Header con logo */}
         <div className="text-center mb-8">
@@ -146,7 +198,7 @@ export default function LoginPage() {
 
               <Button
                 type="submit"
-                disabled={isLoading}
+                disabled={isLoading || hasSubmitted}
                 className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-semibold py-3 rounded-lg transition-all duration-300 transform hover:scale-105 shadow-lg"
               >
                 {isLoading ? (

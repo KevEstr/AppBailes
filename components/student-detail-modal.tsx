@@ -751,43 +751,30 @@ export function StudentDetailModal({ enrollment }: StudentDetailModalProps) {
                 {/* Alertas médicas */}
                 {(detailData.student.enrollmentData.hasRestrictions ||
                   detailData.student.enrollmentData.hasMedicalRestrictions) && (
-                  <div className="space-y-3 mt-4">
-                    {(detailData.student.enrollmentData
-                      .restrictionsDescription ||
-                      detailData.student.enrollmentData
-                        .medicalRestrictions) && (
-                      <div className="p-4 bg-red-950/30 border border-red-800/50 rounded-lg">
-                        <div className="flex items-start gap-3">
-                          <AlertTriangle className="w-5 h-5 mt-0.5 text-red-400 flex-shrink-0" />
-                          <div className="flex-1">
-                            <p className="text-sm font-medium text-red-400 mb-2">
-                              Restricciones médicas:
-                            </p>
-                            <p className="text-sm text-slate-100 leading-relaxed">
-                              {detailData.student.enrollmentData
-                                .restrictionsDescription ||
-                                detailData.student.enrollmentData
-                                  .medicalRestrictions}
-                            </p>
-                          </div>
+                  <div className="flex flex-col sm:flex-row gap-3 mt-4">
+                    {(detailData.student.enrollmentData.restrictionsDescription ||
+                      detailData.student.enrollmentData.medicalRestrictions) && (
+                      <div className="flex-1 p-4 bg-red-950/30 border border-red-800/50 rounded-lg min-w-0">
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-red-400 mb-2">
+                            Restricciones médicas:
+                          </p>
+                          <p className="text-sm text-slate-100 leading-relaxed">
+                            {detailData.student.enrollmentData.restrictionsDescription ||
+                              detailData.student.enrollmentData.medicalRestrictions}
+                          </p>
                         </div>
                       </div>
                     )}
                     {detailData.student.enrollmentData.medicalConditions && (
-                      <div className="p-4 bg-yellow-950/30 border border-yellow-800/50 rounded-lg">
-                        <div className="flex items-start gap-3">
-                          <Heart className="w-5 h-5 mt-0.5 text-yellow-400 flex-shrink-0" />
-                          <div className="flex-1">
-                            <p className="text-sm font-medium text-yellow-400 mb-2">
-                              Condiciones médicas adicionales:
-                            </p>
-                            <p className="text-sm text-slate-100 leading-relaxed">
-                              {
-                                detailData.student.enrollmentData
-                                  .medicalConditions
-                              }
-                            </p>
-                          </div>
+                      <div className="flex-1 p-4 bg-yellow-950/30 border border-yellow-800/50 rounded-lg min-w-0">
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-yellow-400 mb-2">
+                            Condiciones médicas adicionales:
+                          </p>
+                          <p className="text-sm text-slate-100 leading-relaxed">
+                            {detailData.student.enrollmentData.medicalConditions}
+                          </p>
                         </div>
                       </div>
                     )}

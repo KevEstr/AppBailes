@@ -125,8 +125,12 @@ export async function GET(request: NextRequest) {
                 select: {
                   id: true,
                   name: true,
-                  email: true,
-                  phone: true
+                  phone: true,
+                  user: {
+                    select: {
+                      email: true,
+                    },
+                  },
                 }
               }
             }
@@ -246,7 +250,7 @@ export async function POST(request: NextRequest) {
         modality: validatedData.modality,
         level: validatedData.level || 'BEGINNER',
         schedules: {
-          create: validatedData.schedules
+          create: validatedData.schedules.map(sch => ({ ...sch, isActive: true }))
         }
       },
       include: {
@@ -397,7 +401,7 @@ export async function PUT(request: NextRequest) {
         ...(validatedData.schedules && {
           schedules: {
             deleteMany: {}, // Eliminar horarios existentes
-            create: validatedData.schedules // Crear nuevos horarios
+            create: validatedData.schedules.map(sch => ({ ...sch, isActive: true })) // Crear nuevos horarios con isActive
           }
         })
       },

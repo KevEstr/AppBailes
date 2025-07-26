@@ -11,8 +11,9 @@ export default function AuthSessionProvider({
   return (
     <SessionProvider 
       basePath="/api/auth"
-      refetchInterval={60}
-      refetchOnWindowFocus={true}
+      refetchInterval={0} // Deshabilitar refetch automático para evitar requests innecesarios
+      refetchOnWindowFocus={false} // Solo refetch cuando sea necesario
+      refetchWhenOffline={false}
     >
       {children}
     </SessionProvider>

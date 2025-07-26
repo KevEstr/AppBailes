@@ -40,7 +40,6 @@ export async function GET(request: NextRequest) {
       baseQuery.OR = [
         { student: { name: { contains: search, mode: 'insensitive' } } },
         { student: { phone: { contains: search, mode: 'insensitive' } } },
-        { student: { email: { contains: search, mode: 'insensitive' } } },
         { student: { id: { contains: search, mode: 'insensitive' } } } // Buscar por cédula como string
       ].filter(Boolean)
     }
@@ -253,8 +252,8 @@ export async function POST(request: NextRequest) {
             select: {
               id: true,
               name: true,
-              email: true,
-              phone: true
+              phone: true,
+              user: { select: { email: true } }
             }
           },
           danceClass: {
@@ -281,8 +280,8 @@ export async function POST(request: NextRequest) {
             select: {
               id: true,
               name: true,
-              email: true,
-              phone: true
+              phone: true,
+              user: { select: { email: true } }
             }
           },
           danceClass: {
