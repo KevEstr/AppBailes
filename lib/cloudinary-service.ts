@@ -21,6 +21,13 @@ export class CloudinaryService {
       const result = await cloudinary.uploader.upload(dataURI, {
         folder: options?.folder || 'payment-proofs',
         resource_type: 'auto',
+        // Para fotos de perfil, aplicar transformaciones
+        ...(options?.folder === 'profile-photos' && {
+          transformation: [
+            { width: 400, height: 400, crop: 'fill', gravity: 'face' },
+            { quality: 'auto', fetch_format: 'auto' }
+          ]
+        })
       });
 
       return result.secure_url;

@@ -58,7 +58,10 @@ interface Student {
   phone: string
   hasDebt: boolean
   isActive: boolean
-  user?: { email: string }
+  avatar?: string
+  user?: { 
+    email: string
+  }
 }
 
 interface ClassEnrollment {
@@ -429,180 +432,209 @@ export function StudentsManagement() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {loading ? (
-                      <TableRow>
-                        <TableCell
-                          colSpan={7}
-                          className="text-center text-gray-400 py-8"
-                        >
-                          Cargando estudiantes...
-                        </TableCell>
-                      </TableRow>
-                    ) : enrollments.length === 0 ? (
-                      <TableRow>
-                        <TableCell
-                          colSpan={7}
-                          className="text-center text-gray-400 py-8"
-                        >
-                          No se encontraron estudiantes
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      enrollments.map((enrollment) => (
-                        <TableRow
-                          key={enrollment.id}
-                          className="border-gray-600"
-                        >
-                          <TableCell>
-                            <div className="space-y-1">
-                              <p className="text-white font-medium">
-                                {enrollment.student.name}
-                              </p>
-                              <div className="flex items-center gap-2 text-sm text-gray-400">
-                                <IdCard className="w-3 h-3" />
-                                ID: {enrollment.student.id}
-                              </div>
-                              {enrollment.student.hasDebt && (
-                                <Badge
-                                  variant="destructive"
-                                  className="text-xs"
-                                >
-                                  Con deuda
-                                </Badge>
-                              )}
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <div className="space-y-1">
-                              <div className="flex items-center gap-2">
-                                {getClassTypeIcon(enrollment.danceClass.type)}
-                                <span className="text-white text-sm">
-                                  {enrollment.danceClass.name}
-                                </span>
-                              </div>
-                              {getClassTypeBadge(enrollment.danceClass.type)}
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <div className="space-y-1 text-sm">
-                              <p className="text-white">
-                                {enrollment.danceClass.trainer.name}
-                              </p>
-                              {enrollment.danceClass.location && (
-                                <div className="flex items-center gap-1 text-gray-400">
-                                  <MapPin className="w-3 h-3" />
-                                  {enrollment.danceClass.location.name}
+                    {/* Extracted logic for table rows */}
+                    {(() => {
+                      if (loading) {
+                        return (
+                          <TableRow>
+                            <TableCell
+                              colSpan={7}
+                              className="text-center text-gray-400 py-8"
+                            >
+                              Cargando estudiantes...
+                            </TableCell>
+                          </TableRow>
+                        );
+                      } else if (enrollments.length === 0) {
+                        return (
+                          <TableRow>
+                            <TableCell
+                              colSpan={7}
+                              className="text-center text-gray-400 py-8"
+                            >
+                              No se encontraron estudiantes
+                            </TableCell>
+                          </TableRow>
+                        );
+                      } else {
+                        return enrollments.map((enrollment) => (
+                          <TableRow
+                            key={enrollment.id}
+                            className="border-gray-600"
+                          >
+                            <TableCell>
+                              <div className="flex items-center gap-3">
+                                {/* Avatar */}
+                                <div className="flex-shrink-0">
+                                  {enrollment.student?.avatar ? (
+                                    <img
+                                      src={enrollment.student.avatar}
+                                      alt={`Foto de ${enrollment.student.name}`}
+                                      className="w-10 h-10 rounded-full object-cover border-2 border-gray-600"
+                                    />
+                                  ) : (
+                                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-sm">
+                                      {enrollment.student.name
+                                        .split(" ")
+                                        .map((n) => n[0])
+                                        .join("")
+                                        .substring(0, 2)}
+                                    </div>
+                                  )}
                                 </div>
-                              )}
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <div className="space-y-1 text-sm">
-                              <div className="flex items-center gap-1 text-gray-300">
-                                <Phone className="w-3 h-3" />
-                                {enrollment.student.phone}
-                              </div>
-                              {enrollment.student.user?.email && (
-                                <div className="flex items-center gap-1 text-gray-400">
-                                  <Mail className="w-3 h-3" />
-                                  {enrollment.student.user.email}
+                                
+                                {/* Información del estudiante */}
+                                <div className="space-y-1 flex-1 min-w-0">
+                                  <p className="text-white font-medium truncate">
+                                    {enrollment.student.name}
+                                  </p>
+                                  <div className="flex items-center gap-2 text-sm text-gray-400">
+                                    <IdCard className="w-3 h-3" />
+                                    ID: {enrollment.student.id}
+                                  </div>
+                                  {enrollment.student.hasDebt && (
+                                    <Badge
+                                      variant="destructive"
+                                      className="text-xs"
+                                    >
+                                      Con deuda
+                                    </Badge>
+                                  )}
                                 </div>
-                              )}
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <div className="space-y-2">
-                              <Badge
-                                variant={
-                                  enrollment.isActive ? "default" : "secondary"
-                                }
-                                className={
-                                  enrollment.isActive
-                                    ? "bg-green-600"
-                                    : "bg-gray-600"
-                                }
-                              >
-                                {enrollment.isActive ? "Activo" : "Inactivo"}
-                              </Badge>
-                              {enrollment.student.hasDebt && (
-                                <div className="flex items-center gap-1 text-orange-400 text-xs">
-                                  <AlertTriangle className="w-3 h-3" />
-                                  Con deuda
-                                </div>
-                              )}
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <div className="text-sm text-gray-400">
-                              <div className="flex items-center gap-1">
-                                <Calendar className="w-3 h-3" />
-                                {new Date(
-                                  enrollment.createdAt
-                                ).toLocaleDateString()}
                               </div>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-2">
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => {
-                                  setSelectedStudent(enrollment);
-                                  setDetailModalOpen(true);
-                                }}
-                                className="text-blue-400 hover:text-blue-300 hover:bg-blue-400/10"
-                                title="Ver detalles"
-                              >
-                                <Eye className="w-4 h-4" />
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => {
-                                  setSelectedStudent(enrollment);
-                                  setEditModalOpen(true);
-                                }}
-                                className="text-orange-400 hover:text-orange-300 hover:bg-orange-400/10"
-                                title="Editar estudiante"
-                              >
-                                <Edit className="w-4 h-4" />
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => handleToggleStatus(enrollment)}
-                                className={
-                                  enrollment.isActive
-                                    ? "text-red-400 hover:text-red-300 hover:bg-red-400/10"
-                                    : "text-green-400 hover:text-green-300 hover:bg-green-400/10"
-                                }
-                                title={
-                                  enrollment.isActive ? "Desactivar" : "Activar"
-                                }
-                              >
-                                {enrollment.isActive ? (
-                                  <PowerOff className="w-4 h-4" />
-                                ) : (
-                                  <Power className="w-4 h-4" />
+                            </TableCell>
+                            <TableCell>
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-2">
+                                  {getClassTypeIcon(enrollment.danceClass.type)}
+                                  <span className="text-white text-sm">
+                                    {enrollment.danceClass.name}
+                                  </span>
+                                </div>
+                                {getClassTypeBadge(enrollment.danceClass.type)}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="space-y-1 text-sm">
+                                <p className="text-white">
+                                  {enrollment.danceClass.trainer.name}
+                                </p>
+                                {enrollment.danceClass.location && (
+                                  <div className="flex items-center gap-1 text-gray-400">
+                                    <MapPin className="w-3 h-3" />
+                                    {enrollment.danceClass.location.name}
+                                  </div>
                                 )}
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() =>
-                                  handleDeleteEnrollment(enrollment.id)
-                                }
-                                className="text-red-400 hover:text-red-300 hover:bg-red-400/10"
-                                title="Eliminar inscripción"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    )}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="space-y-1 text-sm">
+                                <div className="flex items-center gap-1 text-gray-300">
+                                  <Phone className="w-3 h-3" />
+                                  {enrollment.student.phone}
+                                </div>
+                                {enrollment.student.user?.email && (
+                                  <div className="flex items-center gap-1 text-gray-400">
+                                    <Mail className="w-3 h-3" />
+                                    {enrollment.student.user.email}
+                                  </div>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="space-y-2">
+                                <Badge
+                                  variant={
+                                    enrollment.isActive ? "default" : "secondary"
+                                  }
+                                  className={
+                                    enrollment.isActive
+                                      ? "bg-green-600"
+                                      : "bg-gray-600"
+                                  }
+                                >
+                                  {enrollment.isActive ? "Activo" : "Inactivo"}
+                                </Badge>
+                                {enrollment.student.hasDebt && (
+                                  <div className="flex items-center gap-1 text-orange-400 text-xs">
+                                    <AlertTriangle className="w-3 h-3" />
+                                    Con deuda
+                                  </div>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="text-sm text-gray-400">
+                                <div className="flex items-center gap-1">
+                                  <Calendar className="w-3 h-3" />
+                                  {new Date(
+                                    enrollment.createdAt
+                                  ).toLocaleDateString()}
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => {
+                                    setSelectedStudent(enrollment);
+                                    setDetailModalOpen(true);
+                                  }}
+                                  className="text-blue-400 hover:text-blue-300 hover:bg-blue-400/10"
+                                  title="Ver detalles"
+                                >
+                                  <Eye className="w-4 h-4" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => {
+                                    setSelectedStudent(enrollment);
+                                    setEditModalOpen(true);
+                                  }}
+                                  className="text-orange-400 hover:text-orange-300 hover:bg-orange-400/10"
+                                  title="Editar estudiante"
+                                >
+                                  <Edit className="w-4 h-4" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => handleToggleStatus(enrollment)}
+                                  className={
+                                    enrollment.isActive
+                                      ? "text-red-400 hover:text-red-300 hover:bg-red-400/10"
+                                      : "text-green-400 hover:text-green-300 hover:bg-green-400/10"
+                                  }
+                                  title={
+                                    enrollment.isActive ? "Desactivar" : "Activar"
+                                  }
+                                >
+                                  {enrollment.isActive ? (
+                                    <PowerOff className="w-4 h-4" />
+                                  ) : (
+                                    <Power className="w-4 h-4" />
+                                  )}
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() =>
+                                    handleDeleteEnrollment(enrollment.id)
+                                  }
+                                  className="text-red-400 hover:text-red-300 hover:bg-red-400/10"
+                                  title="Eliminar inscripción"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ));
+                      }
+                    })()}
                   </TableBody>
                 </Table>
               </div>
@@ -656,6 +688,7 @@ export function StudentsManagement() {
               onStudentUpdated={() => {
                 loadEnrollments(currentPage, searchTerm, statusFilter);
               }}
+              isAdminEditing={true}
             />
           )}
         </div>

@@ -7,12 +7,14 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { AuthGuard } from "@/components/auth-guard"
 import EditStudentModal from "@/components/edit-student-modal"
-import { MapPin, Phone, Mail, IdCard, Heart, Calendar, DollarSign, UserCheck, AlertTriangle, GraduationCap, User, Edit } from "lucide-react"
+import { MapPin, Phone, Mail, IdCard, Heart, Calendar, DollarSign, UserCheck, AlertTriangle, GraduationCap, User, Edit, Camera } from "lucide-react"
+import { ProfilePhotoModal } from "@/components/profile/ProfilePhotoModal"
 
 interface StudentData {
   id: string
   name: string
   phone: string
+  avatar?: string
   user: {
     email: string
   }
@@ -269,8 +271,41 @@ function StudentContent() {
             <div className="relative bg-gradient-to-r from-slate-800 to-slate-700 rounded-xl p-6 border border-slate-600">
               <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
                 <div className="flex items-center gap-4 flex-1">
-                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-xl">
-                    {student.name.charAt(0).toUpperCase()}
+                  <div className="relative group">
+                    {student.avatar ? (
+                      <img
+                        src={student.avatar}
+                        alt={`Foto de ${student.name}`}
+                        className="w-16 h-16 rounded-full object-cover border-2 border-slate-600"
+                      />
+                    ) : (
+                      <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-xl">
+                        {student.name
+                          .split(" ")
+                          .map((n) => n[0])
+                          .join("")
+                          .substring(0, 2)}
+                      </div>
+                    )}
+                    
+                    <ProfilePhotoModal
+                      studentId={student.id}
+                      currentPhotoUrl={student.avatar}
+                      onSuccess={(newPhotoUrl: string) => {
+                        setStudent(prev => prev ? {
+                          ...prev,
+                          avatar: newPhotoUrl
+                        } : null);
+                      }}
+                      customTrigger={
+                        <button
+                          className="absolute -bottom-1 -right-1 w-6 h-6 bg-blue-600 hover:bg-blue-700 rounded-full flex items-center justify-center text-white shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                          title="Cambiar foto de perfil"
+                        >
+                          <Camera className="w-3 h-3" />
+                        </button>
+                      }
+                    />
                   </div>
                   <div className="flex-1 min-w-0">
                     <h2 className="text-2xl font-bold text-white">{student.name}</h2>

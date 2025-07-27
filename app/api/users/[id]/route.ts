@@ -122,7 +122,6 @@ export async function PUT(
     const updateData: any = {
       email,
       role,
-      trainerId: role === "TEACHER" ? parseInt(trainerId) : null,
       isActive: isActive !== undefined ? isActive : existingUser.isActive
     }
 
