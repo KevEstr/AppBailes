@@ -20,9 +20,9 @@ import {
   Eye as EyeIcon,
   RefreshCw as RefreshIcon,
   AlertCircle,
+  ArrowRight,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { StudentTransferModal } from "@/components/StudentTransferModal";
 import {
   Select,
   SelectItem,
@@ -38,13 +38,13 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { StudentTransferModal } from "./StudentTransferModal";
 
 interface Student {
   id: number;
   name: string;
   avatar: string;
   hasDebt: boolean;
-  phone?: string;
   status?: "present" | "late" | "absent" | "change_request";
 }
 
@@ -60,6 +60,9 @@ interface DanceClass {
   id: number;
   name: string;
   description?: string;
+  sport: string;
+  level: string;
+  capacity: number;
   trainer: {
     id: number;
     name: string;
@@ -132,8 +135,10 @@ export default function ClassAttendanceTikTok() {
     change_request: 0,
     total: 0,
   });
+
+  // Estados para transferencia de estudiantes
   const [showTransferModal, setShowTransferModal] = useState(false);
-  const [studentToTransfer, setStudentToTransfer] = useState<Student | null>(null);
+  const [selectedStudentForTransfer, setSelectedStudentForTransfer] = useState<Student | null>(null);
 
   // Función para verificar si una clase está activa en este momento
   const isClassActiveNow = useCallback((schedules: ClassSchedule[]) => {
@@ -540,17 +545,21 @@ export default function ClassAttendanceTikTok() {
     [currentSession, students, toast]
   );
 
-  const handleAttendanceAndNext = async (studentId: number, status: string) => {
-    // Si es cambio de grupo, abrir modal de transferencia
-    if (status === "change_request") {
-      const student = students.find(s => s.id === studentId);
-      if (student) {
-        setStudentToTransfer(student);
-        setShowTransferModal(true);
-      }
-      return;
-    }
+  // Funciones para manejar transferencia de estudiantes
+  const handleTransferRequest = (student: Student) => {
+    setSelectedStudentForTransfer(student);
+    setShowTransferModal(true);
+  };
 
+  const handleTransferComplete = () => {
+    // Recargar la lista de estudiantes después de la transferencia
+    if (currentSession) {
+      loadTodaySession();
+    }
+    setSelectedStudentForTransfer(null);
+  };
+
+  const handleAttendanceAndNext = async (studentId: number, status: string) => {
     await markAttendance(studentId, status);
 
     // Si estamos en modo de modificación (sesión ya completada), no avanzar automáticamente
@@ -728,20 +737,6 @@ export default function ClassAttendanceTikTok() {
         return "Cambio";
       default:
         return "Sin marcar";
-    }
-  };
-
-  const handleTransferComplete = () => {
-    // Marcar asistencia como cambio de grupo después de la transferencia
-    if (studentToTransfer) {
-      markAttendance(studentToTransfer.id, "change_request");
-    }
-    setShowTransferModal(false);
-    setStudentToTransfer(null);
-    
-    // Recargar la sesión para actualizar la lista de estudiantes
-    if (currentSession) {
-      loadTodaySession();
     }
   };
 
@@ -1363,16 +1358,14 @@ export default function ClassAttendanceTikTok() {
                 </Button>
 
                 <Button
-                  onClick={() =>
-                    handleAttendanceAndNext(currentStudent.id, "change_request")
-                  }
+                  onClick={() => handleTransferRequest(currentStudent)}
                   className={`h-20 md:h-24 rounded-2xl text-lg md:text-xl font-medium transition-all duration-300 ${
                     currentStudent.status === "change_request"
                       ? "bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-600/20"
                       : "bg-blue-600/10 hover:bg-blue-600/20 text-blue-500 hover:text-blue-400"
                   }`}
                 >
-                  <AlertIcon className="h-8 w-8 md:h-10 md:w-10 mr-2" />
+                  <ArrowRight className="h-8 w-8 md:h-10 md:w-10 mr-2" />
                   Cambio
                 </Button>
               </div>
@@ -1395,27 +1388,30 @@ export default function ClassAttendanceTikTok() {
         </div>
       ) : null}
 
-      {/* Modal de Transferencia */}
-      {studentToTransfer && currentSession && (
-        <StudentTransferModal
-          student={{
-            id: studentToTransfer.id,
-            name: studentToTransfer.name,
-            phone: studentToTransfer.phone || "",
-            user: { email: "" }
-          }}
-          currentClass={{
-            id: currentSession.danceClass.id,
-            name: currentSession.danceClass.name,
-            level: "BEGINNER", // Por defecto, se puede ajustar según la clase
-            sport: "DANCE", // Por defecto, se puede ajustar según la clase
-            capacity: 20,
-            trainer: currentSession.danceClass.trainer,
-            _count: { enrollments: currentSession.danceClass.enrollments.length }
-          }}
-          onTransferComplete={handleTransferComplete}
-        />
-      )}
+      {/* Modal de Transferencia de Estudiante */}
+      <StudentTransferModal
+        isOpen={showTransferModal}
+        onClose={() => {
+          setShowTransferModal(false);
+          setSelectedStudentForTransfer(null);
+        }}
+        student={selectedStudentForTransfer ? {
+          id: selectedStudentForTransfer.id.toString(),
+          name: selectedStudentForTransfer.name,
+          phone: '', // Se puede obtener del estudiante si es necesario
+          avatar: selectedStudentForTransfer.avatar
+        } : null}
+        currentClass={currentSession?.danceClass ? {
+          id: currentSession.danceClass.id,
+          name: currentSession.danceClass.name,
+          level: currentSession.danceClass.level,
+          sport: currentSession.danceClass.sport,
+          capacity: currentSession.danceClass.capacity,
+          trainer: currentSession.danceClass.trainer,
+          _count: { enrollments: currentSession.danceClass.enrollments.length }
+        } : null}
+        onTransferComplete={handleTransferComplete}
+      />
     </div>
   );
 }

@@ -65,6 +65,7 @@ export async function GET(request: NextRequest) {
     const sportParam = url.searchParams.get('sport')
     const locationIdParam = url.searchParams.get('locationId')
     const levelParam = url.searchParams.get('level')
+    const excludeIdParam = url.searchParams.get('excludeId')
     const pageParam = url.searchParams.get('page')
     const pageSizeParam = url.searchParams.get('pageSize')
 
@@ -88,6 +89,9 @@ export async function GET(request: NextRequest) {
     }
     if (levelParam && levelParam !== 'ALL') {
       where.level = levelParam
+    }
+    if (excludeIdParam) {
+      where.id = { not: parseInt(excludeIdParam) }
     }
 
     const [total, classes] = await Promise.all([
