@@ -22,6 +22,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { StudentTransferModal } from "@/components/StudentTransferModal";
 import {
   Select,
   SelectItem,
@@ -43,6 +44,7 @@ interface Student {
   name: string;
   avatar: string;
   hasDebt: boolean;
+  phone?: string;
   status?: "present" | "late" | "absent" | "change_request";
 }
 
@@ -130,6 +132,8 @@ export default function ClassAttendanceTikTok() {
     change_request: 0,
     total: 0,
   });
+  const [showTransferModal, setShowTransferModal] = useState(false);
+  const [studentToTransfer, setStudentToTransfer] = useState<Student | null>(null);
 
   // Función para verificar si una clase está activa en este momento
   const isClassActiveNow = useCallback((schedules: ClassSchedule[]) => {
@@ -537,6 +541,16 @@ export default function ClassAttendanceTikTok() {
   );
 
   const handleAttendanceAndNext = async (studentId: number, status: string) => {
+    // Si es cambio de grupo, abrir modal de transferencia
+    if (status === "change_request") {
+      const student = students.find(s => s.id === studentId);
+      if (student) {
+        setStudentToTransfer(student);
+        setShowTransferModal(true);
+      }
+      return;
+    }
+
     await markAttendance(studentId, status);
 
     // Si estamos en modo de modificación (sesión ya completada), no avanzar automáticamente
@@ -714,6 +728,20 @@ export default function ClassAttendanceTikTok() {
         return "Cambio";
       default:
         return "Sin marcar";
+    }
+  };
+
+  const handleTransferComplete = () => {
+    // Marcar asistencia como cambio de grupo después de la transferencia
+    if (studentToTransfer) {
+      markAttendance(studentToTransfer.id, "change_request");
+    }
+    setShowTransferModal(false);
+    setStudentToTransfer(null);
+    
+    // Recargar la sesión para actualizar la lista de estudiantes
+    if (currentSession) {
+      loadTodaySession();
     }
   };
 
@@ -1366,6 +1394,28 @@ export default function ClassAttendanceTikTok() {
           </div>
         </div>
       ) : null}
+
+      {/* Modal de Transferencia */}
+      {studentToTransfer && currentSession && (
+        <StudentTransferModal
+          student={{
+            id: studentToTransfer.id,
+            name: studentToTransfer.name,
+            phone: studentToTransfer.phone || "",
+            user: { email: "" }
+          }}
+          currentClass={{
+            id: currentSession.danceClass.id,
+            name: currentSession.danceClass.name,
+            level: "BEGINNER", // Por defecto, se puede ajustar según la clase
+            sport: "DANCE", // Por defecto, se puede ajustar según la clase
+            capacity: 20,
+            trainer: currentSession.danceClass.trainer,
+            _count: { enrollments: currentSession.danceClass.enrollments.length }
+          }}
+          onTransferComplete={handleTransferComplete}
+        />
+      )}
     </div>
   );
 }

@@ -27,6 +27,8 @@ import {
   MessageSquare
 } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
+import { RecipientSelector } from './RecipientSelector';
+import { StudentSelector } from './StudentSelector';
 
 interface PaymentPeriod {
   id: number;
@@ -65,6 +67,9 @@ interface PaymentScheduler {
   dayOfMonth: number;
   hour: number;
   minute: number;
+  schedulerType?: string;
+  targetFilter?: string;
+  customFilter?: string;
   lastExecuted?: string;
   nextExecution?: string;
   totalExecutions: number;
@@ -94,13 +99,21 @@ export function PaymentSchedulerDashboard() {
     dayOfMonth: number;
     hour: number;
     minute: number;
+    schedulerType: string;
+    targetFilter: string;
+    customFilter: string;
   }>({
     name: '',
     description: '',
     dayOfMonth: 1,
     hour: 9,
-    minute: 0
+    minute: 0,
+    schedulerType: 'MONTHLY_PAYMENT',
+    targetFilter: 'ALL_ACTIVE',
+    customFilter: ''
   });
+
+  const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
 
   useEffect(() => {
     loadData();
@@ -178,8 +191,12 @@ export function PaymentSchedulerDashboard() {
         description: '',
         dayOfMonth: 1,
         hour: 9,
-        minute: 0
+        minute: 0,
+        schedulerType: 'MONTHLY_PAYMENT',
+        targetFilter: 'ALL_ACTIVE',
+        customFilter: ''
       });
+      setSelectedStudents([]);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error desconocido');
     } finally {
@@ -439,6 +456,84 @@ export function PaymentSchedulerDashboard() {
                 </div>
               </div>
 
+              {/* Configuración Simple de Destinatarios */}
+              <div className="space-y-4 bg-gray-700/30 p-4 rounded-lg">
+                <h3 className="text-white font-medium text-lg flex items-center gap-2">
+                  <Users className="h-5 w-5" />
+                  ¿A quién enviar el recordatorio?
+                </h3>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="schedulerType" className="text-gray-300 text-sm font-medium">Tipo de Recordatorio</Label>
+                    <Select
+                      value={formData.schedulerType}
+                      onValueChange={(value) => setFormData(prev => ({ ...prev, schedulerType: value }))}
+                    >
+                      <SelectTrigger className="bg-gray-700 border-gray-600 text-white mt-1">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="bg-gray-700 border-gray-600">
+                        <SelectItem value="MONTHLY_PAYMENT">📅 Recordatorio Mensual</SelectItem>
+                        <SelectItem value="DEBT_REMINDER">💰 Recordatorio de Deuda</SelectItem>
+                        <SelectItem value="OVERDUE_WARNING">⚠️ Advertencia de Vencimiento</SelectItem>
+                        <SelectItem value="PARTIAL_PAYMENT">💳 Recordatorio de Pago Parcial</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="targetFilter" className="text-gray-300 text-sm font-medium">Destinatarios</Label>
+                    <Select
+                      value={formData.targetFilter}
+                      onValueChange={(value) => setFormData(prev => ({ ...prev, targetFilter: value }))}
+                    >
+                      <SelectTrigger className="bg-gray-700 border-gray-600 text-white mt-1">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="bg-gray-700 border-gray-600">
+                        <SelectItem value="ALL_ACTIVE">👥 Todos los estudiantes activos</SelectItem>
+                        <SelectItem value="WITH_DEBT">💸 Solo con deuda pendiente</SelectItem>
+                        <SelectItem value="OVERDUE_PAYMENTS">⏰ Solo pagos vencidos</SelectItem>
+                        <SelectItem value="PARTIAL_PAYMENTS">💳 Solo pagos parciales</SelectItem>
+                        <SelectItem value="MANUAL_SELECTION">✋ Seleccionar manualmente</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="bg-blue-600/20 p-3 rounded-lg border border-blue-600/30">
+                  <p className="text-white font-medium text-sm">💡 Recomendación automática</p>
+                  <p className="text-gray-300 text-xs mt-1">
+                    {formData.schedulerType === 'DEBT_REMINDER' && 'Se recomienda enviar solo a estudiantes con deuda pendiente'}
+                    {formData.schedulerType === 'OVERDUE_WARNING' && 'Se recomienda enviar solo a estudiantes con pagos vencidos'}
+                    {formData.schedulerType === 'MONTHLY_PAYMENT' && 'Se recomienda enviar a todos los estudiantes activos'}
+                    {formData.schedulerType === 'PARTIAL_PAYMENT' && 'Se recomienda enviar solo a estudiantes con pagos parciales'}
+                  </p>
+                </div>
+
+                {/* Selector de estudiantes para selección manual */}
+                {formData.targetFilter === 'MANUAL_SELECTION' && (
+                  <div className="space-y-3">
+                    <Label className="text-gray-300 text-sm font-medium">
+                      👥 Seleccionar estudiantes específicos
+                    </Label>
+                    <StudentSelector
+                      onStudentsSelected={setSelectedStudents}
+                      selectedStudents={selectedStudents}
+                      title="Seleccionar Estudiantes para el Recordatorio"
+                    />
+                    {selectedStudents.length > 0 && (
+                      <div className="bg-green-600/20 p-3 rounded-lg border border-green-600/30">
+                        <p className="text-green-300 text-sm">
+                          ✅ {selectedStudents.length} estudiante(s) seleccionado(s) para el recordatorio
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
               {/* Información sobre destinatarios */}
               <div className="bg-green-600/20 p-4 rounded-lg border border-green-600/30">
                 <h3 className="text-white font-medium flex items-center gap-2">
@@ -639,6 +734,18 @@ export function PaymentSchedulerDashboard() {
                     </div>
                   </div>
                 )}
+
+                {/* Gestión de Destinatarios */}
+                <div className="mb-4">
+                  <RecipientSelector
+                    schedulerId={scheduler.id}
+                    schedulerType={scheduler.schedulerType || 'MONTHLY_PAYMENT'}
+                    targetFilter={scheduler.targetFilter || 'ALL_ACTIVE'}
+                    onRecipientsChange={(recipients) => {
+                      console.log(`Destinatarios actualizados para scheduler ${scheduler.id}:`, recipients);
+                    }}
+                  />
+                </div>
 
                 {/* Botones de acción */}
                 <div className="flex flex-col sm:flex-row gap-2">

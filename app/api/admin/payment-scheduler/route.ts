@@ -60,12 +60,12 @@ export async function POST(request: NextRequest) {
     const scheduler = await paymentSchedulerService.createScheduler({
       name: body.name,
       description: body.description,
-      isRecurring: body.isRecurring || false,
       dayOfMonth: body.dayOfMonth,
       hour: body.hour || 9,
       minute: body.minute || 0,
-      periodId: body.periodId,
-      sendToAllStudents: body.sendToAllStudents !== false, // default true
+      schedulerType: body.schedulerType || 'MONTHLY_PAYMENT',
+      targetFilter: body.targetFilter || 'ALL_ACTIVE',
+      customFilter: body.customFilter,
       createdBy: 'admin' // TODO: obtener del usuario autenticado
     });
 

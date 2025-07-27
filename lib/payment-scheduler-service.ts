@@ -281,8 +281,11 @@ export class PaymentSchedulerService {
         console.log(`✅ Ya existen ${existingForms.length} formularios de pago`);
       }
 
-      // ========== PASO 4: OBTENER FORMULARIOS PARA ENVIAR MENSAJES ==========
-      const paymentForms = await prisma.paymentForm.findMany({
+      // ========== PASO 4: OBTENER DESTINATARIOS ESPECÍFICOS DEL SCHEDULER ==========
+      console.log(`🎯 Obteniendo destinatarios específicos para el scheduler "${scheduler.name}"`);
+      
+      // Obtener todos los formularios de pago del período
+      const allPaymentForms = await prisma.paymentForm.findMany({
         where: {
           periodId: activePeriod.id,
           status: 'ACTIVE'
@@ -293,20 +296,47 @@ export class PaymentSchedulerService {
         }
       });
 
-      if (!paymentForms || paymentForms.length === 0) {
+      if (!allPaymentForms || allPaymentForms.length === 0) {
         throw new Error('No se encontraron formularios de pago para enviar mensajes');
       }
 
-      console.log(`📋 Encontrados ${paymentForms.length} formularios de pago para enviar`);
+      console.log(`📋 Encontrados ${allPaymentForms.length} formularios de pago totales`);
+
+      // Obtener destinatarios específicos del scheduler
+      const schedulerRecipients = await (prisma as any).schedulerRecipient.findMany({
+        where: {
+          schedulerId: scheduler.id,
+          isActive: true
+        },
+        include: {
+          student: true
+        }
+      });
+
+      console.log(`👥 Destinatarios configurados en el scheduler: ${schedulerRecipients.length}`);
+
+      // Filtrar formularios solo para los destinatarios del scheduler
+      let formsToSend = allPaymentForms;
+      
+      if (schedulerRecipients.length > 0) {
+        // Si hay destinatarios específicos, filtrar solo esos
+        const recipientStudentIds = schedulerRecipients.map((r: any) => r.studentId);
+        formsToSend = allPaymentForms.filter(form => 
+          recipientStudentIds.includes(form.studentId)
+        );
+        console.log(`🎯 Filtrando solo destinatarios específicos: ${formsToSend.length} formularios`);
+      } else {
+        console.log(`⚠️  No hay destinatarios específicos configurados, usando todos los formularios`);
+      }
 
       // Filtrar solo estudiantes activos con teléfono
-      const formsWithPhone = paymentForms.filter((form: any) =>
+      const formsWithPhone = formsToSend.filter((form: any) =>
         form.student.isActive && 
         form.student.phone && 
         form.student.phone.trim() !== ''
       );
 
-      console.log(`📱 ${formsWithPhone.length} estudiantes con teléfono disponible`);
+      console.log(`📱 ${formsWithPhone.length} estudiantes con teléfono disponible para envío`);
 
       if (formsWithPhone.length === 0) {
         throw new Error('No hay estudiantes activos con teléfono configurado para enviar mensajes');
@@ -491,7 +521,7 @@ export class PaymentSchedulerService {
   }
 
   /**
-   * Crea un nuevo scheduler - OPTIMIZADO para pocos cambios
+   * Crea un nuevo scheduler - PROFESIONAL con destinatarios
    */
   async createScheduler(data: {
     name: string;
@@ -499,19 +529,25 @@ export class PaymentSchedulerService {
     dayOfMonth: number;
     hour: number;
     minute: number;
+    schedulerType?: string;
+    targetFilter?: string;
+    customFilter?: string;
     createdBy?: string;
   }) {
     try {
       // Calcular próxima ejecución
       const nextExecution = this.calculateNextExecutionForNew(data);
 
-      const scheduler = await prisma.paymentScheduler.create({
+      const scheduler = await (prisma as any).paymentScheduler.create({
         data: {
           name: data.name,
           description: data.description,
           dayOfMonth: data.dayOfMonth,
           hour: data.hour,
           minute: data.minute,
+          schedulerType: data.schedulerType || 'MONTHLY_PAYMENT',
+          targetFilter: data.targetFilter || 'ALL_ACTIVE',
+          customFilter: data.customFilter,
           createdBy: data.createdBy,
           nextExecution,
           isActive: true
@@ -520,6 +556,7 @@ export class PaymentSchedulerService {
 
       console.log(`✅ Scheduler creado: ${scheduler.name}`);
       console.log(`⏰ Próxima ejecución: ${nextExecution.toLocaleString('es-ES')}`);
+      console.log(`🎯 Tipo: ${(scheduler as any).schedulerType}, Filtro: ${(scheduler as any).targetFilter}`);
 
       // Si el sistema está activo, programar inmediatamente sin recargar todo
       if (this.isRunning && !this.loadedSchedulers.has(scheduler.id)) {

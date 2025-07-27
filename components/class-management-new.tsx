@@ -35,8 +35,12 @@ import {
   Dumbbell,
   Building,
   Home as HomeIcon,
+  ArrowRight,
+  History,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { StudentTransferModal } from "@/components/StudentTransferModal";
+import { StudentTransferHistory } from "@/components/StudentTransferHistory";
 
 interface Trainer {
   id: number;
@@ -1449,21 +1453,53 @@ export function ClassManagementNew() {
                           <p className="text-sm text-gray-400">{student.user?.email}</p>
                         </div>
                       </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() =>
-                          removeEnrollment(
-                            selectedClass?.enrollments.find(
-                              (e) => e.student.id === student.id
-                            )?.id!,
-                            selectedClass!.id
-                          )
-                        }
-                        className="border-red-500 text-red-400 hover:bg-red-950"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      <div className="flex gap-2">
+                        <StudentTransferModal
+                          student={student}
+                          currentClass={selectedClass!}
+                          onTransferComplete={() => {
+                            // Recargar la clase después de la transferencia
+                            loadClasses();
+                          }}
+                          trigger={
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="border-blue-500 text-blue-400 hover:bg-blue-950"
+                            >
+                              <ArrowRight className="h-4 w-4" />
+                            </Button>
+                          }
+                        />
+                        <StudentTransferHistory
+                          studentId={student.id.toString()}
+                          studentName={student.name}
+                          trigger={
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="border-gray-500 text-gray-400 hover:bg-gray-700"
+                            >
+                              <History className="h-4 w-4" />
+                            </Button>
+                          }
+                        />
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() =>
+                            removeEnrollment(
+                              selectedClass?.enrollments.find(
+                                (e) => e.student.id === student.id
+                              )?.id!,
+                              selectedClass!.id
+                            )
+                          }
+                          className="border-red-500 text-red-400 hover:bg-red-950"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
                   ))}
                 </div>

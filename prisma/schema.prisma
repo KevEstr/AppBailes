@@ -31,6 +31,8 @@ model Student {
   scheduledWhatsAppSends  ScheduledWhatsAppSend[]
   serviceOrders           ServiceOrder[]
   financialTransactions   FinancialTransaction[]
+  schedulerRecipients     SchedulerRecipient[]
+  studentTransfers       StudentTransfer[]
 
   @@index([name])
   @@index([phone])
@@ -104,6 +106,8 @@ model DanceClass {
   schedules   ClassSchedule[]
   sessions    ClassSession[]
   trainer     Trainer           @relation(fields: [trainerId], references: [id])
+  studentTransfersFrom StudentTransfer[] @relation("TransferFrom")
+  studentTransfersTo StudentTransfer[] @relation("TransferTo")
 
   @@map("classes")
 }
@@ -169,6 +173,29 @@ model ClassEnrollment {
   @@index([studentId])
   @@index([classId])
   @@map("class_enrollments")
+}
+
+// Nuevo modelo para historial de transferencias
+model StudentTransfer {
+  id              Int       @id @default(autoincrement())
+  studentId       String
+  fromClassId     Int
+  toClassId       Int
+  transferredBy   Int       // ID del usuario que realizó la transferencia
+  reason          String?   // Motivo de la transferencia
+  transferredAt   DateTime  @default(now())
+  
+  // Relations
+  student         Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  fromClass       DanceClass @relation("TransferFrom", fields: [fromClassId], references: [id])
+  toClass         DanceClass @relation("TransferTo", fields: [toClassId], references: [id])
+  user            User      @relation(fields: [transferredBy], references: [id])
+
+  @@index([studentId])
+  @@index([fromClassId])
+  @@index([toClassId])
+  @@index([transferredAt])
+  @@map("student_transfers")
 }
 
 model Attendance {
@@ -405,19 +432,41 @@ enum PaymentProofStatus {
   NEEDS_REVIEW
 }
 
-// Scheduler automático SIMPLE - Solo envío mensual automático
+// Tipos de scheduler para diferentes recordatorios
+enum SchedulerType {
+  MONTHLY_PAYMENT      // Recordatorio de mensualidad
+  DEBT_REMINDER        // Recordatorio de deudas pendientes
+  OVERDUE_WARNING      // Advertencia de pagos vencidos
+  PARTIAL_PAYMENT      // Recordatorio de pagos parciales
+  CUSTOM_MESSAGE       // Mensaje personalizado
+}
+
+// Filtros de destinatarios
+enum TargetFilter {
+  ALL_ACTIVE           // Todos los estudiantes activos
+  WITH_DEBT            // Solo estudiantes con deuda
+  OVERDUE_PAYMENTS     // Pagos vencidos
+  PARTIAL_PAYMENTS     // Pagos parciales
+  SPECIFIC_STUDENTS    // Estudiantes específicos
+  CUSTOM_FILTER        // Filtro personalizado
+}
+
+// Scheduler PROFESIONAL - Con selección de destinatarios y recomendaciones
 model PaymentScheduler {
   id              Int                     @id @default(autoincrement())
   name            String                  // Nombre descriptivo
   description     String?                 // Descripción opcional
   
-  // Configuración simple
+  // Configuración de programación
   isActive        Boolean                 @default(true)
-  
-  // Programación temporal - SOLO día del mes
   dayOfMonth      Int                     @default(1)     // Día del mes para enviar (1-31)
   hour            Int                     @default(9)     // Hora (0-23)
   minute          Int                     @default(0)     // Minuto (0-59)
+  
+  // Tipo de scheduler y filtros
+  schedulerType   SchedulerType           @default(MONTHLY_PAYMENT)  // Tipo de recordatorio
+  targetFilter    TargetFilter            @default(ALL_ACTIVE)       // Filtro de destinatarios
+  customFilter    String?                 // Filtro personalizado (JSON)
   
   // Control de ejecución
   lastExecuted    DateTime?               // Última vez que se ejecutó
@@ -433,10 +482,35 @@ model PaymentScheduler {
   createdAt       DateTime                @default(now())
   updatedAt       DateTime                @updatedAt
   
-  // Relaciones SIMPLES
+  // Relaciones PROFESIONALES
   executions      SchedulerExecution[]    // Historial de ejecuciones
+  recipients      SchedulerRecipient[]    // Destinatarios específicos
   
   @@map("payment_schedulers")
+}
+
+// Destinatarios específicos de cada scheduler
+model SchedulerRecipient {
+  id              Int                     @id @default(autoincrement())
+  schedulerId     Int                     // Scheduler al que pertenece
+  studentId       String                  // Estudiante destinatario
+  
+  // Estado del destinatario
+  isActive        Boolean                 @default(true)  // Si está activo para este scheduler
+  lastSent        DateTime?               // Último mensaje enviado
+  totalSent       Int                     @default(0)     // Total de mensajes enviados a este estudiante
+  
+  // Metadatos
+  addedAt         DateTime                @default(now())
+  addedBy         String?                 // Quién lo agregó
+  notes           String?                 // Notas adicionales
+  
+  // Relaciones
+  scheduler       PaymentScheduler        @relation(fields: [schedulerId], references: [id], onDelete: Cascade)
+  student         Student                 @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  
+  @@unique([schedulerId, studentId])      // Un estudiante por scheduler
+  @@map("scheduler_recipients")
 }
 
 // Historial de ejecuciones del scheduler - PROFESIONAL
@@ -521,6 +595,7 @@ model User {
   // Relations
   trainer   Trainer? @relation(fields: [trainerId], references: [id], onDelete: SetNull)
   student   Student? // Relación con Student
+  studentTransfers StudentTransfer[]
 
   @@map("users")
 }
