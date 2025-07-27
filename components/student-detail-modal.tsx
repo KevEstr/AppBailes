@@ -18,7 +18,9 @@ import {
   Clock,
   GraduationCap,
   User,
+  Camera,
 } from "lucide-react";
+import { ProfilePhotoModal } from "@/components/profile/ProfilePhotoModal";
 
 interface StudentEnrollmentData {
   id: number;
@@ -66,7 +68,10 @@ interface EnrollmentDetail {
     phone: string
     hasDebt: boolean
     isActive: boolean
-    user?: { email: string }
+    avatar?: string
+    user?: { 
+      email: string;
+    }
     enrollmentData?: StudentEnrollmentData
     debts: Array<{
       id: number;
@@ -375,12 +380,45 @@ export function StudentDetailModal({ enrollment }: StudentDetailModalProps) {
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
           {/* Avatar y nombre */}
           <div className="flex items-center gap-3 flex-1">
-            <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-lg sm:text-xl">
-              {detailData.student.name
-                .split(" ")
-                .map((n) => n[0])
-                .join("")
-                .substring(0, 2)}
+            <div className="relative group">
+              {detailData.student.avatar && detailData.student.avatar.trim() !== '' ? (
+                <img
+                  src={detailData.student.avatar}
+                  alt={`Foto de ${detailData.student.name}`}
+                  className="w-12 h-12 sm:w-16 sm:h-16 rounded-full object-cover border-2 border-slate-600"
+                />
+              ) : (
+                <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-lg sm:text-xl">
+                  {detailData.student.name
+                    .split(" ")
+                    .map((n) => n[0])
+                    .join("")
+                    .substring(0, 2)}
+                </div>
+              )}
+              
+              {/* Profile Photo Modal with Camera Button */}
+              <ProfilePhotoModal
+                studentId={detailData.student.id.toString()}
+                currentPhotoUrl={detailData.student.avatar}
+                onSuccess={(newPhotoUrl: string) => {
+                  setDetailData(prev => prev ? {
+                    ...prev,
+                    student: {
+                      ...prev.student,
+                      avatar: newPhotoUrl
+                    }
+                  } : null);
+                }}
+                customTrigger={
+                  <button
+                    className="absolute -bottom-1 -right-1 w-6 h-6 bg-blue-600 hover:bg-blue-700 rounded-full flex items-center justify-center text-white shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                    title="Cambiar foto de perfil"
+                  >
+                    <Camera className="w-3 h-3" />
+                  </button>
+                }
+              />
             </div>
             <div className="flex-1 min-w-0">
               <h2 className="text-xl sm:text-2xl font-bold text-white truncate">

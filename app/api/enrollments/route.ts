@@ -59,6 +59,7 @@ export async function GET(request: NextRequest) {
               phone: true,
               hasDebt: true,
               isActive: true,
+              avatar: true,
               user: { select: { email: true } }
             }
           },

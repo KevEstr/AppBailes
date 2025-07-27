@@ -19,6 +19,7 @@ export async function GET(
     const student = await prisma.student.findUnique({
       where: { id: studentId },
       include: {
+        user: true,
         enrollmentData: true,
         debts: {
           where: { isPaid: false },
@@ -92,7 +93,6 @@ export async function PUT(
       where: { id: studentId },
       data: {
         name: data.name,
-        email: data.email || null,
         phone: data.phone
       }
     })

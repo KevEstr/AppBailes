@@ -56,51 +56,48 @@ export async function POST(request: Request) {
     const data = await request.json()
 
     // Validar que la cédula sea válida (ahora es string)
-    const cedula = data.id?.toString().trim()
+    const cedula = data.id?.toString().trim();
     if (!cedula || cedula.length === 0) {
-      return NextResponse.json({ 
-        error: "La cédula es requerida" 
-      }, { status: 400 })
+      return NextResponse.json({
+        error: "La cédula es requerida"
+      }, { status: 400 });
     }
 
     // Verificar que no existe un estudiante con la misma cédula
     const existingStudentById = await prisma.student.findUnique({
       where: { id: cedula }
-    })
+    });
 
     if (existingStudentById) {
-      return NextResponse.json({ 
-        error: "Ya existe un estudiante con esta cédula" 
-      }, { status: 400 })
+      return NextResponse.json({
+        error: "Ya existe un estudiante con esta cédula"
+      }, { status: 400 });
     }
 
-    // Verificar que no existe un estudiante con el mismo email o teléfono
-    const existingStudent = await prisma.student.findFirst({
-      where: {
-        OR: [
-          { email: data.email },
-          { phone: data.phone }
-        ]
-      }
-    })
+    // Encriptar la cédula para usarla como contraseña por defecto (12 salt rounds)
+    const bcrypt = require('bcryptjs');
+    const hashedPassword = await bcrypt.hash(cedula, 12);
 
-    if (existingStudent) {
-      return NextResponse.json({ 
-        error: "Ya existe un estudiante con este email o teléfono" 
-      }, { status: 400 })
-    }
-
+    // Crear el estudiante y el usuario relacionado (email y password en tabla user)
     const student = await prisma.student.create({
       data: {
         id: cedula, // Usar la cédula como string
         name: data.name,
-        email: data.email,
         phone: data.phone,
         avatar: data.avatar,
+        user: {
+          create: {
+            email: data.email,
+            password: hashedPassword
+          }
+        }
       },
-    })
+      include: {
+        user: { select: { email: true } }
+      }
+    });
 
-    return NextResponse.json({ success: true, student })
+    return NextResponse.json({ success: true, student });
   } catch (error) {
     console.error("Error creating student:", error)
     return NextResponse.json({ error: "Error al crear estudiante" }, { status: 500 })

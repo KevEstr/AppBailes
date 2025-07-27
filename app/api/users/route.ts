@@ -81,9 +81,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { email, password, name, role, trainerId } = await request.json()
+    const { email, password, role, trainerId } = await request.json()
 
-    if (!email || !password || !name || !role) {
+    if (!email || !password  || !role) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
     }
 
@@ -126,7 +126,6 @@ export async function POST(request: NextRequest) {
       data: {
         email,
         password: hashedPassword,
-        name,
         role,
         trainerId: role === "TEACHER" ? parseInt(trainerId) : null
       },

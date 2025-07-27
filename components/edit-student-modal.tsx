@@ -21,8 +21,9 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { User, MapPin, Heart, Phone, DollarSign } from "lucide-react";
+import { User, MapPin, Heart, Phone, DollarSign, Camera } from "lucide-react";
 import { InteractiveMap } from "./interactive-map";
+import { ProfilePhotoModal } from "@/components/profile/ProfilePhotoModal";
 
 interface Student {
   id: string
@@ -56,6 +57,8 @@ interface Student {
     id: number
     email: string
   }
+  // Campo avatar directo en Student
+  avatar?: string
   // Legacy fields for compatibility
   age?: number;
   maritalStatus?: string;
@@ -140,6 +143,7 @@ export default function EditStudentModal({
         id: student.id.toString(),
         name: student.name,
         email: student.email || student.user?.email || '',
+        avatar: student.avatar || '',
         phone: student.phone,
         documentNumber: student.documentNumber || student.id.toString(),
         documentType: student.documentType || 'CC',
@@ -186,7 +190,7 @@ export default function EditStudentModal({
       const {
         name, phone, documentType, birthDate, address, addressLatitude, addressLongitude, neighborhood, city, hasSisben, eps, bloodType, hasRestrictions, restrictionsDescription, medicalConditions, isAdult, monthlyFee, email, user, documentNumber,
         emergencyContactName, emergencyContactRelation, emergencyContactPhone,
-        guardianName, guardianRelation, guardianPhone,
+        guardianName, guardianRelation, guardianPhone,  
         ...rest
       } = formData;
 
@@ -277,6 +281,52 @@ export default function EditStudentModal({
                 </CardTitle>
               </CardHeader>
               <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                {/* Foto de Perfil */}
+                <div className="sm:col-span-2 flex flex-col items-center space-y-3 pb-4 border-b border-gray-600">
+                  <Label className="text-white font-medium">Foto de Perfil</Label>
+                  <div className="relative group">
+                    
+                    {formData.avatar ? (
+                      <img
+                        src={formData.avatar}
+                        alt={`Foto de ${formData.name}`}
+                        className="w-20 h-20 rounded-full object-cover border-3 border-gray-500"
+                      />
+                    ) : (
+                      <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-xl border-3 border-gray-500">
+                        {formData.name
+                          ?.split(" ")
+                          .map((n) => n[0])
+                          .join("")
+                          .substring(0, 2) || "?"}
+                      </div>
+                    )}
+                    
+                    <ProfilePhotoModal
+                      studentId={formData.id}
+                      currentPhotoUrl={formData.avatar}
+                      onSuccess={(newPhotoUrl: string) => {
+                        setFormData(prev => prev ? {
+                          ...prev,
+                          avatar: newPhotoUrl
+                        } : null);
+                      }}
+                      customTrigger={
+                        <button
+                          type="button"
+                          className="absolute -bottom-1 -right-1 w-7 h-7 bg-blue-600 hover:bg-blue-700 rounded-full flex items-center justify-center text-white shadow-lg transition-colors"
+                          title="Cambiar foto de perfil"
+                        >
+                          <Camera className="w-4 h-4" />
+                        </button>
+                      }
+                    />
+                  </div>
+                  <p className="text-xs text-gray-400 text-center max-w-xs">
+                    Haz clic en el botón de la cámara para cambiar la foto de perfil
+                  </p>
+                </div>
+
                 <div className="sm:col-span-2">
                   <Label htmlFor="name" className="text-white">
                     Nombre Completo *

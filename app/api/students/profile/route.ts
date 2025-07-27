@@ -23,8 +23,10 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Buscar estudiante por userId del usuario logueado
     const userId = session.user.id
+    const userRole = session.user.role
+    const { searchParams } = new URL(request.url)
+    const studentId = searchParams.get('studentId')
 
     if (!userId) {
       console.log("❌ API: No user ID válido")
@@ -34,48 +36,89 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    console.log("🔍 API: Searching student by userId:", userId)
+    console.log("🔍 API: Searching student...", { userId, userRole, studentId })
 
-    // Buscar estudiante por userId usando where único
-    const student = await prisma.student.findFirst({
-      where: { userId: parseInt(userId) },
-      include: {
-        user: { select: { email: true } },
-        enrollmentData: true,
-        classEnrollments: {
-          where: { isActive: true },
-          include: {
-            danceClass: {
-              include: {
-                trainer: {
-                  select: {
-                    name: true,
-                    email: true
+    let student;
+    
+    // Si es admin y proporciona studentId, buscar ese estudiante específico
+    if (userRole === 'ADMIN' && studentId) {
+      student = await prisma.student.findUnique({
+        where: { id: studentId },
+        include: {
+          user: { select: { email: true } },
+          enrollmentData: true,
+          classEnrollments: {
+            where: { isActive: true },
+            include: {
+              danceClass: {
+                include: {
+                  trainer: {
+                    select: {
+                      name: true,
+                      email: true
+                    }
+                  },
+                  schedules: {
+                    orderBy: { dayOfWeek: 'asc' }
                   }
-                },
-                schedules: {
-                  orderBy: { dayOfWeek: 'asc' }
                 }
               }
             }
+          },
+          debts: {
+            where: { isPaid: false },
+            orderBy: { dueDate: 'asc' },
+            take: 5
+          },
+          receipts: {
+            orderBy: { createdAt: 'desc' },
+            take: 5
           }
-        },
-        debts: {
-          where: { isPaid: false },
-          orderBy: { dueDate: 'asc' },
-          take: 5
-        },
-        receipts: {
-          orderBy: { createdAt: 'desc' },
-          take: 5
         }
-      }
-    })
+      })
+    }
+    // Si es admin sin studentId o es estudiante, buscar por userId
+    else {
+      student = await prisma.student.findFirst({
+        where: { userId: parseInt(userId) },
+        include: {
+          user: { select: { email: true } },
+          enrollmentData: true,
+          classEnrollments: {
+            where: { isActive: true },
+            include: {
+              danceClass: {
+                include: {
+                  trainer: {
+                    select: {
+                      name: true,
+                      email: true
+                    }
+                  },
+                  schedules: {
+                    orderBy: { dayOfWeek: 'asc' }
+                  }
+                }
+              }
+            }
+          },
+          debts: {
+            where: { isPaid: false },
+            orderBy: { dueDate: 'asc' },
+            take: 5
+          },
+          receipts: {
+            orderBy: { createdAt: 'desc' },
+            take: 5
+          }
+        }
+      })
+    }
 
     console.log("🔍 API: Student found:", !!student)
 
     if (!student) {
-      console.log("❌ API: Student not found for userId:", userId)
+      console.log("❌ API: Student not found")
       return NextResponse.json(
         { error: 'Estudiante no encontrado' },
         { status: 404 }
@@ -122,6 +165,8 @@ export async function PUT(request: NextRequest) {
     }
 
     const userId = session.user.id
+    const userRole = session.user.role
+    
     if (!userId) {
       return NextResponse.json(
         { error: 'ID de usuario no válido' },
@@ -131,10 +176,20 @@ export async function PUT(request: NextRequest) {
 
     const body = await request.json()
     
-    // Buscar el estudiante por userId
-    const existingStudent = await prisma.student.findFirst({
-      where: { userId: parseInt(userId) }
-    })
+    let existingStudent;
+    
+    // Si es admin, puede editar cualquier estudiante usando studentId del body
+    if (userRole === 'ADMIN' && body.studentId) {
+      existingStudent = await prisma.student.findUnique({
+        where: { id: body.studentId }
+      })
+    } 
+    // Si es admin sin studentId o es estudiante, buscar por userId
+    else {
+      existingStudent = await prisma.student.findFirst({
+        where: { userId: parseInt(userId) }
+      })
+    }
 
     // Obtener el userId real (entero) para actualizar el email
     const userIntId = existingStudent?.userId;

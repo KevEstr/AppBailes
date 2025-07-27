@@ -279,7 +279,7 @@ export async function POST(request: NextRequest) {
       const sessionService = new ClassSessionService(prisma)
       const sessionResult = await sessionService.generateSessionsForClass({
         classId: newClass.id,
-        schedules: validatedData.schedules,
+        schedules: validatedData.schedules.map(sch => ({ ...sch, isActive: true })),
         startDate: new Date(),
         weeksToGenerate: 8 // Generar sesiones para las próximas 8 semanas
       })
@@ -450,7 +450,7 @@ export async function PUT(request: NextRequest) {
         const sessionService = new ClassSessionService(prisma)
         const sessionResult = await sessionService.generateSessionsForClass({
           classId: classId,
-          schedules: validatedData.schedules,
+          schedules: validatedData.schedules.map(sch => ({ ...sch, isActive: true })),
           startDate: today,
           weeksToGenerate: 8
         })

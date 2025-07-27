@@ -6,8 +6,6 @@ import { Toaster } from "@/components/toaster"
 import { GoogleMapsProvider } from "@/lib/google-maps-provider"
 import AuthSessionProvider from "@/components/providers/session-provider"
 import { PerformanceOptimizer } from "@/components/performance-optimizer"
-import { SessionDebugger } from "@/components/session-debugger"
-import { SchedulerInitializer } from "@/components/scheduler-initializer"
 
 // ⚡ FUENTE OPTIMIZADA CON PRELOAD
 const inter = Inter({ 
@@ -80,8 +78,6 @@ export default function RootLayout({
         <AuthSessionProvider>
           <GoogleMapsProvider>
             {children}
-            <SessionDebugger />
-            <SchedulerInitializer />
           </GoogleMapsProvider>
           <Toaster />
           <PerformanceOptimizer />
