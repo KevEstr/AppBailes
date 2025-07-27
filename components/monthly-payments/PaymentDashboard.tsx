@@ -293,7 +293,7 @@ export function PaymentDashboard({ periodId }: PaymentDashboardProps) {
               puedan realizar el pago
             </p>
             <p className="text-gray-300 text-sm">
-              Mostrando {data.payments.length} de {data.pagination.total} estudiantes
+              Mostrando {data.payments.length} de {data.pagination?.total || 0} estudiantes
             </p>
           </CardHeader>
           <CardContent>
@@ -359,23 +359,23 @@ export function PaymentDashboard({ periodId }: PaymentDashboardProps) {
             </div>
             
             {/* Paginación */}
-            {data.pagination.totalPages > 1 && (
+            {data.pagination?.totalPages > 1 && (
               <div className="mt-6 flex justify-center">
                 <Pagination>
                   <PaginationContent>
                     <PaginationItem>
                       <PaginationPrevious 
-                        onClick={() => data.pagination.hasPrev && setCurrentPage(currentPage - 1)}
-                        className={`${!data.pagination.hasPrev ? 'pointer-events-none opacity-50' : 'cursor-pointer'} 
+                        onClick={() => data.pagination?.hasPrev && setCurrentPage(currentPage - 1)}
+                        className={`${!data.pagination?.hasPrev ? 'pointer-events-none opacity-50' : 'cursor-pointer'} 
                           bg-gray-700 border-gray-600 text-white hover:bg-gray-600`}
                       />
                     </PaginationItem>
                     
                     {/* Páginas */}
-                    {Array.from({ length: data.pagination.totalPages }, (_, i) => i + 1)
+                    {Array.from({ length: data.pagination?.totalPages || 1 }, (_, i) => i + 1)
                       .filter(page => {
                         const current = currentPage;
-                        return page === 1 || page === data.pagination.totalPages || 
+                        return page === 1 || page === (data.pagination?.totalPages || 1) || 
                                (page >= current - 1 && page <= current + 1);
                       })
                       .map((page, index, array) => (
@@ -401,8 +401,8 @@ export function PaymentDashboard({ periodId }: PaymentDashboardProps) {
                     
                     <PaginationItem>
                       <PaginationNext 
-                        onClick={() => data.pagination.hasNext && setCurrentPage(currentPage + 1)}
-                        className={`${!data.pagination.hasNext ? 'pointer-events-none opacity-50' : 'cursor-pointer'} 
+                        onClick={() => data.pagination?.hasNext && setCurrentPage(currentPage + 1)}
+                        className={`${!data.pagination?.hasNext ? 'pointer-events-none opacity-50' : 'cursor-pointer'} 
                           bg-gray-700 border-gray-600 text-white hover:bg-gray-600`}
                       />
                     </PaginationItem>

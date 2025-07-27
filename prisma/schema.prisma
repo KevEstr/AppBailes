@@ -286,6 +286,7 @@ model PaymentPeriod {
   updatedAt       DateTime         @updatedAt
   monthlyPayments MonthlyPayment[]
   paymentForms    PaymentForm[]
+  schedulerExecutions SchedulerExecution[]
 
   @@unique([year, month])
   @@map("payment_periods")
@@ -404,6 +405,71 @@ enum PaymentProofStatus {
   NEEDS_REVIEW
 }
 
+// Scheduler automático SIMPLE - Solo envío mensual automático
+model PaymentScheduler {
+  id              Int                     @id @default(autoincrement())
+  name            String                  // Nombre descriptivo
+  description     String?                 // Descripción opcional
+  
+  // Configuración simple
+  isActive        Boolean                 @default(true)
+  
+  // Programación temporal - SOLO día del mes
+  dayOfMonth      Int                     @default(1)     // Día del mes para enviar (1-31)
+  hour            Int                     @default(9)     // Hora (0-23)
+  minute          Int                     @default(0)     // Minuto (0-59)
+  
+  // Control de ejecución
+  lastExecuted    DateTime?               // Última vez que se ejecutó
+  nextExecution   DateTime?               // Próxima ejecución calculada
+  totalExecutions Int                     @default(0)     // Contador de ejecuciones
+  
+  // Estadísticas
+  totalSent       Int                     @default(0)     // Total de mensajes enviados
+  totalFailed     Int                     @default(0)     // Total de mensajes fallidos
+  
+  // Metadatos
+  createdBy       String?                 // Usuario que lo creó
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
+  
+  // Relaciones SIMPLES
+  executions      SchedulerExecution[]    // Historial de ejecuciones
+  
+  @@map("payment_schedulers")
+}
+
+// Historial de ejecuciones del scheduler - PROFESIONAL
+model SchedulerExecution {
+  id              Int                     @id @default(autoincrement())
+  schedulerId     Int
+  
+  // Estado de la ejecución
+  status          SchedulerExecutionStatus @default(PENDING)
+  startedAt       DateTime?
+  completedAt     DateTime?
+  
+  // Resultados
+  totalMessages   Int                     @default(0)
+  sentMessages    Int                     @default(0)
+  failedMessages  Int                     @default(0)
+  
+  // Detalles
+  periodId        Int?                    // Período que se procesó
+  errorMessage    String?                 // Error si falló
+  executionLogs   String?                 // Logs detallados de la ejecución (JSON)
+  
+  // Metadatos
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
+  
+  // Relaciones
+  scheduler       PaymentScheduler        @relation(fields: [schedulerId], references: [id], onDelete: Cascade)
+  period          PaymentPeriod?          @relation(fields: [periodId], references: [id], onDelete: SetNull)
+  
+  @@map("scheduler_executions")
+}
+
 model ScheduledWhatsAppSend {
   id              Int                     @id @default(autoincrement())
   studentId       String
@@ -429,6 +495,14 @@ enum ScheduledMessageStatus {
   PENDING
   RUNNING
   SENT
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum SchedulerExecutionStatus {
+  PENDING
+  RUNNING
   COMPLETED
   FAILED
   CANCELLED

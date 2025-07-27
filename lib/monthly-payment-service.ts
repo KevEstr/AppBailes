@@ -397,6 +397,13 @@ export class MonthlyPaymentService {
     const collectionRate =
       totalExpected > 0 ? (totalCollected / totalExpected) * 100 : 0;
 
+    // Calcular total de pagos para paginación
+    const totalPayments = await prisma.monthlyPayment.count({
+      where: whereClause
+    });
+
+    const totalPages = Math.ceil(totalPayments / limit);
+
     return {
       period,
       totalStudents,
@@ -415,6 +422,14 @@ export class MonthlyPaymentService {
         hasProofs: p.paymentForms.some((f) => f.paymentProofs.length > 0),
         paymentFormId: p.paymentForms[0]?.id || null,
       })),
+      pagination: {
+        page,
+        limit,
+        total: totalPayments,
+        totalPages,
+        hasNext: page < totalPages,
+        hasPrev: page > 1
+      }
     };
   }
 

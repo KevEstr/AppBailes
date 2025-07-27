@@ -5,11 +5,11 @@ const prisma = new PrismaClient();
 async function main() {
   // Crear estudiantes de prueba
   const students = [
-    { name: 'María González', email: 'maria@example.com', phone: '3001234567', isActive: true },
-    { name: 'Carlos Rodríguez', email: 'carlos@example.com', phone: '3001234568', isActive: true },
-    { name: 'Ana Martínez', email: 'ana@example.com', phone: '3001234569', isActive: true },
-    { name: 'Luis Pérez', email: 'luis@example.com', phone: '3001234570', isActive: true },
-    { name: 'Sofia López', email: 'sofia@example.com', phone: '3001234571', isActive: true },
+    { name: 'María González', phone: '3001234567', isActive: true },
+    { name: 'Carlos Rodríguez', phone: '3001234568', isActive: true },
+    { name: 'Ana Martínez', phone: '3001234569', isActive: true },
+    { name: 'Luis Pérez', phone: '3001234570', isActive: true },
+    { name: 'Sofia López', phone: '3001234571', isActive: true },
   ];
 
   console.log('Agregando estudiantes de prueba...');
@@ -24,7 +24,7 @@ async function main() {
       const lastStudent = await prisma.student.findFirst({
         orderBy: { id: 'desc' }
       });
-      const nextId = (lastStudent?.id || 0) + 1;
+      const nextId = (parseInt(lastStudent?.id || '0') + 1).toString();
       
       await prisma.student.create({
         data: {

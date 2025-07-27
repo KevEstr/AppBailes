@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { PaymentSchedulerService } from '@/lib/payment-scheduler-service';
 
-// GET /api/cron/whatsapp-scheduler - Endpoint para ejecutar automáticamente envíos programados
+// GET /api/cron/whatsapp-scheduler - Endpoint para ejecutar automáticamente schedulers de pago
 export async function GET(request: NextRequest) {
   try {
     // Verificar que la llamada sea desde un cron job autorizado
@@ -14,40 +15,49 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    console.log('🕐 Ejecutando cron job de WhatsApp scheduler...');
+    console.log('🕐 Ejecutando cron job de Payment Scheduler...');
+    const startTime = new Date();
 
-    // Llamar a la API de ejecución de envíos programados
-    const executeUrl = `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/admin/scheduled-whatsapp/execute`;
+    // Obtener instancia del servicio de scheduler
+    const schedulerService = PaymentSchedulerService.getInstance();
     
-    const response = await fetch(executeUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      }
-    });
-
-    const result = await response.json();
-
-    if (!response.ok) {
-      console.error('❌ Error en cron job:', result);
-      return NextResponse.json(
-        { message: 'Error ejecutando envíos programados', error: result },
-        { status: 500 }
-      );
+    // Verificar si el sistema está ejecutándose
+    const status = schedulerService.getStatus();
+    
+    if (!status.isRunning) {
+      console.log('⚠️  Sistema de scheduler no está ejecutándose, iniciando...');
+      await schedulerService.start();
     }
 
-    console.log('✅ Cron job completado:', result);
+    // Ejecutar health check manual
+    console.log('🔍 Ejecutando health check...');
+    await schedulerService.reloadSchedulers();
+
+    // Obtener diagnósticos
+    const diagnostics = schedulerService.getDiagnostics();
+    
+    const endTime = new Date();
+    const duration = endTime.getTime() - startTime.getTime();
+
+    console.log('✅ Cron job completado exitosamente');
 
     return NextResponse.json({
-      message: 'Cron job ejecutado exitosamente',
-      timestamp: new Date().toISOString(),
-      result
+      message: 'Cron job de Payment Scheduler ejecutado exitosamente',
+      timestamp: startTime.toISOString(),
+      duration: `${duration}ms`,
+      status,
+      diagnostics,
+      note: 'Sistema de schedulers verificado y actualizado'
     });
 
   } catch (error) {
-    console.error('💥 Error en cron job de WhatsApp:', error);
+    console.error('💥 Error en cron job de Payment Scheduler:', error);
     return NextResponse.json(
-      { message: 'Error interno en cron job' },
+      { 
+        message: 'Error interno en cron job',
+        error: error instanceof Error ? error.message : 'Error desconocido',
+        timestamp: new Date().toISOString()
+      },
       { status: 500 }
     );
   }

@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Plus, Settings, Calendar, DollarSign, Eye, FileText, Users, CheckCircle } from 'lucide-react';
+import { Plus, Settings, Calendar, DollarSign, Eye, FileText, Users, CheckCircle, Clock } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import Link from 'next/link';
 
@@ -186,7 +186,7 @@ export function MonthlyPaymentsDashboard() {
   return (
     <div className="space-y-6">
       {/* Navegación rápida */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
         <Link href="/admin/monthly-payments/config">
           <Card className="border-0 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 transition-all cursor-pointer">
             <CardContent className="p-4">
@@ -223,6 +223,20 @@ export function MonthlyPaymentsDashboard() {
                 <div>
                   <h3 className="text-white font-semibold">Comprobantes</h3>
                   <p className="text-green-100 text-sm">Revisar pagos</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+
+        <Link href="/admin/monthly-payments/scheduler">
+          <Card className="border-0 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 transition-all cursor-pointer">
+            <CardContent className="p-4">
+              <div className="flex items-center space-x-3">
+                <Clock className="h-6 w-6 text-white" />
+                <div>
+                  <h3 className="text-white font-semibold">Scheduler</h3>
+                  <p className="text-indigo-100 text-sm">Envíos automáticos</p>
                 </div>
               </div>
             </CardContent>
