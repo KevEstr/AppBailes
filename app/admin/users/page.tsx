@@ -271,30 +271,32 @@ function UsersManagementContent() {
       <div className="container mx-auto px-4 sm:px-6 md:px-8 py-8">
         <div className="space-y-8">
           {/* Header */}
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-            <div className="flex items-center space-x-4">
-              <Link href="/admin">
-                <Button
-                  variant="outline"
-                  className="border-gray-600 text-gray-300 hover:bg-gray-700"
-                >
-                  <ArrowLeft className="h-4 w-4 mr-2" />
-                  Volver al Panel
-                </Button>
-              </Link>
-              <div>
-                <h1 className="text-3xl font-bold text-white flex items-center gap-2">
-                  <Users className="h-8 w-8 text-purple-400" />
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-6 mb-2">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 w-full">
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                <Link href="/admin">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="border-gray-600 text-gray-300 hover:bg-gray-700 px-3 py-1 rounded-md text-sm font-medium min-w-[120px]"
+                  >
+                    <ArrowLeft className="h-4 w-4 mr-1" />
+                    Volver al Panel
+                  </Button>
+                </Link>
+                <h1 className="text-xl sm:text-2xl font-bold text-white flex items-center gap-2 leading-tight">
+                  <Users className="h-6 w-6 text-purple-400" />
                   Gestión de Usuarios
                 </h1>
-                <p className="text-gray-400 mt-1">Administrar usuarios y roles del sistema</p>
               </div>
+              <p className="text-gray-400 text-sm sm:ml-2 mt-1 sm:mt-0">Administrar usuarios y roles del sistema</p>
             </div>
             <Button 
               onClick={handleCreateUser}
-              className="bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 text-white"
+              size="sm"
+              className="bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 text-white px-4 py-1.5 rounded-md text-sm font-medium min-w-[140px]"
             >
-              <UserPlus className="h-4 w-4 mr-2" />
+              <UserPlus className="h-4 w-4 mr-1" />
               Nuevo Usuario
             </Button>
           </div>
@@ -392,63 +394,82 @@ function UsersManagementContent() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {isLoading ? (
-                <div className="text-center py-8">
-                  <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                  <p className="text-gray-400">Cargando usuarios...</p>
-                </div>
-              ) : users.length === 0 ? (
-                <div className="text-center py-12">
-                  <Users className="h-12 w-12 text-gray-500 mx-auto mb-4" />
-                  <p className="text-gray-400 text-lg">No se encontraron usuarios</p>
-                  <p className="text-gray-500">Intenta ajustar los filtros de búsqueda</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {users.map((user) => (
-                    <div
-                      key={user.id}
-                      className="flex items-center justify-between p-4 border border-gray-600 rounded-lg bg-gray-700/50 hover:bg-gray-600/50 transition-colors"
-                    >
-                      <div className="flex items-center space-x-4">
-                        <div className="h-10 w-10 rounded-full bg-gradient-to-r from-purple-400 to-pink-400 flex items-center justify-center text-white font-bold">
-                          {(user.name?.charAt(0) || user.email?.charAt(0) || '?').toUpperCase()}
-                        </div>
-                        <div>
-                          <h3 className="text-white font-semibold">{user.name || user.email || 'Sin nombre'}</h3>
-                          <p className="text-gray-400 text-sm">{user.email}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center space-x-3">
-                        <Badge className={getRoleBadgeColor(user.role)}>
-                          {user.role}
-                        </Badge>
-                        <Badge variant={user.isActive ? "default" : "secondary"}>
-                          {user.isActive ? "Activo" : "Inactivo"}
-                        </Badge>
-                        <div className="flex space-x-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleEditUser(user)}
-                            className="border-gray-600 text-gray-300 hover:bg-gray-700"
-                          >
-                            <Edit className="h-3 w-3" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleDeleteUser(user.id)}
-                            className="border-red-600 text-red-400 hover:bg-red-900/50"
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      </div>
+              {/* Extraer el ternario a una variable para cumplir con SonarQube y mejorar legibilidad */}
+              {(() => {
+                let content;
+                if (isLoading) {
+                  content = (
+                    <div className="text-center py-8">
+                      <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                      <p className="text-gray-400">Cargando usuarios...</p>
                     </div>
-                  ))}
-                </div>
-              )}
+                  );
+                } else if (users.length === 0) {
+                  content = (
+                    <div className="text-center py-12">
+                      <Users className="h-12 w-12 text-gray-500 mx-auto mb-4" />
+                      <p className="text-gray-400 text-lg">No se encontraron usuarios</p>
+                      <p className="text-gray-500">Intenta ajustar los filtros de búsqueda</p>
+                    </div>
+                  );
+                } else {
+                  content = (
+                    <div className="space-y-4">
+                      {users.map((user) => {
+                        let userInitial = '?';
+                        if (user.name && user.name.length > 0) {
+                          userInitial = user.name.charAt(0).toUpperCase();
+                        } else if (user.email && user.email.length > 0) {
+                          userInitial = user.email.charAt(0).toUpperCase();
+                        }
+                        return (
+                          <div
+                            key={user.id}
+                            className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 border border-gray-600 rounded-lg bg-gray-700/50 hover:bg-gray-600/50 transition-colors"
+                          >
+                            <div className="flex items-center space-x-4">
+                              <div className="h-10 w-10 rounded-full bg-gradient-to-r from-purple-400 to-pink-400 flex items-center justify-center text-white font-bold">
+                                {userInitial}
+                              </div>
+                              <div>
+                                <h3 className="text-white font-semibold">{user.name || user.email || 'Sin nombre'}</h3>
+                                <p className="text-gray-400 text-sm break-all">{user.email}</p>
+                              </div>
+                            </div>
+                            <div className="flex flex-wrap gap-2 mt-4 sm:mt-0 sm:flex-nowrap sm:items-center sm:space-x-3">
+                              <Badge className={getRoleBadgeColor(user.role)}>
+                                {user.role}
+                              </Badge>
+                              <Badge variant={user.isActive ? "default" : "secondary"}>
+                                {user.isActive ? "Activo" : "Inactivo"}
+                              </Badge>
+                              <div className="flex flex-wrap gap-2 sm:flex-nowrap sm:space-x-2">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleEditUser(user)}
+                                  className="border-gray-600 text-gray-300 hover:bg-gray-700"
+                                >
+                                  <Edit className="h-3 w-3" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleDeleteUser(user.id)}
+                                  className="border-red-600 text-red-400 hover:bg-red-900/50"
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                }
+                return content;
+              })()}
             </CardContent>
           </Card>
 

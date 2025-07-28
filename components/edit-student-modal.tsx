@@ -222,6 +222,7 @@ export default function EditStudentModal({
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
+          studentId: formData.id, // <-- Enviar siempre el id del estudiante
           name,
           phone,
           email: formData.email, // Enviar email para que el backend lo actualice en User
@@ -286,21 +287,30 @@ export default function EditStudentModal({
                   <Label className="text-white font-medium">Foto de Perfil</Label>
                   <div className="relative group">
                     
-                    {formData.avatar ? (
+                    {formData.avatar && formData.avatar.trim() !== "" && formData.avatar !== undefined ? (
                       <img
                         src={formData.avatar}
                         alt={`Foto de ${formData.name}`}
                         className="w-20 h-20 rounded-full object-cover border-3 border-gray-500"
+                        onError={e => {
+                          // Si la imagen falla, mostrar las iniciales
+                          (e.target as HTMLImageElement).style.display = 'none';
+                          const fallback = document.getElementById('avatar-fallback');
+                          if (fallback) fallback.style.display = 'flex';
+                        }}
                       />
-                    ) : (
-                      <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-xl border-3 border-gray-500">
-                        {formData.name
-                          ?.split(" ")
-                          .map((n) => n[0])
-                          .join("")
-                          .substring(0, 2) || "?"}
-                      </div>
-                    )}
+                    ) : null}
+                    <div
+                      id="avatar-fallback"
+                      style={{ display: (!formData.avatar || formData.avatar.trim() === "" || formData.avatar === undefined) ? 'flex' : 'none' }}
+                      className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-xl border-3 border-gray-500"
+                    >
+                      {formData.name
+                        ?.split(" ")
+                        .map((n) => n[0])
+                        .join("")
+                        .substring(0, 2) || "?"}
+                    </div>
                     
                     <ProfilePhotoModal
                       studentId={formData.id}

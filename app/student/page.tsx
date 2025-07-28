@@ -607,6 +607,7 @@ function StudentContent() {
               name: student.name,
               email: student.user?.email,
               phone: student.phone,
+              avatar: student.avatar || '',
               documentNumber: student.id,
               documentType: (() => {
                 const type = student.enrollmentData?.documentType || 'CC'

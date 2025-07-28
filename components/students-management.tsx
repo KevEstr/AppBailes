@@ -120,6 +120,8 @@ export function StudentsManagement() {
     documentNumber: localStudent.id.toString(),
     city: "Itagüí",
     monthlyFee: 0,
+    avatar: localStudent.avatar || '',
+    // Puedes agregar más campos si los necesitas en el modal
   });
 
   const loadEnrollments = async (
@@ -688,7 +690,6 @@ export function StudentsManagement() {
               onStudentUpdated={() => {
                 loadEnrollments(currentPage, searchTerm, statusFilter);
               }}
-              isAdminEditing={true}
             />
           )}
         </div>
