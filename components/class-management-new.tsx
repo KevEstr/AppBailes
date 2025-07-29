@@ -21,6 +21,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { AdvancedPagination } from "@/components/ui/advanced-pagination";
 import {
   Users,
   Plus,
@@ -35,55 +36,16 @@ import {
   Dumbbell,
   Building,
   Home as HomeIcon,
+  Search,
+  X,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-
-interface Trainer {
-  id: number;
-  name: string;
-  email: string;
-}
-
-interface Location {
-  id: number;
-  name: string;
-  address?: string;
-}
-
-interface Student {
-  id: number // Cédula del estudiante
-  name: string
-  phone: string
-  avatar?: string
-  hasDebt: boolean
-  user?: { email: string }
-}
-
-interface ClassSchedule {
-  dayOfWeek: number;
-  startTime: string;
-  endTime: string;
-}
-
-interface DanceClass {
-  id: number;
-  name: string;
-  description?: string;
-  capacity: number;
-  price?: number;
-  sport: "DANCE" | "VOLLEYBALL";
-  level?: "BEGINNER" | "INTERMEDIATE" | "ADVANCED";
-  trainer: Trainer;
-  location?: Location;
-  schedules: ClassSchedule[];
-  enrollments: {
-    id: number;
-    student: Student;
-  }[];
-  _count: {
-    enrollments: number;
-  };
-}
+import { 
+  DeleteClassConfirmationModal,
+  DeleteEnrollmentConfirmationModal,
+  EnrollmentModal 
+} from "@/components/modals";
+import { Student, Trainer, Location, DanceClass, ClassSchedule } from "@/types/class-management";
 
 const DAYS_OF_WEEK = [
   "Domingo",
@@ -134,7 +96,7 @@ const getSportLabel = (sport: "DANCE" | "VOLLEYBALL") => {
 const renderClassesList = (
   classes: DanceClass[],
   loading: boolean,
-  deleteClass: (id: number) => void,
+  openDeleteClassDialog: (danceClass: DanceClass) => void, // ✅ ACTUALIZADO: Cambiar a función de modal
   setSelectedClass: (danceClass: DanceClass) => void,
   setShowEnrollDialog: (show: boolean) => void,
   setViewingEnrolled: (show: boolean) => void,
@@ -214,7 +176,7 @@ const renderClassesList = (
             <Button
               variant="outline"
               size="sm"
-              onClick={() => deleteClass(danceClass.id)}
+              onClick={() => openDeleteClassDialog(danceClass)}
               className="border-red-500 text-red-400 hover:bg-red-950 hover:text-red-300 transition-colors duration-200 w-10 h-10 rounded-xl"
               title="Eliminar clase"
             >
@@ -295,6 +257,17 @@ const renderClassesList = (
 };
 
 export function ClassManagementNew() {
+  // ✅ OPTIMIZACIONES IMPLEMENTADAS:
+  // 1. Estado separado para loading de clases (classesLoading) vs loading general
+  // 2. Efectos separados para evitar recargas innecesarias del modal
+  // 3. Carga inicial única de datos base
+  // 4. Recarga selectiva solo del div de clases al filtrar
+  // 5. Mantenimiento del estado del modal durante filtros
+  // 6. Búsqueda optimizada de estudiantes en modal de inscripción
+  // 7. Modales de confirmación para eliminaciones
+  // 8. Componentes modales separados en archivos individuales para mejor organización
+  // 9. Tipos compartidos centralizados en /types/class-management.ts
+  
   const { toast } = useToast();
   const [classes, setClasses] = useState<DanceClass[]>([]);
   const [totalClasses, setTotalClasses] = useState(0);
@@ -302,6 +275,8 @@ export function ClassManagementNew() {
   const [locations, setLocations] = useState<Location[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
+  // ✅ NUEVO: Estado separado para loading de clases
+  const [classesLoading, setClassesLoading] = useState(false);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showLocationDialog, setShowLocationDialog] = useState(false);
   const [selectedClass, setSelectedClass] = useState<DanceClass | null>(null);
@@ -310,15 +285,33 @@ export function ClassManagementNew() {
   const [editingClass, setEditingClass] = useState<DanceClass | null>(null);
   const [isEditing, setIsEditing] = useState(false);
 
+  // ✅ NUEVO: Estados para modales de confirmación
+  const [showDeleteClassDialog, setShowDeleteClassDialog] = useState(false);
+  const [classToDelete, setClassToDelete] = useState<DanceClass | null>(null);
+  const [showDeleteEnrollmentDialog, setShowDeleteEnrollmentDialog] = useState(false);
+  const [enrollmentToDelete, setEnrollmentToDelete] = useState<{
+    enrollmentId: number;
+    classId: number;
+    studentName: string;
+    className: string;
+  } | null>(null);
+
   // Filtros
   const [filterSport, setFilterSport] = useState<string>("ALL");
   const [filterTrainer, setFilterTrainer] = useState<string>("ALL");
   const [filterLocation, setFilterLocation] = useState<string>("ALL");
   const [filterLevel, setFilterLevel] = useState<string>("ALL");
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState<string>("");
+  
+  // ✅ NUEVO: Estados para búsqueda de estudiantes en el modal
+  const [studentSearchQuery, setStudentSearchQuery] = useState<string>("");
+  const [debouncedStudentSearchQuery, setDebouncedStudentSearchQuery] = useState<string>("");
 
   // Paginación
   const [currentPage, setCurrentPage] = useState(1);
-  const CLASSES_PER_PAGE = 6;
+  const [pageSize, setPageSize] = useState(6);
+  const CLASSES_PER_PAGE = pageSize;
 
   // Formulario para nueva clase - memoizado
   const [newClass, setNewClass] = useState({
@@ -339,7 +332,7 @@ export function ClassManagementNew() {
     address: "",
   });
 
-  // Cargar trainers según deporte y filtros activos
+  // Cargar trainers según deporte y filtros activos (para filtros)
   const loadTrainers = useCallback(async () => {
     let url = "/api/trainers?active=true";
     if (filterSport !== "ALL") url += `&sport=${filterSport}`;
@@ -348,11 +341,26 @@ export function ClassManagementNew() {
     if (data.success) setTrainers(data.trainers);
   }, [filterSport]);
 
-  // Cargar ubicaciones
-  const loadLocations = useCallback(async () => {
-    const res = await fetch("/api/enrollment/locations?sport=VOLLEYBALL");
+  // ✅ NUEVO: Cargar TODOS los trainers activos (para modal de crear/editar)
+  const loadAllTrainers = useCallback(async () => {
+    const res = await fetch("/api/trainers?active=true");
     const data = await res.json();
-    if (data.success) setLocations(data.locations);
+    if (data.success) {
+      setTrainers(data.trainers);
+      console.log("👨‍🏫 Todos los entrenadores cargados:", data.trainers.length, "entrenadores");
+    }
+  }, []);
+
+  // ✅ CORREGIDO: Cargar todas las ubicaciones disponibles
+  // PROBLEMA ANTERIOR: Se usaba /api/enrollment/locations?sport=VOLLEYBALL que solo traía ubicaciones de voleibol
+  // SOLUCIÓN: Cambiar a /api/locations que trae todas las ubicaciones disponibles
+  const loadLocations = useCallback(async () => {
+    const res = await fetch("/api/locations");
+    const data = await res.json();
+    if (data.success) {
+      setLocations(data.locations);
+      console.log("📍 Ubicaciones cargadas:", data.locations.length, "ubicaciones");
+    }
   }, []);
 
   // Cargar estudiantes
@@ -362,18 +370,19 @@ export function ClassManagementNew() {
     if (data.success) setStudents(data.students);
   }, []);
 
-  // Cargar clases paginadas y filtradas
+  // ✅ OPTIMIZADO: Cargar clases paginadas y filtradas con loading separado
   const loadClasses = useCallback(async () => {
-    setLoading(true);
+    setClassesLoading(true); // Solo loading de clases
     try {
       const params = new URLSearchParams();
       params.set("active", "true");
       params.set("page", currentPage.toString());
-      params.set("pageSize", CLASSES_PER_PAGE.toString());
+      params.set("pageSize", pageSize.toString());
       if (filterSport !== "ALL") params.set("sport", filterSport);
       if (filterTrainer !== "ALL") params.set("trainerId", filterTrainer);
       if (filterLocation !== "ALL") params.set("locationId", filterLocation);
       if (filterLevel !== "ALL") params.set("level", filterLevel);
+      if (debouncedSearchQuery.trim()) params.set("search", debouncedSearchQuery.trim());
       const res = await fetch(`/api/classes?${params.toString()}`);
       const data = await res.json();
       if (data.success) {
@@ -383,31 +392,66 @@ export function ClassManagementNew() {
     } catch (error) {
       console.error("Error loading classes:", error);
     } finally {
-      setLoading(false);
+      setClassesLoading(false); // Solo loading de clases
     }
-  }, [currentPage, filterSport, filterTrainer, filterLocation, filterLevel]);
+  }, [currentPage, pageSize, filterSport, filterTrainer, filterLocation, filterLevel, debouncedSearchQuery]);
 
-  // Efectos para cargar datos
+  // ✅ OPTIMIZADO: Efectos separados para evitar recargas innecesarias
+  // Cargar datos iniciales solo una vez
   useEffect(() => {
-    loadLocations();
-  }, [loadLocations]);
+    const loadInitialData = async () => {
+      setLoading(true);
+      await Promise.all([
+        loadLocations(),
+        loadTrainers(),
+        loadStudents(),
+        loadClasses()
+      ]);
+      setLoading(false);
+    };
+    loadInitialData();
+  }, []); // Solo se ejecuta una vez al montar el componente
 
+  // ✅ OPTIMIZADO: Efecto separado para recargar trainers cuando cambia el filtro de deporte
   useEffect(() => {
-    loadTrainers();
-  }, [loadTrainers]);
+    if (!loading) { // Solo si ya se cargaron los datos iniciales
+      loadTrainers();
+    }
+  }, [filterSport, loadTrainers, loading]);
 
+  // ✅ OPTIMIZADO: Efecto separado para recargar clases cuando cambian filtros o paginación
   useEffect(() => {
-    loadClasses();
-  }, [loadClasses]);
+    if (!loading) { // Solo si ya se cargaron los datos iniciales
+      loadClasses();
+    }
+  }, [currentPage, pageSize, filterSport, filterTrainer, filterLocation, filterLevel, debouncedSearchQuery, loading]);
 
+  // ✅ OPTIMIZADO: Resetear página al cambiar filtros (sin searchQuery) - sin recargar todo
   useEffect(() => {
-    loadStudents();
-  }, [loadStudents]);
+    if (!loading) { // Solo si ya se cargaron los datos iniciales
+      setCurrentPage(1);
+    }
+  }, [filterSport, filterTrainer, filterLocation, filterLevel, loading]);
 
-  // Resetear página al cambiar filtros
+  // Debounced search - actualiza la búsqueda real después del delay
   useEffect(() => {
-    setCurrentPage(1);
-  }, [filterSport, filterTrainer, filterLocation, filterLevel]);
+    const timeoutId = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+      // No resetear la página para evitar recargas innecesarias
+      // setCurrentPage(1); // Comentado para evitar recarga completa
+    }, 1000); // 1000ms delay (1 second)
+
+    return () => clearTimeout(timeoutId);
+  }, [searchQuery]);
+
+  // ✅ NUEVO: Debounced search para estudiantes en el modal
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      setDebouncedStudentSearchQuery(studentSearchQuery);
+    }, 500); // 500ms delay para búsqueda más rápida en el modal
+
+    return () => clearTimeout(timeoutId);
+  }, [studentSearchQuery]);
 
   // ✅ Crear nueva ubicación
   const createLocation = useCallback(async () => {
@@ -459,9 +503,12 @@ export function ClassManagementNew() {
   }, [newLocation, toast]);
 
   // ✅ Función para abrir modal de edición
-  const openEditDialog = useCallback((danceClass: DanceClass) => {
+  const openEditDialog = useCallback(async (danceClass: DanceClass) => {
     setEditingClass(danceClass);
     setIsEditing(true);
+
+    // ✅ NUEVO: Cargar TODOS los entrenadores para el modal
+    await loadAllTrainers();
 
     // Precargar datos en el formulario
     setNewClass({
@@ -481,13 +528,17 @@ export function ClassManagementNew() {
     });
 
     setShowCreateDialog(true);
-  }, []);
+  }, [loadAllTrainers]);
 
   // ✅ Función para cerrar el modal y limpiar estado
   const closeDialog = useCallback(() => {
     setShowCreateDialog(false);
     setIsEditing(false);
     setEditingClass(null);
+    
+    // ✅ NUEVO: Restaurar entrenadores filtrados cuando se cierra el modal
+    loadTrainers();
+    
     // Reset form
     setNewClass({
       name: "",
@@ -500,7 +551,7 @@ export function ClassManagementNew() {
       price: 0,
       schedules: [{ dayOfWeek: 1, startTime: "18:00", endTime: "19:00" }],
     });
-  }, []);
+  }, [loadTrainers]);
 
   // ✅ OPTIMIZACIÓN: createClass sin recargar todo
   const createClass = useCallback(async () => {
@@ -715,11 +766,15 @@ export function ClassManagementNew() {
     [students, toast]
   );
 
-  // ✅ OPTIMIZACIÓN: deleteClass sin recargar todo
+  // ✅ NUEVO: Función para abrir modal de confirmación de eliminación de clase
+  const openDeleteClassDialog = useCallback((danceClass: DanceClass) => {
+    setClassToDelete(danceClass);
+    setShowDeleteClassDialog(true);
+  }, []);
+
+  // ✅ OPTIMIZADO: deleteClass con modal de confirmación
   const deleteClass = useCallback(
     async (classId: number) => {
-      if (!confirm("¿Estás seguro de que deseas eliminar esta clase?")) return;
-
       try {
         const response = await fetch(`/api/classes/${classId}`, {
           method: "DELETE",
@@ -749,6 +804,9 @@ export function ClassManagementNew() {
           description: "Error al eliminar la clase",
           variant: "destructive",
         });
+      } finally {
+        setShowDeleteClassDialog(false);
+        setClassToDelete(null);
       }
     },
     [toast]
@@ -786,25 +844,47 @@ export function ClassManagementNew() {
   };
 
   // Total de páginas
-  const totalPages = Math.ceil(totalClasses / CLASSES_PER_PAGE);
+  const totalPages = Math.ceil(totalClasses / pageSize);
 
-  // ✅ OPTIMIZACIÓN: Memorizar estudiantes disponibles para inscripción
+  // ✅ OPTIMIZADO: Memorizar estudiantes disponibles para inscripción con búsqueda
   const availableStudents = useMemo(() => {
     if (!selectedClass) return [];
     const enrolledIds = selectedClass.enrollments.map((e) => e.student.id);
-    return students.filter((student) => !enrolledIds.includes(student.id));
-  }, [students, selectedClass]);
+    const filteredStudents = students.filter((student) => !enrolledIds.includes(student.id));
+    
+    // Aplicar filtro de búsqueda si hay query
+    if (debouncedStudentSearchQuery.trim()) {
+      const searchTerm = debouncedStudentSearchQuery.trim().toLowerCase();
+      return filteredStudents.filter((student) => 
+        student.name.toLowerCase().includes(searchTerm) ||
+        student.id.toString().includes(searchTerm) ||
+        student.user?.email?.toLowerCase().includes(searchTerm) ||
+        student.phone.includes(searchTerm)
+      );
+    }
+    
+    return filteredStudents;
+  }, [students, selectedClass, debouncedStudentSearchQuery]);
 
-  // ✅ Eliminar inscripción (dar de baja estudiante de la clase)
+  // ✅ NUEVO: Función para abrir modal de confirmación de eliminación de inscripción
+  const openDeleteEnrollmentDialog = useCallback((
+    enrollmentId: number, 
+    classId: number, 
+    studentName: string, 
+    className: string
+  ) => {
+    setEnrollmentToDelete({
+      enrollmentId,
+      classId,
+      studentName,
+      className
+    });
+    setShowDeleteEnrollmentDialog(true);
+  }, []);
+
+  // ✅ OPTIMIZADO: Eliminar inscripción con modal de confirmación
   const removeEnrollment = useCallback(
     async (enrollmentId: number, classId: number) => {
-      if (
-        !confirm(
-          "¿Estás seguro de que deseas eliminar la inscripción de este estudiante?"
-        )
-      )
-        return;
-
       try {
         const response = await fetch("/api/enrollments", {
           method: "DELETE",
@@ -859,11 +939,25 @@ export function ClassManagementNew() {
           description: "Error al eliminar la inscripción",
           variant: "destructive",
         });
+      } finally {
+        setShowDeleteEnrollmentDialog(false);
+        setEnrollmentToDelete(null);
       }
     },
     [toast, setClasses, selectedClass]
   );
 
+  // Crear objeto de paginación para AdvancedPagination
+  const paginationInfo = useMemo(() => ({
+    page: currentPage,
+    limit: pageSize,
+    totalCount: totalClasses,
+    totalPages: totalPages,
+    hasNext: currentPage < totalPages,
+    hasPrev: currentPage > 1
+  }), [currentPage, pageSize, totalClasses, totalPages]);
+
+  // ✅ OPTIMIZADO: Loading inicial solo para la primera carga
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -943,6 +1037,30 @@ export function ClassManagementNew() {
               </Select>
             </div>
 
+            <div className="flex-1 min-w-[140px] sm:max-w-[220px]">
+              <Label className="text-gray-300">Buscar Clase</Label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input
+                  type="text"
+                  placeholder="Buscar clases..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="bg-gray-700 border-gray-600 text-white pl-10 pr-10 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                />
+                {searchQuery && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setSearchQuery("")}
+                    className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 p-0 text-gray-400 hover:text-white hover:bg-gray-600"
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                )}
+              </div>
+            </div>
+
             {/* Botón Nueva Clase */}
             <div className="flex-1 min-w-[140px] sm:max-w-[220px]">
               <Dialog
@@ -953,7 +1071,11 @@ export function ClassManagementNew() {
               >
                 <DialogTrigger asChild>
                   <Button
-                    onClick={() => setShowCreateDialog(true)}
+                    onClick={async () => {
+                      // ✅ NUEVO: Cargar TODOS los entrenadores al abrir modal de creación
+                      await loadAllTrainers();
+                      setShowCreateDialog(true);
+                    }}
                     className="w-full sm:w-auto bg-blue-600/60 hover:bg-blue-700/60 border border-blue-500 text-white text-lg px-6 py-3 rounded-2xl hover:text-white backdrop-blur-sm"
                   >
                     <Plus className="w-6 h-6 mr-2 text-white" />
@@ -1369,8 +1491,8 @@ export function ClassManagementNew() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
         {renderClassesList(
           classes,
-          loading,
-          deleteClass,
+          classesLoading, // ✅ OPTIMIZADO: Usar loading específico de clases
+          openDeleteClassDialog, // ✅ NUEVO: Usar función de modal en lugar de deleteClass directo
           setSelectedClass,
           setShowEnrollDialog,
           setViewingEnrolled,
@@ -1379,143 +1501,68 @@ export function ClassManagementNew() {
       </div>
 
       {/* Paginación */}
-      {totalPages > 1 && (
-        <div className="flex justify-center items-center gap-2 mt-6 sm:mt-8">
-          <Button
-            variant="outline"
-            className="border-gray-600 text-white"
-            disabled={currentPage === 1}
-            onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-          >
-            Anterior
-          </Button>
-          <span className="text-gray-300 text-sm sm:text-base">
-            Página {currentPage} de {totalPages}
-          </span>
-          <Button
-            variant="outline"
-            className="border-gray-600 text-white"
-            disabled={currentPage === totalPages}
-            onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-          >
-            Siguiente
-          </Button>
-        </div>
-      )}
+      <AdvancedPagination
+        pagination={paginationInfo}
+        currentPage={currentPage}
+        onPageChange={(page) => setCurrentPage(page)}
+        onLimitChange={(limit) => {
+          setPageSize(limit);
+          setCurrentPage(1);
+        }}
+        itemName="clases"
+        limitOptions={[6, 12, 18, 24, 30]}
+      />
 
-      {/* Dialog para inscribir estudiante o ver inscritos */}
-      <Dialog
+            {/* ✅ NUEVO: Modal de inscripción de estudiantes */}
+      <EnrollmentModal
         open={showEnrollDialog}
         onOpenChange={(open) => {
           setShowEnrollDialog(open);
-          if (!open) setViewingEnrolled(false);
+          if (!open) {
+            setViewingEnrolled(false);
+            // Limpiar búsqueda al cerrar el modal
+            setStudentSearchQuery("");
+            setDebouncedStudentSearchQuery("");
+          }
         }}
-      >
-        <DialogContent className="max-w-2xl bg-gray-800 border border-gray-600 text-white">
-          <DialogHeader>
-            <DialogTitle className="text-xl font-bold text-white">
-              {viewingEnrolled
-                ? "Estudiantes inscritos en"
-                : "Inscribir Estudiante en"}{" "}
-              {selectedClass?.name}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            {viewingEnrolled ? (
-              selectedClass && selectedClass.enrollments.length === 0 ? (
-                <p className="text-gray-400 text-center py-8">
-                  No hay estudiantes inscritos en esta clase.
-                </p>
-              ) : (
-                <div className="max-h-80 overflow-y-auto space-y-2">
-                  {selectedClass?.enrollments.map(({ student }) => (
-                    <div
-                      key={student.id}
-                      className="flex items-center justify-between p-4 bg-gray-700/50 rounded-lg"
-                    >
-                      <div className="flex items-center space-x-3">
-                        <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
-                          <span className="text-white font-bold text-sm">
-                            {student.name
-                              .split(" ")
-                              .map((n) => n[0])
-                              .join("")
-                              .slice(0, 2)}
-                          </span>
-                        </div>
-                        <div>
-                          <p className="font-medium text-white">{student.name}</p>
-                          <p className="text-sm text-gray-400">ID: {student.id}</p>
-                          <p className="text-sm text-gray-400">{student.user?.email}</p>
-                        </div>
-                      </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() =>
-                          removeEnrollment(
-                            selectedClass?.enrollments.find(
-                              (e) => e.student.id === student.id
-                            )?.id!,
-                            selectedClass!.id
-                          )
-                        }
-                        className="border-red-500 text-red-400 hover:bg-red-950"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              )
-            ) : availableStudents.length === 0 ? (
-              <p className="text-gray-400 text-center py-8">
-                No hay estudiantes disponibles para inscribir en esta clase.
-              </p>
-            ) : (
-              <>
-                <p className="text-gray-300">
-                  Selecciona un estudiante para inscribir en esta clase:
-                </p>
-                <div className="max-h-80 overflow-y-auto space-y-2">
-                  {availableStudents.map((student) => (
-                    <div
-                      key={student.id}
-                      className="flex items-center justify-between p-4 bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors"
-                    >
-                      <div className="flex items-center space-x-3">
-                        <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
-                          <span className="text-white font-bold text-sm">
-                            {student.name
-                              .split(" ")
-                              .map((n) => n[0])
-                              .join("")
-                              .slice(0, 2)}
-                          </span>
-                        </div>
-                                <div>
-                          <p className="font-medium text-white">{student.name}</p>
-                          <p className="text-sm text-gray-400">ID: {student.id}</p>
-                          <p className="text-sm text-gray-400">{student.user?.email}</p>
-                        </div>
-                      </div>
-                      <Button
-                        onClick={() =>
-                          selectedClass &&
-                          enrollStudent(student.id, selectedClass.id)
-                        }
-                        className="bg-green-600 hover:bg-green-700 text-white"
-                      >
-                        Inscribir
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
+        selectedClass={selectedClass}
+        viewingEnrolled={viewingEnrolled}
+        availableStudents={availableStudents}
+        enrolledStudents={selectedClass?.enrollments || []}
+        studentSearchQuery={studentSearchQuery}
+        onStudentSearchChange={setStudentSearchQuery}
+        onEnrollStudent={enrollStudent}
+        onRemoveEnrollment={openDeleteEnrollmentDialog}
+      />
+
+      {/* ✅ NUEVO: Modal de confirmación para eliminar clase */}
+      <DeleteClassConfirmationModal
+        open={showDeleteClassDialog}
+        onOpenChange={(open) => {
+          if (!open) {
+            setShowDeleteClassDialog(false);
+            setClassToDelete(null);
+          }
+        }}
+        classToDelete={classToDelete}
+        onConfirm={() => classToDelete && deleteClass(classToDelete.id)}
+      />
+
+      {/* ✅ NUEVO: Modal de confirmación para eliminar inscripción */}
+      <DeleteEnrollmentConfirmationModal
+        open={showDeleteEnrollmentDialog}
+        onOpenChange={(open) => {
+          if (!open) {
+            setShowDeleteEnrollmentDialog(false);
+            setEnrollmentToDelete(null);
+          }
+        }}
+        enrollmentToDelete={enrollmentToDelete}
+        onConfirm={() => 
+          enrollmentToDelete && 
+          removeEnrollment(enrollmentToDelete.enrollmentId, enrollmentToDelete.classId)
+        }
+      />
     </div>
   );
 }

@@ -104,6 +104,11 @@ export function StudentsManagement() {
     limit: 10,
     totalPages: 0,
   });
+  const [stats, setStats] = useState({
+    activeStudents: 0,
+    inactiveStudents: 0,
+    studentsWithDebt: 0
+  });
   const [selectedStudent, setSelectedStudent] =
     useState<ClassEnrollment | null>(null);
   const [detailModalOpen, setDetailModalOpen] = useState(false);
@@ -120,6 +125,9 @@ export function StudentsManagement() {
     documentNumber: localStudent.id.toString(),
     city: "Itagüí",
     monthlyFee: 0,
+    avatar: localStudent.avatar || '',
+    isActive: localStudent.isActive, // <-- Añadido para pasar el estado activo/inactivo
+    // Puedes agregar más campos si los necesitas en el modal
   });
 
   const loadEnrollments = async (
@@ -146,6 +154,10 @@ export function StudentsManagement() {
       if (data.success) {
         setEnrollments(data.enrollments);
         setPagination(data.pagination);
+        // Guardar las estadísticas generales
+        if (data.stats) {
+          setStats(data.stats);
+        }
       } else {
         toast({
           title: "Error",
@@ -185,12 +197,16 @@ export function StudentsManagement() {
 
   const handleToggleStatus = async (enrollment: ClassEnrollment) => {
     try {
-      const response = await fetch("/api/enrollments", {
+      // Actualizar el estado del estudiante en lugar del estado de la inscripción
+      const response = await fetch("/api/students/profile", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          id: enrollment.id,
-          action: "toggle-status",
+          studentId: enrollment.student.id.toString(),
+          name: enrollment.student.name,
+          phone: enrollment.student.phone,
+          email: enrollment.student.user?.email || '',
+          isActive: !enrollment.student.isActive
         }),
       });
 
@@ -200,7 +216,7 @@ export function StudentsManagement() {
         toast({
           title: "Éxito",
           description: `Estudiante ${
-            data.enrollment.isActive ? "activado" : "desactivado"
+            !enrollment.student.isActive ? "activado" : "desactivado"
           } correctamente`,
         });
         loadEnrollments(currentPage, searchTerm, statusFilter);
@@ -212,7 +228,7 @@ export function StudentsManagement() {
         });
       }
     } catch (error) {
-      console.error("Error toggling enrollment status:", error);
+      console.error("Error toggling student status:", error);
       toast({
         title: "Error",
         description: "Error al actualizar el estado del estudiante",
@@ -312,7 +328,7 @@ export function StudentsManagement() {
                       Activos
                     </p>
                     <p className="text-white text-lg sm:text-2xl font-bold">
-                      {enrollments.filter((e) => e.isActive).length}
+                      {stats.activeStudents}
                     </p>
                   </div>
                   <Power className="h-6 w-6 sm:h-8 sm:w-8 text-green-100" />
@@ -328,7 +344,7 @@ export function StudentsManagement() {
                       Inactivos
                     </p>
                     <p className="text-white text-lg sm:text-2xl font-bold">
-                      {enrollments.filter((e) => !e.isActive).length}
+                      {stats.inactiveStudents}
                     </p>
                   </div>
                   <PowerOff className="h-6 w-6 sm:h-8 sm:w-8 text-red-100" />
@@ -344,7 +360,7 @@ export function StudentsManagement() {
                       Con Deudas
                     </p>
                     <p className="text-white text-lg sm:text-2xl font-bold">
-                      {enrollments.filter((e) => e.student.hasDebt).length}
+                      {stats.studentsWithDebt}
                     </p>
                   </div>
                   <AlertTriangle className="h-6 w-6 sm:h-8 sm:w-8 text-purple-100" />
@@ -545,15 +561,15 @@ export function StudentsManagement() {
                               <div className="space-y-2">
                                 <Badge
                                   variant={
-                                    enrollment.isActive ? "default" : "secondary"
+                                    enrollment.student.isActive ? "default" : "secondary"
                                   }
                                   className={
-                                    enrollment.isActive
+                                    enrollment.student.isActive
                                       ? "bg-green-600"
                                       : "bg-gray-600"
                                   }
                                 >
-                                  {enrollment.isActive ? "Activo" : "Inactivo"}
+                                  {enrollment.student.isActive ? "Activo" : "Inactivo"}
                                 </Badge>
                                 {enrollment.student.hasDebt && (
                                   <div className="flex items-center gap-1 text-orange-400 text-xs">
@@ -604,15 +620,15 @@ export function StudentsManagement() {
                                   variant="ghost"
                                   onClick={() => handleToggleStatus(enrollment)}
                                   className={
-                                    enrollment.isActive
+                                    enrollment.student.isActive
                                       ? "text-red-400 hover:text-red-300 hover:bg-red-400/10"
                                       : "text-green-400 hover:text-green-300 hover:bg-green-400/10"
                                   }
                                   title={
-                                    enrollment.isActive ? "Desactivar" : "Activar"
+                                    enrollment.student.isActive ? "Desactivar" : "Activar"
                                   }
                                 >
-                                  {enrollment.isActive ? (
+                                  {enrollment.student.isActive ? (
                                     <PowerOff className="w-4 h-4" />
                                   ) : (
                                     <Power className="w-4 h-4" />
@@ -686,9 +702,11 @@ export function StudentsManagement() {
               onClose={() => setEditModalOpen(false)}
               student={convertStudentForModal(selectedStudent.student)}
               onStudentUpdated={() => {
+                // Recargar los datos para actualizar contadores y lista
                 loadEnrollments(currentPage, searchTerm, statusFilter);
+                // También actualizar el estado local del estudiante seleccionado
+                setSelectedStudent(null);
               }}
-              isAdminEditing={true}
             />
           )}
         </div>

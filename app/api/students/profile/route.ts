@@ -55,7 +55,6 @@ export async function GET(request: NextRequest) {
                   trainer: {
                     select: {
                       name: true,
-                      email: true
                     }
                   },
                   schedules: {
@@ -92,7 +91,6 @@ export async function GET(request: NextRequest) {
                   trainer: {
                     select: {
                       name: true,
-                      email: true
                     }
                   },
                   schedules: {
@@ -181,13 +179,19 @@ export async function PUT(request: NextRequest) {
     // Si es admin, puede editar cualquier estudiante usando studentId del body
     if (userRole === 'ADMIN' && body.studentId) {
       existingStudent = await prisma.student.findUnique({
-        where: { id: body.studentId }
+        where: { id: body.studentId },
+        include: {
+          classEnrollments: true
+        }
       })
     } 
     // Si es admin sin studentId o es estudiante, buscar por userId
     else {
       existingStudent = await prisma.student.findFirst({
-        where: { userId: parseInt(userId) }
+        where: { userId: parseInt(userId) },
+        include: {
+          classEnrollments: true
+        }
       })
     }
 
@@ -206,7 +210,8 @@ export async function PUT(request: NextRequest) {
       where: { id: existingStudent.id },
       data: {
         name: body.name,
-        phone: body.phone
+        phone: body.phone,
+        isActive: body.isActive !== undefined ? body.isActive : existingStudent.isActive
       }
     })
 
@@ -255,6 +260,14 @@ export async function PUT(request: NextRequest) {
           studentId: existingStudent.id,
           ...enrollmentUpdate
         }
+      })
+    }
+
+    // Si el estado activo/inactivo cambió, actualizar todas las inscripciones del estudiante
+    if (body.isActive !== undefined && body.isActive !== existingStudent.isActive) {
+      await prisma.classEnrollment.updateMany({
+        where: { studentId: existingStudent.id },
+        data: { isActive: body.isActive }
       })
     }
 

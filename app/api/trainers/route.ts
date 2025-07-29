@@ -23,23 +23,43 @@ export async function GET(request: NextRequest) {
     const level = url.searchParams.get('level')
     const active = url.searchParams.get('active') === 'true'
 
-    const classWhere: any = {}
-    if (sport && sport !== 'ALL') classWhere.sport = sport
-    if (locationId && locationId !== 'ALL') classWhere.locationId = parseInt(locationId)
-    if (level && level !== 'ALL') classWhere.level = level
-    if (active) classWhere.isActive = true
+    let whereClause: any = {}
 
-    // Solo profesores con al menos una clase activa según los filtros
-    const trainers = await prisma.trainer.findMany({
-      where: {
-        classes: {
-          some: classWhere
+    // Si se especifica active=true sin filtros de deporte, mostrar todos los entrenadores activos
+    if (active && !sport && !locationId && !level) {
+      whereClause = {
+        isActive: true
+      }
+    } else {
+      // Aplicar filtros de clases solo si se especifican filtros
+      const classWhere: any = {}
+      if (sport && sport !== 'ALL') classWhere.sport = sport
+      if (locationId && locationId !== 'ALL') classWhere.locationId = parseInt(locationId)
+      if (level && level !== 'ALL') classWhere.level = level
+      if (active) classWhere.isActive = true
+
+      // Solo aplicar filtro de clases si hay filtros específicos
+      if (Object.keys(classWhere).length > 0) {
+        whereClause = {
+          classes: {
+            some: classWhere
+          }
         }
-      },
+      }
+    }
+
+    const trainers = await prisma.trainer.findMany({
+      where: whereClause,
       select: {
         id: true,
         name: true,
-        email: true
+        phone: true,
+        isActive: true,
+        user: {
+          select: {
+            email: true
+          }
+        }
       },
       orderBy: {
         name: 'asc'
@@ -64,14 +84,14 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const validatedData = createTrainerSchema.parse(body)
 
-    // Verificar si el email ya existe
-    const existingTrainer = await prisma.trainer.findUnique({
+    // Verificar si el email ya existe en la tabla users
+    const existingUser = await prisma.user.findUnique({
       where: { email: validatedData.email }
     })
 
-    if (existingTrainer) {
+    if (existingUser) {
       return NextResponse.json(
-        { error: 'Ya existe un entrenador con este email' },
+        { error: 'Ya existe un usuario con este email' },
         { status: 400 }
       )
     }
@@ -129,17 +149,24 @@ export async function PUT(request: NextRequest) {
     const body = await request.json()
     const validatedData = updateTrainerSchema.parse(body)
 
-    // Verificar si el email ya existe en otro entrenador
+    // Verificar si el email ya existe en otro usuario
     if (validatedData.email) {
-      const existingTrainer = await prisma.trainer.findUnique({
+      const existingUser = await prisma.user.findUnique({
         where: { email: validatedData.email }
       })
 
-      if (existingTrainer && existingTrainer.id !== trainerId) {
-        return NextResponse.json(
-          { error: 'Ya existe un entrenador con este email' },
-          { status: 400 }
-        )
+      if (existingUser) {
+        // Verificar si el usuario ya está asociado a otro entrenador
+        const existingTrainerWithUser = await prisma.trainer.findUnique({
+          where: { userId: existingUser.id }
+        })
+
+        if (existingTrainerWithUser && existingTrainerWithUser.id !== trainerId) {
+          return NextResponse.json(
+            { error: 'Ya existe un entrenador con este email' },
+            { status: 400 }
+          )
+        }
       }
     }
 

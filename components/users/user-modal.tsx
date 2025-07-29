@@ -17,6 +17,7 @@ interface User {
   trainer?: {
     id: number
     name: string
+    phone?: string
   }
   student?: {
     name: string
@@ -44,8 +45,16 @@ export function UserModal({ isOpen, onClose, onSave, user, trainers, isLoading }
     email: "",
     password: "",
     name: "",
+    phone: "",
     role: "STUDENT",
     isActive: true
+  })
+
+  const [errors, setErrors] = useState({
+    name: "",
+    email: "",
+    password: "",
+    phone: ""
   })
 
   const isEditing = !!user
@@ -54,10 +63,19 @@ export function UserModal({ isOpen, onClose, onSave, user, trainers, isLoading }
     if (user) {
       // Si el usuario tiene relación con Student, usar ese nombre
       console.log(user)
+      
+      // Para trainers, extraer el teléfono sin el prefijo 57
+      let phoneNumber = "";
+      if (user.role === "TEACHER" && user.trainer?.phone) {
+        // Remover el prefijo 57 del teléfono del trainer
+        phoneNumber = user.trainer.phone.replace(/^57/, "");
+      }
+      
       setFormData({
         email: user.email || "",
         password: "",
-        name: user.student?.name || user.name || "",
+        name: user.trainer?.name || user.student?.name || user.name || "",
+        phone: phoneNumber,
         role: user.role || "STUDENT",
         isActive: user.isActive ?? true
       });
@@ -66,23 +84,68 @@ export function UserModal({ isOpen, onClose, onSave, user, trainers, isLoading }
         email: "",
         password: "",
         name: "",
+        phone: "",
         role: "STUDENT",
         isActive: true
       });
     }
+    
+    // Limpiar errores cuando cambie el usuario
+    setErrors({
+      name: "",
+      email: "",
+      password: "",
+      phone: ""
+    });
   }, [user]);
+
+  const validateForm = () => {
+    const newErrors = {
+      name: "",
+      email: "",
+      password: "",
+      phone: ""
+    }
+
+    // Validar nombre
+    if (!formData.name.trim()) {
+      newErrors.name = "El nombre es obligatorio";
+    }
+
+    // Validar email
+    if (!formData.email.trim()) {
+      newErrors.email = "El email es obligatorio";
+    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
+      newErrors.email = "El email no tiene un formato válido";
+    }
+
+    // Validar contraseña
+    if (!isEditing && !formData.password) {
+      newErrors.password = "La contraseña es obligatoria";
+    } else if (formData.password && formData.password.length > 0 && formData.password.length < 8) {
+      newErrors.password = "La contraseña debe tener al menos 8 caracteres";
+    }
+
+    // Validar teléfono para TEACHER
+    if (formData.role === "TEACHER") {
+      if (!formData.phone.trim()) {
+        newErrors.phone = "El teléfono es obligatorio para usuarios con rol de Profesor";
+      } else if (!/^\d{10}$/.test(formData.phone)) {
+        newErrors.phone = "El teléfono debe tener exactamente 10 dígitos";
+      }
+    }
+
+    setErrors(newErrors)
+    return !Object.values(newErrors).some(error => error !== "")
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Validaciones: nombre, email y rol no pueden estar vacíos
-    if (!formData.name.trim() || !formData.email.trim() || !formData.role.trim()) {
-      alert("Por favor completa todos los campos obligatorios (nombre, email y rol).");
+    
+    if (!validateForm()) {
       return;
     }
-    if (formData.password && formData.password.length > 0 && formData.password.length < 8) {
-      alert("La contraseña debe tener al menos 8 caracteres.");
-      return;
-    }
+    
     await onSave(formData);
   }
 
@@ -91,8 +154,15 @@ export function UserModal({ isOpen, onClose, onSave, user, trainers, isLoading }
       email: "",
       password: "",
       name: "",
+      phone: "",
       role: "STUDENT",
       isActive: true
+    });
+    setErrors({
+      name: "",
+      email: "",
+      password: "",
+      phone: ""
     });
     setShowPassword(false)
     onClose()
@@ -116,10 +186,18 @@ export function UserModal({ isOpen, onClose, onSave, user, trainers, isLoading }
                 type="text"
                 placeholder="Nombre del usuario"
                 value={formData.name}
-                onChange={(e) => setFormData({...formData, name: e.target.value})}
+                onChange={(e) => {
+                  setFormData({...formData, name: e.target.value});
+                  if (errors.name) setErrors({...errors, name: ""});
+                }}
                 required
-                className="bg-gray-700 border-gray-600 text-white placeholder-gray-400"
+                className={`bg-gray-700 border-gray-600 text-white placeholder-gray-400 ${
+                  errors.name ? 'border-red-500' : ''
+                }`}
               />
+              {errors.name && (
+                <p className="text-xs text-red-400">{errors.name}</p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -129,10 +207,18 @@ export function UserModal({ isOpen, onClose, onSave, user, trainers, isLoading }
                 type="email"
                 placeholder="usuario@email.com"
                 value={formData.email}
-                onChange={(e) => setFormData({...formData, email: e.target.value})}
+                onChange={(e) => {
+                  setFormData({...formData, email: e.target.value});
+                  if (errors.email) setErrors({...errors, email: ""});
+                }}
                 required
-                className="bg-gray-700 border-gray-600 text-white placeholder-gray-400"
+                className={`bg-gray-700 border-gray-600 text-white placeholder-gray-400 ${
+                  errors.email ? 'border-red-500' : ''
+                }`}
               />
+              {errors.email && (
+                <p className="text-xs text-red-400">{errors.email}</p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -145,9 +231,14 @@ export function UserModal({ isOpen, onClose, onSave, user, trainers, isLoading }
                   type={showPassword ? "text" : "password"}
                   placeholder={isEditing ? "Dejar vacío para mantener actual" : "••••••••"}
                   value={formData.password}
-                  onChange={(e) => setFormData({...formData, password: e.target.value})}
+                  onChange={(e) => {
+                    setFormData({...formData, password: e.target.value});
+                    if (errors.password) setErrors({...errors, password: ""});
+                  }}
                   required={!isEditing}
-                  className="pr-10 bg-gray-700 border-gray-600 text-white placeholder-gray-400"
+                  className={`pr-10 bg-gray-700 border-gray-600 text-white placeholder-gray-400 ${
+                    errors.password ? 'border-red-500' : ''
+                  }`}
                 />
                 <button
                   type="button"
@@ -157,6 +248,9 @@ export function UserModal({ isOpen, onClose, onSave, user, trainers, isLoading }
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
+              {errors.password && (
+                <p className="text-xs text-red-400">{errors.password}</p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -178,20 +272,47 @@ export function UserModal({ isOpen, onClose, onSave, user, trainers, isLoading }
                 </SelectContent>
               </Select>
             </div>
-
-            {isEditing && (
-              <div className="flex items-center space-x-2 md:col-span-2">
-                <Switch
-                  id="isActive"
-                  checked={formData.isActive}
-                  onCheckedChange={(checked) => setFormData({...formData, isActive: checked})}
-                />
-                <Label htmlFor="isActive" className="text-white">
-                  Usuario activo
-                </Label>
-              </div>
-            )}
           </div>
+
+          {/* Campo de teléfono fuera del grid para mejor layout */}
+          {formData.role === "TEACHER" && (
+            <div className="space-y-2">
+              <Label htmlFor="phone" className="text-white">Teléfono</Label>
+              <Input
+                id="phone"
+                type="tel"
+                placeholder="3001234567"
+                value={formData.phone}
+                onChange={(e) => {
+                  // Solo permitir números, sin espacios ni caracteres especiales
+                  const cleanValue = e.target.value.replace(/[^0-9]/g, '');
+                  setFormData({...formData, phone: cleanValue});
+                  if (errors.phone) setErrors({...errors, phone: ""});
+                }}
+                required={formData.role === "TEACHER"}
+                className={`bg-gray-700 border-gray-600 text-white placeholder-gray-400 ${
+                  errors.phone ? 'border-red-500' : ''
+                }`}
+              />
+              {errors.phone && (
+                <p className="text-xs text-red-400">{errors.phone}</p>
+              )}
+              <p className="text-xs text-gray-400">Ingresa solo números (ej: 3001234567)</p>
+            </div>
+          )}
+
+          {isEditing && (
+            <div className="flex items-center space-x-2">
+              <Switch
+                id="isActive"
+                checked={formData.isActive}
+                onCheckedChange={(checked) => setFormData({...formData, isActive: checked})}
+              />
+              <Label htmlFor="isActive" className="text-white">
+                Usuario activo
+              </Label>
+            </div>
+          )}
 
           <div className="flex space-x-4 pt-4">
             <Button

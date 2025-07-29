@@ -171,6 +171,7 @@ export function StudentDetailModal({ enrollment }: StudentDetailModalProps) {
               hasDebt: enrollment.student.hasDebt,
               isActive: enrollment.student.isActive,
               user: data.student.user,
+              avatar: data.student.avatar || '',
               enrollmentData: data.student.enrollmentData ? {
                 ...data.student.enrollmentData,
                 id: data.student.enrollmentData.id,
@@ -217,6 +218,7 @@ export function StudentDetailModal({ enrollment }: StudentDetailModalProps) {
               hasDebt: enrollment.student.hasDebt,
               isActive: enrollment.student.isActive,
               user: enrollment.student.user,
+              avatar: data.student.avatar || '',
               enrollmentData: undefined,
               debts: [],
               receipts: [],
@@ -253,18 +255,18 @@ export function StudentDetailModal({ enrollment }: StudentDetailModalProps) {
           isActive: true,
           enrolledAt: new Date().toISOString(),
           createdAt: new Date().toISOString(),
-            student: {
-              id: enrollment.student.id,
-              name: enrollment.student.name,
-              phone: enrollment.student.phone,
-              hasDebt: enrollment.student.hasDebt,
-              isActive: enrollment.student.isActive,
-              user: enrollment.student.user,
-              enrollmentData: undefined,
-              debts: [],
-              receipts: [],
-              attendances: []
-            },
+          student: {
+            id: enrollment.student.id,
+            name: enrollment.student.name,
+            phone: enrollment.student.phone,
+            hasDebt: enrollment.student.hasDebt,
+            isActive: enrollment.student.isActive,
+            user: enrollment.student.user,
+            enrollmentData: undefined,
+            debts: [],
+            receipts: [],
+            attendances: []
+          },
           danceClass: {
             id: 0,
             name: enrollment.danceClass.name,

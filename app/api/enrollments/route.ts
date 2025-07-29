@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
     console.log('📋 Query construida:', JSON.stringify(baseQuery, null, 2))
     
     // Ejecutar consultas en paralelo para mejor rendimiento
-    const [enrollments, total] = await Promise.all([
+    const [enrollments, total, stats] = await Promise.all([
       prisma.classEnrollment.findMany({
         where: baseQuery,
         include: {
@@ -91,12 +91,44 @@ export async function GET(request: NextRequest) {
       }),
       prisma.classEnrollment.count({
         where: baseQuery
-      })
+      }),
+      // Obtener estadísticas generales (sin filtros de paginación)
+      Promise.all([
+        // Total de estudiantes activos
+        prisma.classEnrollment.count({
+          where: {
+            student: {
+              isActive: true
+            }
+          }
+        }),
+        // Total de estudiantes inactivos
+        prisma.classEnrollment.count({
+          where: {
+            student: {
+              isActive: false
+            }
+          }
+        }),
+        // Total de estudiantes con deudas
+        prisma.classEnrollment.count({
+          where: {
+            student: {
+              hasDebt: true
+            }
+          }
+        })
+      ])
     ])
     
     console.log('✅ Consultas completadas:', { 
       enrollmentsCount: enrollments.length, 
-      totalCount: total 
+      totalCount: total,
+      stats: {
+        activeStudents: stats[0],
+        inactiveStudents: stats[1],
+        studentsWithDebt: stats[2]
+      }
     })
 
     // Calcular metadatos de paginación
@@ -114,6 +146,11 @@ export async function GET(request: NextRequest) {
         totalPages,
         hasNextPage,
         hasPrevPage
+      },
+      stats: {
+        activeStudents: stats[0],
+        inactiveStudents: stats[1],
+        studentsWithDebt: stats[2]
       }
     })
   } catch (error) {

@@ -32,13 +32,77 @@ export function AdvancedPagination({
   if (pagination.totalCount === 0) return null
 
   return (
-    <div className="flex flex-col sm:flex-row items-center justify-between mt-6 gap-4">
-      {/* Info */}
-      <p className="text-gray-400 text-sm">
-        Mostrando {((pagination.page - 1) * pagination.limit) + 1} - {Math.min(pagination.page * pagination.limit, pagination.totalCount)} de {pagination.totalCount} {itemName}
-      </p>
+    <div className="w-full mt-6 sm:mt-8">
+      {/* Mobile Layout */}
+      <div className="sm:hidden space-y-4">
+       
 
-      <div className="flex flex-col sm:flex-row items-center gap-4">
+        {/* Pagination Controls - Centered */}
+        {pagination.totalPages > 1 && (
+          <div className="flex justify-center">
+            <div className="flex items-center gap-2">
+              {/* Previous Page */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onPageChange(Math.max(1, currentPage - 1))}
+                disabled={currentPage === 1}
+                className="border-gray-600 text-gray-300"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+
+              {/* Current Page Indicator */}
+              <span className="text-gray-300 min-w-[80px] text-center font-medium">
+                {currentPage} / {pagination.totalPages}
+              </span>
+
+              {/* Next Page */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onPageChange(Math.min(pagination.totalPages, currentPage + 1))}
+                disabled={currentPage === pagination.totalPages}
+                className="border-gray-600 text-gray-300"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        )}
+
+         {/* Info and Items per page - Centered */}
+         <div className="flex justify-center">
+          <div className="flex items-center gap-3">
+            <p className="text-gray-400 text-sm">
+              Mostrando {((pagination.page - 1) * pagination.limit) + 1} - {Math.min(pagination.page * pagination.limit, pagination.totalCount)} de {pagination.totalCount} {itemName}
+            </p>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-400">Mostrar:</span>
+              <Select 
+                value={pagination.limit.toString()}
+                onValueChange={(value) => onLimitChange(parseInt(value))}
+              >
+                <SelectTrigger className="bg-gray-800 border-gray-600 text-white py-2 w-20">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {limitOptions.map((option) => (
+                    <SelectItem key={option} value={option.toString()}>
+                      {option}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Desktop Layout */}
+      <div className="hidden sm:flex flex-col items-center justify-center space-y-4">
+        
+
         {/* Pagination Controls */}
         {pagination.totalPages > 1 && (
           <div className="flex items-center gap-2">
@@ -48,7 +112,7 @@ export function AdvancedPagination({
               size="sm"
               onClick={() => onPageChange(1)}
               disabled={currentPage === 1}
-              className="border-gray-600 text-gray-300 hidden sm:flex"
+              className="border-gray-600 text-gray-300 hover:bg-gray-700"
             >
               <ChevronLeft className="h-4 w-4 mr-1" />
               <ChevronLeft className="h-4 w-4" />
@@ -60,14 +124,14 @@ export function AdvancedPagination({
               size="sm"
               onClick={() => onPageChange(Math.max(1, currentPage - 1))}
               disabled={currentPage === 1}
-              className="border-gray-600 text-gray-300"
+              className="border-gray-600 text-gray-300 hover:bg-gray-700"
             >
               <ChevronLeft className="h-4 w-4" />
-              <span className="hidden sm:inline ml-1">Anterior</span>
+              <span className="ml-1">Anterior</span>
             </Button>
 
             {/* Page Numbers */}
-            <div className="hidden sm:flex items-center gap-1">
+            <div className="flex items-center gap-1">
               {Array.from({ length: Math.min(5, pagination.totalPages) }, (_, i) => {
                 let pageNum;
                 if (pagination.totalPages <= 5) {
@@ -99,11 +163,6 @@ export function AdvancedPagination({
               })}
             </div>
 
-            {/* Current Page Indicator (Mobile) */}
-            <span className="sm:hidden text-gray-300 min-w-[80px] text-center">
-              {currentPage} / {pagination.totalPages}
-            </span>
-
             {/* Next Page */}
             <Button
               variant="outline"
@@ -112,7 +171,7 @@ export function AdvancedPagination({
               disabled={currentPage === pagination.totalPages}
               className="border-gray-600 text-gray-300 hover:bg-gray-700"
             >
-              <span className="hidden sm:inline mr-1">Siguiente</span>
+              <span className="mr-1">Siguiente</span>
               <ChevronRight className="h-4 w-4" />
             </Button>
 
@@ -122,7 +181,7 @@ export function AdvancedPagination({
               size="sm"
               onClick={() => onPageChange(pagination.totalPages)}
               disabled={currentPage === pagination.totalPages}
-              className="border-gray-600 text-gray-300 hidden sm:flex hover:bg-gray-700"
+              className="border-gray-600 text-gray-300 hover:bg-gray-700"
             >
               <ChevronRight className="h-4 w-4" />
               <ChevronRight className="h-4 w-4 ml-1" />
@@ -130,24 +189,29 @@ export function AdvancedPagination({
           </div>
         )}
 
-        {/* Items per page selector */}
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-gray-400">Mostrar:</span>
-          <Select 
-            value={pagination.limit.toString()}
-            onValueChange={(value) => onLimitChange(parseInt(value))}
-          >
-            <SelectTrigger className="bg-gray-800 border-gray-600 text-white py-2 w-20">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {limitOptions.map((option) => (
-                <SelectItem key={option} value={option.toString()}>
-                  {option}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        {/* Info and Items per page */}
+        <div className="flex items-center gap-6">
+          <p className="text-gray-400 text-sm">
+            Mostrando {((pagination.page - 1) * pagination.limit) + 1} - {Math.min(pagination.page * pagination.limit, pagination.totalCount)} de {pagination.totalCount} {itemName}
+          </p>
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-400">Mostrar:</span>
+            <Select 
+              value={pagination.limit.toString()}
+              onValueChange={(value) => onLimitChange(parseInt(value))}
+            >
+              <SelectTrigger className="bg-gray-800 border-gray-600 text-white py-2 w-20">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {limitOptions.map((option) => (
+                  <SelectItem key={option} value={option.toString()}>
+                    {option}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       </div>
     </div>

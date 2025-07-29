@@ -27,7 +27,6 @@ export async function GET(request: NextRequest) {
     
     if (search) {
       where.OR = [
-        { name: { contains: search, mode: "insensitive" } },
         { email: { contains: search, mode: "insensitive" } }
       ]
     }
@@ -81,10 +80,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { email, password, role, trainerId } = await request.json()
+    const { email, password, role, phone, name } = await request.json()
 
-    if (!email || !password  || !role) {
+    if (!email || !password || !role) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
+    }
+
+    // Para usuarios TEACHER, se requiere phone y name
+    if (role === "TEACHER" && (!phone || !name)) {
+      return NextResponse.json({ error: "Teacher role requires phone and name" }, { status: 400 })
+    }
+
+    // Validar formato del teléfono para TEACHER
+    if (role === "TEACHER") {
+      const cleanPhone = phone.replace(/[^0-9]/g, '');
+      if (cleanPhone.length !== 10) {
+        return NextResponse.json({ error: "Phone number must have exactly 10 digits" }, { status: 400 })
+      }
     }
 
     // Verificar si el email ya existe
@@ -96,45 +108,74 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Email already exists" }, { status: 400 })
     }
 
-    // Verificar que si es TEACHER, se proporcione trainerId válido
-    if (role === "TEACHER" && !trainerId) {
-      return NextResponse.json({ error: "Teacher role requires trainerId" }, { status: 400 })
-    }
-
+    // Verificar que el teléfono no esté en uso por otro trainer
     if (role === "TEACHER") {
-      const trainer = await prisma.trainer.findUnique({
-        where: { id: parseInt(trainerId) }
+      // Limpiar el teléfono y agregar el indicativo +57
+      const cleanPhone = phone.replace(/[^0-9]/g, '');
+      const phoneWithCountryCode = `57${cleanPhone}`;
+      
+      const existingTrainerWithPhone = await prisma.trainer.findUnique({
+        where: { phone: phoneWithCountryCode }
       })
 
-      if (!trainer) {
-        return NextResponse.json({ error: "Trainer not found" }, { status: 400 })
-      }
-
-      // Verificar que el trainer no tenga ya un usuario
-      const existingUserWithTrainer = await prisma.user.findUnique({
-        where: { trainerId: parseInt(trainerId) }
-      })
-
-      if (existingUserWithTrainer) {
-        return NextResponse.json({ error: "Trainer already has a user account" }, { status: 400 })
+      if (existingTrainerWithPhone) {
+        return NextResponse.json({ error: "Phone number already exists for another trainer" }, { status: 400 })
       }
     }
 
     const hashedPassword = await bcrypt.hash(password, 12)
 
-    const newUser = await prisma.user.create({
-      data: {
-        email,
-        password: hashedPassword,
-        role,
-        trainerId: role === "TEACHER" ? parseInt(trainerId) : null
-      },
-      include: {
-        trainer: true
+    // Crear usuario y trainer en una transacción
+    const result = await prisma.$transaction(async (tx) => {
+      // Crear el usuario
+      const newUser = await tx.user.create({
+        data: {
+          email,
+          password: hashedPassword,
+          role,
+        }
+      })
+
+      console.log("Usuario creado:", { id: newUser.id, email: newUser.email, role: newUser.role })
+
+      // Si es TEACHER, crear el trainer automáticamente
+      if (role === "TEACHER") {
+        // Limpiar el teléfono y agregar el indicativo +57
+        const cleanPhone = phone.replace(/[^0-9]/g, '');
+        const phoneWithCountryCode = `57${cleanPhone}`;
+        
+        const newTrainer = await tx.trainer.create({
+          data: {
+            name,
+            phone: phoneWithCountryCode,
+            userId: newUser.id
+          }
+        })
+
+        console.log("Trainer creado:", { 
+          id: newTrainer.id, 
+          name: newTrainer.name, 
+          userId: newTrainer.userId,
+          phone: newTrainer.phone 
+        })
+
+        // Obtener el usuario con la información del trainer
+        const userWithTrainer = await tx.user.findUnique({
+          where: { id: newUser.id },
+          include: {
+            trainer: true
+          }
+        })
+
+        console.log("Usuario con trainer:", userWithTrainer)
+
+        return userWithTrainer
       }
+
+      return newUser
     })
 
-    const { password: _, ...userWithoutPassword } = newUser
+    const { password: _, ...userWithoutPassword } = result!
 
     return NextResponse.json({ success: true, user: userWithoutPassword }, { status: 201 })
   } catch (error) {

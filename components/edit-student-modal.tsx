@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
 import {
   Dialog,
   DialogContent,
@@ -52,6 +53,7 @@ interface Student {
   guardianRelation?: string
   guardianPhone?: string
   monthlyFee: number
+  isActive?: boolean // <-- Añadido para manejar el estado activo/inactivo
   // Relación con User
   user?: {
     id: number
@@ -135,6 +137,11 @@ export default function EditStudentModal({
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState<Student | null>(null);
+  const { data: session } = useSession();
+
+  // Check if current user is a student editing their own profile
+  const isStudentEditingOwnProfile = session?.user?.role === 'STUDENT' && 
+    session?.user?.email === formData?.email;
 
   useEffect(() => {
     if (student) {
@@ -166,7 +173,8 @@ export default function EditStudentModal({
         guardianName: student.guardianName || '',
         guardianRelation: student.guardianRelation || '',
         guardianPhone: student.guardianPhone || '',
-        monthlyFee: student.monthlyFee || 0
+        monthlyFee: student.monthlyFee || 0,
+        isActive: student.isActive ?? true // <-- Añadido para manejar el estado
       }
       setFormData(initialData)
     } else {
@@ -188,7 +196,7 @@ export default function EditStudentModal({
     try {
       // Separar los datos planos y los de inscripción
       const {
-        name, phone, documentType, birthDate, address, addressLatitude, addressLongitude, neighborhood, city, hasSisben, eps, bloodType, hasRestrictions, restrictionsDescription, medicalConditions, isAdult, monthlyFee, email, user, documentNumber,
+        name, phone, documentType, birthDate, address, addressLatitude, addressLongitude, neighborhood, city, hasSisben, eps, bloodType, hasRestrictions, restrictionsDescription, medicalConditions, isAdult, monthlyFee, email, user, documentNumber, isActive,
         emergencyContactName, emergencyContactRelation, emergencyContactPhone,
         guardianName, guardianRelation, guardianPhone,  
         ...rest
@@ -216,17 +224,25 @@ export default function EditStudentModal({
       };
 
       // Enviar datos planos, enrollmentData y email en una sola petición
+      const requestBody: any = {
+        studentId: formData.id, // <-- Enviar siempre el id del estudiante
+        name,
+        phone,
+        email: formData.email, // Enviar email para que el backend lo actualice en User
+        enrollmentData,
+      };
+
+      // Solo incluir isActive si no es un estudiante editando su propio perfil
+      if (!isStudentEditingOwnProfile) {
+        requestBody.isActive = formData.isActive;
+      }
+
       const studentRes = await fetch(`/api/students/profile`, {
         method: 'PUT',
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          name,
-          phone,
-          email: formData.email, // Enviar email para que el backend lo actualice en User
-          enrollmentData
-        }),
+        body: JSON.stringify(requestBody),
       })
       if (!studentRes.ok) {
         throw new Error('Error al actualizar el estudiante')
@@ -286,21 +302,30 @@ export default function EditStudentModal({
                   <Label className="text-white font-medium">Foto de Perfil</Label>
                   <div className="relative group">
                     
-                    {formData.avatar ? (
+                    {formData.avatar && formData.avatar.trim() !== "" && formData.avatar !== undefined ? (
                       <img
                         src={formData.avatar}
                         alt={`Foto de ${formData.name}`}
                         className="w-20 h-20 rounded-full object-cover border-3 border-gray-500"
+                        onError={e => {
+                          // Si la imagen falla, mostrar las iniciales
+                          (e.target as HTMLImageElement).style.display = 'none';
+                          const fallback = document.getElementById('avatar-fallback');
+                          if (fallback) fallback.style.display = 'flex';
+                        }}
                       />
-                    ) : (
-                      <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-xl border-3 border-gray-500">
-                        {formData.name
-                          ?.split(" ")
-                          .map((n) => n[0])
-                          .join("")
-                          .substring(0, 2) || "?"}
-                      </div>
-                    )}
+                    ) : null}
+                    <div
+                      id="avatar-fallback"
+                      style={{ display: (!formData.avatar || formData.avatar.trim() === "" || formData.avatar === undefined) ? 'flex' : 'none' }}
+                      className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-xl border-3 border-gray-500"
+                    >
+                      {formData.name
+                        ?.split(" ")
+                        .map((n) => n[0])
+                        .join("")
+                        .substring(0, 2) || "?"}
+                    </div>
                     
                     <ProfilePhotoModal
                       studentId={formData.id}
@@ -732,9 +757,11 @@ export default function EditStudentModal({
                   Información Financiera
                 </CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="space-y-4">
                 <div className="max-w-sm">
-                  <Label htmlFor="monthlyFee">Mensualidad *</Label>
+                  <Label htmlFor="monthlyFee">
+                    Mensualidad {isStudentEditingOwnProfile ? '(Solo administradores)' : '*'}
+                  </Label>
                   <Input
                     id="monthlyFee"
                     type="number"
@@ -748,9 +775,40 @@ export default function EditStudentModal({
                       )
                     }
                     required
-                    className="bg-gray-800 border-gray-600 text-white"
+                    disabled={isStudentEditingOwnProfile}
+                    className={`bg-gray-800 border-gray-600 text-white ${
+                      isStudentEditingOwnProfile ? 'cursor-not-allowed opacity-50' : ''
+                    }`}
                   />
+                  {isStudentEditingOwnProfile && (
+                    <p className="text-xs text-gray-400 mt-1">
+                      La mensualidad solo puede ser modificada por administradores
+                    </p>
+                  )}
                 </div>
+                
+                {/* Estado del estudiante */}
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="isActive"
+                    checked={formData.isActive ?? true}
+                    onCheckedChange={(checked) =>
+                      handleInputChange("isActive", checked)
+                    }
+                    disabled={isStudentEditingOwnProfile}
+                  />
+                  <Label htmlFor="isActive" className={`text-white ${
+                    isStudentEditingOwnProfile ? 'opacity-50' : ''
+                  }`}>
+                    Estudiante Activo
+                  </Label>
+                </div>
+                <p className="text-xs text-gray-400">
+                  {isStudentEditingOwnProfile 
+                    ? 'El estado del estudiante solo puede ser modificado por administradores'
+                    : 'Desmarca esta opción para desactivar al estudiante'
+                  }
+                </p>
               </CardContent>
             </Card>
 

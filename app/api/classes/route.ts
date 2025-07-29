@@ -66,6 +66,7 @@ export async function GET(request: NextRequest) {
     const locationIdParam = url.searchParams.get('locationId')
     const levelParam = url.searchParams.get('level')
     const excludeIdParam = url.searchParams.get('excludeId')
+    const searchParam = url.searchParams.get('search')
     const pageParam = url.searchParams.get('page')
     const pageSizeParam = url.searchParams.get('pageSize')
 
@@ -105,7 +106,13 @@ export async function GET(request: NextRequest) {
             select: {
               id: true,
               name: true,
-              email: true
+              phone: true,
+              isActive: true,
+              user: {
+                select: {
+                  email: true
+                }
+              }
             }
           },
           location: {
@@ -262,7 +269,13 @@ export async function POST(request: NextRequest) {
           select: {
             id: true,
             name: true,
-            email: true
+            phone: true,
+            isActive: true,
+            user: {
+              select: {
+                email: true
+              }
+            }
           }
         },
         location: {
@@ -414,7 +427,13 @@ export async function PUT(request: NextRequest) {
           select: {
             id: true,
             name: true,
-            email: true
+            phone: true,
+            isActive: true,
+            user: {
+              select: {
+                email: true
+              }
+            }
           }
         },
         location: {
