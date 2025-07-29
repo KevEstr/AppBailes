@@ -35,7 +35,11 @@ export async function GET(request: NextRequest) {
           select: {
             id: true,
             name: true,
-            email: true
+            user: {
+              select: {
+                email: true
+              }
+            }
           }
         },
         location: {
@@ -84,7 +88,7 @@ export async function GET(request: NextRequest) {
       trainer: {
         id: cls.trainer.id,
         name: cls.trainer.name,
-        email: cls.trainer.email
+        email: cls.trainer.user?.email || null
       },
       location: cls.location ? {
         id: cls.location.id,

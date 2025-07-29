@@ -259,6 +259,13 @@ async function main() {
     take: 3,
     where: {
       isActive: true
+    },
+    include: {
+      user: {
+        select: {
+          email: true
+        }
+      }
     }
   })
 
@@ -272,7 +279,7 @@ async function main() {
     })
 
     if (!existingUser) {
-      const teacherEmail = trainer.email || `profesor${trainer.id}@paradisedance.com`
+      const teacherEmail = trainer.user?.email || `profesor${trainer.id}@paradisedance.com`
       
       const teacher = await prisma.user.upsert({
         where: { email: teacherEmail },
@@ -311,7 +318,7 @@ async function main() {
   console.log('   Contraseña para todos: teacher123')
   
   for (const trainer of trainers) {
-    const teacherEmail = trainer.email || `profesor${trainer.id}@paradisedance.com`
+    const teacherEmail = trainer.user?.email || `profesor${trainer.id}@paradisedance.com`
     console.log(`   Email: ${teacherEmail} (${trainer.name})`)
   }
 }

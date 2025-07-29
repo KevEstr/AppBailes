@@ -99,7 +99,11 @@ export async function GET(
           select: {
             id: true,
             name: true,
-            email: true
+            user: {
+              select: {
+                email: true
+              }
+            }
           }
         },
         location: {
@@ -123,8 +127,12 @@ export async function GET(
               select: {
                 id: true,
                 name: true,
-                email: true,
-                phone: true
+                phone: true,
+                user: {
+                  select: {
+                    email: true
+                  }
+                }
               }
             }
           }

@@ -52,8 +52,8 @@ async function main() {
     }
 
     try {
-      // Usar email existente o generar uno nuevo
-      const email = trainer.email || generateEmail(trainer.name)
+      // Generar email basado en el nombre del trainer
+      const email = generateEmail(trainer.name)
       
       // Generar contraseña: nombre + 123
       const password = generatePassword(trainer.name)
@@ -75,7 +75,6 @@ async function main() {
         data: {
           email: email,
           password: hashedPassword,
-          name: trainer.name,
           role: 'TEACHER',
           trainerId: trainer.id,
           isActive: true

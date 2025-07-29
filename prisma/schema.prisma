@@ -270,7 +270,8 @@ model Trainer {
   id          Int                 @id @default(autoincrement())
   classes     DanceClass[]
   attendances TrainerAttendance[]
-  user        User?
+  userId      Int?                @unique
+  user        User?               @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@map("trainers")
 }
@@ -358,13 +359,14 @@ model PaymentForm {
   period           PaymentPeriod     @relation(fields: [periodId], references: [id], onDelete: Cascade)
   student          Student           @relation(fields: [studentId], references: [id], onDelete: Cascade)
   paymentProofs    PaymentProof[]
+  enrollmentPaymentProofs EnrollmentPaymentProof[]
 
   @@map("payment_forms")
 }
 
 model PaymentProof {
   id            Int                @id @default(autoincrement())
-  formId        String?
+  formId        String
   payerName     String
   payerPhone    String?
   payerEmail    String?
@@ -378,15 +380,7 @@ model PaymentProof {
   reviewNotes   String?
   createdAt     DateTime           @default(now())
   updatedAt     DateTime           @updatedAt
-  
-  // Campos para identificar el tipo de pago
-  paymentType   String?            @default("MONTHLY") // "MONTHLY" o "ENROLLMENT"
-  concept       String?            // Concepto del pago (ej: "Inscripción Baile")
-  
-  // Relaciones
-  paymentForm   PaymentForm?       @relation(fields: [formId], references: [id], onDelete: Cascade)
-  enrollmentPaymentForm EnrollmentPaymentForm? @relation(fields: [enrollmentPaymentFormId], references: [id], onDelete: Cascade)
-  enrollmentPaymentFormId String?
+  paymentForm   PaymentForm        @relation(fields: [formId], references: [id], onDelete: Cascade)
 
   @@map("payment_proofs")
 }
@@ -426,9 +420,38 @@ model EnrollmentPaymentForm {
   // Relaciones
   student               Student                     @relation(fields: [studentId], references: [id], onDelete: Cascade)
   enrollmentPayment     EnrollmentPayment           @relation(fields: [enrollmentPaymentId], references: [id], onDelete: Cascade)
-  paymentProofs         PaymentProof[]
+  paymentProofs         EnrollmentPaymentProof[]
   
   @@map("enrollment_payment_forms")
+}
+
+model EnrollmentPaymentProof {
+  id            Int                @id @default(autoincrement())
+  formId        String?
+  payerName     String
+  payerPhone    String?
+  payerEmail    String?
+  amount        Float
+  paymentMethod PaymentMethod
+  proofImageUrl String
+  uploadedAt    DateTime           @default(now())
+  status        PaymentProofStatus @default(PENDING)
+  reviewedAt    DateTime?
+  reviewedBy    String?
+  reviewNotes   String?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  
+  // Campos para identificar el tipo de pago
+  paymentType   String?            @default("MONTHLY") // "MONTHLY" o "ENROLLMENT"
+  concept       String?            // Concepto del pago (ej: "Inscripción Baile")
+  
+  // Relaciones
+  paymentForm   PaymentForm?       @relation(fields: [formId], references: [id], onDelete: Cascade)
+  enrollmentPaymentForm EnrollmentPaymentForm? @relation(fields: [enrollmentPaymentFormId], references: [id], onDelete: Cascade)
+  enrollmentPaymentFormId String?
+  
+  @@map("enrollment_payment_proofs")
 }
 
 // ===== ENUMS DE INSCRIPCIÓN =====
@@ -495,6 +518,27 @@ enum PaymentProofStatus {
   APPROVED
   REJECTED
   NEEDS_REVIEW
+}
+
+model ScheduledWhatsAppSend {
+  id              Int                     @id @default(autoincrement())
+  studentId       String
+  message         String
+  scheduledFor    DateTime
+  scheduledDate   DateTime?               // Campo adicional para compatibilidad
+  name            String?                 // Campo para identificar el envío
+  status          ScheduledMessageStatus  @default(PENDING)
+  sentAt          DateTime?
+  errorMessage    String?
+  retryCount      Int                     @default(0)
+  maxRetries      Int                     @default(3)
+  messageType     String?
+  priority        Int                     @default(0)
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
+  student         Student                 @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@map("scheduled_whatsapp_sends")
 }
 
 // Tipos de scheduler para diferentes recordatorios
@@ -609,27 +653,6 @@ model SchedulerExecution {
   @@map("scheduler_executions")
 }
 
-model ScheduledWhatsAppSend {
-  id              Int                     @id @default(autoincrement())
-  studentId       String
-  message         String
-  scheduledFor    DateTime
-  scheduledDate   DateTime?               // Campo adicional para compatibilidad
-  name            String?                 // Campo para identificar el envío
-  status          ScheduledMessageStatus  @default(PENDING)
-  sentAt          DateTime?
-  errorMessage    String?
-  retryCount      Int                     @default(0)
-  maxRetries      Int                     @default(3)
-  messageType     String?
-  priority        Int                     @default(0)
-  createdAt       DateTime                @default(now())
-  updatedAt       DateTime                @updatedAt
-  student         Student                 @relation(fields: [studentId], references: [id], onDelete: Cascade)
-
-  @@map("scheduled_whatsapp_sends")
-}
-
 enum ScheduledMessageStatus {
   PENDING
   RUNNING
@@ -653,15 +676,13 @@ model User {
   password  String
   role      UserRole @default(STUDENT)
   isActive  Boolean  @default(true)
-  trainerId Int?     @unique
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   
   // Relations
-  trainer   Trainer? @relation(fields: [trainerId], references: [id], onDelete: SetNull)
   student   Student? // Relación con Student
+  trainer   Trainer? // Relación con Trainer
   studentTransfers StudentTransfer[]
-
   @@map("users")
 }
 

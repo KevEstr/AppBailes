@@ -28,16 +28,27 @@ export async function GET(request: NextRequest) {
       select: {
         id: true,
         name: true,
-        email: true
+        user: {
+          select: {
+            email: true
+          }
+        }
       },
       orderBy: {
         name: 'asc'
       }
     })
 
+    // Formatear la respuesta para mantener compatibilidad con el frontend
+    const formattedTrainers = trainers.map(trainer => ({
+      id: trainer.id,
+      name: trainer.name,
+      email: trainer.user?.email || null
+    }))
+
     return NextResponse.json({
       success: true,
-      trainers
+      trainers: formattedTrainers
     })
 
   } catch (error) {
