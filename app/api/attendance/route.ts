@@ -18,12 +18,12 @@ export async function POST(request: Request) {
 
     const data = await request.json()
 
-    // Validar que los IDs sean números válidos
-    const studentId = parseInt(data.studentId)
+    // Validar que los IDs sean válidos
+    const studentId = data.studentId
     const sessionId = parseInt(data.sessionId)
 
-    if (!studentId || studentId <= 0) {
-      return NextResponse.json({ error: "ID de estudiante debe ser un número válido" }, { status: 400 })
+    if (!studentId || typeof studentId !== 'string') {
+      return NextResponse.json({ error: "ID de estudiante debe ser una cadena válida" }, { status: 400 })
     }
 
     if (!sessionId || sessionId <= 0) {

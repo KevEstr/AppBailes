@@ -41,7 +41,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StudentTransferModal } from "./StudentTransferModal";
 
 interface Student {
-  id: number;
+  id: string;
   name: string;
   avatar: string;
   hasDebt: boolean;
@@ -70,7 +70,7 @@ interface DanceClass {
   schedules: ClassSchedule[];
   enrollments: {
     student: {
-      id: number;
+      id: string;
       name: string;
       avatar: string;
       hasDebt: boolean;
@@ -89,7 +89,7 @@ interface ClassSession {
     id: number;
     status: string;
     student: {
-      id: number;
+      id: string;
       name: string;
       avatar: string;
     };
@@ -328,11 +328,12 @@ export default function ClassAttendanceTikTok() {
       yesterday.setDate(yesterday.getDate() - 1);
       const yesterdayStr = yesterday.toISOString().split("T")[0];
 
-      // Buscar sesiones tanto de hoy como de ayer
+      // Buscar sesiones tanto de hoy como de ayer con cache busting
+      const cacheBuster = Date.now();
       const [todayResponse, yesterdayResponse] = await Promise.all([
-        fetch(`/api/class-sessions?classId=${selectedClass}&date=${today}`),
+        fetch(`/api/class-sessions?classId=${selectedClass}&date=${today}&_t=${cacheBuster}`),
         fetch(
-          `/api/class-sessions?classId=${selectedClass}&date=${yesterdayStr}`
+          `/api/class-sessions?classId=${selectedClass}&date=${yesterdayStr}&_t=${cacheBuster}`
         ),
       ]);
 
@@ -346,7 +347,7 @@ export default function ClassAttendanceTikTok() {
       ];
 
       // Encontrar la sesión que corresponde al horario actual
-      const currentSession = allSessions.find((session) => {
+      const currentSession = allSessions.find((session: ClassSession) => {
         const sessionClass = session.danceClass;
         if (!sessionClass.schedules) return false;
 
@@ -403,6 +404,14 @@ export default function ClassAttendanceTikTok() {
           })
         );
         setStudents(enrolledStudents);
+
+        // Si no hay estudiantes después de la transferencia, mostrar mensaje
+        if (enrolledStudents.length === 0) {
+          toast({
+            title: "ℹ️ Sin estudiantes",
+            description: "No hay estudiantes inscritos en esta clase después de la transferencia",
+          });
+        }
 
         // Verificar si la sesión ya fue completada Y no se puede retomar
         if (session.status === "COMPLETED" && !canRetake) {
@@ -481,13 +490,26 @@ export default function ClassAttendanceTikTok() {
   }, [selectedClass, toast]);
 
   const markAttendance = useCallback(
-    async (studentId: number, status: string) => {
+    async (studentId: string, status: string) => {
       if (!currentSession) {
         toast({
           title: "❌ Error",
           description: "No hay sesión activa",
           variant: "destructive",
         });
+        return;
+      }
+
+      // Verificar que el estudiante aún esté en la lista
+      const studentExists = students.find((s) => s.id === studentId);
+      if (!studentExists) {
+        toast({
+          title: "❌ Error",
+          description: "El estudiante ya no está inscrito en esta clase",
+          variant: "destructive",
+        });
+        // Recargar la sesión para actualizar la lista
+        await loadTodaySession();
         return;
       }
 
@@ -527,11 +549,20 @@ export default function ClassAttendanceTikTok() {
             description: studentName,
           });
         } else {
-          toast({
-            title: "❌ Error",
-            description: result.error || "No se pudo registrar",
-            variant: "destructive",
-          });
+          // Si el error indica que el estudiante ya no está en la clase, recargar
+          if (result.error && result.error.includes("no está inscrito")) {
+            toast({
+              title: "ℹ️ Estudiante transferido",
+              description: "El estudiante ya no está en esta clase",
+            });
+            await loadTodaySession();
+          } else {
+            toast({
+              title: "❌ Error",
+              description: result.error || "No se pudo registrar",
+              variant: "destructive",
+            });
+          }
         }
       } catch (error) {
         console.error("Error marking attendance:", error);
@@ -542,7 +573,7 @@ export default function ClassAttendanceTikTok() {
         });
       }
     },
-    [currentSession, students, toast]
+    [currentSession, students, toast, loadTodaySession]
   );
 
   // Funciones para manejar transferencia de estudiantes
@@ -551,15 +582,36 @@ export default function ClassAttendanceTikTok() {
     setShowTransferModal(true);
   };
 
-  const handleTransferComplete = () => {
-    // Recargar la lista de estudiantes después de la transferencia
-    if (currentSession) {
-      loadTodaySession();
+  const handleTransferComplete = async () => {
+    try {
+      // Recargar la lista de estudiantes después de la transferencia
+      if (currentSession) {
+        // Limpiar el estado actual antes de recargar
+        setStudents([]);
+        setCurrentStudentIndex(0);
+        
+        // Recargar la sesión
+        await loadTodaySession();
+        
+        // Mostrar mensaje de éxito
+        toast({
+          title: "✅ Transferencia completada",
+          description: "El estudiante ha sido transferido exitosamente",
+        });
+      }
+    } catch (error) {
+      console.error("Error al recargar después de transferencia:", error);
+      toast({
+        title: "⚠️ Advertencia",
+        description: "La transferencia se completó pero hubo un problema al actualizar la vista",
+        variant: "destructive",
+      });
+    } finally {
+      setSelectedStudentForTransfer(null);
     }
-    setSelectedStudentForTransfer(null);
   };
 
-  const handleAttendanceAndNext = async (studentId: number, status: string) => {
+  const handleAttendanceAndNext = async (studentId: string, status: string) => {
     await markAttendance(studentId, status);
 
     // Si estamos en modo de modificación (sesión ya completada), no avanzar automáticamente
@@ -567,6 +619,15 @@ export default function ClassAttendanceTikTok() {
       toast({
         title: "✅ Asistencia actualizada",
         description: "Usa las flechas para navegar entre estudiantes",
+      });
+      return;
+    }
+
+    // Verificar si aún hay estudiantes después de la operación
+    if (students.length === 0) {
+      toast({
+        title: "ℹ️ Sin estudiantes",
+        description: "No hay estudiantes para tomar asistencia",
       });
       return;
     }
@@ -752,7 +813,9 @@ export default function ClassAttendanceTikTok() {
   }
 
   const selectedClassData = classes.find((c) => c.id === selectedClass);
-  const currentStudent = students[currentStudentIndex];
+  // Asegurar que el índice del estudiante actual sea válido
+  const validStudentIndex = students.length > 0 ? Math.min(currentStudentIndex, students.length - 1) : 0;
+  const currentStudent = students.length > 0 ? students[validStudentIndex] : null;
   const today = new Date();
 
   return (
@@ -1188,6 +1251,28 @@ export default function ClassAttendanceTikTok() {
             </CardContent>
           </Card>
         </div>
+      ) : students.length === 0 ? (
+        <div className="w-full p-4 flex items-center justify-center">
+          <Card className="border-0 shadow-xl rounded-2xl bg-gray-800/90 border border-gray-600 max-w-md">
+            <CardContent className="p-8 text-center space-y-4">
+              <div className="w-20 h-20 mx-auto bg-gradient-to-r from-blue-600 to-cyan-600 rounded-full flex items-center justify-center">
+                <UsersIcon className="w-10 h-10 text-white" />
+              </div>
+              <h3 className="text-xl font-bold text-white">Sin estudiantes</h3>
+              <p className="text-gray-400 text-sm">
+                No hay estudiantes inscritos en esta clase después de la transferencia
+              </p>
+              <Button
+                onClick={() => setSelectedClass(null)}
+                className="mt-4 w-full"
+                variant="outline"
+              >
+                <ArrowLeftIcon className="mr-2 h-4 w-4" />
+                Volver a selección
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
       ) : currentStudent ? (
         <div className="w-full flex flex-col bg-gradient-to-b from-gray-800 to-gray-900 relative">
           {/* Header con botón de retroceso */}
@@ -1205,7 +1290,7 @@ export default function ClassAttendanceTikTok() {
                   {currentSession.danceClass.name}
                 </h2>
                 <p className="text-sm text-gray-400">
-                  {currentStudentIndex + 1} de {students.length} estudiantes
+                  {validStudentIndex + 1} de {students.length} estudiantes
                 </p>
               </div>
             </div>
@@ -1216,9 +1301,9 @@ export default function ClassAttendanceTikTok() {
                 variant="ghost"
                 size="sm"
                 onClick={() =>
-                  setCurrentStudentIndex(Math.max(0, currentStudentIndex - 1))
+                  setCurrentStudentIndex(Math.max(0, validStudentIndex - 1))
                 }
-                disabled={currentStudentIndex === 0}
+                disabled={validStudentIndex === 0}
                 className="text-gray-400 hover:text-white disabled:opacity-30"
               >
                 ←
@@ -1228,10 +1313,10 @@ export default function ClassAttendanceTikTok() {
                 size="sm"
                 onClick={() =>
                   setCurrentStudentIndex(
-                    Math.min(students.length - 1, currentStudentIndex + 1)
+                    Math.min(students.length - 1, validStudentIndex + 1)
                   )
                 }
-                disabled={currentStudentIndex === students.length - 1}
+                disabled={validStudentIndex === students.length - 1}
                 className="text-gray-400 hover:text-white disabled:opacity-30"
               >
                 →
@@ -1245,9 +1330,9 @@ export default function ClassAttendanceTikTok() {
               <div
                 key={idx}
                 className={`h-1 flex-1 rounded-full ${
-                  idx < currentStudentIndex
+                  idx < validStudentIndex
                     ? "bg-blue-500"
-                    : idx === currentStudentIndex
+                    : idx === validStudentIndex
                     ? "bg-blue-500/50"
                     : "bg-gray-700"
                 }`}
