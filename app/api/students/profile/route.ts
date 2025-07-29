@@ -55,7 +55,6 @@ export async function GET(request: NextRequest) {
                   trainer: {
                     select: {
                       name: true,
-                      email: true
                     }
                   },
                   schedules: {
@@ -92,7 +91,6 @@ export async function GET(request: NextRequest) {
                   trainer: {
                     select: {
                       name: true,
-                      email: true
                     }
                   },
                   schedules: {

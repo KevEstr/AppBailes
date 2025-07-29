@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
 import {
   Dialog,
   DialogContent,
@@ -136,6 +137,11 @@ export default function EditStudentModal({
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState<Student | null>(null);
+  const { data: session } = useSession();
+
+  // Check if current user is a student editing their own profile
+  const isStudentEditingOwnProfile = session?.user?.role === 'STUDENT' && 
+    session?.user?.email === formData?.email;
 
   useEffect(() => {
     if (student) {
@@ -218,19 +224,25 @@ export default function EditStudentModal({
       };
 
       // Enviar datos planos, enrollmentData y email en una sola petición
+      const requestBody: any = {
+        studentId: formData.id, // <-- Enviar siempre el id del estudiante
+        name,
+        phone,
+        email: formData.email, // Enviar email para que el backend lo actualice en User
+        enrollmentData,
+      };
+
+      // Solo incluir isActive si no es un estudiante editando su propio perfil
+      if (!isStudentEditingOwnProfile) {
+        requestBody.isActive = formData.isActive;
+      }
+
       const studentRes = await fetch(`/api/students/profile`, {
         method: 'PUT',
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          studentId: formData.id, // <-- Enviar siempre el id del estudiante
-          name,
-          phone,
-          email: formData.email, // Enviar email para que el backend lo actualice en User
-          enrollmentData,
-          isActive: formData.isActive // <-- Enviar el estado activo/inactivo
-        }),
+        body: JSON.stringify(requestBody),
       })
       if (!studentRes.ok) {
         throw new Error('Error al actualizar el estudiante')
@@ -747,7 +759,9 @@ export default function EditStudentModal({
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="max-w-sm">
-                  <Label htmlFor="monthlyFee">Mensualidad *</Label>
+                  <Label htmlFor="monthlyFee">
+                    Mensualidad {isStudentEditingOwnProfile ? '(Solo administradores)' : '*'}
+                  </Label>
                   <Input
                     id="monthlyFee"
                     type="number"
@@ -761,8 +775,16 @@ export default function EditStudentModal({
                       )
                     }
                     required
-                    className="bg-gray-800 border-gray-600 text-white"
+                    disabled={isStudentEditingOwnProfile}
+                    className={`bg-gray-800 border-gray-600 text-white ${
+                      isStudentEditingOwnProfile ? 'cursor-not-allowed opacity-50' : ''
+                    }`}
                   />
+                  {isStudentEditingOwnProfile && (
+                    <p className="text-xs text-gray-400 mt-1">
+                      La mensualidad solo puede ser modificada por administradores
+                    </p>
+                  )}
                 </div>
                 
                 {/* Estado del estudiante */}
@@ -773,13 +795,19 @@ export default function EditStudentModal({
                     onCheckedChange={(checked) =>
                       handleInputChange("isActive", checked)
                     }
+                    disabled={isStudentEditingOwnProfile}
                   />
-                  <Label htmlFor="isActive" className="text-white">
+                  <Label htmlFor="isActive" className={`text-white ${
+                    isStudentEditingOwnProfile ? 'opacity-50' : ''
+                  }`}>
                     Estudiante Activo
                   </Label>
                 </div>
                 <p className="text-xs text-gray-400">
-                  Desmarca esta opción para desactivar al estudiante
+                  {isStudentEditingOwnProfile 
+                    ? 'El estado del estudiante solo puede ser modificado por administradores'
+                    : 'Desmarca esta opción para desactivar al estudiante'
+                  }
                 </p>
               </CardContent>
             </Card>
