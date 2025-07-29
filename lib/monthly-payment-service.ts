@@ -447,6 +447,12 @@ export class MonthlyPaymentService {
             monthlyPayment: true,
           },
         },
+        enrollmentPaymentForm: {
+          include: {
+            student: true,
+            enrollmentPayment: true,
+          },
+        },
       },
       orderBy: { uploadedAt: "asc" },
     });

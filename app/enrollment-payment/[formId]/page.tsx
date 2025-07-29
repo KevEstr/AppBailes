@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import { Upload, FileImage, CheckCircle, AlertCircle, DollarSign, User, Calendar } from 'lucide-react';
+import { Upload, FileImage, CheckCircle, AlertCircle, DollarSign, User, Calendar, Image as ImageIcon, X as XIcon } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 
 interface EnrollmentPaymentFormData {
@@ -36,20 +36,26 @@ export default function EnrollmentPaymentPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
-  // Formulario de pago
-  const [payerName, setPayerName] = useState('');
-  const [payerPhone, setPayerPhone] = useState('');
-  const [payerEmail, setPayerEmail] = useState('');
-  const [amount, setAmount] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState<'CASH' | 'TRANSFER' | 'CARD'>('TRANSFER');
+  // Formulario de pago simplificado
   const [proofFile, setProofFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [dragActive, setDragActive] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   useEffect(() => {
     if (formId) {
       loadFormData();
     }
   }, [formId]);
+
+  // Limpiar preview URL cuando el componente se desmonte
+  useEffect(() => {
+    return () => {
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+      }
+    };
+  }, [previewUrl]);
 
   const loadFormData = async () => {
     try {
@@ -59,8 +65,6 @@ export default function EnrollmentPaymentPage() {
 
       if (data.success) {
         setFormData(data.form);
-        setAmount(data.form.amount.toString());
-        setPayerName(data.form.studentName);
       } else {
         setError(data.message || 'Error al cargar el formulario');
       }
@@ -71,10 +75,39 @@ export default function EnrollmentPaymentPage() {
     }
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = (file: File) => {
+    if (file && file.type.startsWith('image/')) {
+      setProofFile(file);
+      // Crear preview
+      const url = URL.createObjectURL(file);
+      setPreviewUrl(url);
+    }
+  };
+
+  const handleDrag = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true);
+    } else if (e.type === "dragleave") {
+      setDragActive(false);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      handleFileChange(e.dataTransfer.files[0]);
+    }
+  };
+
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      setProofFile(file);
+      handleFileChange(file);
     }
   };
 
@@ -105,13 +138,13 @@ export default function EnrollmentPaymentPage() {
 
       const uploadResult = await uploadResponse.json();
 
-      // Crear comprobante de pago
+      // Crear comprobante de pago simplificado
       const proofData = {
-        payerName,
-        payerPhone,
-        payerEmail,
-        amount: parseFloat(amount),
-        paymentMethod,
+        payerName: formData?.studentName || '',
+        payerPhone: '',
+        payerEmail: '',
+        amount: formData?.amount || 0,
+        paymentMethod: 'TRANSFER' as const,
         proofImageUrl: uploadResult.url
       };
 
@@ -262,95 +295,87 @@ export default function EnrollmentPaymentPage() {
             </Card>
           )}
 
-          {/* Formulario de pago */}
+          {/* Formulario de pago simplificado */}
           {!hasProof && !success && (
             <Card className="border-gray-600 bg-gray-800/90">
               <CardHeader>
                 <CardTitle className="text-white flex items-center gap-2">
-                  <DollarSign className="h-5 w-5" />
-                  Completar Pago
+                  <Upload className="h-5 w-5" />
+                  Subir Comprobante de Pago
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <form onSubmit={handleSubmit} className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="payerName" className="text-gray-300">Nombre del pagador</Label>
-                      <Input
-                        id="payerName"
-                        value={payerName}
-                        onChange={(e) => setPayerName(e.target.value)}
-                        className="bg-gray-700 border-gray-600 text-white"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="payerPhone" className="text-gray-300">Teléfono</Label>
-                      <Input
-                        id="payerPhone"
-                        value={payerPhone}
-                        onChange={(e) => setPayerPhone(e.target.value)}
-                        className="bg-gray-700 border-gray-600 text-white"
-                        placeholder="Opcional"
-                      />
-                    </div>
-                  </div>
-
                   <div>
-                    <Label htmlFor="payerEmail" className="text-gray-300">Email</Label>
-                    <Input
-                      id="payerEmail"
-                      type="email"
-                      value={payerEmail}
-                      onChange={(e) => setPayerEmail(e.target.value)}
-                      className="bg-gray-700 border-gray-600 text-white"
-                      placeholder="Opcional"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="amount" className="text-gray-300">Monto pagado</Label>
-                      <Input
-                        id="amount"
-                        type="number"
-                        value={amount}
-                        onChange={(e) => setAmount(e.target.value)}
-                        className="bg-gray-700 border-gray-600 text-white"
-                        required
-                        min="0"
-                        step="1000"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="paymentMethod" className="text-gray-300">Método de pago</Label>
-                      <Select value={paymentMethod} onValueChange={(value: any) => setPaymentMethod(value)}>
-                        <SelectTrigger className="bg-gray-700 border-gray-600 text-white">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent className="bg-gray-700 border-gray-600">
-                          <SelectItem value="TRANSFER">Transferencia</SelectItem>
-                          <SelectItem value="CASH">Efectivo</SelectItem>
-                          <SelectItem value="CARD">Tarjeta</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-
-                  <div>
-                    <Label htmlFor="proof" className="text-gray-300">Comprobante de pago</Label>
-                    <div className="mt-2">
-                      <Input
-                        id="proof"
+                    <Label className="text-gray-300">Comprobante de pago</Label>
+                    
+                    {/* Caja de drag & drop */}
+                    <div
+                      className={`mt-2 relative border-2 border-dashed rounded-lg p-6 transition-all duration-200 ${
+                        dragActive 
+                          ? 'border-blue-400 bg-blue-500/10' 
+                          : previewUrl 
+                            ? 'border-green-400 bg-green-500/10' 
+                            : 'border-gray-600 bg-gray-700/50 hover:border-gray-500'
+                      }`}
+                      onDragEnter={handleDrag}
+                      onDragLeave={handleDrag}
+                      onDragOver={handleDrag}
+                      onDrop={handleDrop}
+                    >
+                      <input
                         type="file"
                         accept="image/*"
-                        onChange={handleFileChange}
-                        className="bg-gray-700 border-gray-600 text-white"
+                        onChange={handleFileInputChange}
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                         required
                       />
+                      
+                      {previewUrl ? (
+                        <div className="text-center">
+                          <div className="relative inline-block">
+                            <img 
+                              src={previewUrl} 
+                              alt="Preview" 
+                              className="max-w-full h-32 object-contain rounded-lg mx-auto"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setProofFile(null);
+                                setPreviewUrl(null);
+                                URL.revokeObjectURL(previewUrl);
+                              }}
+                              className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors"
+                            >
+                              <XIcon className="h-4 w-4" />
+                            </button>
+                          </div>
+                          <p className="text-green-400 text-sm mt-2 font-medium">
+                            ✅ Imagen seleccionada: {proofFile?.name}
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="text-center">
+                          <div className="mx-auto w-16 h-16 bg-gray-600 rounded-full flex items-center justify-center mb-4">
+                            <ImageIcon className="h-8 w-8 text-gray-400" />
+                          </div>
+                          <p className="text-gray-300 font-medium mb-2">
+                            {dragActive ? 'Suelta aquí tu imagen' : 'Arrastra y suelta tu imagen aquí'}
+                          </p>
+                          <p className="text-gray-400 text-sm mb-4">
+                            O haz clic para seleccionar una imagen
+                          </p>
+                          <div className="flex items-center justify-center gap-2 text-gray-500 text-xs">
+                            <Upload className="h-4 w-4" />
+                            <span>JPG, PNG, GIF hasta 5MB</span>
+                          </div>
+                        </div>
+                      )}
                     </div>
-                    <p className="text-gray-400 text-sm mt-1">
-                      Sube una foto clara del comprobante de pago
+                    
+                    <p className="text-gray-400 text-sm mt-2">
+                      Sube una foto clara del comprobante de pago de $20,000
                     </p>
                   </div>
 

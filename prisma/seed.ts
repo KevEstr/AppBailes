@@ -36,9 +36,8 @@ async function main() {
   console.log('🎓 Creando estudiantes...')
   const student1 = await prisma.student.create({
     data: {
-      id: 1036689216, // Cédula colombiana
+      id: "1036689216", // Cédula colombiana
       name: 'Ana Martínez',
-      email: 'ana@example.com',
       phone: '5551234567',
       avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Ana',
     },
@@ -46,9 +45,8 @@ async function main() {
 
   const student2 = await prisma.student.create({
     data: {
-      id: 1075234567, // Cédula colombiana
+      id: "1075234567", // Cédula colombiana
       name: 'Juan Pérez',
-      email: 'juan@example.com',
       phone: '5559876543',
       avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Juan',
     },
@@ -56,9 +54,8 @@ async function main() {
 
   const student3 = await prisma.student.create({
     data: {
-      id: 1088345678, // Cédula colombiana
+      id: "1088345678", // Cédula colombiana
       name: 'Carmen Delgado',
-      email: 'carmen@example.com',
       phone: '5555678901',
       avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Carmen',
     },
@@ -66,9 +63,8 @@ async function main() {
 
   const student4 = await prisma.student.create({
     data: {
-      id: 1052456789, // Cédula colombiana
+      id: "1052456789", // Cédula colombiana
       name: 'Roberto Silva',
-      email: 'roberto@example.com',
       phone: '5554321098',
       avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Roberto',
     },
@@ -249,10 +245,9 @@ async function main() {
     where: { email: 'admin@paradisedance.com' },
     update: {},
     create: {
-      email: 'admin@paradisedance.com',
-      password: adminPassword,
-      name: 'Administrador Paradise',
-      role: 'ADMIN',
+              email: 'admin@paradisedance.com',
+        password: adminPassword,
+        role: 'ADMIN',
       isActive: true
     }
   })
@@ -283,10 +278,9 @@ async function main() {
         where: { email: teacherEmail },
         update: {},
         create: {
-          email: teacherEmail,
-          password: teacherPassword,
-          name: trainer.name,
-          role: 'TEACHER',
+                      email: teacherEmail,
+            password: teacherPassword,
+            role: 'TEACHER',
           trainerId: trainer.id,
           isActive: true
         }

@@ -76,19 +76,9 @@ export class EnrollmentPaymentService {
 
       console.log(`✅ Pago de inscripción creado: ID ${enrollmentPayment.id} por $${enrollmentFee.toLocaleString()}`);
 
-      // Actualizar datos de inscripción del estudiante
-      await prisma.studentEnrollmentData.upsert({
-        where: { studentId },
-        update: {
-          sport,
-          enrollmentFee
-        },
-        create: {
-          studentId,
-          sport,
-          enrollmentFee
-        }
-      });
+      // Los datos de inscripción ya se crean en el API de registro
+      // No necesitamos actualizar StudentEnrollmentData aquí
+      console.log('✅ Datos de inscripción ya están en StudentEnrollmentData');
 
       return enrollmentPayment;
     } catch (error) {
@@ -207,10 +197,9 @@ export class EnrollmentPaymentService {
       throw new Error("Formulario no está disponible para recibir comprobantes");
     }
 
-    // Crear comprobante
-    const paymentProof = await prisma.enrollmentPaymentProof.create({
+    // Crear comprobante en la tabla PaymentProof (misma que mensualidades)
+    const paymentProof = await prisma.paymentProof.create({
       data: {
-        formId: form.id,
         payerName: data.payerName,
         payerPhone: data.payerPhone,
         payerEmail: data.payerEmail,
@@ -218,6 +207,12 @@ export class EnrollmentPaymentService {
         paymentMethod: data.paymentMethod,
         proofImageUrl: data.proofImageUrl,
         status: "PENDING",
+        uploadedAt: new Date(),
+        // Relacionar con el formulario de inscripción
+        enrollmentPaymentFormId: form.id,
+        // Campos adicionales para identificar que es de inscripción
+        paymentType: "ENROLLMENT",
+        concept: `Inscripción ${form.enrollmentPayment.sport === 'DANCE' ? 'Baile' : 'Voleibol'}`,
       },
     });
 
@@ -425,14 +420,14 @@ export class EnrollmentPaymentService {
       const whatsappData = {
         studentName: enrollmentPayment.student.name,
         parentPhone: enrollmentPayment.student.phone,
-        sport: enrollmentPayment.sport,
-        concept: `Inscripción ${enrollmentPayment.sport}`,
+        sport: enrollmentPayment.sport === 'DANCE' ? 'Baile' : 'Voleibol',
+        concept: `Inscripción ${enrollmentPayment.sport === 'DANCE' ? 'Baile' : 'Voleibol'}`,
         amount: enrollmentPayment.expectedAmount,
-        paymentLink: paymentLink,
+        paymentUrl: paymentLink,
         contactPhone: contactPhone
       };
 
-      const result = await whatsappService.sendEnrollmentMessage(whatsappData);
+      const result = await whatsappService.sendEnrollmentTemplate(whatsappData);
       
       console.log(`✅ WhatsApp de inscripción enviado a ${enrollmentPayment.student.name}`);
       
@@ -494,10 +489,14 @@ Tu inscripción está completa y puedes comenzar a entrenar.
 
 *Paradise Dance Academy* ✨`;
 
-    await whatsappService.sendMessage({
-      to: student.phone,
-      message,
-      type: "enrollment_approved"
+    // Usar el método de texto directo para notificaciones
+    await whatsappService.sendPaymentMessageText({
+      studentName: student.name,
+      parentPhone: student.phone,
+      paymentLink: '',
+      amount: approvedAmount,
+      period: `Inscripción ${enrollmentPayment.sport}`,
+      dueDate: new Date().toLocaleDateString('es-ES')
     });
   }
 
@@ -523,10 +522,14 @@ Tu inscripción está completa y puedes comenzar a entrenar.
 
 *Paradise Dance Academy* ✨`;
 
-    await whatsappService.sendMessage({
-      to: student.phone,
-      message,
-      type: "enrollment_rejected"
+    // Usar el método de texto directo para notificaciones
+    await whatsappService.sendPaymentMessageText({
+      studentName: student.name,
+      parentPhone: student.phone,
+      paymentLink: '',
+      amount: proof.amount,
+      period: `Inscripción ${enrollmentPayment.sport}`,
+      dueDate: new Date().toLocaleDateString('es-ES')
     });
   }
 

@@ -1069,6 +1069,191 @@ ${data.rejectionReason}
       console.log('⚠️ Mensaje de rechazo falló (normal en modo desarrollo)');
     }
   }
+
+  /**
+   * Envía mensaje de inscripción exitosa con template específico
+   */
+  async sendEnrollmentTemplate(data: {
+    parentPhone: string;
+    studentName: string;
+    sport: string;
+    concept: string;
+    amount: number;
+    paymentUrl: string;
+    contactPhone: string;
+  }): Promise<{ success: boolean; messageId?: string; error?: string; data?: any }> {
+    this.initialize(); // Lazy initialization
+    try {
+      const formattedPhone = this.formatPhoneNumber(data.parentPhone);
+      
+      console.log('📱 Enviando WhatsApp de inscripción...');
+      console.log('   👤 Estudiante:', data.studentName);
+      console.log('   🏃 Deporte:', data.sport);
+      console.log('   💰 Monto:', data.amount);
+      console.log('   📱 Teléfono:', formattedPhone);
+      
+      const response = await fetch(this.baseUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          messaging_product: 'whatsapp',
+          to: formattedPhone,
+          type: 'template',
+          template: {
+            name: 'enrollment_success_paradise', // Template específico para inscripciones
+            language: {
+              code: 'es_CO'
+            },
+            components: [
+              {
+                type: 'body',
+                parameters: [
+                  {
+                    type: 'text',
+                    text: data.studentName
+                  },
+                  {
+                    type: 'text',
+                    text: data.sport
+                  },
+                  {
+                    type: 'text',
+                    text: data.concept
+                  },
+                  {
+                    type: 'text',
+                    text: `$${data.amount.toLocaleString()}`
+                  },
+                  {
+                    type: 'text',
+                    text: data.paymentUrl
+                  },
+                  {
+                    type: 'text',
+                    text: data.contactPhone
+                  }
+                ]
+              }
+            ]
+          }
+        })
+      });
+
+      const result = await response.json();
+      
+      if (response.ok) {
+        console.log('✅ WhatsApp de inscripción enviado exitosamente:', result);
+        return {
+          success: true,
+          messageId: result.messages?.[0]?.id,
+          data: result
+        };
+      } else {
+        console.error('❌ Error enviando WhatsApp de inscripción:', result);
+        
+        // Fallback: intentar con template genérico
+        console.log('🔄 Intentando fallback con template genérico...');
+        return await this.sendFallbackEnrollmentMessage(data);
+      }
+    } catch (error) {
+      console.error('❌ Error en sendEnrollmentTemplate:', error);
+      
+      // Fallback: intentar con template genérico
+      console.log('🔄 Intentando fallback con template genérico...');
+      return await this.sendFallbackEnrollmentMessage(data);
+    }
+  }
+
+  /**
+   * Fallback: envía mensaje de inscripción usando template genérico + mensaje de seguimiento
+   */
+  private async sendFallbackEnrollmentMessage(data: {
+    parentPhone: string;
+    studentName: string;
+    sport: string;
+    concept: string;
+    amount: number;
+    paymentUrl: string;
+    contactPhone: string;
+  }): Promise<{ success: boolean; messageId?: string; error?: string; data?: any }> {
+    try {
+      const formattedPhone = this.formatPhoneNumber(data.parentPhone);
+      
+      // Primero enviar template genérico
+      const templateResponse = await fetch(this.baseUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          messaging_product: 'whatsapp',
+          to: formattedPhone,
+          type: 'template',
+          template: {
+            name: 'hello_world',
+            language: {
+              code: 'es_CO'
+            }
+          }
+        })
+      });
+
+      if (templateResponse.ok) {
+        // Esperar un momento y enviar mensaje de seguimiento
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        const followUpResponse = await fetch(this.baseUrl, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${this.accessToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            messaging_product: 'whatsapp',
+            to: formattedPhone,
+            type: 'text',
+            text: {
+              body: `¡INSCRIPCIÓN EXITOSA!\n\n¡Hola! Nos complace informarte que la inscripción ha sido procesada exitosamente.\n\n👤 Estudiante: ${data.studentName}\n🏃 Deporte: ${data.sport}\n📝 Concepto: ${data.concept}\n💰 Monto de inscripción: $${data.amount.toLocaleString()}\n🔗 Enlace de pago: ${data.paymentUrl}\n\n✅ ¡Bienvenido a Paradise!\n\nPara completar el proceso:\n1. Haz clic en el enlace de pago\n2. Completa los datos requeridos\n3. Sube el comprobante de pago\n4. Recibirás confirmación inmediata\n\n¿Dudas? Llámanos o escríbenos al ${data.contactPhone}\n\n¡Gracias por confiar en nosotros! ✨`
+            }
+          })
+        });
+
+        const result = await followUpResponse.json();
+        
+        if (followUpResponse.ok) {
+          console.log('✅ Fallback WhatsApp enviado exitosamente');
+          return {
+            success: true,
+            messageId: result.messages?.[0]?.id,
+            data: result
+          };
+        } else {
+          console.error('❌ Error en fallback WhatsApp:', result);
+          return {
+            success: false,
+            error: result.error?.message || 'Error en fallback',
+            data: result
+          };
+        }
+      } else {
+        console.error('❌ Error enviando template genérico');
+        return {
+          success: false,
+          error: 'No se pudo enviar ningún mensaje'
+        };
+      }
+    } catch (error) {
+      console.error('❌ Error en fallback:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Error en fallback'
+      };
+    }
+  }
 }
 
 // Lazy initialization - solo crear cuando se necesite

@@ -48,7 +48,11 @@ interface PaymentProof {
   reviewedAt?: Date;
   reviewedBy?: string;
   reviewNotes?: string;
-  paymentForm: {
+  paymentType?: string;
+  concept?: string;
+  
+  // Para mensualidades
+  paymentForm?: {
     studentName: string;
     amount: number;
     period: {
@@ -56,6 +60,18 @@ interface PaymentProof {
       dueDate: Date;
     };
     monthlyPayment: {
+      id: number;
+      expectedAmount: number;
+      status: string;
+    };
+  };
+  
+  // Para inscripciones
+  enrollmentPaymentForm?: {
+    studentName: string;
+    amount: number;
+    sport: string;
+    enrollmentPayment: {
       id: number;
       expectedAmount: number;
       status: string;
@@ -128,7 +144,14 @@ export function PaymentProofReview() {
     proof: PaymentProof,
     approvedAmountInput: string
   ) => {
-    const expectedAmount = proof.paymentForm.monthlyPayment.expectedAmount;
+    // Determinar el monto esperado según el tipo de pago
+    let expectedAmount = 0;
+    if (proof.paymentForm) {
+      expectedAmount = proof.paymentForm.monthlyPayment.expectedAmount;
+    } else if (proof.enrollmentPaymentForm) {
+      expectedAmount = proof.enrollmentPaymentForm.enrollmentPayment.expectedAmount;
+    }
+    
     const submittedAmount = proof.amount;
     const approvedAmountValue = approvedAmountInput
       ? parseFloat(approvedAmountInput)
@@ -262,8 +285,30 @@ export function PaymentProofReview() {
     return methods[method as keyof typeof methods] || method;
   };
 
+  const getStudentInfo = (proof: PaymentProof) => {
+    if (proof.paymentForm) {
+      return {
+        name: proof.paymentForm.studentName,
+        type: 'MONTHLY',
+        period: proof.paymentForm.period.name,
+        expectedAmount: proof.paymentForm.monthlyPayment.expectedAmount
+      };
+    } else if (proof.enrollmentPaymentForm) {
+      return {
+        name: proof.enrollmentPaymentForm.studentName,
+        type: 'ENROLLMENT',
+        period: `Inscripción ${proof.enrollmentPaymentForm.sport === 'DANCE' ? 'Baile' : 'Voleibol'}`,
+        expectedAmount: proof.enrollmentPaymentForm.enrollmentPayment.expectedAmount
+      };
+    }
+    return null;
+  };
+
   const getAmountStatusInfo = (proof: PaymentProof) => {
-    const expected = proof.paymentForm.monthlyPayment.expectedAmount;
+    const studentInfo = getStudentInfo(proof);
+    if (!studentInfo) return { status: "unknown", message: "Información no disponible", className: "text-gray-400 bg-gray-900/20 border-gray-600" };
+    
+    const expected = studentInfo.expectedAmount;
     const submitted = proof.amount;
     const difference = submitted - expected;
 

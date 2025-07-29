@@ -4,10 +4,10 @@ import { enrollmentPaymentService } from '@/lib/enrollment-payment-service';
 // GET /api/enrollment-payment/[formId] - Obtener información del formulario de pago de inscripción
 export async function GET(
   request: NextRequest,
-  { params }: { params: { formId: string } }
+  { params }: { params: Promise<{ formId: string }> }
 ) {
   try {
-    const { formId } = params;
+    const { formId } = await params;
 
     if (!formId) {
       return NextResponse.json(
