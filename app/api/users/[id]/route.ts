@@ -62,17 +62,31 @@ export async function PUT(
       return NextResponse.json({ error: "Invalid user ID" }, { status: 400 })
     }
 
-    const { email, password, role, trainerId, isActive, name } = await request.json()
+    const { email, password, role, isActive, name, phone } = await request.json()
 
     if (!email || !role) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
+    }
+
+    // Para usuarios TEACHER, se requiere phone y name
+    if (role === "TEACHER" && (!phone || !name)) {
+      return NextResponse.json({ error: "Teacher role requires phone and name" }, { status: 400 })
+    }
+
+    // Validar formato del teléfono para TEACHER
+    if (role === "TEACHER") {
+      const cleanPhone = phone.replace(/[^0-9]/g, '');
+      if (cleanPhone.length !== 10) {
+        return NextResponse.json({ error: "Phone number must have exactly 10 digits" }, { status: 400 })
+      }
     }
 
     // Verificar que el usuario existe
     const existingUser = await prisma.user.findUnique({
       where: { id: userId },
       include: {
-        student: true
+        student: true,
+        trainer: true
       }
     })
 
@@ -91,30 +105,20 @@ export async function PUT(
       }
     }
 
-    // Verificar que si es TEACHER, se proporcione trainerId válido
-    if (role === "TEACHER" && !trainerId) {
-      return NextResponse.json({ error: "Teacher role requires trainerId" }, { status: 400 })
-    }
+    // Verificar que el teléfono no esté en uso por otro trainer (solo si es TEACHER y el teléfono cambió)
+    if (role === "TEACHER" && existingUser.trainer) {
+      const cleanPhone = phone.replace(/[^0-9]/g, '');
+      const phoneWithCountryCode = `57${cleanPhone}`;
+      
+      // Solo verificar si el teléfono es diferente al actual
+      if (existingUser.trainer.phone !== phoneWithCountryCode) {
+        const existingTrainerWithPhone = await prisma.trainer.findUnique({
+          where: { phone: phoneWithCountryCode }
+        })
 
-    if (role === "TEACHER") {
-      const trainer = await prisma.trainer.findUnique({
-        where: { id: parseInt(trainerId) }
-      })
-
-      if (!trainer) {
-        return NextResponse.json({ error: "Trainer not found" }, { status: 400 })
-      }
-
-      // Verificar que el trainer no tenga ya un usuario (excepto el actual)
-      const existingUserWithTrainer = await prisma.user.findFirst({
-        where: { 
-          trainerId: parseInt(trainerId),
-          id: { not: userId }
+        if (existingTrainerWithPhone) {
+          return NextResponse.json({ error: "Phone number already exists for another trainer" }, { status: 400 })
         }
-      })
-
-      if (existingUserWithTrainer) {
-        return NextResponse.json({ error: "Trainer already has a user account" }, { status: 400 })
       }
     }
 
@@ -130,24 +134,63 @@ export async function PUT(
       updateData.password = await bcrypt.hash(password, 12)
     }
 
-    // Actualizar el nombre en Student si el usuario tiene relación con un estudiante
-    if (name && existingUser.student) {
-      await prisma.student.update({
-        where: { userId: userId },
-        data: { name: name.trim() }
+    // Actualizar en una transacción para mantener consistencia
+    const result = await prisma.$transaction(async (tx) => {
+      // Actualizar el usuario
+      const updatedUser = await tx.user.update({
+        where: { id: userId },
+        data: updateData,
+        include: {
+          trainer: true,
+          student: true
+        }
       });
-    }
 
-    const updatedUser = await prisma.user.update({
-      where: { id: userId },
-      data: updateData,
-      include: {
-        trainer: true,
-        student: true
+      // Actualizar el nombre en Student si el usuario tiene relación con un estudiante
+      if (name && existingUser.student) {
+        await tx.student.update({
+          where: { userId: userId },
+          data: { name: name.trim() }
+        });
       }
+
+      // Actualizar datos del trainer si el rol es TEACHER
+      if (role === "TEACHER" && existingUser.trainer) {
+        // Limpiar el teléfono y agregar el indicativo +57
+        const cleanPhone = phone.replace(/[^0-9]/g, '');
+        const phoneWithCountryCode = `57${cleanPhone}`;
+        
+        console.log("Actualizando trainer:", {
+          trainerId: existingUser.trainer.id,
+          userId: userId,
+          name: name.trim(),
+          phone: phoneWithCountryCode
+        });
+        
+        await tx.trainer.update({
+          where: { id: existingUser.trainer.id },
+          data: {
+            name: name.trim(),
+            phone: phoneWithCountryCode
+          }
+        });
+
+        // Obtener el usuario actualizado con la información del trainer
+        const userWithTrainer = await tx.user.findUnique({
+          where: { id: userId },
+          include: {
+            trainer: true,
+            student: true
+          }
+        });
+
+        return userWithTrainer;
+      }
+
+      return updatedUser;
     });
 
-    const { password: _, ...userWithoutPassword } = updatedUser;
+    const { password: _, ...userWithoutPassword } = result!;
 
     return NextResponse.json({ success: true, user: userWithoutPassword });
   } catch (error) {

@@ -17,6 +17,7 @@ interface User {
   trainer?: {
     id: number
     name: string
+    phone?: string
   }
   student?: {
     name: string
@@ -62,11 +63,19 @@ export function UserModal({ isOpen, onClose, onSave, user, trainers, isLoading }
     if (user) {
       // Si el usuario tiene relación con Student, usar ese nombre
       console.log(user)
+      
+      // Para trainers, extraer el teléfono sin el prefijo 57
+      let phoneNumber = "";
+      if (user.role === "TEACHER" && user.trainer?.phone) {
+        // Remover el prefijo 57 del teléfono del trainer
+        phoneNumber = user.trainer.phone.replace(/^57/, "");
+      }
+      
       setFormData({
         email: user.email || "",
         password: "",
-        name: user.student?.name || user.name || "",
-        phone: "",
+        name: user.trainer?.name || user.student?.name || user.name || "",
+        phone: phoneNumber,
         role: user.role || "STUDENT",
         isActive: user.isActive ?? true
       });

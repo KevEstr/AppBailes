@@ -234,7 +234,6 @@ model MassiveMessage {
 
 model Trainer {
   name        String
-  email       String              @unique
   phone       String              @unique
   isActive    Boolean             @default(true)
   createdAt   DateTime            @default(now())

@@ -147,7 +147,6 @@ export async function POST(request: NextRequest) {
         const newTrainer = await tx.trainer.create({
           data: {
             name,
-            email,
             phone: phoneWithCountryCode,
             userId: newUser.id
           }

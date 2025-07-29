@@ -119,7 +119,13 @@ export async function GET(request: NextRequest) {
             select: {
               id: true,
               name: true,
-              email: true
+              phone: true,
+              isActive: true,
+              user: {
+                select: {
+                  email: true
+                }
+              }
             }
           },
           location: {
@@ -276,7 +282,13 @@ export async function POST(request: NextRequest) {
           select: {
             id: true,
             name: true,
-            email: true
+            phone: true,
+            isActive: true,
+            user: {
+              select: {
+                email: true
+              }
+            }
           }
         },
         location: {
@@ -428,7 +440,13 @@ export async function PUT(request: NextRequest) {
           select: {
             id: true,
             name: true,
-            email: true
+            phone: true,
+            isActive: true,
+            user: {
+              select: {
+                email: true
+              }
+            }
           }
         },
         location: {

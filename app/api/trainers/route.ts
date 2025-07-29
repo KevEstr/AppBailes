@@ -53,7 +53,13 @@ export async function GET(request: NextRequest) {
       select: {
         id: true,
         name: true,
-        email: true
+        phone: true,
+        isActive: true,
+        user: {
+          select: {
+            email: true
+          }
+        }
       },
       orderBy: {
         name: 'asc'
@@ -78,14 +84,14 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const validatedData = createTrainerSchema.parse(body)
 
-    // Verificar si el email ya existe
-    const existingTrainer = await prisma.trainer.findUnique({
+    // Verificar si el email ya existe en la tabla users
+    const existingUser = await prisma.user.findUnique({
       where: { email: validatedData.email }
     })
 
-    if (existingTrainer) {
+    if (existingUser) {
       return NextResponse.json(
-        { error: 'Ya existe un entrenador con este email' },
+        { error: 'Ya existe un usuario con este email' },
         { status: 400 }
       )
     }
@@ -143,17 +149,24 @@ export async function PUT(request: NextRequest) {
     const body = await request.json()
     const validatedData = updateTrainerSchema.parse(body)
 
-    // Verificar si el email ya existe en otro entrenador
+    // Verificar si el email ya existe en otro usuario
     if (validatedData.email) {
-      const existingTrainer = await prisma.trainer.findUnique({
+      const existingUser = await prisma.user.findUnique({
         where: { email: validatedData.email }
       })
 
-      if (existingTrainer && existingTrainer.id !== trainerId) {
-        return NextResponse.json(
-          { error: 'Ya existe un entrenador con este email' },
-          { status: 400 }
-        )
+      if (existingUser) {
+        // Verificar si el usuario ya está asociado a otro entrenador
+        const existingTrainerWithUser = await prisma.trainer.findUnique({
+          where: { userId: existingUser.id }
+        })
+
+        if (existingTrainerWithUser && existingTrainerWithUser.id !== trainerId) {
+          return NextResponse.json(
+            { error: 'Ya existe un entrenador con este email' },
+            { status: 400 }
+          )
+        }
       }
     }
 
