@@ -65,6 +65,7 @@ export async function GET(request: NextRequest) {
     const sportParam = url.searchParams.get('sport')
     const locationIdParam = url.searchParams.get('locationId')
     const levelParam = url.searchParams.get('level')
+    const searchParam = url.searchParams.get('search')
     const pageParam = url.searchParams.get('page')
     const pageSizeParam = url.searchParams.get('pageSize')
 
@@ -88,6 +89,23 @@ export async function GET(request: NextRequest) {
     }
     if (levelParam && levelParam !== 'ALL') {
       where.level = levelParam
+    }
+    // Add search functionality
+    if (searchParam && searchParam.trim() !== '') {
+      where.OR = [
+        {
+          name: {
+            contains: searchParam.trim(),
+            mode: 'insensitive' // Case insensitive search
+          }
+        },
+        {
+          description: {
+            contains: searchParam.trim(),
+            mode: 'insensitive'
+          }
+        }
+      ]
     }
 
     const [total, classes] = await Promise.all([

@@ -52,6 +52,7 @@ interface Student {
   guardianRelation?: string
   guardianPhone?: string
   monthlyFee: number
+  isActive?: boolean // <-- Añadido para manejar el estado activo/inactivo
   // Relación con User
   user?: {
     id: number
@@ -166,7 +167,8 @@ export default function EditStudentModal({
         guardianName: student.guardianName || '',
         guardianRelation: student.guardianRelation || '',
         guardianPhone: student.guardianPhone || '',
-        monthlyFee: student.monthlyFee || 0
+        monthlyFee: student.monthlyFee || 0,
+        isActive: student.isActive ?? true // <-- Añadido para manejar el estado
       }
       setFormData(initialData)
     } else {
@@ -188,7 +190,7 @@ export default function EditStudentModal({
     try {
       // Separar los datos planos y los de inscripción
       const {
-        name, phone, documentType, birthDate, address, addressLatitude, addressLongitude, neighborhood, city, hasSisben, eps, bloodType, hasRestrictions, restrictionsDescription, medicalConditions, isAdult, monthlyFee, email, user, documentNumber,
+        name, phone, documentType, birthDate, address, addressLatitude, addressLongitude, neighborhood, city, hasSisben, eps, bloodType, hasRestrictions, restrictionsDescription, medicalConditions, isAdult, monthlyFee, email, user, documentNumber, isActive,
         emergencyContactName, emergencyContactRelation, emergencyContactPhone,
         guardianName, guardianRelation, guardianPhone,  
         ...rest
@@ -226,7 +228,8 @@ export default function EditStudentModal({
           name,
           phone,
           email: formData.email, // Enviar email para que el backend lo actualice en User
-          enrollmentData
+          enrollmentData,
+          isActive: formData.isActive // <-- Enviar el estado activo/inactivo
         }),
       })
       if (!studentRes.ok) {
@@ -742,7 +745,7 @@ export default function EditStudentModal({
                   Información Financiera
                 </CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="space-y-4">
                 <div className="max-w-sm">
                   <Label htmlFor="monthlyFee">Mensualidad *</Label>
                   <Input
@@ -761,6 +764,23 @@ export default function EditStudentModal({
                     className="bg-gray-800 border-gray-600 text-white"
                   />
                 </div>
+                
+                {/* Estado del estudiante */}
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="isActive"
+                    checked={formData.isActive ?? true}
+                    onCheckedChange={(checked) =>
+                      handleInputChange("isActive", checked)
+                    }
+                  />
+                  <Label htmlFor="isActive" className="text-white">
+                    Estudiante Activo
+                  </Label>
+                </div>
+                <p className="text-xs text-gray-400">
+                  Desmarca esta opción para desactivar al estudiante
+                </p>
               </CardContent>
             </Card>
 

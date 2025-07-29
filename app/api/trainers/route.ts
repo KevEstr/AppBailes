@@ -23,19 +23,33 @@ export async function GET(request: NextRequest) {
     const level = url.searchParams.get('level')
     const active = url.searchParams.get('active') === 'true'
 
-    const classWhere: any = {}
-    if (sport && sport !== 'ALL') classWhere.sport = sport
-    if (locationId && locationId !== 'ALL') classWhere.locationId = parseInt(locationId)
-    if (level && level !== 'ALL') classWhere.level = level
-    if (active) classWhere.isActive = true
+    let whereClause: any = {}
 
-    // Solo profesores con al menos una clase activa según los filtros
-    const trainers = await prisma.trainer.findMany({
-      where: {
-        classes: {
-          some: classWhere
+    // Si se especifica active=true sin filtros de deporte, mostrar todos los entrenadores activos
+    if (active && !sport && !locationId && !level) {
+      whereClause = {
+        isActive: true
+      }
+    } else {
+      // Aplicar filtros de clases solo si se especifican filtros
+      const classWhere: any = {}
+      if (sport && sport !== 'ALL') classWhere.sport = sport
+      if (locationId && locationId !== 'ALL') classWhere.locationId = parseInt(locationId)
+      if (level && level !== 'ALL') classWhere.level = level
+      if (active) classWhere.isActive = true
+
+      // Solo aplicar filtro de clases si hay filtros específicos
+      if (Object.keys(classWhere).length > 0) {
+        whereClause = {
+          classes: {
+            some: classWhere
+          }
         }
-      },
+      }
+    }
+
+    const trainers = await prisma.trainer.findMany({
+      where: whereClause,
       select: {
         id: true,
         name: true,

@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Eye, EyeOff, LogIn, User, Lock, Sparkles } from "lucide-react";
+import { Eye, EyeOff, LogIn, User, Lock } from "lucide-react";
 import Image from "next/image";
 import { CookieCleaner } from "@/components/cookie-cleaner";
 
@@ -106,22 +106,46 @@ export default function LoginPage() {
       <CookieCleaner />
       <div className="w-full max-w-md">
         {/* Header con logo */}
-        <div className="text-center mb-8">
-          <div className="inline-flex h-20 w-20 items-center justify-center rounded-full bg-gray-700 shadow-2xl border-4 border-blue-500 relative overflow-hidden mb-4">
-            <Image
-              src="/logo.jpg"
-              alt="Paradise Dance Academy Logo"
-              width={80}
-              height={80}
-              className="object-contain"
-              priority
-            />
-            <div className="absolute inset-0 bg-gradient-to-r from-blue-400 to-purple-400 opacity-20"></div>
+        <div className="text-center mb-6">
+          {/* Logos container */}
+          <div className="flex items-center justify-center space-x-6 mb-4">
+            {/* Dance Academy Logo */}
+            <div className="flex flex-col items-center">
+              <div className="h-24 w-24 rounded-full bg-gradient-to-br from-gray-700 to-gray-800 shadow-xl border-2 border-blue-400 flex items-center justify-center mb-2">
+                <Image
+                  src="/dance.png"
+                  alt="Paradise Dance Academy"
+                  width={80}
+                  height={80}
+                  className="object-contain"
+                  priority
+                />
+              </div>
+            </div>
+
+            {/* Divider */}
+            <div className="w-px h-24 bg-gradient-to-b from-transparent via-blue-400 to-transparent"></div>
+
+            {/* Volleyball Logo */}
+            <div className="flex flex-col items-center">
+              <div className="h-24 w-24 rounded-full bg-gradient-to-br from-yellow-500 to-orange-500 shadow-xl border-2 border-yellow-400 flex items-center justify-center mb-2">
+                <Image
+                  src="/volleyball.png"
+                  alt="Paradise Volleyball"
+                  width={96}
+                  height={96}
+                  className="object-contain"
+                  priority
+                />
+              </div>
+            </div>
           </div>
-          <h1 className="text-3xl font-bold text-white mb-2">
-            Paradise Academy
+
+          {/* Main Title */}
+          <h1 className="text-4xl font-bold text-white mb-2 tracking-wide">
+            Paradise
           </h1>
-          <p className="text-blue-300">Sistema de Gestión</p>
+          <p className="text-blue-300 text-lg font-medium">Sistema de Gestión</p>
         </div>
 
         {/* Card de Login */}
@@ -135,9 +159,6 @@ export default function LoginPage() {
                 Iniciar Sesión
               </CardTitle>
             </div>
-            <p className="text-gray-400 text-center">
-              Accede a tu cuenta para gestionar la academia
-            </p>
           </CardHeader>
           <CardContent className="space-y-6">
             {error && (
@@ -214,37 +235,13 @@ export default function LoginPage() {
                 )}
               </Button>
             </form>
-
-            {/* Información de roles */}
-            <div className="mt-6 p-4 bg-gray-700/50 rounded-lg border border-gray-600">
-              <div className="flex items-center space-x-2 mb-3">
-                <Sparkles className="h-4 w-4 text-blue-400" />
-                <span className="text-sm font-medium text-blue-400">
-                  Tipos de Usuario
-                </span>
-              </div>
-              <div className="space-y-2 text-sm text-gray-300">
-                <div className="flex items-center space-x-2">
-                  <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
-                  <span>
-                    <strong>Admin:</strong> Acceso completo al sistema
-                  </span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                  <span>
-                    <strong>Profesor:</strong> Gestión de clases y asistencia
-                  </span>
-                </div>
-              </div>
-            </div>
           </CardContent>
         </Card>
 
         {/* Footer */}
         <div className="text-center mt-6">
           <p className="text-gray-400 text-sm">
-            © 2025 Paradise Academy - Sistema de Gestión
+            © 2025 Paradise - Sistema de Gestión
           </p>
         </div>
       </div>

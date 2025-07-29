@@ -433,7 +433,7 @@ function UsersManagementContent() {
                               </div>
                               <div>
                                 <h3 className="text-white font-semibold">{user.name || user.email || 'Sin nombre'}</h3>
-                                <p className="text-gray-400 text-sm break-all">{user.email}</p>
+
                               </div>
                             </div>
                             <div className="flex flex-wrap gap-2 mt-4 sm:mt-0 sm:flex-nowrap sm:items-center sm:space-x-3">
