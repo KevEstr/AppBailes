@@ -197,9 +197,10 @@ export class EnrollmentPaymentService {
       throw new Error("Formulario no está disponible para recibir comprobantes");
     }
 
-    // Crear comprobante en la tabla PaymentProof (misma que mensualidades)
-    const paymentProof = await prisma.paymentProof.create({
+    // Crear comprobante en la tabla EnrollmentPaymentProof
+    const paymentProof = await prisma.enrollmentPaymentProof.create({
       data: {
+        formId: form.id,
         payerName: data.payerName,
         payerPhone: data.payerPhone,
         payerEmail: data.payerEmail,
@@ -208,9 +209,6 @@ export class EnrollmentPaymentService {
         proofImageUrl: data.proofImageUrl,
         status: "PENDING",
         uploadedAt: new Date(),
-        // Relacionar con el formulario de inscripción
-        enrollmentPaymentFormId: form.id,
-        // Campos adicionales para identificar que es de inscripción
         paymentType: "ENROLLMENT",
         concept: `Inscripción ${form.enrollmentPayment.sport === 'DANCE' ? 'Baile' : 'Voleibol'}`,
       },
@@ -257,6 +255,13 @@ export class EnrollmentPaymentService {
           paymentForm: {
             include: {
               student: true,
+              period: true,
+              monthlyPayment: true
+            }
+          },
+          enrollmentPaymentForm: {
+            include: {
+              student: true,
               enrollmentPayment: true
             }
           }
@@ -301,8 +306,8 @@ export class EnrollmentPaymentService {
    */
   private async processApprovedEnrollmentPayment(proof: any, data: any) {
     const paidAmount = data.approvedAmount || proof.amount;
-    const enrollmentPayment = proof.paymentForm.enrollmentPayment;
-    const student = proof.paymentForm.student;
+    const enrollmentPayment = proof.enrollmentPaymentForm?.enrollmentPayment;
+    const student = proof.enrollmentPaymentForm?.student || proof.paymentForm?.student;
 
     console.log(`💰 Procesando pago de inscripción: $${paidAmount.toLocaleString()}`);
 
@@ -311,10 +316,7 @@ export class EnrollmentPaymentService {
       where: { id: enrollmentPayment.id },
       data: {
         status: "PAID",
-        paidAmount: paidAmount,
-        paymentDate: new Date(),
-        approvedBy: data.reviewedBy,
-        notes: data.reviewNotes,
+        paidAt: new Date(),
       },
     });
 
@@ -328,7 +330,7 @@ export class EnrollmentPaymentService {
    * Procesa un pago de inscripción rechazado
    */
   private async processRejectedEnrollmentPayment(proof: any, data: any) {
-    const enrollmentPayment = proof.paymentForm.enrollmentPayment;
+    const enrollmentPayment = proof.enrollmentPaymentForm?.enrollmentPayment;
 
     // Reactivar el formulario para que pueda subir otro comprobante
     await prisma.enrollmentPaymentForm.update({
@@ -344,7 +346,6 @@ export class EnrollmentPaymentService {
       where: { id: enrollmentPayment.id },
       data: {
         status: "PENDING",
-        notes: data.reviewNotes,
       },
     });
 
@@ -443,10 +444,10 @@ export class EnrollmentPaymentService {
    */
   private async sendEnrollmentPaymentNotification(proof: any, data: any) {
     try {
-      const student = proof.paymentForm.student;
-      const enrollmentPayment = proof.paymentForm.enrollmentPayment;
+      const student = proof.enrollmentPaymentForm?.student || proof.paymentForm?.student;
+      const enrollmentPayment = proof.enrollmentPaymentForm?.enrollmentPayment;
 
-      if (!student.phone) {
+      if (!student?.phone) {
         console.log("⚠️ Estudiante sin teléfono configurado, notificación no enviada");
         return;
       }

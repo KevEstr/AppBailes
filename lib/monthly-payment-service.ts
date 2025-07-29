@@ -437,7 +437,23 @@ export class MonthlyPaymentService {
    * Obtiene comprobantes pendientes de revisión
    */
   async getPendingProofs() {
-    return await prisma.paymentProof.findMany({
+    // Obtener comprobantes de pagos mensuales
+    const monthlyProofs = await prisma.paymentProof.findMany({
+      where: { status: "PENDING" },
+      include: {
+        paymentForm: {
+          include: {
+            student: true,
+            period: true,
+            monthlyPayment: true,
+          },
+        },
+      },
+      orderBy: { uploadedAt: "asc" },
+    });
+
+    // Obtener comprobantes de pagos de inscripción
+    const enrollmentProofs = await prisma.enrollmentPaymentProof.findMany({
       where: { status: "PENDING" },
       include: {
         paymentForm: {
@@ -456,6 +472,28 @@ export class MonthlyPaymentService {
       },
       orderBy: { uploadedAt: "asc" },
     });
+
+    // Combinar y formatear los resultados
+    const formattedMonthlyProofs = monthlyProofs.map(proof => ({
+      ...proof,
+      proofType: 'MONTHLY',
+      student: proof.paymentForm?.student,
+      period: proof.paymentForm?.period,
+      monthlyPayment: proof.paymentForm?.monthlyPayment,
+    }));
+
+    const formattedEnrollmentProofs = enrollmentProofs.map(proof => ({
+      ...proof,
+      proofType: 'ENROLLMENT',
+      student: proof.enrollmentPaymentForm?.student || proof.paymentForm?.student,
+      period: proof.paymentForm?.period,
+      monthlyPayment: proof.paymentForm?.monthlyPayment,
+      enrollmentPayment: proof.enrollmentPaymentForm?.enrollmentPayment,
+    }));
+
+    // Combinar ambos arrays y ordenar por fecha de subida
+    const allProofs = [...formattedMonthlyProofs, ...formattedEnrollmentProofs];
+    return allProofs.sort((a, b) => new Date(a.uploadedAt).getTime() - new Date(b.uploadedAt).getTime());
   }
 
   /**
