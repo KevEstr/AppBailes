@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { enrollmentPaymentService } from '@/lib/enrollment-payment-service';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { EnrollmentPaymentService } from '@/lib/enrollment-payment-service';
+
+const enrollmentPaymentService = new EnrollmentPaymentService();
 
 // POST /api/admin/send-enrollment-whatsapp - Enviar WhatsApp de inscripción
 export async function POST(request: NextRequest) {
@@ -20,27 +22,12 @@ export async function POST(request: NextRequest) {
 
     if (!studentId) {
       return NextResponse.json(
-        { message: 'ID del estudiante es requerido' },
+        { message: 'ID de estudiante es requerido' },
         { status: 400 }
       );
     }
 
-    // Verificar que el estudiante tiene un pago de inscripción
-    const enrollmentPayment = await enrollmentPaymentService.getStudentEnrollmentPaymentInfo(studentId);
-
-    if (!enrollmentPayment) {
-      return NextResponse.json(
-        { message: 'El estudiante no tiene un pago de inscripción registrado' },
-        { status: 404 }
-      );
-    }
-
-    // Generar formulario de pago si no existe
-    if (!enrollmentPayment.hasActiveForm) {
-      await enrollmentPaymentService.generateEnrollmentPaymentForm(studentId);
-    }
-
-    // Enviar WhatsApp
+    // Enviar WhatsApp de inscripción
     const result = await enrollmentPaymentService.sendEnrollmentPaymentWhatsApp(studentId);
 
     return NextResponse.json({
@@ -51,23 +38,6 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error('Error enviando WhatsApp de inscripción:', error);
-    
-    if (error instanceof Error) {
-      if (error.message === 'Pago de inscripción no encontrado') {
-        return NextResponse.json(
-          { message: 'Pago de inscripción no encontrado' },
-          { status: 404 }
-        );
-      }
-      
-      if (error.message.includes('not configured')) {
-        return NextResponse.json(
-          { message: 'WhatsApp no está configurado correctamente' },
-          { status: 503 }
-        );
-      }
-    }
-
     return NextResponse.json(
       { message: 'Error interno del servidor' },
       { status: 500 }

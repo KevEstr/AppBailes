@@ -381,6 +381,234 @@ ${data.paymentLink}
   }
 
   /**
+   * Envía mensaje de inscripción exitosa con template personalizado
+   */
+  async sendEnrollmentMessage(data: {
+    studentName: string;
+    parentPhone: string;
+    sport: 'DANCE' | 'VOLLEYBALL';
+    concept: string;
+    amount: number;
+    paymentLink: string;
+    contactPhone: string;
+  }): Promise<WhatsAppResponse> {
+    this.initialize(); // Lazy initialization
+    try {
+      const formattedPhone = this.formatPhoneNumber(data.parentPhone);
+      
+      console.log('📤 Enviando mensaje de inscripción exitosa:');
+      console.log('   👤 Estudiante:', data.studentName);
+      console.log('   📱 Teléfono:', formattedPhone);
+      console.log('   🏃 Deporte:', data.sport);
+      console.log('   💰 Monto:', data.amount);
+      console.log('   📞 Contacto:', data.contactPhone);
+      
+      // PRIORIDAD 1: Intentar template personalizado
+      try {
+        console.log('🎯 Intentando template enrollment_success_paradise...');
+        return await this.sendEnrollmentSuccessTemplate(data, formattedPhone);
+      } catch (templateError) {
+        console.log('⚠️ Template personalizado falló, usando fallback...');
+        console.error('Error con template personalizado:', templateError);
+      }
+      
+      // FALLBACK: Template hello_world + mensaje de seguimiento
+      console.log('🔄 Usando template hello_world + información de inscripción...');
+      return await this.sendEnrollmentWithHelloWorld(data, formattedPhone);
+      
+    } catch (error) {
+      console.error('💥 Error enviando mensaje de inscripción:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Template personalizado para inscripción exitosa
+   */
+  private async sendEnrollmentSuccessTemplate(data: {
+    studentName: string;
+    sport: 'DANCE' | 'VOLLEYBALL';
+    concept: string;
+    amount: number;
+    paymentLink: string;
+    contactPhone: string;
+  }, formattedPhone: string): Promise<WhatsAppResponse> {
+    const requestBody = {
+      messaging_product: 'whatsapp',
+      to: formattedPhone,
+      type: 'template',
+      template: {
+        name: 'enrollment_success_paradise',
+        language: {
+          code: 'es_CO'
+        },
+        components: [
+          {
+            type: 'body',
+            parameters: [
+              {
+                type: 'text',
+                text: data.studentName // {{1}} - Estudiante
+              },
+              {
+                type: 'text',
+                text: data.sport === 'DANCE' ? 'Baile' : 'Voleibol' // {{2}} - Deporte
+              },
+              {
+                type: 'text',
+                text: data.concept // {{3}} - Concepto
+              },
+              {
+                type: 'text',
+                text: `$${data.amount.toLocaleString()}` // {{4}} - Monto
+              },
+              {
+                type: 'text',
+                text: data.paymentLink // {{5}} - Enlace de pago
+              },
+              {
+                type: 'text',
+                text: data.contactPhone // {{6}} - Teléfono de contacto
+              }
+            ]
+          }
+        ]
+      }
+    };
+    
+    console.log('📋 Template de inscripción exitosa:', JSON.stringify(requestBody, null, 2));
+    
+    const response = await fetch(this.baseUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${this.accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestBody)
+    });
+
+    const responseData = await response.json();
+    console.log('📨 Response (Enrollment Template):', response.status, responseData);
+
+    if (!response.ok) {
+      throw new Error(`Enrollment template error: ${JSON.stringify(responseData)}`);
+    }
+
+    console.log('✅ Template de inscripción enviado exitosamente');
+    return responseData;
+  }
+
+  /**
+   * Fallback con hello_world + mensaje de inscripción
+   */
+  private async sendEnrollmentWithHelloWorld(data: {
+    studentName: string;
+    sport: 'DANCE' | 'VOLLEYBALL';
+    concept: string;
+    amount: number;
+    paymentLink: string;
+    contactPhone: string;
+  }, formattedPhone: string): Promise<WhatsAppResponse> {
+    // Enviar template hello_world
+    const helloWorldBody = {
+      messaging_product: 'whatsapp',
+      to: formattedPhone,
+      type: 'template',
+      template: {
+        name: 'hello_world',
+        language: {
+          code: 'es_CO'
+        }
+      }
+    };
+
+    console.log('📋 Enviando template hello_world...');
+    
+    const response = await fetch(this.baseUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${this.accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(helloWorldBody)
+    });
+
+    const responseData = await response.json();
+    console.log('📨 Hello World response:', response.status, responseData);
+
+    if (response.ok) {
+      console.log('✅ Hello World enviado, enviando mensaje de seguimiento...');
+      // Enviar mensaje de seguimiento con información de inscripción
+      await this.sendEnrollmentFollowUp(data, formattedPhone);
+    }
+
+    return responseData;
+  }
+
+  /**
+   * Mensaje de seguimiento para inscripción
+   */
+  private async sendEnrollmentFollowUp(data: {
+    studentName: string;
+    sport: 'DANCE' | 'VOLLEYBALL';
+    concept: string;
+    amount: number;
+    paymentLink: string;
+    contactPhone: string;
+  }, formattedPhone: string): Promise<void> {
+    const followUpMessage = `¡INSCRIPCIÓN EXITOSA!
+
+¡Hola! Nos complace informarte que la inscripción ha sido procesada exitosamente.
+
+👤 Estudiante: ${data.studentName}
+🏃 Deporte: ${data.sport === 'DANCE' ? 'Baile' : 'Voleibol'}
+📝 Concepto: ${data.concept}
+💰 Monto de inscripción: $${data.amount.toLocaleString()}
+🔗 Enlace de pago: ${data.paymentLink}
+
+✅ ¡Bienvenido a Paradise!
+
+Para completar el proceso:
+1. Haz clic en el enlace de pago
+2. Completa los datos requeridos
+3. Sube el comprobante de pago
+4. Recibirás confirmación inmediata
+
+¿Dudas? Llámanos o escríbenos al ${data.contactPhone}
+
+¡Gracias por confiar en nosotros! ✨`;
+
+    const followUpBody = {
+      messaging_product: 'whatsapp',
+      to: formattedPhone,
+      type: 'text',
+      text: {
+        body: followUpMessage
+      }
+    };
+
+    console.log('📋 Enviando mensaje de seguimiento de inscripción...');
+
+    const response = await fetch(this.baseUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${this.accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(followUpBody)
+    });
+
+    const responseData = await response.json();
+    console.log('📨 Follow-up enrollment response:', response.status, responseData);
+
+    if (response.ok) {
+      console.log('✅ Mensaje de seguimiento de inscripción enviado exitosamente');
+    } else {
+      console.log('⚠️ Mensaje de seguimiento de inscripción falló (normal en modo desarrollo)');
+    }
+  }
+
+  /**
    * Formatea el número de teléfono para WhatsApp
    */
   private formatPhoneNumber(phone: string): string {

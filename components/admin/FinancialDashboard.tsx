@@ -38,6 +38,10 @@ interface FinancialSummary {
     amount: number;
     count: number;
   };
+  enrollmentPayments: {
+    amount: number;
+    count: number;
+  };
 }
 
 interface RecentTransaction {
@@ -293,6 +297,25 @@ export function FinancialDashboard() {
                     </div>
                     <p className="text-xs text-gray-400">
                       {dashboardData.summary.servicePayments.count} servicios
+                    </p>
+                  </CardContent>
+                </Card>
+
+                <Card className="bg-gray-800/90 border-gray-600">
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium text-white">
+                      Inscripciones
+                    </CardTitle>
+                    <FileText className="h-4 w-4 text-orange-400" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold text-orange-400">
+                      {formatCurrency(
+                        dashboardData.summary.enrollmentPayments.amount
+                      )}
+                    </div>
+                    <p className="text-xs text-gray-400">
+                      {dashboardData.summary.enrollmentPayments.count} inscripciones
                     </p>
                   </CardContent>
                 </Card>

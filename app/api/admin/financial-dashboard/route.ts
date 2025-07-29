@@ -32,7 +32,7 @@ export async function GET(request: Request) {
         startDate = new Date(now.getFullYear(), now.getMonth(), 1);
     }
 
-    const [totalIncome, monthlyStats, serviceStats, recentTransactions] = await Promise.all([
+    const [totalIncome, monthlyStats, serviceStats, enrollmentStats, recentTransactions] = await Promise.all([
       prisma.receipt.aggregate({
         where: { createdAt: { gte: startDate, lte: now } },
         _sum: { amount: true },
@@ -49,7 +49,21 @@ export async function GET(request: Request) {
       prisma.receipt.aggregate({
         where: {
           createdAt: { gte: startDate, lte: now },
-          concept: { not: { contains: 'mensualidad' } }
+          concept: { 
+            not: { 
+              in: ['mensualidad', 'inscripción', 'inscripcion'] 
+            } 
+          }
+        },
+        _sum: { amount: true },
+        _count: true
+      }),
+      prisma.receipt.aggregate({
+        where: {
+          createdAt: { gte: startDate, lte: now },
+          concept: { 
+            contains: 'inscripción' 
+          }
         },
         _sum: { amount: true },
         _count: true
@@ -73,6 +87,10 @@ export async function GET(request: Request) {
         servicePayments: {
           amount: serviceStats._sum.amount || 0,
           count: serviceStats._count || 0
+        },
+        enrollmentPayments: {
+          amount: enrollmentStats._sum.amount || 0,
+          count: enrollmentStats._count || 0
         }
       },
       recentTransactions: recentTransactions.map(tx => ({

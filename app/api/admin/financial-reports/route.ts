@@ -155,7 +155,7 @@ async function calculateFinancialMetrics(
     },
   });
 
-  // Ingresos por servicios (usando receipts con conceptos de servicios)
+  // Ingresos por servicios (excluyendo mensualidades e inscripciones)
   const servicePaymentsIncome = await prisma.receipt.aggregate({
     where: {
       createdAt: {
@@ -164,8 +164,24 @@ async function calculateFinancialMetrics(
       },
       concept: {
         not: {
-          contains: "mensualidad",
+          in: ["mensualidad", "inscripción", "inscripcion"],
         },
+      },
+    },
+    _sum: {
+      amount: true,
+    },
+  });
+
+  // Ingresos por inscripciones
+  const enrollmentPaymentsIncome = await prisma.receipt.aggregate({
+    where: {
+      createdAt: {
+        gte: startDate,
+        lte: endDate,
+      },
+      concept: {
+        contains: "inscripción",
       },
     },
     _sum: {
@@ -176,7 +192,8 @@ async function calculateFinancialMetrics(
   // Total de ingresos
   const totalIncome =
     (monthlyPaymentsIncome._sum.amount || 0) +
-    (servicePaymentsIncome._sum.amount || 0);
+    (servicePaymentsIncome._sum.amount || 0) +
+    (enrollmentPaymentsIncome._sum.amount || 0);
 
   // Por ahora los gastos se calcularán manualmente o desde otra fuente
   const totalExpenses = 0;
@@ -224,6 +241,7 @@ async function calculateFinancialMetrics(
     netProfit,
     monthlyPayments: monthlyPaymentsIncome._sum.amount || 0,
     servicePayments: servicePaymentsIncome._sum.amount || 0,
+    enrollmentPayments: enrollmentPaymentsIncome._sum.amount || 0,
     otherIncome: 0,
     operatingExpenses: 0,
     summary,

@@ -126,6 +126,14 @@ function AdminContent() {
       color: "from-emerald-500 to-green-600",
     },
     {
+      id: "enrollment-payments",
+      href: "/admin/enrollment-payments",
+      label: "Pagos de Inscripción",
+      icon: FileText,
+      description: "Gestión de pagos de inscripción",
+      color: "from-orange-500 to-red-600",
+    },
+    {
       id: "financial-reports",
       href: "/admin/financial-reports",
       label: "Consolidado Financiero",

@@ -90,9 +90,33 @@ export class EnrollmentPaymentService {
         }
       });
 
+      // Generar formulario de pago automáticamente
+      const paymentForm = await this.generateEnrollmentPaymentForm(studentId);
+      console.log(`📋 Formulario de pago generado: ${paymentForm.id}`);
+
       return enrollmentPayment;
     } catch (error) {
       console.error('❌ Error creando pago de inscripción:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Crea pago de inscripción y envía WhatsApp automáticamente
+   */
+  async createEnrollmentPaymentAndNotify(studentId: string, sport: 'DANCE' | 'VOLLEYBALL') {
+    try {
+      console.log(`🎯 Creando pago de inscripción y notificando a ${studentId} en ${sport}`);
+
+      // Crear el pago de inscripción
+      const enrollmentPayment = await this.createEnrollmentPayment(studentId, sport);
+
+      // Enviar WhatsApp automáticamente
+      await this.sendEnrollmentPaymentWhatsApp(studentId);
+
+      return enrollmentPayment;
+    } catch (error) {
+      console.error('❌ Error en proceso completo de inscripción:', error);
       throw error;
     }
   }

@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import bcrypt from 'bcryptjs';
+import { EnrollmentPaymentService } from '@/lib/enrollment-payment-service';
+
+const enrollmentPaymentService = new EnrollmentPaymentService();
 
 export async function POST(request: NextRequest) {
   try {
@@ -144,10 +147,23 @@ export async function POST(request: NextRequest) {
 
     // Crear la inscripción si se proporcionó classId
     let enrollment = null
+    let sport: 'DANCE' | 'VOLLEYBALL' = 'DANCE'; // Por defecto
+    
     if (data.classId) {
       console.log('📚 Creando inscripción a clase:', data.classId)
       
       try {
+        // Obtener información de la clase para determinar el deporte
+        const danceClass = await prisma.danceClass.findUnique({
+          where: { id: parseInt(data.classId) },
+          select: { sport: true }
+        });
+        
+        if (danceClass) {
+          sport = danceClass.sport as 'DANCE' | 'VOLLEYBALL';
+          console.log(`🏃 Deporte detectado: ${sport}`);
+        }
+        
         enrollment = await prisma.classEnrollment.create({
           data: {
             studentId: student.id,
@@ -164,6 +180,17 @@ export async function POST(request: NextRequest) {
     } else {
       console.log('⚠️ No se proporcionó classId, no se crea inscripción a clase')
     }
+
+    // Crear pago de inscripción automáticamente
+    let enrollmentPayment = null;
+    try {
+      console.log('💰 Creando pago de inscripción automáticamente...');
+      enrollmentPayment = await enrollmentPaymentService.createEnrollmentPaymentAndNotify(student.id, sport);
+      console.log('✅ Pago de inscripción creado y WhatsApp enviado');
+    } catch (paymentError) {
+      console.error('❌ Error creando pago de inscripción:', paymentError);
+      // No fallar el proceso completo si hay error en el pago
+    }
     
     console.log('🎉 Proceso completado exitosamente')
     
@@ -178,6 +205,11 @@ export async function POST(request: NextRequest) {
       enrollment: enrollment ? {
         id: enrollment.id,
         classId: enrollment.classId
+      } : null,
+      enrollmentPayment: enrollmentPayment ? {
+        id: enrollmentPayment.id,
+        amount: enrollmentPayment.expectedAmount,
+        sport: enrollmentPayment.sport
       } : null
     })
 
