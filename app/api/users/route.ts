@@ -19,6 +19,7 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get("limit") || "10")
     const search = searchParams.get("search") || ""
     const role = searchParams.get("role") || ""
+    const active = searchParams.get("active")
 
     const skip = (page - 1) * limit
 
@@ -34,6 +35,14 @@ export async function GET(request: NextRequest) {
     if (role) {
       where.role = role
     }
+
+    // Filtrar por estado activo si se especifica
+    if (active === "true") {
+      where.isActive = true
+    } else if (active === "false") {
+      where.isActive = false
+    }
+    // Si no se especifica active, mostrar todos (activos e inactivos)
 
     // Obtener usuarios con paginación
     const [users, totalCount] = await Promise.all([

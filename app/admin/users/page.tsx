@@ -76,13 +76,14 @@ function UsersManagementContent() {
   // Filtros y búsqueda
   const [searchTerm, setSearchTerm] = useState("")
   const [roleFilter, setRoleFilter] = useState("all")
+  const [statusFilter, setStatusFilter] = useState("all")
   const [currentPage, setCurrentPage] = useState(1)
   const [limit, setLimit] = useState(10)
 
   useEffect(() => {
     loadUsers()
     loadTrainers()
-  }, [currentPage, roleFilter, limit])
+  }, [currentPage, roleFilter, statusFilter, limit])
 
   useEffect(() => {
     loadTrainers()
@@ -111,6 +112,11 @@ function UsersManagementContent() {
         search: searchTerm
       })
 
+      // Agregar filtro de estado activo si no es "all"
+      if (statusFilter !== "all") {
+        params.set("active", statusFilter === "active" ? "true" : "false")
+      }
+
       const response = await fetch(`/api/users?${params}`)
       const data = await response.json()
 
@@ -130,7 +136,7 @@ function UsersManagementContent() {
 
   const loadTrainers = async () => {
     try {
-      const response = await fetch("/api/trainers")
+      const response = await fetch("/api/trainers?active=true")
       const data = await response.json()
       
       if (data.success) {
@@ -176,6 +182,8 @@ function UsersManagementContent() {
   const handleUserSaved = async (userData: any) => {
     try {
       setIsModalLoading(true)
+      
+      console.log("🔄 Sending user data to update:", userData)
       
       if (selectedUser) {
         // Actualizar usuario existente
@@ -245,6 +253,7 @@ function UsersManagementContent() {
   const resetFilters = () => {
     setSearchTerm("")
     setRoleFilter("all")
+    setStatusFilter("all")
     setCurrentPage(1)
     setLimit(10)
   }
@@ -333,7 +342,7 @@ function UsersManagementContent() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                 <div>
                   <Label htmlFor="search" className="text-gray-300">Buscar</Label>
                   <Input
@@ -355,6 +364,19 @@ function UsersManagementContent() {
                       <SelectItem value="ADMIN">Administrador</SelectItem>
                       <SelectItem value="TEACHER">Profesor</SelectItem>
                       <SelectItem value="STUDENT">Estudiante</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="status" className="text-gray-300">Estado</Label>
+                  <Select value={statusFilter} onValueChange={setStatusFilter}>
+                    <SelectTrigger className="bg-gray-700 border-gray-600 text-white">
+                      <SelectValue placeholder="Todos los estados" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-gray-700 border-gray-600">
+                      <SelectItem value="all">Todos los estados</SelectItem>
+                      <SelectItem value="active">Solo activos</SelectItem>
+                      <SelectItem value="inactive">Solo inactivos</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

@@ -50,9 +50,11 @@ export default function LoginPage() {
       console.log("📝 SignIn result:", result);
 
       if (result?.error) {
-        // Manejo especial para CredentialsSignin
+        // Manejo especial para diferentes tipos de errores
         if (result.error === "CredentialsSignin") {
           setError("Credenciales inválidas o sesión previa corrupta. Por favor, intenta nuevamente. Si el problema persiste, borra las cookies del navegador.");
+        } else if (result.error === "USER_INACTIVE") {
+          setError("Tu cuenta ha sido desactivada. Por favor, contacta al administrador del sistema.");
         } else {
           setError("Error: " + result.error);
         }
