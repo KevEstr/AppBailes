@@ -4,12 +4,24 @@ import { prisma } from "@/lib/prisma"
 export async function GET(request: Request) {
   try {
     const url = new URL(request.url)
-    const isActive = url.searchParams.get('active') !== 'false'
+    const activeParam = url.searchParams.get('active')
+    
+    // Si no se especifica active o es 'true', traer solo activos
+    // Si se especifica 'false', traer solo inactivos
+    // Si se especifica 'all', traer todos
+    let whereClause: any = {}
+    
+    if (activeParam === 'false') {
+      whereClause.isActive = false
+    } else if (activeParam === 'all') {
+      // No aplicar filtro, traer todos
+    } else {
+      // Por defecto, traer solo activos
+      whereClause.isActive = true
+    }
 
     const students = await prisma.student.findMany({
-      where: {
-        isActive,
-      },
+      where: whereClause,
       include: {
         user: { select: { email: true } },
         classEnrollments: {

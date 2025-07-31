@@ -28,8 +28,12 @@ export const authOptions: NextAuthOptions = {
             }
           })
 
-          if (!user || !user.isActive) {
+          if (!user) {
             return null
+          }
+
+          if (!user.isActive) {
+            throw new Error("USER_INACTIVE")
           }
 
           const isPasswordValid = await bcrypt.compare(
@@ -51,6 +55,9 @@ export const authOptions: NextAuthOptions = {
           }
         } catch (error) {
           console.error("Error during authentication:", error)
+          if (error instanceof Error && error.message === "USER_INACTIVE") {
+            throw error
+          }
           return null
         }
       }

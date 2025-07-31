@@ -6,7 +6,7 @@ const ADMIN_ROUTES = ["/admin", "/receipts", "/messages", "/debts", "/history"]
 const SHARED_ROUTES = ["/classes", "/attendance"]
 const TEACHER_ROUTES = ["/teacher"]
 const STUDENT_ROUTES = ["/student"]
-const PUBLIC_ROUTES = ["/login"]
+const PUBLIC_ROUTES = ["/login", "/enrollment"]
 const PAYMENT_ROUTES = ["/payment/", "/recibo/"]
 
 export default withAuth(
@@ -160,8 +160,8 @@ export default withAuth(
           return true
         }
 
-        // ⚡ LOGIN: PERMITIR SIN TOKEN
-        if (pathname === "/login") {
+        // ⚡ LOGIN Y ENROLLMENT: PERMITIR SIN TOKEN
+        if (pathname === "/login" || pathname === "/enrollment") {
           return true
         }
 
@@ -177,8 +177,8 @@ export const config = {
   matcher: [
     /*
      * ⚡ OPTIMIZACIÓN: Matcher más específico para reducir overhead
-     * Excluye rutas públicas de pago, recibos y uploads
+     * Excluye rutas públicas de pago, recibos, inscripciones y uploads
      */
-    "/((?!api/auth|api/recibo|api/payment-form|api/upload|payment/|recibo/|_next/static|_next/image|favicon.ico|.*\\.|uploads/).*)",
+    "/((?!api/auth|api/recibo|api/payment-form|api/upload|payment/|recibo/|enrollment|_next/static|_next/image|favicon.ico|.*\\.|uploads/).*)",
   ]
 }

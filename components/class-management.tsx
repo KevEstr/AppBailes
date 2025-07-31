@@ -95,7 +95,7 @@ export default function ClassManagement() {
 
   const fetchTrainers = async () => {
     try {
-      const response = await fetch('/api/trainers')
+      const response = await fetch('/api/trainers?active=true')
       const data = await response.json()
       if (data.success) {
         setTrainers(data.trainers)

@@ -50,9 +50,11 @@ export default function LoginPage() {
       console.log("📝 SignIn result:", result);
 
       if (result?.error) {
-        // Manejo especial para CredentialsSignin
+        // Manejo especial para diferentes tipos de errores
         if (result.error === "CredentialsSignin") {
           setError("Credenciales inválidas o sesión previa corrupta. Por favor, intenta nuevamente. Si el problema persiste, borra las cookies del navegador.");
+        } else if (result.error === "USER_INACTIVE") {
+          setError("Tu cuenta ha sido desactivada. Por favor, contacta al administrador del sistema.");
         } else {
           setError("Error: " + result.error);
         }
@@ -233,10 +235,23 @@ export default function LoginPage() {
                     <span>Iniciar Sesión</span>
                   </div>
                 )}
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
+                             </Button>
+             </form>
+
+             {/* Registrarse Link - Texto simple */}
+             <div className="text-center pt-2">
+               <span className="text-gray-400 text-sm">
+                 ¿No tienes una cuenta?{" "}
+                 <a
+                   href="/enrollment"
+                   className="text-blue-400 hover:text-blue-300 transition-colors duration-200 underline"
+                 >
+                   Registrarse
+                 </a>
+               </span>
+             </div>
+           </CardContent>
+         </Card>
 
         {/* Footer */}
         <div className="text-center mt-6">

@@ -64,6 +64,8 @@ export async function PUT(
 
     const { email, password, role, isActive, name, phone } = await request.json()
 
+    console.log("📝 Updating user:", { userId, email, role, isActive, name, phone })
+
     if (!email || !role) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
     }
@@ -125,8 +127,15 @@ export async function PUT(
     // Preparar datos para actualizar usuario
     const updateData: any = {
       email,
-      role,
-      isActive: isActive !== undefined ? isActive : existingUser.isActive
+      role
+    }
+
+    // Actualizar isActive solo si se proporciona un valor
+    if (isActive !== undefined) {
+      updateData.isActive = isActive
+      console.log("✅ isActive will be updated to:", isActive)
+    } else {
+      console.log("ℹ️ isActive not provided, keeping current value")
     }
 
     // Solo actualizar la contraseña si se proporciona una nueva
@@ -145,6 +154,27 @@ export async function PUT(
           student: true
         }
       });
+
+      // Sincronizar el estado isActive con las tablas relacionadas
+      if (isActive !== undefined) {
+        // Si el usuario tiene relación con un estudiante, actualizar el estado del estudiante
+        if (existingUser.student) {
+          await tx.student.update({
+            where: { userId: userId },
+            data: { isActive: isActive }
+          });
+          console.log(`✅ Estado del estudiante ${existingUser.student.name} sincronizado a: ${isActive}`);
+        }
+
+        // Si el usuario tiene relación con un entrenador, actualizar el estado del entrenador
+        if (existingUser.trainer) {
+          await tx.trainer.update({
+            where: { id: existingUser.trainer.id },
+            data: { isActive: isActive }
+          });
+          console.log(`✅ Estado del entrenador ${existingUser.trainer.name} sincronizado a: ${isActive}`);
+        }
+      }
 
       // Actualizar el nombre en Student si el usuario tiene relación con un estudiante
       if (name && existingUser.student) {
@@ -192,6 +222,12 @@ export async function PUT(
 
     const { password: _, ...userWithoutPassword } = result!;
 
+    console.log("✅ User updated successfully:", { 
+      id: userWithoutPassword.id, 
+      email: userWithoutPassword.email, 
+      isActive: userWithoutPassword.isActive 
+    })
+
     return NextResponse.json({ success: true, user: userWithoutPassword });
   } catch (error) {
     console.error("Error updating user:", error)
@@ -219,7 +255,11 @@ export async function DELETE(
 
     // Verificar que el usuario existe
     const existingUser = await prisma.user.findUnique({
-      where: { id: userId }
+      where: { id: userId },
+      include: {
+        student: true,
+        trainer: true
+      }
     })
 
     if (!existingUser) {
@@ -231,13 +271,42 @@ export async function DELETE(
       return NextResponse.json({ error: "Cannot delete your own account" }, { status: 400 })
     }
 
-    await prisma.user.delete({
-      where: { id: userId }
-    })
+    // Implementar soft delete en una transacción
+    const result = await prisma.$transaction(async (tx) => {
+      // Marcar el usuario como inactivo
+      const updatedUser = await tx.user.update({
+        where: { id: userId },
+        data: { isActive: false }
+      });
 
-    return NextResponse.json({ success: true, message: "User deleted successfully" })
+      // Si el usuario es un estudiante, marcar el estudiante como inactivo
+      if (existingUser.student) {
+        await tx.student.update({
+          where: { userId: userId },
+          data: { isActive: false }
+        });
+        console.log(`✅ Estudiante ${existingUser.student.name} marcado como inactivo`);
+      }
+
+      // Si el usuario es un entrenador, marcar el entrenador como inactivo
+      if (existingUser.trainer) {
+        await tx.trainer.update({
+          where: { userId: userId },
+          data: { isActive: false }
+        });
+        console.log(`✅ Entrenador ${existingUser.trainer.name} marcado como inactivo`);
+      }
+
+      return updatedUser;
+    });
+
+    return NextResponse.json({ 
+      success: true, 
+      message: "User and related records deactivated successfully",
+      user: result
+    })
   } catch (error) {
-    console.error("Error deleting user:", error)
+    console.error("Error soft deleting user:", error)
     return NextResponse.json({ success: false, error: "Internal Server Error" }, { status: 500 })
   }
 }
