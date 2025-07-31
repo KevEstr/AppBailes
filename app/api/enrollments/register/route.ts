@@ -189,6 +189,8 @@ export async function POST(request: NextRequest) {
       console.log('✅ Formulario de pago creado:', paymentForm.id);
       
       // ===== ENVIAR WHATSAPP AUTOMÁTICAMENTE =====
+      // TEMPORALMENTE DESHABILITADO - Para reactivar, descomenta las líneas siguientes
+      /*
       console.log('📱 Enviando WhatsApp automático...');
       
       const whatsappService = new WhatsAppService();
@@ -214,6 +216,10 @@ export async function POST(request: NextRequest) {
       } else {
         console.log('⚠️ Error enviando WhatsApp:', whatsappResult.error);
       }
+      */
+      
+      // Mensaje temporal mientras WhatsApp está deshabilitado
+      console.log('📱 WhatsApp temporalmente deshabilitado');
       
     } catch (error) {
       console.error('❌ Error en proceso de pago/WhatsApp:', error);
