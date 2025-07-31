@@ -235,10 +235,23 @@ export default function LoginPage() {
                     <span>Iniciar Sesión</span>
                   </div>
                 )}
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
+                             </Button>
+             </form>
+
+             {/* Registrarse Link - Texto simple */}
+             <div className="text-center pt-2">
+               <span className="text-gray-400 text-sm">
+                 ¿No tienes una cuenta?{" "}
+                 <a
+                   href="/enrollment"
+                   className="text-blue-400 hover:text-blue-300 transition-colors duration-200 underline"
+                 >
+                   Registrarse
+                 </a>
+               </span>
+             </div>
+           </CardContent>
+         </Card>
 
         {/* Footer */}
         <div className="text-center mt-6">
