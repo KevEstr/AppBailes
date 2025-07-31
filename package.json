@@ -25,6 +25,8 @@
     "db:seed-real": "ts-node --esm prisma/seed-real-data.ts",
     "import:students": "ts-node scripts/import-students-from-csv.ts",
     "import:volleyball": "ts-node scripts/import-volleyball-from-csv.ts",
+    "clear:students": "ts-node scripts/clear-students.ts",
+    "clear:students:simple": "ts-node scripts/clear-students-simple.ts",
     "docker:build": "docker build -t appbailes .",
     "docker:run": "docker run -p 3000:3000 appbailes",
     "docker:dev": "docker-compose up --build",

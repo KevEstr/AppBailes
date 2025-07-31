@@ -173,6 +173,7 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json()
+    console.log("🔍 API: Updating student with data:", body)
     
     let existingStudent;
     
@@ -181,7 +182,8 @@ export async function PUT(request: NextRequest) {
       existingStudent = await prisma.student.findUnique({
         where: { id: body.studentId },
         include: {
-          classEnrollments: true
+          classEnrollments: true,
+          enrollmentData: true
         }
       })
     } 
@@ -190,7 +192,8 @@ export async function PUT(request: NextRequest) {
       existingStudent = await prisma.student.findFirst({
         where: { userId: parseInt(userId) },
         include: {
-          classEnrollments: true
+          classEnrollments: true,
+          enrollmentData: true
         }
       })
     }
@@ -205,20 +208,31 @@ export async function PUT(request: NextRequest) {
       )
     }
 
-    // Actualizar datos básicos del estudiante (todos los campos planos)
+    console.log("🔍 API: Found existing student:", existingStudent.id)
+
+    // Actualizar datos básicos del estudiante (solo campos que están en la tabla Student)
+    const studentUpdateData: any = {
+      name: body.name,
+      phone: body.phone,
+    }
+
+    // Solo permitir que los administradores actualicen campos sensibles
+    if (userRole === 'ADMIN') {
+      if (body.isActive !== undefined) {
+        studentUpdateData.isActive = body.isActive;
+      }
+    } else {
+      // Si no es admin, mantener el valor actual del campo sensible
+      studentUpdateData.isActive = existingStudent.isActive;
+    }
+
     await prisma.student.update({
       where: { id: existingStudent.id },
-      data: {
-        name: body.name,
-        phone: body.phone,
-        isActive: body.isActive !== undefined ? body.isActive : existingStudent.isActive
-      }
+      data: studentUpdateData
     })
 
     // Si el email cambió, actualizarlo en User
-    // Si el email cambió, actualizarlo en User
     if (body.email && userIntId) {
-      // Para cumplir con la validación del endpoint de usuario, enviar name, role e isActive
       await prisma.user.update({
         where: { id: userIntId },
         data: {
@@ -231,7 +245,9 @@ export async function PUT(request: NextRequest) {
 
     // Si hay datos de enrollment, actualizarlos también
     if (body.enrollmentData) {
-      const enrollmentUpdate = {
+      console.log("🔍 API: Current monthlyFee:", existingStudent.enrollmentData?.monthlyFee);
+      console.log("🔍 API: Requested monthlyFee:", body.enrollmentData.monthlyFee);
+      const enrollmentUpdate: any = {
         documentType: body.enrollmentData.documentType,
         birthDate: body.enrollmentData.birthDate,
         address: body.enrollmentData.address,
@@ -253,6 +269,16 @@ export async function PUT(request: NextRequest) {
         guardianPhone: body.enrollmentData.guardianPhone,
       }
 
+      // Solo permitir que los administradores actualicen monthlyFee
+      if (userRole === 'ADMIN' && body.enrollmentData.monthlyFee !== undefined) {
+        enrollmentUpdate.monthlyFee = body.enrollmentData.monthlyFee;
+        console.log("🔍 API: Admin updating monthlyFee to:", body.enrollmentData.monthlyFee);
+      } else if (existingStudent.enrollmentData?.monthlyFee !== undefined) {
+        // Si no es admin, mantener el valor actual
+        enrollmentUpdate.monthlyFee = existingStudent.enrollmentData.monthlyFee;
+        console.log("🔍 API: Non-admin, keeping current monthlyFee:", existingStudent.enrollmentData.monthlyFee);
+      }
+
       await prisma.studentEnrollmentData.upsert({
         where: { studentId: existingStudent.id },
         update: enrollmentUpdate,
@@ -261,6 +287,12 @@ export async function PUT(request: NextRequest) {
           ...enrollmentUpdate
         }
       })
+      
+      // Verificar que se actualizó correctamente
+      const updatedEnrollmentData = await prisma.studentEnrollmentData.findUnique({
+        where: { studentId: existingStudent.id }
+      });
+      console.log("🔍 API: Updated monthlyFee in database:", updatedEnrollmentData?.monthlyFee);
     }
 
     // Si el estado activo/inactivo cambió, actualizar todas las inscripciones del estudiante
@@ -271,13 +303,15 @@ export async function PUT(request: NextRequest) {
       })
     }
 
+    console.log("✅ API: Student profile updated successfully")
+
     return NextResponse.json({
       success: true,
       message: 'Perfil actualizado correctamente'
     })
 
   } catch (error) {
-    console.error('Error updating student profile:', error)
+    console.error('❌ API: Error updating student profile:', error)
     return NextResponse.json(
       { error: 'Error interno del servidor' },
       { status: 500 }

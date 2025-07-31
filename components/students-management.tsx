@@ -123,11 +123,37 @@ export function StudentsManagement() {
     email: localStudent.user?.email || '',
     phone: localStudent.phone,
     documentNumber: localStudent.id.toString(),
+    documentType: 'CC', // Valor por defecto
+    birthDate: '',
+    address: '',
+            addressLatitude: undefined,
+        addressLongitude: undefined,
+    neighborhood: '',
     city: "Itagüí",
+    hasSisben: false,
+    eps: '',
+    bloodType: '',
+    hasRestrictions: false,
+    restrictionsDescription: '',
+    medicalConditions: '',
+    isAdult: true,
+    emergencyContactName: '',
+    emergencyContactRelation: '',
+    emergencyContactPhone: '',
+    guardianName: '',
+    guardianRelation: '',
+    guardianPhone: '',
     monthlyFee: 0,
     avatar: localStudent.avatar || '',
-    isActive: localStudent.isActive, // <-- Añadido para pasar el estado activo/inactivo
-    // Puedes agregar más campos si los necesitas en el modal
+    isActive: localStudent.isActive,
+    // Campos legacy para compatibilidad
+    age: undefined,
+    maritalStatus: '',
+    emergencyContact: '',
+    emergencyPhone: '',
+    relationship: '',
+    hasMedicalRestrictions: false,
+    medicalRestrictions: ''
   });
 
   const loadEnrollments = async (
@@ -701,10 +727,47 @@ export function StudentsManagement() {
               isOpen={editModalOpen}
               onClose={() => setEditModalOpen(false)}
               student={convertStudentForModal(selectedStudent.student)}
-              onStudentUpdated={() => {
+              onStudentUpdated={async () => {
                 // Recargar los datos para actualizar contadores y lista
-                loadEnrollments(currentPage, searchTerm, statusFilter);
+                await loadEnrollments(currentPage, searchTerm, statusFilter);
+                
                 // También actualizar el estado local del estudiante seleccionado
+                // Buscar el estudiante actualizado en la nueva lista
+                const updatedEnrollments = enrollments.map(enrollment => {
+                  if (enrollment.student.id.toString() === selectedStudent.student.id.toString()) {
+                    // Cargar los datos actualizados del estudiante desde el API
+                    return fetch(`/api/students/profile?studentId=${enrollment.student.id}`)
+                      .then(res => res.json())
+                      .then(data => {
+                        if (data.success && data.student) {
+                          return {
+                            ...enrollment,
+                            student: {
+                              ...enrollment.student,
+                              name: data.student.name,
+                              phone: data.student.phone,
+                              isActive: data.student.isActive,
+                              // Incluir datos de enrollment si existen
+                              ...(data.student.enrollmentData && {
+                                address: data.student.enrollmentData.address,
+                                neighborhood: data.student.enrollmentData.neighborhood,
+                                city: data.student.enrollmentData.city,
+                              })
+                            }
+                          };
+                        }
+                        return enrollment;
+                      })
+                      .catch(() => enrollment);
+                  }
+                  return enrollment;
+                });
+                
+                // Actualizar el estado con los enrollments actualizados
+                Promise.all(updatedEnrollments).then(updated => {
+                  setEnrollments(updated);
+                });
+                
                 setSelectedStudent(null);
               }}
             />

@@ -61,6 +61,29 @@ interface Student {
   }
   // Campo avatar directo en Student
   avatar?: string
+  // Datos de inscripción
+  enrollmentData?: {
+    monthlyFee?: number
+    documentType?: string
+    birthDate?: string
+    address?: string
+    addressLatitude?: number
+    addressLongitude?: number
+    neighborhood?: string
+    city?: string
+    hasSisben?: boolean
+    eps?: string
+    bloodType?: string
+    hasRestrictions?: boolean
+    restrictionsDescription?: string
+    medicalConditions?: string
+    emergencyContactName?: string
+    emergencyContactRelation?: string
+    emergencyContactPhone?: string
+    guardianName?: string
+    guardianRelation?: string
+    guardianPhone?: string
+  }
   // Legacy fields for compatibility
   age?: number;
   maritalStatus?: string;
@@ -141,49 +164,138 @@ export default function EditStudentModal({
 
   // Check if current user is a student editing their own profile
   const isStudentEditingOwnProfile = session?.user?.role === 'STUDENT' && 
-    session?.user?.email === formData?.email;
+    (session?.user?.email === formData?.email || session?.user?.email === student?.email);
+  
+  // Check if user is admin
+  const isAdmin = session?.user?.role === 'ADMIN';
 
   useEffect(() => {
-    if (student) {
-      // Traer el email desde student.email (inyectado por el backend) o desde la relación user
-      const initialData = {
-        id: student.id.toString(),
-        name: student.name,
-        email: student.email || student.user?.email || '',
-        avatar: student.avatar || '',
-        phone: student.phone,
-        documentNumber: student.documentNumber || student.id.toString(),
-        documentType: student.documentType || 'CC',
-        birthDate: student.birthDate || '',
-        address: student.address || '',
-        addressLatitude: student.addressLatitude,
-        addressLongitude: student.addressLongitude,
-        neighborhood: student.neighborhood || '',
-        city: student.city || 'Itagüí',
-        hasSisben: student.hasSisben || false,
-        eps: student.eps || '',
-        bloodType: student.bloodType || '',
-        hasRestrictions: student.hasRestrictions || false,
-        restrictionsDescription: student.restrictionsDescription || '',
-        medicalConditions: student.medicalConditions || '',
-        isAdult: student.isAdult ?? true,
-        emergencyContactName: student.emergencyContactName || '',
-        emergencyContactRelation: student.emergencyContactRelation || '',
-        emergencyContactPhone: student.emergencyContactPhone || '',
-        guardianName: student.guardianName || '',
-        guardianRelation: student.guardianRelation || '',
-        guardianPhone: student.guardianPhone || '',
-        monthlyFee: student.monthlyFee || 0,
-        isActive: student.isActive ?? true // <-- Añadido para manejar el estado
+    const loadStudentData = async () => {
+      if (student && student.id) {
+        try {
+          // Cargar datos completos del estudiante desde el API
+          const response = await fetch(`/api/students/profile?studentId=${student.id}`);
+          const data = await response.json();
+          
+          if (data.success && data.student) {
+            const fullStudent = data.student;
+            const initialData = {
+              id: fullStudent.id.toString(),
+              name: fullStudent.name,
+              email: fullStudent.email || fullStudent.user?.email || '',
+              avatar: fullStudent.avatar || '',
+              phone: fullStudent.phone,
+              documentNumber: fullStudent.documentNumber || fullStudent.id.toString(),
+              documentType: fullStudent.documentType || fullStudent.enrollmentData?.documentType || 'CC',
+              birthDate: fullStudent.birthDate || fullStudent.enrollmentData?.birthDate || '',
+              address: fullStudent.address || fullStudent.enrollmentData?.address || '',
+              addressLatitude: fullStudent.addressLatitude || fullStudent.enrollmentData?.addressLatitude,
+              addressLongitude: fullStudent.addressLongitude || fullStudent.enrollmentData?.addressLongitude,
+              neighborhood: fullStudent.neighborhood || fullStudent.enrollmentData?.neighborhood || '',
+              city: fullStudent.city || fullStudent.enrollmentData?.city || 'Itagüí',
+              hasSisben: fullStudent.hasSisben || fullStudent.enrollmentData?.hasSisben || false,
+              eps: fullStudent.eps || fullStudent.enrollmentData?.eps || '',
+              bloodType: fullStudent.bloodType || fullStudent.enrollmentData?.bloodType || '',
+              hasRestrictions: fullStudent.hasRestrictions || fullStudent.enrollmentData?.hasRestrictions || false,
+              restrictionsDescription: fullStudent.restrictionsDescription || fullStudent.enrollmentData?.restrictionsDescription || '',
+              medicalConditions: fullStudent.medicalConditions || fullStudent.enrollmentData?.medicalConditions || '',
+              isAdult: fullStudent.isAdult ?? fullStudent.enrollmentData?.isAdult ?? true,
+              emergencyContactName: fullStudent.emergencyContactName || fullStudent.enrollmentData?.emergencyContactName || '',
+              emergencyContactRelation: fullStudent.emergencyContactRelation || fullStudent.enrollmentData?.emergencyContactRelation || '',
+              emergencyContactPhone: fullStudent.emergencyContactPhone || fullStudent.enrollmentData?.emergencyContactPhone || '',
+              guardianName: fullStudent.guardianName || fullStudent.enrollmentData?.guardianName || '',
+              guardianRelation: fullStudent.guardianRelation || fullStudent.enrollmentData?.guardianRelation || '',
+              guardianPhone: fullStudent.guardianPhone || fullStudent.enrollmentData?.guardianPhone || '',
+                             monthlyFee: fullStudent.enrollmentData?.monthlyFee || 0,
+              isActive: fullStudent.isActive ?? true
+            }
+            setFormData(initialData)
+          } else {
+            // Fallback a los datos básicos si no se puede cargar desde el API
+            const initialData = {
+              id: student.id.toString(),
+              name: student.name,
+              email: student.email || student.user?.email || '',
+              avatar: student.avatar || '',
+              phone: student.phone,
+              documentNumber: student.documentNumber || student.id.toString(),
+              documentType: student.documentType || 'CC',
+              birthDate: student.birthDate || '',
+              address: student.address || '',
+              addressLatitude: student.addressLatitude,
+              addressLongitude: student.addressLongitude,
+              neighborhood: student.neighborhood || '',
+              city: student.city || 'Itagüí',
+              hasSisben: student.hasSisben || false,
+              eps: student.eps || '',
+              bloodType: student.bloodType || '',
+              hasRestrictions: student.hasRestrictions || false,
+              restrictionsDescription: student.restrictionsDescription || '',
+              medicalConditions: student.medicalConditions || '',
+              isAdult: student.isAdult ?? true,
+              emergencyContactName: student.emergencyContactName || '',
+              emergencyContactRelation: student.emergencyContactRelation || '',
+              emergencyContactPhone: student.emergencyContactPhone || '',
+              guardianName: student.guardianName || '',
+              guardianRelation: student.guardianRelation || '',
+              guardianPhone: student.guardianPhone || '',
+              monthlyFee: student.enrollmentData?.monthlyFee || 0,
+              isActive: student.isActive ?? true
+            }
+            setFormData(initialData)
+          }
+        } catch (error) {
+          console.error('Error loading student data:', error);
+          // Fallback a los datos básicos en caso de error
+          const initialData = {
+            id: student.id.toString(),
+            name: student.name,
+            email: student.email || student.user?.email || '',
+            avatar: student.avatar || '',
+            phone: student.phone,
+            documentNumber: student.documentNumber || student.id.toString(),
+            documentType: student.documentType || 'CC',
+            birthDate: student.birthDate || '',
+            address: student.address || '',
+            addressLatitude: student.addressLatitude,
+            addressLongitude: student.addressLongitude,
+            neighborhood: student.neighborhood || '',
+            city: student.city || 'Itagüí',
+            hasSisben: student.hasSisben || false,
+            eps: student.eps || '',
+            bloodType: student.bloodType || '',
+            hasRestrictions: student.hasRestrictions || false,
+            restrictionsDescription: student.restrictionsDescription || '',
+            medicalConditions: student.medicalConditions || '',
+            isAdult: student.isAdult ?? true,
+            emergencyContactName: student.emergencyContactName || '',
+            emergencyContactRelation: student.emergencyContactRelation || '',
+            emergencyContactPhone: student.emergencyContactPhone || '',
+            guardianName: student.guardianName || '',
+            guardianRelation: student.guardianRelation || '',
+            guardianPhone: student.guardianPhone || '',
+            monthlyFee: student.enrollmentData?.monthlyFee || 0,
+            isActive: student.isActive ?? true
+          }
+          setFormData(initialData)
+        }
+      } else {
+        setFormData(null)
       }
-      setFormData(initialData)
-    } else {
-      setFormData(null)
     }
+
+    loadStudentData()
   }, [student]);
 
   const handleInputChange = (field: keyof Student, value: any) => {
     if (!formData) return;
+    
+    // Validar campos sensibles
+    if ((field === 'monthlyFee' || field === 'isActive') && !isAdmin) {
+      console.warn(`Campo ${field} no puede ser modificado por usuarios no administradores`);
+      return;
+    }
+    
     setFormData((prev) => (prev ? { ...prev, [field]: value } : null));
   };
 
@@ -207,6 +319,8 @@ export default function EditStudentModal({
         documentType,
         birthDate,
         address,
+        addressLatitude,
+        addressLongitude,
         neighborhood,
         city,
         hasSisben,
@@ -232,10 +346,18 @@ export default function EditStudentModal({
         enrollmentData,
       };
 
-      // Solo incluir isActive si no es un estudiante editando su propio perfil
-      if (!isStudentEditingOwnProfile) {
+      // Solo incluir monthlyFee en enrollmentData si es admin
+      if (isAdmin) {
+        requestBody.enrollmentData.monthlyFee = monthlyFee;
+        console.log("🔍 Modal: Admin updating monthlyFee to:", monthlyFee);
+      }
+
+      // Solo incluir campos sensibles si es admin
+      if (isAdmin) {
         requestBody.isActive = formData.isActive;
       }
+
+      console.log("🔍 Modal: Sending update request with data:", requestBody);
 
       const studentRes = await fetch(`/api/students/profile`, {
         method: 'PUT',
@@ -244,9 +366,15 @@ export default function EditStudentModal({
         },
         body: JSON.stringify(requestBody),
       })
+      
       if (!studentRes.ok) {
-        throw new Error('Error al actualizar el estudiante')
+        const errorData = await studentRes.json();
+        console.error("❌ Modal: API error response:", errorData);
+        throw new Error(`Error al actualizar el estudiante: ${errorData.error || studentRes.statusText}`)
       }
+
+      const responseData = await studentRes.json();
+      console.log("✅ Modal: Update successful:", responseData);
 
       toast({
         title: "Éxito",
@@ -256,7 +384,7 @@ export default function EditStudentModal({
       onStudentUpdated();
       onClose();
     } catch (error) {
-      console.error("Error updating student:", error);
+      console.error("❌ Modal: Error updating student:", error);
       toast({
         title: "Error",
         description: "Error al actualizar el estudiante",
@@ -760,7 +888,7 @@ export default function EditStudentModal({
               <CardContent className="space-y-4">
                 <div className="max-w-sm">
                   <Label htmlFor="monthlyFee">
-                    Mensualidad {isStudentEditingOwnProfile ? '(Solo administradores)' : '*'}
+                    Mensualidad {!isAdmin ? '(Solo administradores)' : '*'}
                   </Label>
                   <Input
                     id="monthlyFee"
@@ -775,12 +903,12 @@ export default function EditStudentModal({
                       )
                     }
                     required
-                    disabled={isStudentEditingOwnProfile}
+                    disabled={!isAdmin}
                     className={`bg-gray-800 border-gray-600 text-white ${
-                      isStudentEditingOwnProfile ? 'cursor-not-allowed opacity-50' : ''
+                      !isAdmin ? 'cursor-not-allowed opacity-50' : ''
                     }`}
                   />
-                  {isStudentEditingOwnProfile && (
+                  {!isAdmin && (
                     <p className="text-xs text-gray-400 mt-1">
                       La mensualidad solo puede ser modificada por administradores
                     </p>
@@ -795,16 +923,16 @@ export default function EditStudentModal({
                     onCheckedChange={(checked) =>
                       handleInputChange("isActive", checked)
                     }
-                    disabled={isStudentEditingOwnProfile}
+                    disabled={!isAdmin}
                   />
                   <Label htmlFor="isActive" className={`text-white ${
-                    isStudentEditingOwnProfile ? 'opacity-50' : ''
+                    !isAdmin ? 'opacity-50' : ''
                   }`}>
                     Estudiante Activo
                   </Label>
                 </div>
                 <p className="text-xs text-gray-400">
-                  {isStudentEditingOwnProfile 
+                  {!isAdmin 
                     ? 'El estado del estudiante solo puede ser modificado por administradores'
                     : 'Desmarca esta opción para desactivar al estudiante'
                   }
