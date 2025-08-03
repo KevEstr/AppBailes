@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { formatPhoneForDisplay } from "@/lib/phone-utils"
 
 export async function GET(request: Request) {
   try {
@@ -56,7 +57,13 @@ export async function GET(request: Request) {
       },
     })
 
-    return NextResponse.json({ success: true, students })
+    // Formatear números de teléfono para mostrar sin código de país
+    const formattedStudents = students.map(student => ({
+      ...student,
+      phone: formatPhoneForDisplay(student.phone)
+    }))
+
+    return NextResponse.json({ success: true, students: formattedStudents })
   } catch (error) {
     console.error("Error fetching students:", error)
     return NextResponse.json({ error: "Error al obtener estudiantes" }, { status: 500 })

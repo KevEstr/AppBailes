@@ -51,6 +51,13 @@ import {
 import { StudentDetailModal } from "@/components/student-detail-modal";
 import EditStudentModal from "@/components/edit-student-modal";
 import { AdvancedPagination } from "./ui/advanced-pagination";
+import { formatPhoneForDisplay } from "@/lib/phone-utils";
+
+// Utility function to truncate text
+const truncateText = (text: string, maxLength: number = 20): string => {
+  if (!text) return '';
+  return text.length > maxLength ? `${text.substring(0, maxLength)}...` : text;
+};
 
 interface Student {
   id: number
@@ -74,7 +81,7 @@ interface ClassEnrollment {
   danceClass: {
     id: number;
     name: string;
-    type: string;
+    sport: string;
     trainer: {
       name: string;
     };
@@ -304,22 +311,23 @@ export function StudentsManagement() {
     }
   };
 
-  const getClassTypeIcon = (type: string) => {
-    return type === "DANCE" ? (
+  const getClassTypeIcon = (sport: string) => {
+    return sport === "DANCE" ? (
       <GraduationCap className="w-4 h-4" />
     ) : (
       <Users className="w-4 h-4" />
     );
   };
 
-  const getClassTypeBadge = (type: string) => {
-    return type === "DANCE" ? (
+  const getClassTypeBadge = (sport: string) => {
+    console.log('Sport type:', sport) 
+    return sport === "DANCE" ? (
       <Badge variant="secondary" className="bg-purple-100 text-purple-800">
         Baile
       </Badge>
     ) : (
       <Badge variant="secondary" className="bg-blue-100 text-blue-800">
-        Deportes
+        Deporte
       </Badge>
     );
   };
@@ -546,25 +554,18 @@ export function StudentsManagement() {
                               </div>
                             </TableCell>
                             <TableCell>
-                              <div className="space-y-1">
-                                <div className="flex items-center gap-2">
-                                  {getClassTypeIcon(enrollment.danceClass.type)}
-                                  <span className="text-white text-sm">
-                                    {enrollment.danceClass.name}
-                                  </span>
-                                </div>
-                                {getClassTypeBadge(enrollment.danceClass.type)}
+                              <div className="space-y-1 flex justify-center">
+                                {getClassTypeBadge(enrollment.danceClass.sport)}
                               </div>
                             </TableCell>
                             <TableCell>
                               <div className="space-y-1 text-sm">
-                                <p className="text-white">
-                                  {enrollment.danceClass.trainer.name}
+                                <p className="text-white" title={enrollment.danceClass.trainer.name}>
+                                  {truncateText(enrollment.danceClass.trainer.name)}
                                 </p>
                                 {enrollment.danceClass.location && (
-                                  <div className="flex items-center gap-1 text-gray-400">
-                                    <MapPin className="w-3 h-3" />
-                                    {enrollment.danceClass.location.name}
+                                  <div className="flex items-center gap-1 text-gray-400" title={enrollment.danceClass.location.name}>
+                                    {truncateText(enrollment.danceClass.location.name)}
                                   </div>
                                 )}
                               </div>
@@ -573,7 +574,7 @@ export function StudentsManagement() {
                               <div className="space-y-1 text-sm">
                                 <div className="flex items-center gap-1 text-gray-300">
                                   <Phone className="w-3 h-3" />
-                                  {enrollment.student.phone}
+                                  {formatPhoneForDisplay(enrollment.student.phone)}
                                 </div>
                                 {enrollment.student.user?.email && (
                                   <div className="flex items-center gap-1 text-gray-400">

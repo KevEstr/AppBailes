@@ -35,7 +35,12 @@ export default function ChangeProfilePhotoPage() {
   const loadStudentData = async () => {
     try {
       setLoading(true);
-      const response = await fetch("/api/students/profile");
+      const response = await fetch("/api/students/profile", {
+        headers: {
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache'
+        }
+      });
 
       if (!response.ok) {
         throw new Error("Error al cargar datos del estudiante");
@@ -53,6 +58,11 @@ export default function ChangeProfilePhotoPage() {
 
   const handlePhotoSuccess = (newPhotoUrl: string) => {
     setStudent(prev => prev ? { ...prev, avatar: newPhotoUrl } : null);
+    
+    // Mostrar mensaje de éxito y redirigir después de 2 segundos
+    setTimeout(() => {
+      router.push('/student');
+    }, 2000);
   };
 
   if (status === "loading" || loading) {

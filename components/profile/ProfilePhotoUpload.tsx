@@ -120,12 +120,13 @@ export function ProfilePhotoUpload({
       setSuccess(true);
       onSuccess?.(uploadResult.url);
       
-      // Limpiar formulario después de 3 segundos
+      // Limpiar formulario después de 2 segundos y redirigir
       setTimeout(() => {
         setPhotoFile(null);
         setPreviewUrl(null);
         setSuccess(false);
-      }, 3000);
+        // La redirección se maneja en el componente padre
+      }, 2000);
 
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error desconocido');
@@ -285,7 +286,7 @@ export function ProfilePhotoUpload({
               <Alert className="border-green-600 bg-green-950/30">
                 <CheckCircle className="h-4 w-4 text-green-400" />
                 <AlertDescription className="text-green-300">
-                  ¡Foto de perfil actualizada exitosamente!
+                  ¡Foto de perfil actualizada exitosamente! Redirigiendo a tu perfil...
                 </AlertDescription>
               </Alert>
             )}

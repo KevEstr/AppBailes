@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/nextauth'
 import { prisma } from '@/lib/prisma'
+import { formatPhoneForDisplay, formatPhoneForStorage } from '@/lib/phone-utils'
 
 export async function GET(request: NextRequest) {
   try {
@@ -133,13 +134,26 @@ export async function GET(request: NextRequest) {
     })
 
     // Inyectar el email directamente en el objeto student para el frontend
+    // y formatear números de teléfono para mostrar sin código de país
     const studentWithEmail = {
       ...student,
-      email: student.user?.email || ''
+      email: student.user?.email || '',
+      phone: formatPhoneForDisplay(student.phone),
+      enrollmentData: student.enrollmentData ? {
+        ...student.enrollmentData,
+        emergencyContactPhone: formatPhoneForDisplay(student.enrollmentData.emergencyContactPhone),
+        guardianPhone: formatPhoneForDisplay(student.enrollmentData.guardianPhone)
+      } : null
     }
     return NextResponse.json({
       success: true,
       student: studentWithEmail
+    }, {
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      }
     })
 
   } catch (error) {
@@ -213,7 +227,7 @@ export async function PUT(request: NextRequest) {
     // Actualizar datos básicos del estudiante (solo campos que están en la tabla Student)
     const studentUpdateData: any = {
       name: body.name,
-      phone: body.phone,
+      phone: formatPhoneForStorage(body.phone),
     }
 
     // Solo permitir que los administradores actualicen campos sensibles
@@ -263,10 +277,10 @@ export async function PUT(request: NextRequest) {
         medicalConditions: body.enrollmentData.medicalConditions,
         emergencyContactName: body.enrollmentData.emergencyContactName,
         emergencyContactRelation: body.enrollmentData.emergencyContactRelation,
-        emergencyContactPhone: body.enrollmentData.emergencyContactPhone,
+        emergencyContactPhone: body.enrollmentData.emergencyContactPhone ? formatPhoneForStorage(body.enrollmentData.emergencyContactPhone) : null,
         guardianName: body.enrollmentData.guardianName,
         guardianRelation: body.enrollmentData.guardianRelation,
-        guardianPhone: body.enrollmentData.guardianPhone,
+        guardianPhone: body.enrollmentData.guardianPhone ? formatPhoneForStorage(body.enrollmentData.guardianPhone) : null,
       }
 
       // Solo permitir que los administradores actualicen monthlyFee

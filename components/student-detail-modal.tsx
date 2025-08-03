@@ -99,7 +99,7 @@ interface EnrollmentDetail {
   danceClass: {
     id: number;
     name: string;
-    type: string;
+    sport: string;
     price?: number;
     trainer: {
       id: number;
@@ -131,7 +131,7 @@ interface StudentDetailModalProps {
     }
     danceClass: {
       name: string;
-      type: string;
+      sport: string;
       trainer: {
         name: string;
       };
@@ -185,7 +185,7 @@ export function StudentDetailModal({ enrollment }: StudentDetailModalProps) {
             danceClass: {
               id: 0,
               name: enrollment.danceClass.name,
-              type: enrollment.danceClass.type,
+              sport: enrollment.danceClass.sport,
               price: undefined,
               trainer: {
                 id: 0,
@@ -227,7 +227,7 @@ export function StudentDetailModal({ enrollment }: StudentDetailModalProps) {
             danceClass: {
               id: 0,
               name: enrollment.danceClass.name,
-              type: enrollment.danceClass.type,
+              sport: enrollment.danceClass.sport,
               price: undefined,
               trainer: {
                 id: 0,
@@ -270,7 +270,7 @@ export function StudentDetailModal({ enrollment }: StudentDetailModalProps) {
           danceClass: {
             id: 0,
             name: enrollment.danceClass.name,
-            type: enrollment.danceClass.type,
+            sport: enrollment.danceClass.sport,
             price: undefined,
             trainer: {
               id: 0,
@@ -438,7 +438,7 @@ export function StudentDetailModal({ enrollment }: StudentDetailModalProps) {
                 {detailData.student.user?.email && (
                   <span className="flex items-center gap-1">
                     <Mail className="w-3 h-3" />
-                    <span className="truncate max-w-32 sm:max-w-none">{detailData.student.user.email}</span>
+                    <span className="truncate max-w-32 sm:max-w-none" title={detailData.student.user.email}>{detailData.student.user.email}</span>
                   </span>
                 )}
               </div>
@@ -544,7 +544,10 @@ export function StudentDetailModal({ enrollment }: StudentDetailModalProps) {
                       <div className="space-y-2">
                         <div className="flex justify-between items-center">
                           <span className="text-slate-300">Nombre:</span>
-                          <span className="font-medium text-white text-right max-w-40 truncate">
+                          <span className="font-medium text-white text-right max-w-40 truncate" title={detailData.student.enrollmentData
+                              .emergencyContactName ||
+                              detailData.student.enrollmentData
+                                .emergencyContact}>
                             {detailData.student.enrollmentData
                               .emergencyContactName ||
                               detailData.student.enrollmentData
@@ -593,7 +596,7 @@ export function StudentDetailModal({ enrollment }: StudentDetailModalProps) {
                         <div className="space-y-2">
                           <div className="flex justify-between items-center">
                             <span className="text-slate-300">Nombre:</span>
-                            <span className="font-medium text-white text-right max-w-40 truncate">
+                            <span className="font-medium text-white text-right max-w-40 truncate" title={detailData.student.enrollmentData.guardianName}>
                               {detailData.student.enrollmentData.guardianName}
                             </span>
                           </div>
@@ -651,7 +654,7 @@ export function StudentDetailModal({ enrollment }: StudentDetailModalProps) {
             <CardContent className="space-y-3 text-sm">
               <div className="flex justify-between items-center">
                 <span className="text-slate-300">Clase:</span>
-                <span className="font-medium text-white text-right max-w-40 truncate">
+                <span className="font-medium text-white text-right max-w-40 truncate" title={detailData.danceClass.name}>
                   {detailData.danceClass.name}
                 </span>
               </div>
@@ -659,17 +662,17 @@ export function StudentDetailModal({ enrollment }: StudentDetailModalProps) {
                 <span className="text-slate-300">Tipo:</span>
                 <Badge
                   className={`${
-                    detailData.danceClass.type === "DANCE"
+                    detailData.danceClass.sport === "DANCE"
                       ? "bg-purple-600"
                       : "bg-orange-600"
                   } text-white border-0`}
                 >
-                  {detailData.danceClass.type === "DANCE" ? "Baile" : "Deporte"}
+                  {detailData.danceClass.sport === "DANCE" ? "Baile" : "Deporte"}
                 </Badge>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-slate-300">Entrenador:</span>
-                <span className="font-medium text-white text-right max-w-40 truncate">
+                <span className="font-medium text-white text-right max-w-40 truncate" title={detailData.danceClass.trainer.name}>
                   {detailData.danceClass.trainer.name}
                 </span>
               </div>
@@ -685,7 +688,7 @@ export function StudentDetailModal({ enrollment }: StudentDetailModalProps) {
                 <>
                   <div className="flex justify-between items-center">
                     <span className="text-slate-300">Ubicación:</span>
-                    <span className="font-medium text-white text-right max-w-40 truncate">
+                    <span className="font-medium text-white text-right max-w-40 truncate" title={detailData.danceClass.location.name}>
                       {detailData.danceClass.location.name}
                     </span>
                   </div>

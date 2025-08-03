@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { formatPhoneForDisplay } from '@/lib/phone-utils';
 
 // GET /api/admin/students - Obtener estudiantes con información de pago
 export async function GET(request: NextRequest) {
@@ -116,7 +117,7 @@ export async function GET(request: NextRequest) {
       return {
         id: student.id,
         name: student.name,
-        phone: student.phone,
+        phone: formatPhoneForDisplay(student.phone),
         isActive: student.isActive,
         debtAmount: debtAmount > 0 ? debtAmount : 0,
         paymentStatus,

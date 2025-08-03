@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { formatPhoneForDisplay, formatPhoneForStorage } from '@/lib/phone-utils'
 
 export async function GET(
   request: NextRequest,
@@ -39,9 +40,20 @@ export async function GET(
       )
     }
 
+    // Formatear números de teléfono para mostrar sin código de país
+    const formattedStudent = {
+      ...student,
+      phone: formatPhoneForDisplay(student.phone),
+      enrollmentData: student.enrollmentData ? {
+        ...student.enrollmentData,
+        emergencyContactPhone: formatPhoneForDisplay(student.enrollmentData.emergencyContactPhone),
+        guardianPhone: formatPhoneForDisplay(student.enrollmentData.guardianPhone)
+      } : null
+    }
+
     return NextResponse.json({
       success: true,
-      student
+      student: formattedStudent
     })
   } catch (error) {
     console.error('Error fetching student:', error)
@@ -93,7 +105,7 @@ export async function PUT(
       where: { id: studentId },
       data: {
         name: data.name,
-        phone: data.phone
+        phone: formatPhoneForStorage(data.phone)
       }
     })
 
@@ -119,10 +131,10 @@ export async function PUT(
         isAdult: data.isAdult !== undefined ? data.isAdult : true,
         emergencyContactName: data.emergencyContactName || null,
         emergencyContactRelation: data.emergencyContactRelation || null,
-        emergencyContactPhone: data.emergencyContactPhone || null,
+        emergencyContactPhone: data.emergencyContactPhone ? formatPhoneForStorage(data.emergencyContactPhone) : null,
         guardianName: data.guardianName || null,
         guardianRelation: data.guardianRelation || null,
-        guardianPhone: data.guardianPhone || null,
+        guardianPhone: data.guardianPhone ? formatPhoneForStorage(data.guardianPhone) : null,
         monthlyFee: data.monthlyFee || null
       },
       create: {
@@ -143,10 +155,10 @@ export async function PUT(
         isAdult: data.isAdult !== undefined ? data.isAdult : true,
         emergencyContactName: data.emergencyContactName || null,
         emergencyContactRelation: data.emergencyContactRelation || null,
-        emergencyContactPhone: data.emergencyContactPhone || null,
+        emergencyContactPhone: data.emergencyContactPhone ? formatPhoneForStorage(data.emergencyContactPhone) : null,
         guardianName: data.guardianName || null,
         guardianRelation: data.guardianRelation || null,
-        guardianPhone: data.guardianPhone || null,
+        guardianPhone: data.guardianPhone ? formatPhoneForStorage(data.guardianPhone) : null,
         monthlyFee: data.monthlyFee || null
       }
     })

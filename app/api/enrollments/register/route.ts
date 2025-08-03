@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import bcrypt from 'bcryptjs'
 import { EnrollmentPaymentService } from '@/lib/enrollment-payment-service'
 import { WhatsAppService } from '@/lib/whatsapp-service'
+import { formatPhoneForStorage } from '@/lib/phone-utils'
 
 const enrollmentPaymentService = new EnrollmentPaymentService()
 
@@ -13,6 +14,8 @@ export async function POST(request: NextRequest) {
     // Log para debugging - ver qué datos están llegando
     console.log('📋 Datos recibidos en enrollment/register:', JSON.stringify(data, null, 2))
     
+
+
     // Validar datos requeridos
     if (!data.studentName || !data.documentNumber || !data.phone) {
       console.log('❌ Faltan datos requeridos:', {
@@ -23,6 +26,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         success: false,
         error: 'Faltan datos requeridos'
+      }, { status: 400 })
+    }
+
+    // Validar formato de teléfono
+    const cleanPhone = data.phone.replace(/\D/g, '')
+    if (cleanPhone.length !== 10) {
+      return NextResponse.json({
+        success: false,
+        error: 'El número de teléfono debe tener exactamente 10 dígitos'
       }, { status: 400 })
     }
 
@@ -83,7 +95,7 @@ export async function POST(request: NextRequest) {
           data: {
             id: documentNumberStr,
             name: data.studentName,
-            phone: data.phone,
+            phone: formatPhoneForStorage(data.phone),
             avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(data.studentName)}`,
             userId: user.id
           }
@@ -102,7 +114,7 @@ export async function POST(request: NextRequest) {
             addressLatitude: data.addressLatitude || null,
             addressLongitude: data.addressLongitude || null,
             neighborhood: data.neighborhood || null,
-            city: 'Itagüí',
+            city: data.city || null,
             hasSisben: data.hasSisben || false,
             eps: data.eps || null,
             bloodType: data.bloodType || null,
@@ -112,10 +124,10 @@ export async function POST(request: NextRequest) {
             isAdult: data.isAdult !== undefined ? data.isAdult : true,
             emergencyContactName: data.emergencyContactName || null,
             emergencyContactRelation: data.emergencyContactRelation || null,
-            emergencyContactPhone: data.emergencyContactPhone || null,
+            emergencyContactPhone: data.emergencyContactPhone ? formatPhoneForStorage(data.emergencyContactPhone) : null,
             guardianName: data.guardianName || null,
             guardianRelation: data.guardianRelation || null,
-            guardianPhone: data.guardianPhone || null,
+            guardianPhone: data.guardianPhone ? formatPhoneForStorage(data.guardianPhone) : null,
             monthlyFee: null // Se definirá por la administración
           }
         });

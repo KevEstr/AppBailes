@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { AuthGuard } from "@/components/auth-guard"
 import EditStudentModal from "@/components/edit-student-modal"
-import { MapPin, Phone, Mail, IdCard, Heart, Calendar, DollarSign, UserCheck, AlertTriangle, GraduationCap, User, Edit, Camera } from "lucide-react"
+import { MapPin, Phone, Mail, IdCard, Heart, Calendar, DollarSign, UserCheck, AlertTriangle, GraduationCap, User, Edit, Camera, CheckCircle } from "lucide-react"
 import { ProfilePhotoModal } from "@/components/profile/ProfilePhotoModal"
 
 interface StudentData {
@@ -49,8 +49,10 @@ function StudentContent() {
   const [student, setStudent] = useState<StudentData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [mapError, setMapError] = useState(false)
+  const [imageKey, setImageKey] = useState(0)
 
   useEffect(() => {
     loadStudentProfile()
@@ -58,7 +60,12 @@ function StudentContent() {
 
   const loadStudentProfile = async () => {
     try {
-      const response = await fetch("/api/students/profile")
+      const response = await fetch("/api/students/profile", {
+        headers: {
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache'
+        }
+      })
       
       // Verificar si la respuesta es exitosa
       if (!response.ok) {
@@ -93,6 +100,13 @@ function StudentContent() {
 
   const handleStudentUpdated = () => {
     loadStudentProfile()
+    setImageKey(prev => prev + 1) // Forzar recarga de imagen
+    setSuccessMessage('Información actualizada exitosamente')
+    
+    // Limpiar mensaje después de 3 segundos
+    setTimeout(() => {
+      setSuccessMessage(null)
+    }, 3000)
   }
 
   const getDocumentTypeLabel = (type?: string) => {
@@ -260,10 +274,20 @@ function StudentContent() {
               </Button>
             )}
             <Button onClick={handleSignOut} variant="outline">
-              Cerrar Sesión
-            </Button>
+               Cerrar Sesión
+             </Button>
           </div>
         </div>
+
+        {/* Mensaje de éxito */}
+        {successMessage && (
+          <div className="mb-6 p-4 bg-green-900/20 border border-green-600 rounded-lg">
+            <div className="flex items-center gap-2 text-green-300">
+              <CheckCircle className="h-5 w-5 text-green-400" />
+              <span>{successMessage}</span>
+            </div>
+          </div>
+        )}
 
         {student && (
           <div className="space-y-6">
@@ -272,13 +296,14 @@ function StudentContent() {
               <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
                 <div className="flex items-center gap-4 flex-1">
                   <div className="relative group">
-                    {student.avatar ? (
-                      <img
-                        src={student.avatar}
-                        alt={`Foto de ${student.name}`}
-                        className="w-16 h-16 rounded-full object-cover border-2 border-slate-600"
-                      />
-                    ) : (
+                                         {student.avatar ? (
+                       <img
+                         key={imageKey}
+                         src={`${student.avatar}?t=${Date.now()}&v=${imageKey}`}
+                         alt={`Foto de ${student.name}`}
+                         className="w-16 h-16 rounded-full object-cover border-2 border-slate-600"
+                       />
+                     ) : (
                       <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-xl">
                         {student.name
                           .split(" ")
@@ -291,12 +316,13 @@ function StudentContent() {
                     <ProfilePhotoModal
                       studentId={student.id}
                       currentPhotoUrl={student.avatar}
-                      onSuccess={(newPhotoUrl: string) => {
-                        setStudent(prev => prev ? {
-                          ...prev,
-                          avatar: newPhotoUrl
-                        } : null);
-                      }}
+                                             onSuccess={(newPhotoUrl: string) => {
+                         setStudent(prev => prev ? {
+                           ...prev,
+                           avatar: newPhotoUrl
+                         } : null);
+                         setImageKey(prev => prev + 1); // Forzar recarga de imagen
+                       }}
                       customTrigger={
                         <button
                           className="absolute -bottom-1 -right-1 w-6 h-6 bg-blue-600 hover:bg-blue-700 rounded-full flex items-center justify-center text-white shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"

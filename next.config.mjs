@@ -18,6 +18,8 @@ const nextConfig = {
   // ⚡ OPTIMIZACIONES CRÍTICAS DE RENDIMIENTO
   images: {
     unoptimized: false,
+    dangerouslyAllowSVG: true,
+    contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
     remotePatterns: [
       {
         protocol: 'http',
@@ -28,6 +30,11 @@ const nextConfig = {
       {
         protocol: 'https',
         hostname: 'res.cloudinary.com',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'api.dicebear.com',
         pathname: '/**',
       },
     ],
