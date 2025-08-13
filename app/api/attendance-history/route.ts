@@ -6,6 +6,8 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const period = searchParams.get("period") || "month"
     const studentIdParam = searchParams.get("student") || "all"
+    const classIdParam = searchParams.get("class") || "all"
+    const sessionIdParam = searchParams.get("session") || "all"
 
     // Calcular fechas según el período
     const endDate = new Date()
@@ -26,7 +28,7 @@ export async function GET(request: Request) {
         break
     }
 
-    // Obtener asistencias
+    // Construir filtro base para asistencias
     const whereClause: any = {
       date: {
         gte: startDate,
@@ -34,6 +36,7 @@ export async function GET(request: Request) {
       },
     }
 
+    // Filtro por estudiante específico
     if (studentIdParam !== "all") {
       const studentId = parseInt(studentIdParam)
       if (studentId) {
@@ -41,10 +44,35 @@ export async function GET(request: Request) {
       }
     }
 
+    // Filtro por sesión específica (tiene prioridad sobre filtro por clase)
+    if (sessionIdParam !== "all") {
+      const sessionId = parseInt(sessionIdParam)
+      if (sessionId) {
+        whereClause.sessionId = sessionId
+      }
+    } else if (classIdParam !== "all") {
+      // Filtro por clase específica (solo si no hay filtro por sesión)
+      const classId = parseInt(classIdParam)
+      if (classId) {
+        whereClause.session = {
+          classId: classId
+        }
+      }
+    }
+
     const attendances = await prisma.attendance.findMany({
       where: whereClause,
       include: {
         student: true,
+        session: {
+          include: {
+            danceClass: {
+              include: {
+                trainer: true
+              }
+            }
+          }
+        }
       },
       orderBy: {
         date: "asc",
@@ -73,17 +101,41 @@ export async function GET(request: Request) {
       })
     }
 
-    // Generar estadísticas por estudiante
+    // Generar estadísticas por estudiante (considerando filtro por clase)
+    const studentAttendanceFilter: any = {
+      date: {
+        gte: startDate,
+        lte: endDate,
+      },
+    }
+
+    // Aplicar filtros por sesión o clase a las estadísticas de estudiantes
+    if (sessionIdParam !== "all") {
+      const sessionId = parseInt(sessionIdParam)
+      if (sessionId) {
+        studentAttendanceFilter.sessionId = sessionId
+      }
+    } else if (classIdParam !== "all") {
+      const classId = parseInt(classIdParam)
+      if (classId) {
+        studentAttendanceFilter.session = {
+          classId: classId
+        }
+      }
+    }
+
     const students = await prisma.student.findMany({
       where: { isActive: true },
       include: {
         attendances: {
-          where: {
-            date: {
-              gte: startDate,
-              lte: endDate,
-            },
-          },
+          where: studentAttendanceFilter,
+          include: {
+            session: {
+              include: {
+                danceClass: true
+              }
+            }
+          }
         },
       },
     })
@@ -108,9 +160,108 @@ export async function GET(request: Request) {
       }
     })
 
+    // Obtener lista de clases disponibles para el filtro
+    const availableClasses = await prisma.danceClass.findMany({
+      where: { isActive: true },
+      include: {
+        trainer: true,
+        sessions: {
+          where: {
+            date: {
+              gte: startDate,
+              lte: endDate,
+            },
+          },
+          take: 1 // Solo necesitamos saber si hay sesiones en el período
+        }
+      },
+      orderBy: [
+        { sport: 'asc' },
+        { name: 'asc' }
+      ]
+    })
+
+    // Filtrar solo las clases que tuvieron sesiones en el período seleccionado
+    const classesWithSessions = availableClasses.filter(cls => cls.sessions.length > 0)
+
+    // Información adicional de la clase seleccionada (si aplica)
+    let selectedClassInfo = null
+    let availableSessions: any[] = []
+    let selectedSessionInfo = null
+
+    if (sessionIdParam !== "all") {
+      // Si hay una sesión específica seleccionada
+      const sessionId = parseInt(sessionIdParam)
+      if (sessionId) {
+        selectedSessionInfo = await prisma.classSession.findUnique({
+          where: { id: sessionId },
+          include: {
+            danceClass: {
+              include: {
+                trainer: true
+              }
+            },
+            attendances: {
+              include: {
+                student: true
+              }
+            }
+          }
+        })
+      }
+    } else if (classIdParam !== "all") {
+      // Si hay una clase específica seleccionada, obtener sus sesiones
+      const classId = parseInt(classIdParam)
+      if (classId) {
+        selectedClassInfo = await prisma.danceClass.findUnique({
+          where: { id: classId },
+          include: {
+            trainer: true,
+            sessions: {
+              where: {
+                date: {
+                  gte: startDate,
+                  lte: endDate,
+                },
+              },
+              orderBy: {
+                date: 'desc'
+              }
+            }
+          }
+        })
+
+        // Obtener sesiones disponibles para el filtro
+        availableSessions = await prisma.classSession.findMany({
+          where: {
+            classId: classId,
+            date: {
+              gte: startDate,
+              lte: endDate,
+            },
+          },
+          include: {
+            danceClass: {
+              select: { name: true, sport: true }
+            },
+            attendances: {
+              take: 1 // Solo para verificar si tiene asistencias
+            }
+          },
+          orderBy: {
+            date: 'desc'
+          }
+        })
+      }
+    }
+
     return NextResponse.json({
       chartData,
       studentStats,
+      availableClasses: classesWithSessions,
+      selectedClassInfo,
+      availableSessions,
+      selectedSessionInfo,
     })
   } catch (error) {
     console.error("Error fetching attendance history:", error)

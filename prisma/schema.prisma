@@ -37,8 +37,8 @@ model Student {
   financialTransactions   FinancialTransaction[]
   schedulerRecipients     SchedulerRecipient[]
   studentTransfers       StudentTransfer[]
-  enrollmentPayments      EnrollmentPayment[]
-  enrollmentPaymentForms  EnrollmentPaymentForm[]
+  user                   User?                   @relation(fields: [userId], references: [id])
+  messagesSent           MassiveMessage[]        @relation("MessageRecipients")
 
   @@index([name])
   @@index([phone])
@@ -48,72 +48,57 @@ model Student {
 }
 
 model StudentEnrollmentData {
-  id                Int      @id @default(autoincrement())
-  studentId         String   @unique
-  
-  // Información Personal Completa
-  documentType      String?
-  birthDate         String?
-  address           String?
-  addressLatitude   Float?   // Coordenadas del mapa
-  addressLongitude  Float?   // Coordenadas del mapa
-  neighborhood      String?
-  city              String?   @default("Itagüí")
-  hasSisben         Boolean   @default(false)
-  eps               String?
-  bloodType         String?
-  hasRestrictions   Boolean   @default(false)
-  restrictionsDescription String?
-  medicalConditions String?
-  isAdult           Boolean   @default(true)
-  
-  // Contacto de Emergencia
+  id                       Int      @id @default(autoincrement())
+  studentId                String   @unique
+  documentType             String?
+  birthDate                String?
+  address                  String?
+  addressLatitude          Float?
+  addressLongitude         Float?
+  neighborhood             String?
+  city                     String?  @default("Itagüí")
+  hasSisben                Boolean  @default(false)
+  eps                      String?
+  bloodType                String?
+  hasRestrictions          Boolean  @default(false)
+  restrictionsDescription  String?
+  medicalConditions        String?
+  isAdult                  Boolean  @default(true)
   emergencyContactName     String?
   emergencyContactRelation String?
   emergencyContactPhone    String?
-  
-  // Información del Acudiente (si es menor)
-  guardianName      String?
-  guardianRelation  String?
-  guardianPhone     String?
-  
-  // Información de Pago
-  monthlyFee        Float?
-  
-  // Timestamps
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-
-  // Relations
-  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  guardianName             String?
+  guardianRelation         String?
+  guardianPhone            String?
+  monthlyFee               Float?
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+  student                  Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
   @@map("student_enrollment_data")
 }
 
 model DanceClass {
-  name        String
-  isActive    Boolean           @default(true)
-  createdAt   DateTime          @default(now())
-  updatedAt   DateTime          @updatedAt
-  capacity    Int               @default(20)
-  description String?
-  price       Float?
-  locationId  Int?      // Para deportes, referencia a SportLocation
-
-  // Relations
-  location    SportLocation?    @relation(fields: [locationId], references: [id])
-  
-  sport       SportType         @default(DANCE)
-  modality    String?
-  level       ClassLevel        @default(BEGINNER)
-  id          Int               @id @default(autoincrement())
-  trainerId   Int
-  enrollments ClassEnrollment[]
-  schedules   ClassSchedule[]
-  sessions    ClassSession[]
-  trainer     Trainer           @relation(fields: [trainerId], references: [id])
+  name                 String
+  isActive             Boolean           @default(true)
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
+  capacity             Int               @default(20)
+  description          String?
+  level                ClassLevel        @default(BEGINNER)
+  locationId           Int?
+  modality             String?
+  price                Float?
+  sport                SportType         @default(DANCE)
+  id                   Int               @id @default(autoincrement())
+  trainerId            Int
+  enrollments          ClassEnrollment[]
+  schedules            ClassSchedule[]
+  sessions             ClassSession[]
+  location             SportLocation?    @relation(fields: [locationId], references: [id])
+  trainer              Trainer           @relation(fields: [trainerId], references: [id])
   studentTransfersFrom StudentTransfer[] @relation("TransferFrom")
-  studentTransfersTo StudentTransfer[] @relation("TransferTo")
+  studentTransfersTo   StudentTransfer[] @relation("TransferTo")
 
   @@map("classes")
 }
@@ -125,8 +110,6 @@ model SportLocation {
   isActive  Boolean      @default(true)
   createdAt DateTime     @default(now())
   updatedAt DateTime     @updatedAt
-
-  // Relations
   classes   DanceClass[]
 
   @@map("sport_locations")
@@ -181,21 +164,18 @@ model ClassEnrollment {
   @@map("class_enrollments")
 }
 
-// Nuevo modelo para historial de transferencias
 model StudentTransfer {
-  id              Int       @id @default(autoincrement())
-  studentId       String
-  fromClassId     Int
-  toClassId       Int
-  transferredBy   Int       // ID del usuario que realizó la transferencia
-  reason          String?   // Motivo de la transferencia
-  transferredAt   DateTime  @default(now())
-  
-  // Relations
-  student         Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  fromClass       DanceClass @relation("TransferFrom", fields: [fromClassId], references: [id])
-  toClass         DanceClass @relation("TransferTo", fields: [toClassId], references: [id])
-  user            User      @relation(fields: [transferredBy], references: [id])
+  id            Int        @id @default(autoincrement())
+  studentId     String
+  fromClassId   Int
+  toClassId     Int
+  transferredBy Int
+  reason        String?
+  transferredAt DateTime   @default(now())
+  fromClass     DanceClass @relation("TransferFrom", fields: [fromClassId], references: [id])
+  student       Student    @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  toClass       DanceClass @relation("TransferTo", fields: [toClassId], references: [id])
+  user          User       @relation(fields: [transferredBy], references: [id])
 
   @@index([studentId])
   @@index([fromClassId])
@@ -205,6 +185,7 @@ model StudentTransfer {
 }
 
 model Attendance {
+  studentId String
   status    AttendanceStatus
   date      DateTime         @default(now())
   notes     String?
@@ -212,7 +193,6 @@ model Attendance {
   updatedAt DateTime         @updatedAt
   sessionId Int?
   id        Int              @id @default(autoincrement())
-  studentId String
   session   ClassSession?    @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   student   Student          @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
@@ -220,6 +200,7 @@ model Attendance {
 }
 
 model Receipt {
+  studentId     String
   amount        Float
   concept       String
   paymentMethod PaymentMethod
@@ -230,13 +211,13 @@ model Receipt {
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
   id            Int           @id @default(autoincrement())
-  studentId     String
   student       Student       @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
   @@map("receipts")
 }
 
 model Debt {
+  studentId    String
   amount       Float
   concept      String
   dueDate      DateTime
@@ -246,7 +227,6 @@ model Debt {
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
   id           Int       @id @default(autoincrement())
-  studentId    String
   student      Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
   @@map("debts")
@@ -267,6 +247,7 @@ model MassiveMessage {
 
 model Trainer {
   name        String
+  email       String              @unique
   phone       String              @unique
   isActive    Boolean             @default(true)
   createdAt   DateTime            @default(now())
@@ -274,8 +255,7 @@ model Trainer {
   id          Int                 @id @default(autoincrement())
   classes     DanceClass[]
   attendances TrainerAttendance[]
-  userId      Int?                @unique
-  user        User?               @relation(fields: [userId], references: [id], onDelete: SetNull)
+  users       User?
 
   @@map("trainers")
 }
@@ -309,16 +289,16 @@ model MonthlyFeeConfig {
 }
 
 model PaymentPeriod {
-  id              Int              @id @default(autoincrement())
-  year            Int
-  month           Int
-  name            String
-  dueDate         DateTime
-  isActive        Boolean          @default(true)
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
-  monthlyPayments MonthlyPayment[]
-  paymentForms    PaymentForm[]
+  id                  Int                  @id @default(autoincrement())
+  year                Int
+  month               Int
+  name                String
+  dueDate             DateTime
+  isActive            Boolean              @default(true)
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  monthlyPayments     MonthlyPayment[]
+  paymentForms        PaymentForm[]
   schedulerExecutions SchedulerExecution[]
 
   @@unique([year, month])
@@ -348,22 +328,22 @@ model MonthlyPayment {
 }
 
 model PaymentForm {
-  id               String            @id @default(cuid())
-  studentId        String
-  periodId         Int
-  monthlyPaymentId Int
-  studentName      String
-  amount           Float
-  status           PaymentFormStatus @default(ACTIVE)
-  expiresAt        DateTime?
-  usedAt           DateTime?
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
-  monthlyPayment   MonthlyPayment    @relation(fields: [monthlyPaymentId], references: [id], onDelete: Cascade)
-  period           PaymentPeriod     @relation(fields: [periodId], references: [id], onDelete: Cascade)
-  student          Student           @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  paymentProofs    PaymentProof[]
+  id                      String                   @id @default(cuid())
+  studentId               String
+  periodId                Int
+  monthlyPaymentId        Int
+  studentName             String
+  amount                  Float
+  status                  PaymentFormStatus        @default(ACTIVE)
+  expiresAt               DateTime?
+  usedAt                  DateTime?
+  createdAt               DateTime                 @default(now())
+  updatedAt               DateTime                 @updatedAt
   enrollmentPaymentProofs EnrollmentPaymentProof[]
+  monthlyPayment          MonthlyPayment           @relation(fields: [monthlyPaymentId], references: [id], onDelete: Cascade)
+  period                  PaymentPeriod            @relation(fields: [periodId], references: [id], onDelete: Cascade)
+  student                 Student                  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  paymentProofs           PaymentProof[]
 
   @@map("payment_forms")
 }
@@ -389,76 +369,286 @@ model PaymentProof {
   @@map("payment_proofs")
 }
 
-// ===== MODELOS DE INSCRIPCIÓN =====
-
 model EnrollmentPayment {
-  id              Int                     @id @default(autoincrement())
-  studentId       String                  @unique
-  sport           SportType
-  expectedAmount  Float
-  status          EnrollmentPaymentStatus @default(PENDING)
-  paidAt          DateTime?
-  createdAt       DateTime                @default(now())
-  updatedAt       DateTime                @updatedAt
-  
-  // Relaciones
-  student         Student                 @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  paymentForms    EnrollmentPaymentForm[]
-  
+  id             Int                     @id @default(autoincrement())
+  studentId      String                  @unique
+  sport          SportType
+  expectedAmount Float
+  status         EnrollmentPaymentStatus @default(PENDING)
+  paidAt         DateTime?
+  createdAt      DateTime                @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime                @updatedAt @db.Timestamptz(6)
+  paymentForms   EnrollmentPaymentForm[]
+
   @@map("enrollment_payments")
 }
 
 model EnrollmentPaymentForm {
-  id                    String                      @id @default(cuid())
-  studentId             String
-  enrollmentPaymentId   Int
-  studentName           String
-  sport                 SportType
-  amount                Float
-  status                EnrollmentPaymentFormStatus  @default(ACTIVE)
-  expiresAt             DateTime?
-  usedAt                DateTime?
-  createdAt             DateTime                    @default(now())
-  updatedAt             DateTime                    @updatedAt
-  
-  // Relaciones
-  student               Student                     @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  enrollmentPayment     EnrollmentPayment           @relation(fields: [enrollmentPaymentId], references: [id], onDelete: Cascade)
-  paymentProofs         EnrollmentPaymentProof[]
-  
+  id                  String                      @id @default(cuid())
+  studentId           String
+  enrollmentPaymentId Int
+  studentName         String
+  sport               SportType
+  amount              Float
+  status              EnrollmentPaymentFormStatus @default(ACTIVE)
+  expiresAt           DateTime?
+  usedAt              DateTime?
+  createdAt           DateTime                    @default(now())
+  updatedAt           DateTime                    @updatedAt
+  enrollmentPayment   EnrollmentPayment           @relation(fields: [enrollmentPaymentId], references: [id], onDelete: Cascade)
+  paymentProofs       EnrollmentPaymentProof[]
+
   @@map("enrollment_payment_forms")
 }
 
 model EnrollmentPaymentProof {
-  id            Int                @id @default(autoincrement())
-  formId        String?
-  payerName     String
-  payerPhone    String?
-  payerEmail    String?
-  amount        Float
-  paymentMethod PaymentMethod
-  proofImageUrl String
-  uploadedAt    DateTime           @default(now())
-  status        PaymentProofStatus @default(PENDING)
-  reviewedAt    DateTime?
-  reviewedBy    String?
-  reviewNotes   String?
-  createdAt     DateTime           @default(now())
-  updatedAt     DateTime           @updatedAt
-  
-  // Campos para identificar el tipo de pago
-  paymentType   String?            @default("MONTHLY") // "MONTHLY" o "ENROLLMENT"
-  concept       String?            // Concepto del pago (ej: "Inscripción Baile")
-  
-  // Relaciones
-  paymentForm   PaymentForm?       @relation(fields: [formId], references: [id], onDelete: Cascade)
-  enrollmentPaymentForm EnrollmentPaymentForm? @relation(fields: [enrollmentPaymentFormId], references: [id], onDelete: Cascade)
+  id                      Int                    @id @default(autoincrement())
+  formId                  String?
+  payerName               String
+  payerPhone              String?
+  payerEmail              String?
+  amount                  Float
+  paymentMethod           PaymentMethod
+  proofImageUrl           String
+  uploadedAt              DateTime               @default(now())
+  status                  PaymentProofStatus     @default(PENDING)
+  reviewedAt              DateTime?
+  reviewedBy              String?
+  reviewNotes             String?
+  createdAt               DateTime               @default(now())
+  updatedAt               DateTime               @updatedAt
+  paymentType             String?                @default("MONTHLY")
+  concept                 String?
   enrollmentPaymentFormId String?
-  
+  enrollmentPaymentForm   EnrollmentPaymentForm? @relation(fields: [enrollmentPaymentFormId], references: [id], onDelete: Cascade)
+  paymentForm             PaymentForm?           @relation(fields: [formId], references: [id], onDelete: Cascade)
+
   @@map("enrollment_payment_proofs")
 }
 
-// ===== ENUMS DE INSCRIPCIÓN =====
+model ScheduledWhatsAppSend {
+  id            Int                    @id @default(autoincrement())
+  studentId     String
+  message       String
+  scheduledFor  DateTime
+  scheduledDate DateTime?
+  name          String?
+  status        ScheduledMessageStatus @default(PENDING)
+  sentAt        DateTime?
+  errorMessage  String?
+  retryCount    Int                    @default(0)
+  maxRetries    Int                    @default(3)
+  messageType   String?
+  priority      Int                    @default(0)
+  createdAt     DateTime               @default(now())
+  updatedAt     DateTime               @updatedAt
+  student       Student                @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@map("scheduled_whatsapp_sends")
+}
+
+model PaymentScheduler {
+  id              Int                  @id @default(autoincrement())
+  name            String
+  description     String?
+  isActive        Boolean              @default(true)
+  dayOfMonth      Int                  @default(1)
+  hour            Int                  @default(9)
+  minute          Int                  @default(0)
+  schedulerType   SchedulerType        @default(MONTHLY_PAYMENT)
+  targetFilter    TargetFilter         @default(ALL_ACTIVE)
+  customFilter    String?
+  lastExecuted    DateTime?
+  nextExecution   DateTime?
+  totalExecutions Int                  @default(0)
+  totalSent       Int                  @default(0)
+  totalFailed     Int                  @default(0)
+  createdBy       String?
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+  executions      SchedulerExecution[]
+  recipients      SchedulerRecipient[]
+
+  @@map("payment_schedulers")
+}
+
+model SchedulerRecipient {
+  id          Int              @id @default(autoincrement())
+  schedulerId Int
+  studentId   String
+  isActive    Boolean          @default(true)
+  lastSent    DateTime?
+  totalSent   Int              @default(0)
+  addedAt     DateTime         @default(now())
+  addedBy     String?
+  notes       String?
+  scheduler   PaymentScheduler @relation(fields: [schedulerId], references: [id], onDelete: Cascade)
+  student     Student          @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([schedulerId, studentId])
+  @@map("scheduler_recipients")
+}
+
+model SchedulerExecution {
+  id             Int                      @id @default(autoincrement())
+  schedulerId    Int
+  status         SchedulerExecutionStatus @default(PENDING)
+  startedAt      DateTime?
+  completedAt    DateTime?
+  totalMessages  Int                      @default(0)
+  sentMessages   Int                      @default(0)
+  failedMessages Int                      @default(0)
+  periodId       Int?
+  errorMessage   String?
+  executionLogs  String?
+  createdAt      DateTime                 @default(now())
+  updatedAt      DateTime                 @updatedAt
+  period         PaymentPeriod?           @relation(fields: [periodId], references: [id])
+  scheduler      PaymentScheduler         @relation(fields: [schedulerId], references: [id], onDelete: Cascade)
+
+  @@map("scheduler_executions")
+}
+
+model User {
+  email            String            @unique
+  password         String
+  role             UserRole          @default(STUDENT)
+  isActive         Boolean           @default(true)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  trainerId        Int?              @unique
+  id               Int               @id @default(autoincrement())
+  studentTransfers StudentTransfer[]
+  student          Student?
+  trainers         Trainer?          @relation(fields: [trainerId], references: [id])
+
+  @@map("users")
+}
+
+model Service {
+  id            Int             @id @default(autoincrement())
+  name          String
+  description   String?
+  basePrice     Float
+  category      ServiceCategory
+  isActive      Boolean         @default(true)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  serviceOrders ServiceOrder[]
+  serviceRates  ServiceRate[]
+
+  @@map("services")
+}
+
+model ServiceRate {
+  id         Int         @id @default(autoincrement())
+  serviceId  Int
+  level      ClassLevel?
+  sportType  SportType?
+  price      Float
+  isDefault  Boolean     @default(false)
+  validFrom  DateTime    @default(now())
+  validUntil DateTime?
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  service    Service     @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  @@map("service_rates")
+}
+
+model ServiceOrder {
+  id            Int                @id @default(autoincrement())
+  studentId     String
+  serviceId     Int
+  quantity      Int                @default(1)
+  unitPrice     Float
+  totalAmount   Float
+  status        ServiceOrderStatus @default(PENDING)
+  scheduledDate DateTime?
+  completedDate DateTime?
+  notes         String?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  service       Service            @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  student       Student            @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  payments      ServicePayment[]
+
+  @@map("service_orders")
+}
+
+model ServicePayment {
+  id            Int           @id @default(autoincrement())
+  orderId       Int
+  amount        Float
+  paymentMethod PaymentMethod
+  status        PaymentStatus @default(PENDING)
+  paymentDate   DateTime?
+  reference     String?
+  notes         String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  order         ServiceOrder  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@map("service_payments")
+}
+
+model FinancialPeriod {
+  id           Int                    @id @default(autoincrement())
+  year         Int
+  month        Int
+  startDate    DateTime
+  endDate      DateTime
+  isClosed     Boolean                @default(false)
+  closedAt     DateTime?
+  closedBy     String?
+  createdAt    DateTime               @default(now())
+  updatedAt    DateTime               @updatedAt
+  reports      FinancialReport[]
+  transactions FinancialTransaction[]
+
+  @@unique([year, month])
+  @@map("financial_periods")
+}
+
+model FinancialTransaction {
+  id          Int                 @id @default(autoincrement())
+  periodId    Int
+  type        TransactionType
+  category    TransactionCategory
+  amount      Float
+  description String
+  reference   String?
+  date        DateTime            @default(now())
+  studentId   String?
+  relatedId   Int?
+  relatedType String?
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  period      FinancialPeriod     @relation(fields: [periodId], references: [id], onDelete: Cascade)
+  student     Student?            @relation(fields: [studentId], references: [id])
+
+  @@map("financial_transactions")
+}
+
+model FinancialReport {
+  id                Int             @id @default(autoincrement())
+  periodId          Int
+  reportType        ReportType
+  totalIncome       Float           @default(0)
+  totalExpenses     Float           @default(0)
+  netProfit         Float           @default(0)
+  monthlyPayments   Float           @default(0)
+  servicePayments   Float           @default(0)
+  otherIncome       Float           @default(0)
+  operatingExpenses Float           @default(0)
+  summary           Json?
+  generatedAt       DateTime        @default(now())
+  generatedBy       String?
+  period            FinancialPeriod @relation(fields: [periodId], references: [id], onDelete: Cascade)
+
+  @@unique([periodId, reportType])
+  @@map("financial_reports")
+}
 
 enum EnrollmentPaymentStatus {
   PENDING
@@ -524,137 +714,21 @@ enum PaymentProofStatus {
   NEEDS_REVIEW
 }
 
-model ScheduledWhatsAppSend {
-  id              Int                     @id @default(autoincrement())
-  studentId       String
-  message         String
-  scheduledFor    DateTime
-  scheduledDate   DateTime?               // Campo adicional para compatibilidad
-  name            String?                 // Campo para identificar el envío
-  status          ScheduledMessageStatus  @default(PENDING)
-  sentAt          DateTime?
-  errorMessage    String?
-  retryCount      Int                     @default(0)
-  maxRetries      Int                     @default(3)
-  messageType     String?
-  priority        Int                     @default(0)
-  createdAt       DateTime                @default(now())
-  updatedAt       DateTime                @updatedAt
-  student         Student                 @relation(fields: [studentId], references: [id], onDelete: Cascade)
-
-  @@map("scheduled_whatsapp_sends")
-}
-
-// Tipos de scheduler para diferentes recordatorios
 enum SchedulerType {
-  MONTHLY_PAYMENT      // Recordatorio de mensualidad
-  DEBT_REMINDER        // Recordatorio de deudas pendientes
-  OVERDUE_WARNING      // Advertencia de pagos vencidos
-  PARTIAL_PAYMENT      // Recordatorio de pagos parciales
-  CUSTOM_MESSAGE       // Mensaje personalizado
+  MONTHLY_PAYMENT
+  DEBT_REMINDER
+  OVERDUE_WARNING
+  PARTIAL_PAYMENT
+  CUSTOM_MESSAGE
 }
 
-// Filtros de destinatarios
 enum TargetFilter {
-  ALL_ACTIVE           // Todos los estudiantes activos
-  WITH_DEBT            // Solo estudiantes con deuda
-  OVERDUE_PAYMENTS     // Pagos vencidos
-  PARTIAL_PAYMENTS     // Pagos parciales
-  SPECIFIC_STUDENTS    // Estudiantes específicos
-  CUSTOM_FILTER        // Filtro personalizado
-}
-
-// Scheduler PROFESIONAL - Con selección de destinatarios y recomendaciones
-model PaymentScheduler {
-  id              Int                     @id @default(autoincrement())
-  name            String                  // Nombre descriptivo
-  description     String?                 // Descripción opcional
-  
-  // Configuración de programación
-  isActive        Boolean                 @default(true)
-  dayOfMonth      Int                     @default(1)     // Día del mes para enviar (1-31)
-  hour            Int                     @default(9)     // Hora (0-23)
-  minute          Int                     @default(0)     // Minuto (0-59)
-  
-  // Tipo de scheduler y filtros
-  schedulerType   SchedulerType           @default(MONTHLY_PAYMENT)  // Tipo de recordatorio
-  targetFilter    TargetFilter            @default(ALL_ACTIVE)       // Filtro de destinatarios
-  customFilter    String?                 // Filtro personalizado (JSON)
-  
-  // Control de ejecución
-  lastExecuted    DateTime?               // Última vez que se ejecutó
-  nextExecution   DateTime?               // Próxima ejecución calculada
-  totalExecutions Int                     @default(0)     // Contador de ejecuciones
-  
-  // Estadísticas
-  totalSent       Int                     @default(0)     // Total de mensajes enviados
-  totalFailed     Int                     @default(0)     // Total de mensajes fallidos
-  
-  // Metadatos
-  createdBy       String?                 // Usuario que lo creó
-  createdAt       DateTime                @default(now())
-  updatedAt       DateTime                @updatedAt
-  
-  // Relaciones PROFESIONALES
-  executions      SchedulerExecution[]    // Historial de ejecuciones
-  recipients      SchedulerRecipient[]    // Destinatarios específicos
-  
-  @@map("payment_schedulers")
-}
-
-// Destinatarios específicos de cada scheduler
-model SchedulerRecipient {
-  id              Int                     @id @default(autoincrement())
-  schedulerId     Int                     // Scheduler al que pertenece
-  studentId       String                  // Estudiante destinatario
-  
-  // Estado del destinatario
-  isActive        Boolean                 @default(true)  // Si está activo para este scheduler
-  lastSent        DateTime?               // Último mensaje enviado
-  totalSent       Int                     @default(0)     // Total de mensajes enviados a este estudiante
-  
-  // Metadatos
-  addedAt         DateTime                @default(now())
-  addedBy         String?                 // Quién lo agregó
-  notes           String?                 // Notas adicionales
-  
-  // Relaciones
-  scheduler       PaymentScheduler        @relation(fields: [schedulerId], references: [id], onDelete: Cascade)
-  student         Student                 @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  
-  @@unique([schedulerId, studentId])      // Un estudiante por scheduler
-  @@map("scheduler_recipients")
-}
-
-// Historial de ejecuciones del scheduler - PROFESIONAL
-model SchedulerExecution {
-  id              Int                     @id @default(autoincrement())
-  schedulerId     Int
-  
-  // Estado de la ejecución
-  status          SchedulerExecutionStatus @default(PENDING)
-  startedAt       DateTime?
-  completedAt     DateTime?
-  
-  // Resultados
-  totalMessages   Int                     @default(0)
-  sentMessages    Int                     @default(0)
-  failedMessages  Int                     @default(0)
-  
-  // Detalles
-  periodId        Int?                    // Período que se procesó
-  errorMessage    String?                 // Error si falló
-  executionLogs   String?                 // Logs detallados de la ejecución (JSON)
-  
-  // Metadatos
-  createdAt       DateTime                @default(now())
-  updatedAt       DateTime                @updatedAt
-  
-  // Relaciones
-  scheduler       PaymentScheduler        @relation(fields: [schedulerId], references: [id], onDelete: Cascade)
-  period          PaymentPeriod?          @relation(fields: [periodId], references: [id], onDelete: SetNull)
-  
-  @@map("scheduler_executions")
+  ALL_ACTIVE
+  WITH_DEBT
+  OVERDUE_PAYMENTS
+  PARTIAL_PAYMENTS
+  SPECIFIC_STUDENTS
+  CUSTOM_FILTER
 }
 
 enum ScheduledMessageStatus {
@@ -672,22 +746,6 @@ enum SchedulerExecutionStatus {
   COMPLETED
   FAILED
   CANCELLED
-}
-
-model User {
-  id        Int      @id @default(autoincrement())
-  email     String   @unique
-  password  String
-  role      UserRole @default(STUDENT)
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  
-  // Relations
-  student   Student? // Relación con Student
-  trainer   Trainer? // Relación con Trainer
-  studentTransfers StudentTransfer[]
-  @@map("users")
 }
 
 enum UserRole {
@@ -854,12 +912,12 @@ model FinancialReport {
 // ===== NUEVOS ENUMS =====
 
 enum ServiceCategory {
-  TRAINING          // Entrenamiento físico
-  PRIVATE_CLASS     // Clases particulares  
-  WORKSHOP          // Talleres especiales
-  EVENT             // Eventos y presentaciones
-  EQUIPMENT         // Alquiler de equipos
-  OTHER             // Otros servicios
+  TRAINING
+  PRIVATE_CLASS
+  WORKSHOP
+  EVENT
+  EQUIPMENT
+  OTHER
 }
 
 enum ServiceOrderStatus {

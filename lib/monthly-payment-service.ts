@@ -101,9 +101,20 @@ export class MonthlyPaymentService {
       throw new Error("No hay configuración de mensualidad activa");
     }
 
-    // Obtener estudiantes activos
+    // Obtener estudiantes activos con sus datos de inscripción y clases
     const activeStudents = await prisma.student.findMany({
       where: { isActive: true },
+      include: {
+        enrollmentData: true,
+        classEnrollments: {
+          where: { isActive: true },
+          include: {
+            danceClass: {
+              select: { sport: true }
+            }
+          }
+        }
+      }
     });
 
     const monthlyPayments = [];
@@ -120,12 +131,15 @@ export class MonthlyPaymentService {
       });
 
       if (!existingPayment) {
+        // Determinar el monto correcto para este estudiante
+        const expectedAmount = await this.getStudentMonthlyFee(student, currentFeeConfig.amount);
+
         const monthlyPayment = await prisma.monthlyPayment.create({
           data: {
             studentId: student.id,
             periodId: period.id,
             feeConfigId: currentFeeConfig.id,
-            expectedAmount: currentFeeConfig.amount,
+            expectedAmount: expectedAmount,
             status: "PENDING",
           },
         });
@@ -135,6 +149,48 @@ export class MonthlyPaymentService {
     }
 
     return monthlyPayments;
+  }
+
+  /**
+   * Determina la mensualidad correcta para un estudiante específico
+   * Prioridad: 1) Mensualidad individual, 2) Por deporte, 3) Configuración global
+   * FUNCIÓN PÚBLICA para usar en otras partes del sistema
+   */
+  async getStudentMonthlyFee(student: any, defaultAmount: number): Promise<number> {
+    // 1. Si el estudiante tiene mensualidad individual configurada, usarla
+    if (student.enrollmentData?.monthlyFee && student.enrollmentData.monthlyFee > 0) {
+      console.log(`💰 Estudiante ${student.name}: Usando mensualidad individual $${student.enrollmentData.monthlyFee.toLocaleString()}`);
+      return student.enrollmentData.monthlyFee;
+    }
+
+    // 2. Determinar mensualidad por deporte
+    if (student.classEnrollments && student.classEnrollments.length > 0) {
+      // Obtener deportes únicos de las inscripciones activas
+      const sports = [...new Set(student.classEnrollments.map((enrollment: any) => enrollment.danceClass.sport))];
+      
+      if (sports.length > 0) {
+        // Si tiene múltiples deportes, priorizar DANCE sobre VOLLEYBALL
+        const primarySport = sports.includes('DANCE') ? 'DANCE' : sports[0];
+        
+        let sportFee: number;
+        if (primarySport === 'DANCE') {
+          sportFee = 60000; // $60,000 para baile
+          console.log(`💃 Estudiante ${student.name}: Deporte DANCE - Mensualidad $${sportFee.toLocaleString()}`);
+        } else if (primarySport === 'VOLLEYBALL') {
+          sportFee = 65000; // $65,000 para volleyball
+          console.log(`🏐 Estudiante ${student.name}: Deporte VOLLEYBALL - Mensualidad $${sportFee.toLocaleString()}`);
+        } else {
+          console.log(`⚠️ Estudiante ${student.name}: Deporte desconocido ${primarySport}, usando configuración global`);
+          return defaultAmount;
+        }
+        
+        return sportFee;
+      }
+    }
+
+    // 3. Como respaldo, usar configuración global
+    console.log(`📋 Estudiante ${student.name}: Sin inscripciones activas, usando configuración global $${defaultAmount.toLocaleString()}`);
+    return defaultAmount;
   }
 
   // ========== FORMULARIOS DE PAGO ==========

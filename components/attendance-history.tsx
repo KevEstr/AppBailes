@@ -26,22 +26,99 @@ interface StudentStats {
   percentage: number
 }
 
+interface AvailableClass {
+  id: number
+  name: string
+  sport: string
+  trainer: {
+    name: string
+  }
+}
+
+interface SelectedClassInfo {
+  id: number
+  name: string
+  sport: string
+  description?: string
+  trainer: {
+    name: string
+  }
+  sessions: {
+    date: string
+  }[]
+}
+
+interface AvailableSession {
+  id: number
+  date: string
+  startTime: string
+  endTime: string
+  status: string
+  danceClass: {
+    name: string
+    sport: string
+  }
+  attendances: any[]
+}
+
+interface SelectedSessionInfo {
+  id: number
+  date: string
+  startTime: string
+  endTime: string
+  status: string
+  notes?: string
+  danceClass: {
+    id: number
+    name: string
+    sport: string
+    trainer: {
+      name: string
+    }
+  }
+  attendances: {
+    id: number
+    status: string
+    student: {
+      id: string
+      name: string
+    }
+  }[]
+}
+
 export function AttendanceHistory() {
   const [selectedPeriod, setSelectedPeriod] = useState("month")
   const [selectedStudent, setSelectedStudent] = useState<string>("all")
+  const [selectedClass, setSelectedClass] = useState<string>("all")
+  const [selectedSession, setSelectedSession] = useState<string>("all")
   const [attendanceData, setAttendanceData] = useState<AttendanceData[]>([])
   const [studentStats, setStudentStats] = useState<StudentStats[]>([])
+  const [availableClasses, setAvailableClasses] = useState<AvailableClass[]>([])
+  const [selectedClassInfo, setSelectedClassInfo] = useState<SelectedClassInfo | null>(null)
+  const [availableSessions, setAvailableSessions] = useState<AvailableSession[]>([])
+  const [selectedSessionInfo, setSelectedSessionInfo] = useState<SelectedSessionInfo | null>(null)
 
   useEffect(() => {
     loadAttendanceData()
-  }, [selectedPeriod, selectedStudent])
+  }, [selectedPeriod, selectedStudent, selectedClass, selectedSession])
+
+  // Limpiar sesión cuando cambia la clase
+  useEffect(() => {
+    if (selectedClass === "all") {
+      setSelectedSession("all")
+    }
+  }, [selectedClass])
 
   const loadAttendanceData = async () => {
     try {
-      const response = await fetch(`/api/attendance-history?period=${selectedPeriod}&student=${selectedStudent}`)
+      const response = await fetch(`/api/attendance-history?period=${selectedPeriod}&student=${selectedStudent}&class=${selectedClass}&session=${selectedSession}`)
       const data = await response.json()
       setAttendanceData(data.chartData)
       setStudentStats(data.studentStats)
+      setAvailableClasses(data.availableClasses || [])
+      setSelectedClassInfo(data.selectedClassInfo || null)
+      setAvailableSessions(data.availableSessions || [])
+      setSelectedSessionInfo(data.selectedSessionInfo || null)
     } catch (error) {
       console.error("Error loading attendance data:", error)
     }
@@ -87,7 +164,7 @@ export function AttendanceHistory() {
       {/* Filtros */}
       <Card className="border-0 shadow-2xl mb-8 rounded-3xl bg-gray-800/90 border border-gray-600 backdrop-blur-sm">
         <CardContent className="p-8">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className={`grid grid-cols-1 gap-6 ${selectedClass !== "all" && availableSessions.length > 0 ? "md:grid-cols-4" : "md:grid-cols-3"}`}>
             <div>
               <h2 className="text-lg font-bold text-gray-200 mb-1">Período</h2>
               <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
@@ -112,6 +189,59 @@ export function AttendanceHistory() {
             </div>
 
             <div>
+              <h2 className="text-lg font-bold text-gray-200 mb-1">Clase</h2>
+              <Select value={selectedClass} onValueChange={setSelectedClass}>
+                <SelectTrigger className="border border-gray-600 focus:border-blue-500 rounded-2xl h-14 text-lg bg-gray-700 text-white">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-gray-700 border-gray-600">
+                  <SelectItem value="all" className="text-lg text-white hover:bg-blue-600">
+                    🎯 Todas las clases
+                  </SelectItem>
+                  {availableClasses.map((danceClass) => (
+                    <SelectItem key={danceClass.id} value={danceClass.id.toString()} className="text-lg text-white hover:bg-blue-600">
+                      {danceClass.sport === 'DANCE' ? '💃' : '🏐'} {danceClass.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Selector de sesión - Solo se muestra cuando hay una clase seleccionada */}
+            {selectedClass !== "all" && availableSessions.length > 0 && (
+              <div>
+                <h2 className="text-lg font-bold text-gray-200 mb-1">Sesión</h2>
+                <Select value={selectedSession} onValueChange={setSelectedSession}>
+                  <SelectTrigger className="border border-gray-600 focus:border-blue-500 rounded-2xl h-14 text-lg bg-gray-700 text-white">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-gray-700 border-gray-600">
+                    <SelectItem value="all" className="text-lg text-white hover:bg-blue-600">
+                      📅 Todas las sesiones
+                    </SelectItem>
+                    {availableSessions.map((session) => {
+                      const sessionDate = new Date(session.date);
+                      const dateStr = sessionDate.toLocaleDateString("es-ES", { 
+                        weekday: 'short', 
+                        day: '2-digit', 
+                        month: '2-digit' 
+                      });
+                      const timeStr = new Date(`1970-01-01T${session.startTime}`).toLocaleTimeString("es-ES", {
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      });
+                      return (
+                        <SelectItem key={session.id} value={session.id.toString()} className="text-lg text-white hover:bg-blue-600">
+                          🕐 {dateStr} - {timeStr}
+                        </SelectItem>
+                      )
+                    })}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            <div>
               <h2 className="text-lg font-bold text-gray-200">Estudiante</h2>
               <Select value={selectedStudent} onValueChange={setSelectedStudent}>
                 <SelectTrigger className="border border-gray-600 focus:border-blue-500 rounded-2xl h-14 text-lg bg-gray-700 text-white">
@@ -133,13 +263,138 @@ export function AttendanceHistory() {
         </CardContent>
       </Card>
 
+      {/* Información de la sesión específica seleccionada */}
+      {selectedSessionInfo && (
+        <Card className="border-0 shadow-2xl mb-8 rounded-3xl bg-gradient-to-r from-green-800/90 via-teal-800/90 to-green-700/90 border border-green-500 backdrop-blur-sm">
+          <CardContent className="p-8">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-6">
+                <div className="rounded-2xl bg-green-600/20 p-4 backdrop-blur-sm border border-green-400">
+                  <span className="text-4xl">🕐</span>
+                </div>
+                <div>
+                  <h3 className="text-3xl font-bold text-white mb-2">
+                    {selectedSessionInfo.danceClass.sport === 'DANCE' ? '💃' : '🏐'} {selectedSessionInfo.danceClass.name}
+                  </h3>
+                  <div className="flex items-center space-x-4 text-green-200 mb-2">
+                    <span className="flex items-center space-x-2">
+                      <span>📅</span>
+                      <span>{new Date(selectedSessionInfo.date).toLocaleDateString("es-ES", { 
+                        weekday: 'long', 
+                        day: '2-digit', 
+                        month: 'long', 
+                        year: 'numeric' 
+                      })}</span>
+                    </span>
+                    <span className="flex items-center space-x-2">
+                      <span>🕐</span>
+                      <span>
+                        {new Date(`1970-01-01T${selectedSessionInfo.startTime}`).toLocaleTimeString("es-ES", {
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })} - {new Date(`1970-01-01T${selectedSessionInfo.endTime}`).toLocaleTimeString("es-ES", {
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
+                      </span>
+                    </span>
+                  </div>
+                  <div className="flex items-center space-x-4 text-green-200">
+                    <span className="flex items-center space-x-2">
+                      <span>👨‍🏫</span>
+                      <span>{selectedSessionInfo.danceClass.trainer.name}</span>
+                    </span>
+                    <span className="flex items-center space-x-2">
+                      <span>📊</span>
+                      <span>{selectedSessionInfo.status === 'COMPLETED' ? 'Completada' : selectedSessionInfo.status === 'SCHEDULED' ? 'Programada' : selectedSessionInfo.status}</span>
+                    </span>
+                  </div>
+                  {selectedSessionInfo.notes && (
+                    <p className="text-green-100 mt-2 text-sm">{selectedSessionInfo.notes}</p>
+                  )}
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="bg-green-600/30 rounded-xl p-4 border border-green-400">
+                  <div className="text-2xl font-bold text-white">
+                    {selectedSessionInfo.attendances.length}
+                  </div>
+                  <div className="text-green-200 text-sm">Asistencias</div>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Información de la clase seleccionada (cuando no hay sesión específica) */}
+      {selectedClassInfo && !selectedSessionInfo && (
+        <Card className="border-0 shadow-2xl mb-8 rounded-3xl bg-gradient-to-r from-blue-800/90 via-purple-800/90 to-blue-700/90 border border-blue-500 backdrop-blur-sm">
+          <CardContent className="p-8">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-6">
+                <div className="rounded-2xl bg-blue-600/20 p-4 backdrop-blur-sm border border-blue-400">
+                  {selectedClassInfo.sport === 'DANCE' ? (
+                    <span className="text-4xl">💃</span>
+                  ) : (
+                    <span className="text-4xl">🏐</span>
+                  )}
+                </div>
+                <div>
+                  <h3 className="text-3xl font-bold text-white mb-2">{selectedClassInfo.name}</h3>
+                  <div className="flex items-center space-x-4 text-blue-200">
+                    <span className="flex items-center space-x-2">
+                      <span>👨‍🏫</span>
+                      <span>{selectedClassInfo.trainer.name}</span>
+                    </span>
+                    <span className="flex items-center space-x-2">
+                      <span>🏃‍♀️</span>
+                      <span>{selectedClassInfo.sport === 'DANCE' ? 'Baile' : 'Voleibol'}</span>
+                    </span>
+                    <span className="flex items-center space-x-2">
+                      <span>📅</span>
+                      <span>{selectedClassInfo.sessions.length} sesiones en el período</span>
+                    </span>
+                  </div>
+                  {selectedClassInfo.description && (
+                    <p className="text-blue-100 mt-2 text-sm">{selectedClassInfo.description}</p>
+                  )}
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="bg-blue-600/30 rounded-xl p-4 border border-blue-400">
+                  <div className="text-2xl font-bold text-white">
+                    {selectedClassInfo.sessions.length}
+                  </div>
+                  <div className="text-blue-200 text-sm">Sesiones</div>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 mb-8">
         {/* Gráfico de barras */}
         <Card className="border-0 shadow-2xl rounded-3xl bg-gray-800/90 border border-gray-600 backdrop-blur-sm">
           <CardHeader className="pb-6">
             <CardTitle className="flex items-center space-x-3 text-white">
               <Calendar className="w-6 h-6" />
-              <span className="text-2xl font-bold">Asistencia por Día</span>
+              <span className="text-2xl font-bold">
+                Asistencia por Día
+                {selectedSessionInfo ? (
+                  <span className="text-lg font-normal text-green-300 ml-2">
+                    - {selectedSessionInfo.danceClass.name} ({new Date(selectedSessionInfo.date).toLocaleDateString("es-ES", { 
+                      day: '2-digit', 
+                      month: '2-digit' 
+                    })})
+                  </span>
+                ) : selectedClassInfo && (
+                  <span className="text-lg font-normal text-blue-300 ml-2">
+                    - {selectedClassInfo.name}
+                  </span>
+                )}
+              </span>
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -169,7 +424,21 @@ export function AttendanceHistory() {
           <CardHeader className="pb-6">
             <CardTitle className="flex items-center space-x-3 text-white">
               <TrendingUp className="w-6 h-6" />
-              <span className="text-2xl font-bold">Distribución General</span>
+              <span className="text-2xl font-bold">
+                Distribución General
+                {selectedSessionInfo ? (
+                  <span className="text-lg font-normal text-green-300 ml-2">
+                    - {selectedSessionInfo.danceClass.name} ({new Date(selectedSessionInfo.date).toLocaleDateString("es-ES", { 
+                      day: '2-digit', 
+                      month: '2-digit' 
+                    })})
+                  </span>
+                ) : selectedClassInfo && (
+                  <span className="text-lg font-normal text-blue-300 ml-2">
+                    - {selectedClassInfo.name}
+                  </span>
+                )}
+              </span>
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -231,7 +500,21 @@ export function AttendanceHistory() {
         <CardHeader className="pb-6">
           <CardTitle className="flex items-center space-x-3 text-white">
             <CheckCircle className="w-6 h-6" />
-            <span className="text-2xl font-bold">Estadísticas por Estudiante</span>
+            <span className="text-2xl font-bold">
+              Estadísticas por Estudiante
+              {selectedSessionInfo ? (
+                <span className="text-lg font-normal text-green-300 ml-2">
+                  - {selectedSessionInfo.danceClass.name} ({new Date(selectedSessionInfo.date).toLocaleDateString("es-ES", { 
+                    day: '2-digit', 
+                    month: '2-digit' 
+                  })})
+                </span>
+              ) : selectedClassInfo && (
+                <span className="text-lg font-normal text-blue-300 ml-2">
+                  - {selectedClassInfo.name}
+                </span>
+              )}
+            </span>
           </CardTitle>
         </CardHeader>
         <CardContent>

@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import { whatsappService } from './whatsapp-service';
+import { MonthlyPaymentService } from './monthly-payment-service';
 
 const prisma = new PrismaClient();
 
@@ -218,20 +219,37 @@ export class PaymentSchedulerService {
           throw new Error('No hay configuración de mensualidad activa. Configure el valor de la mensualidad primero.');
         }
         
-        // Obtener estudiantes activos
+        // Obtener estudiantes activos con sus datos de inscripción y clases
         const activeStudents = await prisma.student.findMany({
-          where: { isActive: true }
+          where: { isActive: true },
+          include: {
+            enrollmentData: true,
+            classEnrollments: {
+              where: { isActive: true },
+              include: {
+                danceClass: {
+                  select: { sport: true }
+                }
+              }
+            }
+          }
         });
         
         console.log(`👥 Generando pagos para ${activeStudents.length} estudiantes activos`);
         
+        // Instanciar el servicio para usar la lógica diferenciada
+        const monthlyPaymentService = new MonthlyPaymentService();
+        
         for (const student of activeStudents) {
+          // Determinar el monto correcto para este estudiante (diferenciado por deporte)
+          const studentAmount = await monthlyPaymentService.getStudentMonthlyFee(student, currentFeeConfig.amount);
+          
           await prisma.monthlyPayment.create({
             data: {
               studentId: student.id,
               periodId: activePeriod.id,
               feeConfigId: currentFeeConfig.id,
-              expectedAmount: currentFeeConfig.amount,
+              expectedAmount: studentAmount,
               status: 'PENDING'
             }
           });
