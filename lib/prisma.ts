@@ -8,6 +8,11 @@ const globalForPrisma = globalThis as unknown as {
 function createPrismaClient() {
   return new PrismaClient({
     log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
+    datasources: {
+      db: {
+        url: process.env.DATABASE_URL
+      }
+    }
   })
 }
 
@@ -34,6 +39,16 @@ export async function checkDatabaseHealth(): Promise<boolean> {
 export async function closePrisma(): Promise<void> {
   await prisma.$disconnect()
 }
+
+// 🇨🇴 CONFIGURACIÓN DE ZONA HORARIA COLOMBIANA
+export function setColombianTimezone() {
+  // Configurar la zona horaria de la sesión de PostgreSQL
+  return prisma.$executeRaw`SET TIME ZONE 'America/Bogota'`
+}
+
+// Las funciones de zona horaria ya no son necesarias porque:
+// - La base de datos está configurada con timezone 'America/Bogota'
+// - Los timestamps se manejan automáticamente en la zona horaria correcta
 
 // ⚡ CONFIGURAR CONNECTION POOLING A NIVEL DE DATABASE_URL
 // Agrega estos parámetros a tu DATABASE_URL en .env:

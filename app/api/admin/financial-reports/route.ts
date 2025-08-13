@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 
-// GET /api/admin/financial-reports - Obtener reportes financieros
+// GET /api/admin/financial-reports - Obtener reportes financieros o vista consolidada
 export async function GET(request: Request) {
   try {
     const session = await getServerSession(authOptions);
@@ -12,6 +12,99 @@ export async function GET(request: Request) {
     }
 
     const { searchParams } = new URL(request.url);
+    const view = searchParams.get("view");
+    
+    // Si se solicita la vista consolidada
+    if (view === "consolidated") {
+      const page = parseInt(searchParams.get("page") || "1");
+      const limit = parseInt(searchParams.get("limit") || "50");
+      const offset = (page - 1) * limit;
+      const search = searchParams.get("search");
+      const type = searchParams.get("type");
+      const category = searchParams.get("category");
+      const startDate = searchParams.get("startDate");
+      const endDate = searchParams.get("endDate");
+      
+      // Construir la consulta con filtros
+      let whereConditions = [];
+      let queryParams = [];
+      
+      if (search) {
+        whereConditions.push("description ILIKE $" + (queryParams.length + 1));
+        queryParams.push(`%${search}%`);
+      }
+      
+      if (type && type !== "ALL") {
+        whereConditions.push("transaction_type = $" + (queryParams.length + 1));
+        queryParams.push(type);
+      }
+      
+      if (category && category !== "ALL") {
+        whereConditions.push("category = $" + (queryParams.length + 1));
+        queryParams.push(category);
+      }
+      
+      if (startDate) {
+        whereConditions.push("transaction_date >= $" + (queryParams.length + 1) + "::timestamp");
+        queryParams.push(startDate + " 00:00:00"); // Inicio del día
+      }
+      
+      if (endDate) {
+        whereConditions.push("transaction_date <= $" + (queryParams.length + 1) + "::timestamp");
+        queryParams.push(endDate + " 23:59:59"); // Fin del día
+      }
+      
+      const whereClause = whereConditions.length > 0 
+        ? "WHERE " + whereConditions.join(" AND ")
+        : "";
+      
+      // Obtener datos de la vista consolidada con filtros
+      const transactions = await prisma.$queryRawUnsafe(`
+        SELECT 
+          source_table,
+          transaction_id,
+          amount,
+          description,
+          transaction_type,
+          category,
+          transaction_date,
+          payment_method,
+          student_id,
+          period_id,
+          related_id,
+          related_type,
+          created_at,
+          updated_at
+        FROM financial_transactions_view
+        ${whereClause}
+        ORDER BY transaction_date DESC, created_at DESC
+        LIMIT ${limit} OFFSET ${offset}
+      `, ...queryParams);
+      
+      // Obtener total de registros con filtros
+      const totalResult = await prisma.$queryRawUnsafe(`
+        SELECT COUNT(*) as total
+        FROM financial_transactions_view
+        ${whereClause}
+      `, ...queryParams);
+      
+      const total = parseInt((totalResult as any)[0].total);
+      const totalPages = Math.ceil(total / limit);
+      
+      return NextResponse.json({
+        transactions,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages,
+          hasNext: page < totalPages,
+          hasPrev: page > 1
+        }
+      });
+    }
+    
+    // Endpoint original para reportes financieros
     const year = searchParams.get("year");
     const month = searchParams.get("month");
 
@@ -35,14 +128,19 @@ export async function GET(request: Request) {
     const reports = await prisma.financialReport.findMany({
       where: whereClause,
       include: {
-        period: true,
+        period: {
+          select: {
+            year: true,
+            month: true,
+          },
+        },
       },
       orderBy: [{ period: { year: "desc" } }, { period: { month: "desc" } }],
     });
 
     return NextResponse.json(reports);
   } catch (error) {
-    console.error("Error fetching financial reports:", error);
+    console.error("Error fetching financial data:", error);
     return NextResponse.json(
       { message: "Error interno del servidor" },
       { status: 500 }

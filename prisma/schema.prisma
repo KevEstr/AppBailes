@@ -1,10 +1,14 @@
 generator client {
   provider = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
 }
 
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+  // Configurar zona horaria en la URL de conexión
+  // Ejemplo: postgresql://user:pass@localhost:5432/db?timezone=America/Bogota
+  // TIMESTAMPTZ almacena fechas con zona horaria
 }
 
 model Student {
@@ -15,8 +19,8 @@ model Student {
   hasDebt                 Boolean                   @default(false)
   isActive                Boolean                   @default(true)
   userId                  Int?                      @unique  // Nueva relación con User
-  createdAt               DateTime                  @default(now())
-  updatedAt               DateTime                  @updatedAt
+  createdAt               DateTime                  @default(now()) @db.Timestamptz
+  updatedAt               DateTime                  @updatedAt @db.Timestamptz
 
   // Relations
   user                    User?                     @relation(fields: [userId], references: [id], onDelete: SetNull)
@@ -810,6 +814,7 @@ model FinancialTransaction {
   amount      Float
   description String
   reference   String?
+  paymentMethod PaymentMethod?      // Método de pago usado
   date        DateTime              @default(now())
   studentId   String?
   relatedId   Int?                  // ID relacionado (receipt, service_payment, etc)
@@ -895,4 +900,54 @@ enum ReportType {
   QUARTERLY
   ANNUAL
   CUSTOM
+}
+
+// ===== MODELOS PARA PRODUCTOS =====
+
+model Product {
+  id          Int       @id @default(autoincrement())
+  name        String
+  description String?
+  price       Float
+  stock       Int       @default(0)
+  imageUrl    String?
+  category    ProductCategory
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now()) @db.Timestamptz
+  updatedAt   DateTime  @updatedAt @db.Timestamptz
+  
+  // Relaciones
+  sales       ProductSale[]
+
+  @@index([name])
+  @@index([category])
+  @@index([isActive])
+  @@map("products")
+}
+
+model ProductSale {
+  id          Int       @id @default(autoincrement())
+  productId   Int
+  quantity    Int
+  unitPrice   Float
+  totalAmount Float
+  soldAt      DateTime  @default(now()) @db.Timestamptz
+  notes       String?
+  createdAt   DateTime  @default(now()) @db.Timestamptz
+  updatedAt   DateTime  @updatedAt @db.Timestamptz
+  
+  // Relaciones
+  product     Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+  @@index([soldAt])
+  @@map("product_sales")
+}
+
+enum ProductCategory {
+  JUICES      // Jugos naturales
+  SNACKS      // Snacks
+  BEVERAGES   // Bebidas
+  FOOD        // Comida
+  OTHER       // Otros
 }

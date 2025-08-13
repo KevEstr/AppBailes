@@ -18,7 +18,8 @@ import {
   LogOut,
   UserPlus,
   UserCheck,
-  ArrowRight
+  ArrowRight,
+  Package
 } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
@@ -132,6 +133,14 @@ function AdminContent() {
       icon: BarChart3,
       description: "Reportes y análisis de ingresos",
       color: "from-cyan-500 to-blue-600",
+    },
+    {
+      id: "products",
+      href: "/admin/products",
+      label: "Administración de Productos",
+      icon: Package,
+      description: "Gestiona el inventario de productos y snacks",
+      color: "from-green-500 to-emerald-600",
     },
     // {
     //   id: "services",

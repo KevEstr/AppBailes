@@ -41,7 +41,11 @@
     "test:watch": "jest --watch",
     "test:ci": "jest --watchAll=false --passWithNoTests --coverage --coverageReporters=lcov,text-summary",
     "vercel:deploy": "vercel --prod",
-    "vercel:preview": "vercel"
+    "vercel:preview": "vercel",
+    "setup:products": "node scripts/setup-products.js",
+    "seed:products": "tsx scripts/seed-products.ts",
+    "fix:products-migration": "node scripts/fix-products-migration.js",
+    "migrate:smart": "node scripts/smart-migration.js"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",
