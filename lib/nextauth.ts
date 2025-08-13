@@ -27,7 +27,7 @@ export const authOptions: NextAuthOptions = {
               email: credentials.email
             },
             include: {
-              trainer: true
+              trainers: true
             }
           })
 
@@ -59,7 +59,7 @@ export const authOptions: NextAuthOptions = {
             name: user.email, // Usar email como name ya que no hay campo name
             role: user.role,
             trainerId: user.trainerId?.toString(),
-            trainerName: user.trainer?.name
+            trainerName: user.trainers?.name
           }
           
           console.log("✅ Returning auth user:", authUser)

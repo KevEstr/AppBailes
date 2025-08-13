@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { MonthlyPaymentService } from '@/lib/monthly-payment-service';
 
 export async function POST(request: NextRequest) {
   try {
@@ -37,10 +38,24 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Obtener todos los estudiantes activos
+    // Obtener todos los estudiantes activos con sus datos de inscripción y clases
     const activeStudents = await prisma.student.findMany({
-      where: { isActive: true }
+      where: { isActive: true },
+      include: {
+        enrollmentData: true,
+        classEnrollments: {
+          where: { isActive: true },
+          include: {
+            danceClass: {
+              select: { sport: true }
+            }
+          }
+        }
+      }
     });
+
+    // Instanciar el servicio para usar la lógica diferenciada
+    const monthlyPaymentService = new MonthlyPaymentService();
 
     let generated = 0;
     let existing = 0;
@@ -61,13 +76,16 @@ export async function POST(request: NextRequest) {
         continue;
       }
 
+      // Determinar el monto correcto para este estudiante (diferenciado por deporte)
+      const studentAmount = await monthlyPaymentService.getStudentMonthlyFee(student, currentFee.amount);
+
       // Crear el pago mensual
       const monthlyPayment = await prisma.monthlyPayment.create({
         data: {
           studentId: student.id,
           periodId: periodId,
           feeConfigId: currentFee.id,
-          expectedAmount: currentFee.amount,
+          expectedAmount: studentAmount,
           status: 'PENDING'
         }
       });
@@ -79,7 +97,7 @@ export async function POST(request: NextRequest) {
           periodId: periodId,
           monthlyPaymentId: monthlyPayment.id,
           studentName: student.name,
-          amount: currentFee.amount,
+          amount: studentAmount,
           status: 'ACTIVE',
           expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 días
         }

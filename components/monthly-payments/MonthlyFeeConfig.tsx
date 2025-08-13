@@ -16,7 +16,8 @@ import {
   AlertCircle, 
   CheckCircle, 
   ArrowLeft,
-  History
+  History,
+  Info
 } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -160,12 +161,40 @@ export function MonthlyFeeConfig() {
                 <div className="bg-green-500/10 border border-green-500 rounded-lg p-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-green-400 font-medium">Valor Mensualidad Activo</p>
+                      <p className="text-green-400 font-medium">Valor Mensualidad Global (Respaldo)</p>
                       <p className="text-3xl font-bold text-green-400">
                         {formatCurrency(currentConfig.amount)}
                       </p>
                     </div>
                     <Badge className="bg-green-500 text-white">Activo</Badge>
+                  </div>
+                </div>
+                
+                {/* Información sobre precios por deporte */}
+                <div className="bg-blue-500/10 border border-blue-500 rounded-lg p-4">
+                  <div className="flex items-center space-x-2 mb-3">
+                    <Info className="h-5 w-5 text-blue-400" />
+                    <p className="text-blue-400 font-medium">Sistema de Precios por Deporte</p>
+                  </div>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-300 flex items-center space-x-2">
+                        <span>💃</span>
+                        <span>Baile</span>
+                      </span>
+                      <span className="text-white font-medium">{formatCurrency(60000)}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-300 flex items-center space-x-2">
+                        <span>🏐</span>
+                        <span>Voleibol</span>
+                      </span>
+                      <span className="text-white font-medium">{formatCurrency(65000)}</span>
+                    </div>
+                    <p className="text-gray-400 text-xs mt-2">
+                      El sistema automáticamente asigna estos precios según el deporte del estudiante. 
+                      El precio global se usa solo como respaldo.
+                    </p>
                   </div>
                 </div>
                 
@@ -208,7 +237,7 @@ export function MonthlyFeeConfig() {
               <div className="space-y-4">
                 <div>
                   <Label htmlFor="amount" className="text-white">
-                    Nuevo Valor de Mensualidad *
+                    Valor de Mensualidad Global (Respaldo) *
                   </Label>
                   <Input
                     id="amount"
@@ -219,7 +248,8 @@ export function MonthlyFeeConfig() {
                     className="bg-gray-700 border-gray-600 text-white placeholder-gray-400"
                   />
                   <p className="text-sm text-gray-400 mt-1">
-                    Valor en pesos colombianos (COP)
+                    Este valor solo se usa para estudiantes sin deporte específico definido. 
+                    La mayoría de estudiantes usarán los precios por deporte mostrados arriba.
                   </p>
                 </div>
 
