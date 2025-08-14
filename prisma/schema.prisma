@@ -629,25 +629,6 @@ model FinancialTransaction {
   @@map("financial_transactions")
 }
 
-model FinancialReport {
-  id                Int             @id @default(autoincrement())
-  periodId          Int
-  reportType        ReportType
-  totalIncome       Float           @default(0)
-  totalExpenses     Float           @default(0)
-  netProfit         Float           @default(0)
-  monthlyPayments   Float           @default(0)
-  servicePayments   Float           @default(0)
-  otherIncome       Float           @default(0)
-  operatingExpenses Float           @default(0)
-  summary           Json?
-  generatedAt       DateTime        @default(now())
-  generatedBy       String?
-  period            FinancialPeriod @relation(fields: [periodId], references: [id], onDelete: Cascade)
-
-  @@unique([periodId, reportType])
-  @@map("financial_reports")
-}
 
 enum EnrollmentPaymentStatus {
   PENDING
