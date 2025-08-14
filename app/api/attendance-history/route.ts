@@ -8,6 +8,9 @@ export async function GET(request: Request) {
     const studentIdParam = searchParams.get("student") || "all"
     const classIdParam = searchParams.get("class") || "all"
     const sessionIdParam = searchParams.get("session") || "all"
+    const pageParam = parseInt(searchParams.get("page") || "1")
+    const limitParam = parseInt(searchParams.get("limit") || "25")
+    const search = (searchParams.get("search") || "").trim()
 
     // Calcular fechas según el período
     const endDate = new Date()
@@ -124,21 +127,60 @@ export async function GET(request: Request) {
       }
     }
 
-    const students = await prisma.student.findMany({
-      where: { isActive: true },
-      include: {
-        attendances: {
-          where: studentAttendanceFilter,
-          include: {
-            session: {
-              include: {
-                danceClass: true
+    const studentWhere: any = { isActive: true }
+    if (search) {
+      studentWhere.OR = [
+        { name: { contains: search, mode: 'insensitive' } },
+        { id: { contains: search, mode: 'insensitive' } }
+      ]
+    }
+
+    // Cuando se filtra por sesión o clase, limitar estudiantes a quienes tengan asistencias en ese rango
+    // para no traer todos los estudiantes.
+    if (sessionIdParam !== "all" || classIdParam !== "all") {
+      const relationFilter: any = {
+        date: {
+          gte: startDate,
+          lte: endDate,
+        }
+      }
+      if (sessionIdParam !== "all") {
+        const sessionId = parseInt(sessionIdParam)
+        if (sessionId) {
+          relationFilter.sessionId = sessionId
+        }
+      } else if (classIdParam !== "all") {
+        const classId = parseInt(classIdParam)
+        if (classId) {
+          relationFilter.session = { classId }
+        }
+      }
+      studentWhere.attendances = { some: relationFilter }
+    }
+
+    const skip = (Math.max(pageParam, 1) - 1) * Math.max(limitParam, 1)
+
+    const [students, totalStudents] = await Promise.all([
+      prisma.student.findMany({
+        where: studentWhere,
+        orderBy: { name: 'asc' },
+        skip,
+        take: Math.max(limitParam, 1),
+        include: {
+          attendances: {
+            where: studentAttendanceFilter,
+            include: {
+              session: {
+                include: {
+                  danceClass: true
+                }
               }
             }
-          }
+          },
         },
-      },
-    })
+      }),
+      prisma.student.count({ where: studentWhere })
+    ])
 
     const studentStats = students.map((student: any) => {
       const studentAttendances = student.attendances
@@ -255,6 +297,8 @@ export async function GET(request: Request) {
       }
     }
 
+    const totalPages = Math.ceil(totalStudents / Math.max(limitParam, 1))
+
     return NextResponse.json({
       chartData,
       studentStats,
@@ -262,6 +306,14 @@ export async function GET(request: Request) {
       selectedClassInfo,
       availableSessions,
       selectedSessionInfo,
+      pagination: {
+        page: Math.max(pageParam, 1),
+        limit: Math.max(limitParam, 1),
+        total: totalStudents,
+        totalPages,
+        hasNext: Math.max(pageParam, 1) < totalPages,
+        hasPrev: Math.max(pageParam, 1) > 1
+      }
     })
   } catch (error) {
     console.error("Error fetching attendance history:", error)

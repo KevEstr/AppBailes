@@ -6,7 +6,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from "recharts"
-import { TrendingUp, Calendar, CheckCircle, Clock, XCircle, BarChart3 } from "lucide-react"
+import { TrendingUp, Calendar, CheckCircle, Clock, XCircle, BarChart3, Search } from "lucide-react"
+import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
+import { AdvancedPagination } from "@/components/ui/advanced-pagination"
 
 interface AttendanceData {
   date: string
@@ -97,10 +100,14 @@ export function AttendanceHistory() {
   const [selectedClassInfo, setSelectedClassInfo] = useState<SelectedClassInfo | null>(null)
   const [availableSessions, setAvailableSessions] = useState<AvailableSession[]>([])
   const [selectedSessionInfo, setSelectedSessionInfo] = useState<SelectedSessionInfo | null>(null)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageLimit, setPageLimit] = useState(25)
+  const [searchTerm, setSearchTerm] = useState("")
+  const [pagination, setPagination] = useState({ page: 1, limit: 25, total: 0, totalPages: 0, hasNext: false, hasPrev: false })
 
   useEffect(() => {
     loadAttendanceData()
-  }, [selectedPeriod, selectedStudent, selectedClass, selectedSession])
+  }, [selectedPeriod, selectedStudent, selectedClass, selectedSession, currentPage, pageLimit])
 
   // Limpiar sesión cuando cambia la clase
   useEffect(() => {
@@ -111,7 +118,16 @@ export function AttendanceHistory() {
 
   const loadAttendanceData = async () => {
     try {
-      const response = await fetch(`/api/attendance-history?period=${selectedPeriod}&student=${selectedStudent}&class=${selectedClass}&session=${selectedSession}`)
+      const params = new URLSearchParams({
+        period: selectedPeriod,
+        student: selectedStudent,
+        class: selectedClass,
+        session: selectedSession,
+        page: currentPage.toString(),
+        limit: pageLimit.toString()
+      })
+      if (searchTerm.trim()) params.set('search', searchTerm.trim())
+      const response = await fetch(`/api/attendance-history?${params}`)
       const data = await response.json()
       setAttendanceData(data.chartData)
       setStudentStats(data.studentStats)
@@ -119,6 +135,7 @@ export function AttendanceHistory() {
       setSelectedClassInfo(data.selectedClassInfo || null)
       setAvailableSessions(data.availableSessions || [])
       setSelectedSessionInfo(data.selectedSessionInfo || null)
+      if (data.pagination) setPagination(data.pagination)
     } catch (error) {
       console.error("Error loading attendance data:", error)
     }
@@ -133,9 +150,9 @@ export function AttendanceHistory() {
   const hasAttendanceData = pieData.length > 0;
 
   const getPercentageColor = (percentage: number) => {
-    if (percentage >= 90) return "text-emerald-600"
-    if (percentage >= 75) return "text-amber-600"
-    return "text-red-600"
+    if (percentage >= 90) return "text-emerald-300"
+    if (percentage >= 75) return "text-amber-300"
+    return "text-red-300"
   }
 
   const getPercentageBadge = (percentage: number) => {
@@ -145,43 +162,29 @@ export function AttendanceHistory() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto">
-      {/* Header */}
-      <Card className="border-0 bg-gradient-to-r from-gray-800/90 via-slate-800/90 to-gray-700/90 text-white shadow-2xl mb-8 rounded-3xl border border-gray-600 backdrop-blur-sm">
-        <CardHeader className="pb-6">
-          <CardTitle className="flex items-center space-x-4">
-            <div className="rounded-2xl bg-blue-600 p-3 backdrop-blur-sm border border-blue-500">
-              <BarChart3 className="h-8 w-8 text-white" />
-            </div>
-            <div>
-              <span className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">Análisis Paradise</span>
-              <p className="text-blue-300 mt-2 text-lg">Estadísticas de asistencia de bailarines</p>
-            </div>
-          </CardTitle>
-        </CardHeader>
-      </Card>
+    <div >
 
       {/* Filtros */}
-      <Card className="border-0 shadow-2xl mb-8 rounded-3xl bg-gray-800/90 border border-gray-600 backdrop-blur-sm">
-        <CardContent className="p-8">
-          <div className={`grid grid-cols-1 gap-6 ${selectedClass !== "all" && availableSessions.length > 0 ? "md:grid-cols-4" : "md:grid-cols-3"}`}>
+      <Card className="border-0 shadow-2xl mb-4 rounded-xl bg-gray-800/90 border border-gray-600 backdrop-blur-sm">
+        <CardContent className="p-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
             <div>
               <h2 className="text-lg font-bold text-gray-200 mb-1">Período</h2>
               <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
-                <SelectTrigger className="border border-gray-600 focus:border-blue-500 rounded-2xl h-14 text-lg bg-gray-700 text-white">
+                <SelectTrigger className="bg-gray-800 border-gray-600 text-white py-2">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="bg-gray-700 border-gray-600">
-                  <SelectItem value="week" className="text-lg text-white hover:bg-blue-600">
+                  <SelectItem value="week" className="text-white hover:bg-blue-600">
                     📅 Última semana
                   </SelectItem>
-                  <SelectItem value="month" className="text-lg text-white hover:bg-blue-600">
+                  <SelectItem value="month" className="text-white hover:bg-blue-600">
                     📅 Último mes
                   </SelectItem>
-                  <SelectItem value="quarter" className="text-lg text-white hover:bg-blue-600">
+                  <SelectItem value="quarter" className="text-white hover:bg-blue-600">
                     📅 Último trimestre
                   </SelectItem>
-                  <SelectItem value="year" className="text-lg text-white hover:bg-blue-600">
+                  <SelectItem value="year" className="text-white hover:bg-blue-600">
                     📅 Último año
                   </SelectItem>
                 </SelectContent>
@@ -191,15 +194,15 @@ export function AttendanceHistory() {
             <div>
               <h2 className="text-lg font-bold text-gray-200 mb-1">Clase</h2>
               <Select value={selectedClass} onValueChange={setSelectedClass}>
-                <SelectTrigger className="border border-gray-600 focus:border-blue-500 rounded-2xl h-14 text-lg bg-gray-700 text-white">
+                <SelectTrigger className="bg-gray-800 border-gray-600 text-white py-2">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="bg-gray-700 border-gray-600">
-                  <SelectItem value="all" className="text-lg text-white hover:bg-blue-600">
+                  <SelectItem value="all" className="text-white hover:bg-blue-600">
                     🎯 Todas las clases
                   </SelectItem>
                   {availableClasses.map((danceClass) => (
-                    <SelectItem key={danceClass.id} value={danceClass.id.toString()} className="text-lg text-white hover:bg-blue-600">
+                    <SelectItem key={danceClass.id} value={danceClass.id.toString()} className="text-white hover:bg-blue-600">
                       {danceClass.sport === 'DANCE' ? '💃' : '🏐'} {danceClass.name}
                     </SelectItem>
                   ))}
@@ -209,14 +212,14 @@ export function AttendanceHistory() {
 
             {/* Selector de sesión - Solo se muestra cuando hay una clase seleccionada */}
             {selectedClass !== "all" && availableSessions.length > 0 && (
-              <div>
+              <div className="md:col-span-2 lg:col-span-1">
                 <h2 className="text-lg font-bold text-gray-200 mb-1">Sesión</h2>
                 <Select value={selectedSession} onValueChange={setSelectedSession}>
-                  <SelectTrigger className="border border-gray-600 focus:border-blue-500 rounded-2xl h-14 text-lg bg-gray-700 text-white">
+                  <SelectTrigger className="bg-gray-800 border-gray-600 text-white py-2">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent className="bg-gray-700 border-gray-600">
-                    <SelectItem value="all" className="text-lg text-white hover:bg-blue-600">
+                    <SelectItem value="all" className="text-white hover:bg-blue-600">
                       📅 Todas las sesiones
                     </SelectItem>
                     {availableSessions.map((session) => {
@@ -231,7 +234,7 @@ export function AttendanceHistory() {
                         minute: '2-digit'
                       });
                       return (
-                        <SelectItem key={session.id} value={session.id.toString()} className="text-lg text-white hover:bg-blue-600">
+                        <SelectItem key={session.id} value={session.id.toString()} className="text-white hover:bg-blue-600">
                           🕐 {dateStr} - {timeStr}
                         </SelectItem>
                       )
@@ -244,39 +247,42 @@ export function AttendanceHistory() {
             <div>
               <h2 className="text-lg font-bold text-gray-200">Estudiante</h2>
               <Select value={selectedStudent} onValueChange={setSelectedStudent}>
-                <SelectTrigger className="border border-gray-600 focus:border-blue-500 rounded-2xl h-14 text-lg bg-gray-700 text-white">
+                <SelectTrigger className="bg-gray-800 border-gray-600 text-white py-2">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="bg-gray-700 border-gray-600">
-                  <SelectItem value="all" className="text-lg text-white hover:bg-blue-600">
+                  <SelectItem value="all" className="text-white hover:bg-blue-600">
                     👥 Todos los estudiantes
                   </SelectItem>
                   {studentStats.map((student) => (
-                    <SelectItem key={student.id} value={student.id.toString()} className="text-lg text-white hover:bg-blue-600">
+                    <SelectItem key={student.id} value={student.id.toString()} className="text-white hover:bg-blue-600">
                       {student.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
+
+            
+
           </div>
         </CardContent>
       </Card>
 
       {/* Información de la sesión específica seleccionada */}
       {selectedSessionInfo && (
-        <Card className="border-0 shadow-2xl mb-8 rounded-3xl bg-gradient-to-r from-green-800/90 via-teal-800/90 to-green-700/90 border border-green-500 backdrop-blur-sm">
-          <CardContent className="p-8">
+        <Card className="border-0 shadow-2xl mb-4 rounded-xl bg-gradient-to-r from-green-800/90 via-teal-800/90 to-green-700/90 border border-green-500 backdrop-blur-sm">
+          <CardContent className="p-4">
             <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-6">
-                <div className="rounded-2xl bg-green-600/20 p-4 backdrop-blur-sm border border-green-400">
+              <div className="flex items-center space-x-3">
+                <div className="rounded-2xl bg-green-600/20 p-3 backdrop-blur-sm border border-green-400">
                   <span className="text-4xl">🕐</span>
                 </div>
                 <div>
                   <h3 className="text-3xl font-bold text-white mb-2">
                     {selectedSessionInfo.danceClass.sport === 'DANCE' ? '💃' : '🏐'} {selectedSessionInfo.danceClass.name}
                   </h3>
-                  <div className="flex items-center space-x-4 text-green-200 mb-2">
+                  <div className="flex items-center space-x-3 text-green-200 mb-2">
                     <span className="flex items-center space-x-2">
                       <span>📅</span>
                       <span>{new Date(selectedSessionInfo.date).toLocaleDateString("es-ES", { 
@@ -315,7 +321,7 @@ export function AttendanceHistory() {
                 </div>
               </div>
               <div className="text-right">
-                <div className="bg-green-600/30 rounded-xl p-4 border border-green-400">
+                <div className="bg-green-600/30 rounded-xl p-3 border border-green-400">
                   <div className="text-2xl font-bold text-white">
                     {selectedSessionInfo.attendances.length}
                   </div>
@@ -329,11 +335,11 @@ export function AttendanceHistory() {
 
       {/* Información de la clase seleccionada (cuando no hay sesión específica) */}
       {selectedClassInfo && !selectedSessionInfo && (
-        <Card className="border-0 shadow-2xl mb-8 rounded-3xl bg-gradient-to-r from-blue-800/90 via-purple-800/90 to-blue-700/90 border border-blue-500 backdrop-blur-sm">
-          <CardContent className="p-8">
+        <Card className="border-0 shadow-2xl mb-4 rounded-xl bg-gradient-to-r from-blue-800/90 via-purple-800/90 to-blue-700/90 border border-blue-500 backdrop-blur-sm">
+          <CardContent className="p-4">
             <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-6">
-                <div className="rounded-2xl bg-blue-600/20 p-4 backdrop-blur-sm border border-blue-400">
+              <div className="flex items-center space-x-3">
+                <div className="rounded-2xl bg-blue-600/20 p-3 backdrop-blur-sm border border-blue-400">
                   {selectedClassInfo.sport === 'DANCE' ? (
                     <span className="text-4xl">💃</span>
                   ) : (
@@ -342,7 +348,7 @@ export function AttendanceHistory() {
                 </div>
                 <div>
                   <h3 className="text-3xl font-bold text-white mb-2">{selectedClassInfo.name}</h3>
-                  <div className="flex items-center space-x-4 text-blue-200">
+                  <div className="flex items-center space-x-3 text-blue-200">
                     <span className="flex items-center space-x-2">
                       <span>👨‍🏫</span>
                       <span>{selectedClassInfo.trainer.name}</span>
@@ -362,7 +368,7 @@ export function AttendanceHistory() {
                 </div>
               </div>
               <div className="text-right">
-                <div className="bg-blue-600/30 rounded-xl p-4 border border-blue-400">
+                <div className="bg-blue-600/30 rounded-xl p-3 border border-blue-400">
                   <div className="text-2xl font-bold text-white">
                     {selectedClassInfo.sessions.length}
                   </div>
@@ -374,10 +380,10 @@ export function AttendanceHistory() {
         </Card>
       )}
 
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 mb-8">
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 mb-4">
         {/* Gráfico de barras */}
-        <Card className="border-0 shadow-2xl rounded-3xl bg-gray-800/90 border border-gray-600 backdrop-blur-sm">
-          <CardHeader className="pb-6">
+        <Card className="border-0 shadow-2xl rounded-xl bg-gray-800/90 border border-gray-600 backdrop-blur-sm">
+          <CardHeader className="pb-4">
             <CardTitle className="flex items-center space-x-3 text-white">
               <Calendar className="w-6 h-6" />
               <span className="text-2xl font-bold">
@@ -420,8 +426,8 @@ export function AttendanceHistory() {
         </Card>
 
         {/* Gráfico circular */}
-        <Card className="border-0 shadow-2xl rounded-3xl bg-gray-800/90 border border-gray-600 backdrop-blur-sm">
-          <CardHeader className="pb-6">
+        <Card className="border-0 shadow-2xl rounded-xl bg-gray-800/90 border border-gray-600 backdrop-blur-sm">
+          <CardHeader className="pb-4">
             <CardTitle className="flex items-center space-x-3 text-white">
               <TrendingUp className="w-6 h-6" />
               <span className="text-2xl font-bold">
@@ -496,8 +502,8 @@ export function AttendanceHistory() {
       </div>
 
       {/* Tabla de estudiantes */}
-      <Card className="border-0 shadow-2xl rounded-3xl bg-gray-800/90 border border-gray-600 backdrop-blur-sm">
-        <CardHeader className="pb-6">
+      <Card className="border-0 shadow-2xl rounded-xl bg-gray-800/90 border border-gray-600 backdrop-blur-sm">
+        <CardHeader className="pb-4">
           <CardTitle className="flex items-center space-x-3 text-white">
             <CheckCircle className="w-6 h-6" />
             <span className="text-2xl font-bold">
@@ -518,7 +524,26 @@ export function AttendanceHistory() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-6">
+          {/* Barra de búsqueda encima del listado */}
+          <div className="mb-4">
+            <div className="relative flex gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Input
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { setCurrentPage(1); loadAttendanceData(); } }}
+                  placeholder="Buscar por nombre o identificación"
+                  className="pl-9 bg-gray-700 border-gray-600 text-white placeholder:text-gray-400"
+                />
+              </div>
+              <Button onClick={() => { setCurrentPage(1); loadAttendanceData(); }} className="bg-blue-600 hover:bg-blue-700">
+                <Search className="w-4 h-4 mr-2" /> Buscar
+              </Button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {studentStats.length === 0 ? (
               <div className="text-center py-12">
                 <div className="w-24 h-24 mx-auto mb-6 bg-gradient-to-r from-teal-300 to-amber-300 rounded-full flex items-center justify-center border-2 border-teal-600">
@@ -530,10 +555,10 @@ export function AttendanceHistory() {
             ) : (
               studentStats.map((student) => (
                 <Card key={student.id} className="bg-gray-700/80 border border-gray-600 rounded-2xl overflow-hidden hover:shadow-lg transition-shadow">
-                  <CardContent className="p-6">
+                  <CardContent className="p-4">
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-6">
-                        <Avatar className="w-16 h-16 ring-4 ring-teal-600/60 shadow-lg">
+                      <div className="flex items-center space-x-3">
+                        <Avatar className="w-12 h-12 ring-4 ring-teal-600/60 shadow-lg">
                           <AvatarImage src={student.avatar || "/placeholder.svg"} />
                           <AvatarFallback className="bg-gradient-to-r from-orange-500 to-red-500 text-white font-bold text-lg">
                             {student.name
@@ -544,15 +569,15 @@ export function AttendanceHistory() {
                           </AvatarFallback>
                         </Avatar>
                         <div>
-                          <h4 className="text-xl font-bold text-teal-800">{student.name}</h4>
-                          <p className="text-slate-700 mt-1">
+                              <h4 className="text-base font-medium text-white">{student.name}</h4>
+                          <p className="text-sm text-gray-300 mt-1">
                             Cédula: {student.id} • {student.totalClasses} clases totales
                           </p>
                         </div>
                       </div>
 
                       <div className="text-right">
-                        <div className={`text-4xl font-bold mb-2 ${getPercentageColor(student.percentage)}`}>
+                            <div className={`text-lg font-bold mb-2 ${getPercentageColor(student.percentage)}`}>
                           {student.percentage.toFixed(1)}%
                         </div>
                         <Badge
@@ -564,36 +589,55 @@ export function AttendanceHistory() {
                       </div>
                     </div>
 
-                    <div className="mt-6 grid grid-cols-3 gap-6">
-                      <div className="text-center p-4 bg-emerald-100 rounded-xl border-2 border-emerald-400">
+                    <div className="mt-4 grid grid-cols-3 gap-4">
+                      <div className="text-center p-3 bg-emerald-900/30 rounded-xl border border-emerald-600/40">
                         <div className="flex items-center justify-center space-x-2 mb-2">
-                          <CheckCircle className="w-5 h-5 text-emerald-700" />
-                          <span className="text-sm font-medium text-emerald-700">Presentes</span>
+                          <CheckCircle className="w-5 h-5 text-emerald-300" />
+                          <span className="text-sm font-medium text-emerald-200">Presentes</span>
                         </div>
-                        <div className="text-3xl font-bold text-emerald-700">{student.present}</div>
+                            <div className="text-base font-semibold text-emerald-300">{student.present}</div>
                       </div>
 
-                      <div className="text-center p-4 bg-amber-100 rounded-xl border-2 border-amber-400">
+                      <div className="text-center p-3 bg-amber-900/30 rounded-xl border border-amber-600/40">
                         <div className="flex items-center justify-center space-x-2 mb-2">
-                          <Clock className="w-5 h-5 text-amber-700" />
-                          <span className="text-sm font-medium text-amber-700">Tarde</span>
+                          <Clock className="w-5 h-5 text-amber-300" />
+                          <span className="text-sm font-medium text-amber-200">Tarde</span>
                         </div>
-                        <div className="text-3xl font-bold text-amber-700">{student.late}</div>
+                            <div className="text-base font-semibold text-amber-300">{student.late}</div>
                       </div>
 
-                      <div className="text-center p-4 bg-red-100 rounded-xl border-2 border-red-400">
+                      <div className="text-center p-3 bg-red-900/30 rounded-xl border border-red-600/40">
                         <div className="flex items-center justify-center space-x-2 mb-2">
-                          <XCircle className="w-5 h-5 text-red-700" />
-                          <span className="text-sm font-medium text-red-700">Ausentes</span>
+                          <XCircle className="w-5 h-5 text-red-300" />
+                          <span className="text-sm font-medium text-red-200">Ausentes</span>
                         </div>
-                        <div className="text-3xl font-bold text-red-700">{student.absent}</div>
+                            <div className="text-base font-semibold text-red-300">{student.absent}</div>
                       </div>
                     </div>
-                  </CardContent>
+                   </CardContent>
                 </Card>
               ))
             )}
           </div>
+
+          {/* Paginación */}
+          {pagination.totalPages > 1 && (
+            <AdvancedPagination
+              pagination={{
+                page: pagination.page,
+                limit: pagination.limit,
+                totalCount: pagination.total,
+                totalPages: pagination.totalPages,
+                hasNext: pagination.page < pagination.totalPages,
+                hasPrev: pagination.page > 1
+              }}
+              currentPage={currentPage}
+              onPageChange={(page) => setCurrentPage(page)}
+              onLimitChange={(newLimit) => { setPageLimit(newLimit); setCurrentPage(1); }}
+              itemName="estudiantes"
+              limitOptions={[10, 25, 50, 100]}
+            />
+          )}
         </CardContent>
       </Card>
     </div>
