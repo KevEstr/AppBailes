@@ -37,7 +37,6 @@ model Student {
   financialTransactions   FinancialTransaction[]
   schedulerRecipients     SchedulerRecipient[]
   studentTransfers       StudentTransfer[]
-  user                   User?                   @relation(fields: [userId], references: [id])
   messagesSent           MassiveMessage[]        @relation("MessageRecipients")
 
   @@index([name])
