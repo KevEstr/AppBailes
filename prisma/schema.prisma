@@ -37,7 +37,6 @@ model Student {
   financialTransactions   FinancialTransaction[]
   schedulerRecipients     SchedulerRecipient[]
   studentTransfers       StudentTransfer[]
-  messagesSent           MassiveMessage[]        @relation("MessageRecipients")
 
   @@index([name])
   @@index([phone])
@@ -522,111 +521,6 @@ model User {
   trainers         Trainer?          @relation(fields: [trainerId], references: [id])
 
   @@map("users")
-}
-
-model Service {
-  id            Int             @id @default(autoincrement())
-  name          String
-  description   String?
-  basePrice     Float
-  category      ServiceCategory
-  isActive      Boolean         @default(true)
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
-  serviceOrders ServiceOrder[]
-  serviceRates  ServiceRate[]
-
-  @@map("services")
-}
-
-model ServiceRate {
-  id         Int         @id @default(autoincrement())
-  serviceId  Int
-  level      ClassLevel?
-  sportType  SportType?
-  price      Float
-  isDefault  Boolean     @default(false)
-  validFrom  DateTime    @default(now())
-  validUntil DateTime?
-  createdAt  DateTime    @default(now())
-  updatedAt  DateTime    @updatedAt
-  service    Service     @relation(fields: [serviceId], references: [id], onDelete: Cascade)
-
-  @@map("service_rates")
-}
-
-model ServiceOrder {
-  id            Int                @id @default(autoincrement())
-  studentId     String
-  serviceId     Int
-  quantity      Int                @default(1)
-  unitPrice     Float
-  totalAmount   Float
-  status        ServiceOrderStatus @default(PENDING)
-  scheduledDate DateTime?
-  completedDate DateTime?
-  notes         String?
-  createdAt     DateTime           @default(now())
-  updatedAt     DateTime           @updatedAt
-  service       Service            @relation(fields: [serviceId], references: [id], onDelete: Cascade)
-  student       Student            @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  payments      ServicePayment[]
-
-  @@map("service_orders")
-}
-
-model ServicePayment {
-  id            Int           @id @default(autoincrement())
-  orderId       Int
-  amount        Float
-  paymentMethod PaymentMethod
-  status        PaymentStatus @default(PENDING)
-  paymentDate   DateTime?
-  reference     String?
-  notes         String?
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
-  order         ServiceOrder  @relation(fields: [orderId], references: [id], onDelete: Cascade)
-
-  @@map("service_payments")
-}
-
-model FinancialPeriod {
-  id           Int                    @id @default(autoincrement())
-  year         Int
-  month        Int
-  startDate    DateTime
-  endDate      DateTime
-  isClosed     Boolean                @default(false)
-  closedAt     DateTime?
-  closedBy     String?
-  createdAt    DateTime               @default(now())
-  updatedAt    DateTime               @updatedAt
-  reports      FinancialReport[]
-  transactions FinancialTransaction[]
-
-  @@unique([year, month])
-  @@map("financial_periods")
-}
-
-model FinancialTransaction {
-  id          Int                 @id @default(autoincrement())
-  periodId    Int
-  type        TransactionType
-  category    TransactionCategory
-  amount      Float
-  description String
-  reference   String?
-  date        DateTime            @default(now())
-  studentId   String?
-  relatedId   Int?
-  relatedType String?
-  createdAt   DateTime            @default(now())
-  updatedAt   DateTime            @updatedAt
-  period      FinancialPeriod     @relation(fields: [periodId], references: [id], onDelete: Cascade)
-  student     Student?            @relation(fields: [studentId], references: [id])
-
-  @@map("financial_transactions")
 }
 
 
