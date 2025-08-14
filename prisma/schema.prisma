@@ -687,6 +687,7 @@ model User {
   student   Student? // Relación con Student
   trainer   Trainer? // Relación con Trainer
   studentTransfers StudentTransfer[]
+  productSales ProductSale[]
   @@map("users")
 }
 
@@ -931,15 +932,18 @@ model ProductSale {
   quantity    Int
   unitPrice   Float
   totalAmount Float
-  soldAt      DateTime  @default(now()) @db.Timestamptz
+  soldAt      DateTime  @default(now())
   notes       String?
-  createdAt   DateTime  @default(now()) @db.Timestamptz
-  updatedAt   DateTime  @updatedAt @db.Timestamptz
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  processedBy Int
   
   // Relaciones
   product     Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [processedBy], references: [id])
 
   @@index([productId])
+  @@index([processedBy])
   @@index([soldAt])
   @@map("product_sales")
 }

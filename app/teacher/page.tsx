@@ -16,7 +16,8 @@ import {
   CheckCircle,
   XCircle,
   ArrowRight,
-  User
+  User,
+  ShoppingCart
 } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
@@ -327,6 +328,27 @@ function TeacherContent() {
                   ))}
                 </div>
               )}
+            </CardContent>
+          </Card>
+
+          {/* Sección de Ventas */}
+          <Card className="border-0 bg-gradient-to-r from-orange-800/90 to-red-700/90 shadow-xl">
+            <CardHeader>
+              <CardTitle className="text-white flex items-center gap-2">
+                <ShoppingCart className="h-5 w-5" />
+                Ventas de Productos
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-6">
+              <div className="text-center">
+                <p className="text-gray-300 mb-4">Registra ventas de productos y snacks para los estudiantes</p>
+                <Link href="/sales">
+                  <Button className="bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white">
+                    <ShoppingCart className="h-4 w-4 mr-2" />
+                    Ir a Ventas
+                  </Button>
+                </Link>
+              </div>
             </CardContent>
           </Card>
 

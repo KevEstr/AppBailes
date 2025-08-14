@@ -19,7 +19,8 @@ import {
   UserPlus,
   UserCheck,
   ArrowRight,
-  Package
+  Package,
+  ShoppingCart
 } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
@@ -141,6 +142,14 @@ function AdminContent() {
       icon: Package,
       description: "Gestiona el inventario de productos y snacks",
       color: "from-green-500 to-emerald-600",
+    },
+    {
+      id: "sales",
+      href: "/sales",
+      label: "Ventas de Productos",
+      icon: ShoppingCart,
+      description: "Registra ventas de productos y snacks",
+      color: "from-orange-500 to-red-600",
     },
     // {
     //   id: "services",

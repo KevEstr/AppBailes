@@ -196,4 +196,24 @@ SELECT
     date as created_at,
     "updatedAt" as updated_at
 FROM financial_transactions
+WHERE "createdAt" IS NOT NULL
+
+UNION ALL
+
+SELECT 
+    'PRODUCT_SALE' as source_table,
+    id::text as transaction_id,
+    "totalAmount" as amount,
+    CONCAT('Venta de producto - ', COALESCE(notes, 'Sin descripción')) as description,
+    'INCOME' as transaction_type,
+    'PRODUCT_SALE' as category,
+    "soldAt" as transaction_date,
+    NULL as payment_method,
+    NULL as student_id,
+    NULL::text as period_id,
+    "productId"::text as related_id,
+    'PRODUCT' as related_type,
+    "createdAt" as created_at,
+    "updatedAt" as updated_at
+FROM product_sales
 WHERE "createdAt" IS NOT NULL;
