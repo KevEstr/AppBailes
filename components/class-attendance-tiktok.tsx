@@ -199,41 +199,19 @@ export default function ClassAttendanceTikTok() {
   // Función para verificar si se puede retomar asistencia
   const canRetakeAttendanceNow = useCallback((session: ClassSession) => {
     if (!session || session.status === "CANCELLED") return false;
-
     const now = new Date();
-
-    // Buscar el horario de la clase para obtener la hora de finalización real
-    const classSchedules = session.danceClass.schedules;
-    const currentDay = now.getDay();
-
-    const todaySchedule = classSchedules.find(
-      (schedule) => schedule.dayOfWeek === currentDay && schedule.isActive
+    const schedules = session.danceClass?.schedules || [];
+    const todaySchedule = schedules.find(
+      (s: ClassSchedule) => s.isActive && s.dayOfWeek === now.getDay()
     );
-
     if (!todaySchedule) return false;
 
-    // Crear la fecha de finalización basada en el horario de la clase
-    const today = new Date();
     const [endHour, endMinute] = todaySchedule.endTime.split(":").map(Number);
-
-    const classEndTime = new Date(today);
-    classEndTime.setHours(endHour, endMinute, 0, 0);
-
-    // Si la clase cruza medianoche (ej: 23:00 - 01:00), ajustar la fecha
     const [startHour] = todaySchedule.startTime.split(":").map(Number);
-    if (endHour < startHour) {
-      classEndTime.setDate(classEndTime.getDate() + 1);
-    }
+    const classEndTime = new Date(now);
+    classEndTime.setHours(endHour, endMinute, 0, 0);
+    if (endHour < startHour) classEndTime.setDate(classEndTime.getDate() + 1);
 
-    // console.log('🔄 DEBUG - Verificando retoma de asistencia:', {
-    //   now: now.toLocaleTimeString(),
-    //   classEndTime: classEndTime.toLocaleTimeString(),
-    //   canRetake: now <= classEndTime,
-    //   sessionStatus: session.status,
-    //   todaySchedule
-    // })
-
-    // Permitir retomar asistencia si la clase aún no ha terminado
     return now <= classEndTime;
   }, []);
 
@@ -349,43 +327,81 @@ export default function ClassAttendanceTikTok() {
         ...(todayData.success ? todayData.sessions : []),
         ...(yesterdayData.success ? yesterdayData.sessions : []),
       ];
-
-      // Encontrar la sesión que corresponde al horario actual
-      const currentSession = allSessions.find((session: ClassSession) => {
-        const sessionClass = session.danceClass;
-        if (!sessionClass.schedules) return false;
-
-        return sessionClass.schedules.some((schedule: ClassSchedule) => {
-          if (!schedule.isActive) return false;
-
-          const now = new Date();
-          const currentDay = now.getDay();
-
-          // Verificar si es el día correcto
-          if (schedule.dayOfWeek !== currentDay) return false;
-
-          const [startHour, startMinute] = schedule.startTime
-            .split(":")
-            .map(Number);
-          const [endHour, endMinute] = schedule.endTime.split(":").map(Number);
-
-          // Crear objetos Date para comparación precisa
-          const classDate = new Date(session.date);
-          const startTime = new Date(classDate);
-          startTime.setHours(startHour, startMinute, 0, 0);
-
-          const endTime = new Date(classDate);
-          endTime.setHours(endHour, endMinute, 0, 0);
-
-          // Si la clase cruza medianoche (ej: 23:00 - 01:00)
-          if (endHour < startHour) {
-            endTime.setDate(endTime.getDate() + 1);
-          }
-
-          // Verificar si estamos dentro del rango de tiempo de la clase
-          return now >= startTime && now <= endTime;
-        });
+      console.log('🧭 DEBUG sesiones:', {
+        total: allSessions.length,
+        todayCount: todayData.success ? todayData.sessions?.length ?? 0 : 0,
+        yesterdayCount: yesterdayData.success ? yesterdayData.sessions?.length ?? 0 : 0,
+        nowLocal: new Date().toString(),
+        sessions: allSessions.map((s: any) => ({
+          id: s.id,
+          date: s.date,
+          startTime: s.startTime,
+          endTime: s.endTime,
+          status: s.status,
+          classId: s.danceClass?.id,
+          className: s.danceClass?.name,
+          schedules: s.danceClass?.schedules?.map((sch: any) => ({ d: sch.dayOfWeek, start: sch.startTime, end: sch.endTime }))
+        }))
       });
+
+      // Selección robusta de la sesión actual (tolerante a TZ)
+      const nowLocal = new Date();
+      const todayLocalStr = nowLocal.toDateString();
+
+      let selectedSession: ClassSession | undefined;
+
+      // 0) Coincidencia directa con start/end de la sesión (si vienen correctos en UTC)
+      const directMatch = allSessions.find((s: ClassSession) => {
+        const start = new Date(s.startTime);
+        const end = new Date(s.endTime);
+        return nowLocal >= start && nowLocal <= end;
+      });
+      if (directMatch) {
+        console.log('⏱️ Coincidencia directa con start/end de la sesión', { nowLocal, start: directMatch.startTime, end: directMatch.endTime });
+        selectedSession = directMatch;
+      }
+
+      // 1) Priorizar sesiones cuyo "date" (solo día) coincide con hoy (en local)
+      const todaysSessions: ClassSession[] = allSessions.filter((s: ClassSession) => {
+        const sessionDayStr = new Date(s.date).toDateString();
+        return sessionDayStr === todayLocalStr;
+      });
+
+      // 2) Entre las de hoy, elegir la que según el horario local esté en curso (con margen)
+      const inWindow = (s: ClassSession) => {
+        const schedules = s.danceClass?.schedules || [];
+        const todaySchedule = schedules.find(
+          (sch: ClassSchedule) => sch.isActive && sch.dayOfWeek === nowLocal.getDay()
+        );
+        if (!todaySchedule) return false;
+        const [sh, sm] = todaySchedule.startTime.split(":").map(Number);
+        const [eh, em] = todaySchedule.endTime.split(":").map(Number);
+        const start = new Date(nowLocal);
+        start.setHours(sh, sm, 0, 0);
+        const end = new Date(nowLocal);
+        end.setHours(eh, em, 0, 0);
+        if (eh < sh) end.setDate(end.getDate() + 1);
+        const graceBefore = new Date(start.getTime() - 20 * 60 * 1000);
+        const graceAfter = new Date(end.getTime() + 20 * 60 * 1000);
+        return nowLocal >= graceBefore && nowLocal <= graceAfter;
+      };
+
+      let currentSession = selectedSession ?? todaysSessions.find(inWindow);
+
+      // 3) Si no hay ninguna en ventana, tomar la más cercana por hora de inicio de hoy
+      if (!currentSession && todaysSessions.length > 0) {
+        currentSession = [...todaysSessions].sort((a, b) => {
+          const aDiff = Math.abs(new Date(a.startTime).getTime() - nowLocal.getTime());
+          const bDiff = Math.abs(new Date(b.startTime).getTime() - nowLocal.getTime());
+          return aDiff - bDiff;
+        })[0];
+      }
+
+      // 4) Último fallback: si no hay de hoy, usar la primera sesión devuelta
+      if (!currentSession && allSessions.length > 0) {
+        currentSession = allSessions[0];
+        console.warn('⚠️ Usando sesión por fallback (primera de la lista):', currentSession?.id);
+      }
 
       if (currentSession) {
         const session = currentSession;
@@ -396,16 +412,28 @@ export default function ClassAttendanceTikTok() {
 
         // Preparar datos de estudiantes con asistencias existentes
         const enrolledStudents = session.danceClass.enrollments.map(
-          (enrollment: any) => ({
-            id: enrollment.student.id,
-            name: enrollment.student.name,
-            avatar: enrollment.student.avatar || "/placeholder.svg",
-            hasDebt: enrollment.student.hasDebt,
-            status:
-              session.attendances
-                .find((att: any) => att.student.id === enrollment.student.id)
-                ?.status?.toLowerCase() || undefined,
-          })
+          (enrollment: any) => {
+            const raw = session.attendances
+              .find((att: any) => att.student.id === enrollment.student.id)
+              ?.status?.toLowerCase();
+            const validStatuses = [
+              "present",
+              "absent",
+              "late",
+              "change_request",
+            ] as const;
+            const status = validStatuses.includes(raw as any)
+              ? (raw as Student["status"]) 
+              : undefined;
+
+            return {
+              id: enrollment.student.id,
+              name: enrollment.student.name,
+              avatar: enrollment.student.avatar || "/placeholder.svg",
+              hasDebt: enrollment.student.hasDebt,
+              status,
+            } as Student;
+          }
         );
         setStudents(enrolledStudents);
 
@@ -615,8 +643,8 @@ export default function ClassAttendanceTikTok() {
     }
   };
 
-  const handleAttendanceAndNext = async (studentId: string, status: string) => {
-    await markAttendance(studentId, status);
+  const handleAttendanceAndNext = async (studentId: string, status: Student["status"]) => {
+    await markAttendance(studentId, status as string);
 
     // Si estamos en modo de modificación (sesión ya completada), no avanzar automáticamente
     if (currentSession?.status === "COMPLETED") {
@@ -636,15 +664,19 @@ export default function ClassAttendanceTikTok() {
       return;
     }
 
-    // Modo normal: avanzar al siguiente estudiante
+    // Modo normal: avanzar al siguiente estudiante o completar
     if (currentStudentIndex < students.length - 1) {
       setCurrentStudentIndex((prev) => prev + 1);
     } else {
-      await completeSession();
+      // Asegurar que el último marcado se incluya en el resumen
+      const updatedStudents = students.map((s) =>
+        s.id === studentId ? { ...s, status } : s
+      );
+      await completeSession(updatedStudents);
     }
   };
 
-  const completeSession = async () => {
+  const completeSession = async (finalStudents?: Student[]) => {
     if (!currentSession) return;
 
     try {
@@ -665,7 +697,8 @@ export default function ClassAttendanceTikTok() {
       }
 
       // Calcular resumen
-      const summary = students.reduce(
+      const list = finalStudents ?? students;
+      const summary = list.reduce(
         (acc, student) => {
           if (student.status === "present") acc.present++;
           else if (student.status === "absent") acc.absent++;
@@ -678,7 +711,7 @@ export default function ClassAttendanceTikTok() {
           absent: 0,
           late: 0,
           change_request: 0,
-          total: students.length,
+          total: list.length,
         }
       );
 
@@ -1356,61 +1389,56 @@ export default function ClassAttendanceTikTok() {
 
           {/* Contenido Principal */}
           <div className="flex-1 w-full flex flex-col items-center justify-between min-h-[calc(100vh-8rem)] max-w-2xl mx-auto">
-            {/* Contenido del Estudiante */}
-            <div className="w-full flex flex-col items-center pb-2 mt-12 md:mt-16">
-              {/* Avatar y Nombre */}
-              <div className="text-center relative w-full">
-                <div className="relative inline-block">
-                  <Avatar className="w-44 h-44 md:w-52 md:h-52 mx-auto ring-4 ring-blue-500/30">
-                    <AvatarImage
-                      src={currentStudent.avatar}
-                      className="object-cover"
-                    />
-                    <AvatarFallback className="bg-gradient-to-r from-purple-600 to-blue-600 text-7xl md:text-8xl font-bold text-white">
-                      {currentStudent.name
-                        .split(" ")
-                        .map((n) => n[0])
-                        .join("")
-                        .toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
-                  {currentStudent.hasDebt && (
-                    <div className="absolute -top-2 -right-2 animate-pulse">
-                      <div className="bg-red-500 text-white rounded-full p-2 shadow-lg shadow-red-500/30">
-                        <AlertCircle className="h-7 w-7" />
-                      </div>
-                    </div>
-                  )}
+            {/* Contenido del Estudiante: foto a pantalla completa (vertical) */}
+            <div className="w-full flex flex-col items-center pb-2 mt-6 md:mt-8">
+              <div className="relative w-full max-w-md sm:max-w-lg md:max-w-2xl mx-auto">
+                <div className="overflow-hidden rounded-2xl ring-4 ring-blue-500/30 bg-gray-900/40">
+                  <img
+                    src={currentStudent.avatar}
+                    alt={currentStudent.name}
+                    className="w-full h-[52vh] md:h-[60vh] object-cover object-center"
+                  />
                 </div>
-
-                <div className="mt-4 space-y-2">
-                  <h2 className="text-3xl md:text-4xl font-bold text-white leading-tight">
-                    {currentStudent.name}
-                  </h2>
-                  {currentStudent.hasDebt && (
-                    <p className="text-red-400 text-base md:text-lg flex items-center justify-center gap-1.5">
-                      <AlertCircle className="h-5 w-5" />
-                      Tiene pagos pendientes
-                    </p>
-                  )}
-                  {currentStudent.status && (
+                {currentStudent.hasDebt && (
+                  <div className="absolute top-3 right-3 animate-pulse">
+                    <div className="bg-red-500 text-white rounded-full p-2 shadow-lg shadow-red-500/30">
+                      <AlertCircle className="h-7 w-7" />
+                    </div>
+                  </div>
+                )}
+                {currentStudent.status && (
+                  <div className="absolute bottom-3 left-3">
                     <Badge
                       className={`${getStatusColor(
                         currentStudent.status
-                      )} text-white px-3 py-1 text-base md:text-lg`}
+                      )} text-white px-3 py-1 text-sm md:text-base rounded-full shadow-lg shadow-black/30`}
                     >
-                      <div className="flex items-center space-x-2">
+                      <div className="flex items-center gap-2">
                         {getStatusIcon(currentStudent.status)}
                         <span>{getStatusText(currentStudent.status)}</span>
                       </div>
                     </Badge>
-                  )}
-                </div>
+                  </div>
+                )}
               </div>
             </div>
 
             {/* Botones de Acción */}
             <div className="w-full space-y-3 bg-gray-800/95 backdrop-blur-sm border-t border-gray-700">
+              {/* Nombre y estado junto a los botones */}
+              <div className="px-3 pt-3">
+                <div className="flex items-center justify-center">
+                  <h2 className="text-2xl md:text-3xl font-bold text-white text-center">
+                    {currentStudent.name}
+                  </h2>
+                </div>
+                {currentStudent.hasDebt && (
+                  <p className="mt-1 text-red-400 text-sm md:text-base flex items-center justify-center gap-1.5">
+                    <AlertCircle className="h-4 w-4" />
+                    Tiene pagos pendientes
+                  </p>
+                )}
+              </div>
               <div className="grid grid-cols-2 gap-3 p-3">
                 <Button
                   onClick={() =>
