@@ -45,6 +45,8 @@ import { DateRange } from "react-day-picker";
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { AddExpenseModal } from "@/components/admin/AddExpenseModal";
+import { formatDateWithoutTimezone } from "@/lib/date-utils";
+import * as XLSX from 'xlsx';
 
 interface FinancialSummary {
   totalIncome: number;
@@ -86,8 +88,19 @@ interface FinancialReport {
   netProfit: number;
   monthlyPayments: number;
   servicePayments: number;
-  generatedAt: Date;
-  period: {
+  generatedAt: string;
+  generatedBy?: string;
+  summary?: {
+    filters?: any;
+    totals?: {
+      total_income: number;
+      total_expense: number;
+      total_pending_liability: number;
+      total_transactions: number;
+    };
+    transactionCount?: number;
+  };
+  period?: {
     year: number;
     month: number;
   };
@@ -106,6 +119,8 @@ interface ConsolidatedTransaction {
   period_id: string | null;
   related_id: string | null;
   related_type: string | null;
+  user_id: string | null;
+  user_name: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -144,6 +159,9 @@ export function FinancialDashboard() {
   const [filterCategory, setFilterCategory] = useState("ALL");
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [loadingConsolidated, setLoadingConsolidated] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [reportName, setReportName] = useState("");
+  const [exportFormat, setExportFormat] = useState("csv");
 
   useEffect(() => {
     loadData();
@@ -223,6 +241,60 @@ export function FinancialDashboard() {
     }
   };
 
+  const generateFilteredReport = async () => {
+    try {
+      setGenerating(true);
+      
+      // Preparar filtros actuales
+      const filters = {
+        search: searchTerm || undefined,
+        type: filterType !== "ALL" ? filterType : undefined,
+        category: filterCategory !== "ALL" ? filterCategory : undefined,
+        startDate: dateRange?.from ? 
+          `${dateRange.from.getFullYear()}-${(dateRange.from.getMonth() + 1).toString().padStart(2, '0')}-${dateRange.from.getDate().toString().padStart(2, '0')}` : 
+          undefined,
+        endDate: dateRange?.to ? 
+          `${dateRange.to.getFullYear()}-${(dateRange.to.getMonth() + 1).toString().padStart(2, '0')}-${dateRange.to.getDate().toString().padStart(2, '0')}` : 
+          undefined
+      };
+
+      const response = await fetch("/api/admin/financial-reports/generate-filtered", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          reportType: "FILTERED",
+          reportName: reportName || `Reporte Filtrado - ${new Date().toLocaleDateString()}`,
+          filters,
+          format: exportFormat
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        
+        // Exportar según el formato seleccionado
+        if (exportFormat === "csv") {
+          exportToCSV(data.transactions, `${data.summary.reportName}.csv`);
+        } else if (exportFormat === "xlsx") {
+          exportToExcel(data.transactions, data.summary, `${data.summary.reportName}.xlsx`);
+        }
+        
+        await loadReports();
+        setShowReportModal(false);
+        setReportName("");
+        toast.success("Reporte generado y exportado exitosamente");
+      } else {
+        const error = await response.json();
+        toast.error(error.message || "Error al generar reporte");
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error("Error al generar reporte");
+    } finally {
+      setGenerating(false);
+    }
+  };
+
   const generateReport = async () => {
     try {
       setGenerating(true);
@@ -252,7 +324,34 @@ export function FinancialDashboard() {
     }
   };
 
+  const downloadReport = async (reportId: number, format: "csv" | "xlsx") => {
+    try {
+      const response = await fetch(`/api/admin/financial-reports/${reportId}/download`);
+      if (!response.ok) {
+        throw new Error("Error al descargar el reporte");
+      }
+
+      const data = await response.json();
+      
+      if (format === "csv") {
+        exportToCSV(data.transactions, `${data.summary.reportName}.csv`);
+      } else if (format === "xlsx") {
+        exportToExcel(data.transactions, data.summary, `${data.summary.reportName}.xlsx`);
+      }
+      
+      toast.success("Reporte descargado exitosamente");
+    } catch (error) {
+      console.error(error);
+      toast.error("Error al descargar el reporte");
+    }
+  };
+
   const exportToCSV = (data: any[], filename: string) => {
+    if (!data || data.length === 0) {
+      toast.error("No hay datos para exportar");
+      return;
+    }
+
     const headers = Object.keys(data[0] || {});
     const csvContent = [
       headers.join(","),
@@ -268,6 +367,83 @@ export function FinancialDashboard() {
     link.download = filename;
     link.click();
     URL.revokeObjectURL(url);
+  };
+
+  const exportToExcel = (data: any[], summary: any, filename: string) => {
+    if (!data || data.length === 0) {
+      toast.error("No hay datos para exportar");
+      return;
+    }
+
+    // Crear workbook
+    const workbook = XLSX.utils.book_new();
+
+    // Hoja de resumen
+    const summaryData = [
+      ["REPORTE FINANCIERO"],
+      [""],
+      ["Información del Reporte"],
+      ["Nombre:", summary.reportName],
+      ["Tipo:", summary.reportType],
+      ["Generado por:", summary.generatedBy],
+      ["Fecha de generación:", formatDateWithoutTimezone(summary.generatedAt)],
+      ["Total de transacciones:", summary.transactionCount],
+      [""],
+    ];
+
+    // Agregar filtros si existen
+    if (summary.filters) {
+      summaryData.push(
+        ["Filtros Aplicados"],
+        ["Búsqueda:", summary.filters.search || "Ninguno"],
+        ["Tipo:", summary.filters.type || "Todos"],
+        ["Categoría:", summary.filters.category || "Todas"],
+        ["Fecha inicio:", summary.filters.startDate || "Sin límite"],
+        ["Fecha fin:", summary.filters.endDate || "Sin límite"],
+        [""]
+      );
+    }
+
+    // Agregar período si existe
+    if (summary.period) {
+      summaryData.push(
+        ["Período del Reporte"],
+        ["Año:", summary.period.year],
+        ["Mes:", summary.period.month],
+        [""]
+      );
+    }
+
+    // Resumen financiero
+    summaryData.push(
+      ["Resumen Financiero"],
+      ["Total Ingresos:", formatCurrency(summary.totals.total_income)],
+      ["Total Egresos:", formatCurrency(summary.totals.total_expense)],
+      ["Pasivos Pendientes:", formatCurrency(summary.totals.total_pending_liability)],
+      ["Balance Neto:", formatCurrency(summary.totals.total_income - summary.totals.total_expense)],
+    );
+
+    const summarySheet = XLSX.utils.aoa_to_sheet(summaryData);
+    XLSX.utils.book_append_sheet(workbook, summarySheet, "Resumen");
+
+    // Hoja de transacciones
+    const transactionData = data.map(t => ({
+      "Origen": getSourceTableLabel(t.source_table),
+      "Descripción": t.description,
+      "Tipo": getTransactionTypeLabel(t.transaction_type),
+      "Categoría": getSourceTableLabel(t.category),
+      "Monto": t.amount,
+      "Método de Pago": t.payment_method ? getPaymentMethodLabel(t.payment_method) : '-',
+      "Fecha": formatDateWithoutTimezone(t.transaction_date),
+      "Usuario": t.user_name || '-',
+      "ID Transacción": t.transaction_id
+    }));
+
+    const transactionSheet = XLSX.utils.json_to_sheet(transactionData);
+    XLSX.utils.book_append_sheet(workbook, transactionSheet, "Transacciones");
+
+    // Exportar archivo
+    XLSX.writeFile(workbook, filename);
   };
 
   const getPaymentMethodColor = (method: string) => {
@@ -322,6 +498,7 @@ export function FinancialDashboard() {
       PAYMENT_PROOF: "Comprobante",
       ENROLLMENT_PAYMENT: "Inscripción",
       ENROLLMENT_PAYMENT_PROOF: "Comp. Inscripción",
+      PRODUCT_SALE: "Venta",
       SERVICE_PAYMENT: "Servicio",
       FINANCIAL_TRANSACTION: "Transacción",
       // Categorías de transacciones financieras
@@ -337,15 +514,7 @@ export function FinancialDashboard() {
   };
 
   const formatDate = (dateString: string) => {
-    // Parsear la fecha manualmente para evitar conversiones de zona horaria
-    // La fecha viene de la base de datos y debe mostrarse exactamente como está
-    const [datePart, timePart] = dateString.split('T');
-    const [year, month, day] = datePart.split('-').map(Number);
-    const [hours, minutes] = timePart.split(':').map(Number);
-    
-    // Crear fecha en zona horaria local sin conversión
-    const date = new Date(year, month - 1, day, hours, minutes);
-    return format(date, 'dd/MM/yyyy HH:mm', { locale: es });
+    return formatDateWithoutTimezone(dateString);
   };
 
   const handlePageChange = (page: number) => {
@@ -627,8 +796,8 @@ export function FinancialDashboard() {
                           <p className="text-sm text-green-300">Total Ingresos</p>
                           <p className="text-2xl font-bold text-green-400">
                             {formatCurrency(
-                              dateRange?.from || dateRange?.to
-                                ? (consolidatedData.totals?.total_income ?? 0)
+                              consolidatedData.totals?.total_income !== undefined
+                                ? consolidatedData.totals.total_income
                                 : consolidatedData.transactions
                                     .filter(t => t.transaction_type === 'INCOME')
                                     .reduce((sum, t) => sum + t.amount, 0)
@@ -647,8 +816,8 @@ export function FinancialDashboard() {
                           <p className="text-sm text-red-300">Total Egresos</p>
                           <p className="text-2xl font-bold text-red-400">
                             {formatCurrency(
-                              dateRange?.from || dateRange?.to
-                                ? (consolidatedData.totals?.total_expense ?? 0)
+                              consolidatedData.totals?.total_expense !== undefined
+                                ? consolidatedData.totals.total_expense
                                 : consolidatedData.transactions
                                     .filter(t => t.transaction_type === 'EXPENSE')
                                     .reduce((sum, t) => sum + t.amount, 0)
@@ -667,8 +836,8 @@ export function FinancialDashboard() {
                           <p className="text-sm text-yellow-300">Pasivos Pendientes</p>
                           <p className="text-2xl font-bold text-yellow-400">
                             {formatCurrency(
-                              dateRange?.from || dateRange?.to
-                                ? (consolidatedData.totals?.total_pending_liability ?? 0)
+                              consolidatedData.totals?.total_pending_liability !== undefined
+                                ? consolidatedData.totals.total_pending_liability
                                 : consolidatedData.transactions
                                     .filter(t => t.transaction_type === 'PENDING_LIABILITY')
                                     .reduce((sum, t) => sum + t.amount, 0)
@@ -686,8 +855,8 @@ export function FinancialDashboard() {
                         <div>
                           <p className="text-sm text-blue-300">Balance Neto</p>
                           <p className={`text-2xl font-bold ${
-                            ((dateRange?.from || dateRange?.to)
-                              ? ((consolidatedData.totals?.total_income ?? 0) - (consolidatedData.totals?.total_expense ?? 0))
+                            (consolidatedData.totals?.total_income !== undefined
+                              ? ((consolidatedData.totals.total_income - (consolidatedData.totals.total_expense ?? 0)))
                               : (consolidatedData.transactions
                                   .filter(t => t.transaction_type === 'INCOME')
                                   .reduce((sum, t) => sum + t.amount, 0) -
@@ -698,8 +867,8 @@ export function FinancialDashboard() {
                               : 'text-red-400'
                           }`}>
                             {formatCurrency(
-                              (dateRange?.from || dateRange?.to)
-                                ? ((consolidatedData.totals?.total_income ?? 0) - (consolidatedData.totals?.total_expense ?? 0))
+                              consolidatedData.totals?.total_income !== undefined
+                                ? ((consolidatedData.totals.total_income - (consolidatedData.totals.total_expense ?? 0)))
                                 : (consolidatedData.transactions
                                     .filter(t => t.transaction_type === 'INCOME')
                                     .reduce((sum, t) => sum + t.amount, 0) -
@@ -829,6 +998,13 @@ export function FinancialDashboard() {
                 <div className="flex items-center gap-2">
                   <AddExpenseModal onExpenseAdded={loadConsolidatedData} />
                   <Button
+                    onClick={() => setShowReportModal(true)}
+                    className="bg-purple-600 hover:bg-purple-700 text-white"
+                  >
+                    <FileText className="h-4 w-4 mr-2" />
+                    Generar Reporte
+                  </Button>
+                  <Button
                     onClick={clearFilters}
                     variant="outline"
                     className="border-gray-600 text-gray-300"
@@ -844,33 +1020,32 @@ export function FinancialDashboard() {
                 <Table>
                   <TableHeader>
                     <TableRow className="bg-gray-700 hover:bg-gray-700">
-                      <TableHead className="text-white">Origen</TableHead>
-                      <TableHead className="text-white">Descripción</TableHead>
-                      <TableHead className="text-white">Tipo</TableHead>
-                      <TableHead className="text-white">Categoría</TableHead>
-                      <TableHead className="text-white">Monto</TableHead>
-                      <TableHead className="text-white">Método</TableHead>
-                      <TableHead className="text-white">Fecha</TableHead>
-                      <TableHead className="text-white">Estudiante</TableHead>
+                      <TableHead className="text-white text-center">Origen</TableHead>
+                      <TableHead className="text-white text-center">Descripción</TableHead>
+                      <TableHead className="text-white text-center">Tipo</TableHead>
+                      <TableHead className="text-white text-center">Categoría</TableHead>
+                      <TableHead className="text-white text-center">Monto</TableHead>
+                      <TableHead className="text-white text-center">Método</TableHead>
+                      <TableHead className="text-white text-center">Fecha</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {loadingConsolidated ? (
                       <TableRow>
-                        <TableCell colSpan={8} className="text-center py-8">
+                        <TableCell colSpan={7} className="text-center py-8">
                           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600 mx-auto"></div>
                         </TableCell>
                       </TableRow>
                     ) : consolidatedData?.transactions.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={8} className="text-center py-8 text-gray-400">
+                        <TableCell colSpan={7} className="text-center py-8 text-gray-400">
                           No se encontraron transacciones
                         </TableCell>
                       </TableRow>
                     ) : (
                       consolidatedData?.transactions.map((transaction) => (
-                        <TableRow key={transaction.transaction_id} className="hover:bg-gray-700/50">
-                          <TableCell>
+                        <TableRow key={`${transaction.source_table}-${transaction.transaction_id}`} className="hover:bg-gray-700/50">
+                          <TableCell className="text-center">
                             <Badge variant="outline" className="border-gray-500 text-gray-300">
                               {getSourceTableLabel(transaction.source_table)}
                             </Badge>
@@ -878,7 +1053,7 @@ export function FinancialDashboard() {
                           <TableCell className="text-white max-w-xs truncate">
                             {transaction.description}
                           </TableCell>
-                          <TableCell>
+                          <TableCell className="text-center">
                             <Badge 
                               className={`${
                                 transaction.transaction_type === 'INCOME' 
@@ -891,10 +1066,10 @@ export function FinancialDashboard() {
                               {getTransactionTypeLabel(transaction.transaction_type)}
                             </Badge>
                           </TableCell>
-                          <TableCell className="text-gray-300">
+                          <TableCell className="text-gray-300 text-center">
                             {getSourceTableLabel(transaction.category)}
                           </TableCell>
-                          <TableCell className={`font-bold ${
+                          <TableCell className={`font-bold text-center ${
                             transaction.transaction_type === 'INCOME' 
                               ? 'text-green-400' 
                               : transaction.transaction_type === 'EXPENSE'
@@ -903,14 +1078,11 @@ export function FinancialDashboard() {
                           }`}>
                             {formatCurrency(transaction.amount)}
                           </TableCell>
-                          <TableCell className="text-gray-300">
+                          <TableCell className="text-gray-300 text-center">
                             {transaction.payment_method ? getPaymentMethodLabel(transaction.payment_method) : '-'}
                           </TableCell>
-                          <TableCell className="text-gray-300 text-sm">
+                          <TableCell className="text-gray-300 text-sm text-center">
                             {formatDate(transaction.transaction_date)}
-                          </TableCell>
-                          <TableCell className="text-gray-300">
-                            {transaction.student_id || '-'}
                           </TableCell>
                         </TableRow>
                       ))
@@ -963,7 +1135,7 @@ export function FinancialDashboard() {
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="text-white flex items-center space-x-2">
                 <FileText className="h-5 w-5" />
-                <span>Reportes Financieros</span>
+                <span>Historial de Reportes</span>
               </CardTitle>
               <Badge className="bg-purple-600 text-white">
                 {reports.length} reportes
@@ -972,44 +1144,67 @@ export function FinancialDashboard() {
             <CardContent>
               <div className="space-y-4">
                 {reports.length === 0 ? (
-                  <div className="text-center py-8">
-                    <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                    <p className="text-gray-400">No hay reportes generados</p>
+                  <div className="text-center py-12">
+                    <div className="h-20 w-20 rounded-full bg-gray-700/50 flex items-center justify-center mx-auto mb-6">
+                      <FileText className="h-10 w-10 text-gray-400" />
+                    </div>
+                    <h3 className="text-lg font-semibold text-white mb-2">No hay reportes generados</h3>
+                    <p className="text-gray-400 mb-6 max-w-md mx-auto">
+                      Los reportes generados aparecerán aquí. Puedes crear reportes desde la pestaña "Consolidado" aplicando filtros.
+                    </p>
                     <Button
                       onClick={generateReport}
-                      className="mt-4 bg-purple-600 hover:bg-purple-700"
+                      className="bg-purple-600 hover:bg-purple-700"
                       disabled={generating}
                     >
-                      {generating ? "Generando..." : "Generar Primer Reporte"}
+                      {generating ? "Generando..." : "Generar Reporte Mensual"}
                     </Button>
                   </div>
                 ) : (
                   reports.map((report) => (
                     <div
                       key={report.id}
-                      className="p-4 bg-gray-700/50 rounded-lg border border-gray-600"
+                      className="p-6 bg-gray-700/50 rounded-lg border border-gray-600 hover:bg-gray-700/70 transition-colors"
                     >
-                      <div className="flex items-center justify-between mb-4">
-                        <div>
-                          <h3 className="text-white font-semibold">
-                            Reporte {report.reportType} - {report.period.month}/
-                            {report.period.year}
-                          </h3>
-                          <p className="text-gray-400 text-sm">
-                            Generado el{" "}
-                            {new Date(report.generatedAt).toLocaleDateString()}
-                          </p>
+                      <div className="flex items-center justify-between mb-6">
+                        <div className="flex-1">
+                          <div className="flex items-center space-x-3 mb-2">
+                            <div className="h-10 w-10 rounded-full bg-purple-600/20 flex items-center justify-center">
+                              <FileText className="h-5 w-5 text-purple-400" />
+                            </div>
+                            <div>
+                              <h3 className="text-white font-semibold text-lg">
+                                {report.reportType === "FILTERED" 
+                                  ? "Reporte Filtrado" 
+                                  : `Reporte ${report.reportType} - ${report.period?.month}/${report.period?.year}`
+                                }
+                              </h3>
+                              <p className="text-gray-400 text-sm">
+                                Generado el {formatDateWithoutTimezone(report.generatedAt)}
+                                {report.generatedBy && ` por ${report.generatedBy}`}
+                              </p>
+                            </div>
+                          </div>
                         </div>
-                        <Badge className="bg-green-600 text-white">
-                          {formatCurrency(report.netProfit)}
-                        </Badge>
+                        <div className="flex flex-col items-end space-y-2">
+                          <Badge className={`text-white ${
+                            report.netProfit >= 0 ? 'bg-green-600' : 'bg-red-600'
+                          }`}>
+                            {formatCurrency(report.netProfit)}
+                          </Badge>
+                          {report.summary?.transactionCount && (
+                            <Badge variant="outline" className="border-gray-500 text-gray-300 text-xs">
+                              {report.summary.transactionCount} transacciones
+                            </Badge>
+                          )}
+                        </div>
                       </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div className="text-center p-3 bg-green-950/50 rounded-lg">
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div className="text-center p-3 bg-green-950/50 rounded-lg border border-green-600/30">
                           <div className="flex items-center justify-center space-x-1 mb-1">
                             <ArrowUpRight className="h-4 w-4 text-green-400" />
-                            <span className="text-sm text-green-300">
+                            <span className="text-sm text-green-300 font-medium">
                               Ingresos
                             </span>
                           </div>
@@ -1018,44 +1213,78 @@ export function FinancialDashboard() {
                           </div>
                         </div>
 
-                        <div className="text-center p-3 bg-red-950/50 rounded-lg">
+                        <div className="text-center p-3 bg-red-950/50 rounded-lg border border-red-600/30">
                           <div className="flex items-center justify-center space-x-1 mb-1">
                             <ArrowDownRight className="h-4 w-4 text-red-400" />
-                            <span className="text-sm text-red-300">Gastos</span>
+                            <span className="text-sm text-red-300 font-medium">Gastos</span>
                           </div>
                           <div className="text-lg font-bold text-red-400">
                             {formatCurrency(report.totalExpenses)}
                           </div>
                         </div>
 
-                        <div className="text-center p-3 bg-blue-950/50 rounded-lg">
+                        <div className="text-center p-3 bg-yellow-950/50 rounded-lg border border-yellow-600/30">
                           <div className="flex items-center justify-center space-x-1 mb-1">
-                            <TrendingUp className="h-4 w-4 text-blue-400" />
-                            <span className="text-sm text-blue-300">
-                              Ganancia
+                            <Receipt className="h-4 w-4 text-yellow-400" />
+                            <span className="text-sm text-yellow-300 font-medium">
+                              Pasivos Pendientes
                             </span>
                           </div>
-                          <div className="text-lg font-bold text-blue-400">
+                          <div className="text-lg font-bold text-yellow-400">
+                            {formatCurrency(report.summary?.totals?.total_pending_liability || 0)}
+                          </div>
+                        </div>
+
+                        <div className="text-center p-3 bg-blue-950/50 rounded-lg border border-blue-600/30">
+                          <div className="flex items-center justify-center space-x-1 mb-1">
+                            <TrendingUp className="h-4 w-4 text-blue-400" />
+                            <span className="text-sm text-blue-300 font-medium">
+                              Balance Neto
+                            </span>
+                          </div>
+                          <div className={`text-lg font-bold ${
+                            report.netProfit >= 0 ? 'text-green-400' : 'text-red-400'
+                          }`}>
                             {formatCurrency(report.netProfit)}
                           </div>
                         </div>
                       </div>
 
-                      <div className="mt-4 flex justify-end">
+                      <div className="mt-6 flex justify-between items-center pt-4 border-t border-gray-600">
+                        <div className="flex items-center space-x-4 text-sm text-gray-400">
+                          {report.summary?.filters && (
+                            <div className="flex items-center space-x-2">
+                              <Filter className="h-4 w-4" />
+                              <span>Filtros aplicados</span>
+                            </div>
+                          )}
+                          {report.reportType === "FILTERED" && (
+                            <div className="flex items-center space-x-2">
+                              <BarChart3 className="h-4 w-4" />
+                              <span>Reporte personalizado</span>
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex space-x-2">
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() =>
-                            exportToCSV(
-                              [report],
-                              `reporte-${report.period.month}-${report.period.year}.csv`
-                            )
-                          }
+                          onClick={() => downloadReport(report.id, "csv")}
                           className="border-gray-600 text-gray-300"
                         >
                           <Download className="h-4 w-4 mr-2" />
-                          Exportar
+                          CSV
                         </Button>
+                                                <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => downloadReport(report.id, "xlsx")}
+                          className="border-gray-600 text-gray-300"
+                        >
+                          <Download className="h-4 w-4 mr-2" />
+                          Excel
+                        </Button>
+                        </div>
                       </div>
                     </div>
                   ))
@@ -1065,6 +1294,90 @@ export function FinancialDashboard() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Modal para generar reporte con filtros */}
+      {showReportModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-gray-800 border border-gray-600 rounded-lg p-6 w-full max-w-md">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-white">Generar Reporte con Filtros</h3>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowReportModal(false)}
+                className="text-gray-400 hover:text-white"
+              >
+                ✕
+              </Button>
+            </div>
+
+                          <div className="space-y-4">
+                <div className="text-sm text-gray-300 bg-gray-700/50 p-3 rounded-lg">
+                  <p>Este reporte incluirá todas las transacciones que coincidan con los filtros aplicados en la pestaña "Consolidado".</p>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Nombre del Reporte
+                  </label>
+                <Input
+                  value={reportName}
+                  onChange={(e) => setReportName(e.target.value)}
+                  placeholder="Ej: Reporte Enero 2024"
+                  className="bg-gray-700 border-gray-600 text-white"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Formato de Exportación
+                </label>
+                <Select value={exportFormat} onValueChange={setExportFormat}>
+                  <SelectTrigger className="bg-gray-700 border-gray-600 text-white">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="csv">CSV</SelectItem>
+                    <SelectItem value="xlsx">Excel (XLSX)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Resumen de filtros aplicados */}
+              <div className="bg-gray-700/50 rounded-lg p-3">
+                <h4 className="text-sm font-medium text-gray-300 mb-2">Filtros Aplicados:</h4>
+                <div className="text-xs text-gray-400 space-y-1">
+                  <p>Búsqueda: {searchTerm || "Ninguna"}</p>
+                  <p>Tipo: {filterType !== "ALL" ? getTransactionTypeLabel(filterType) : "Todos"}</p>
+                  <p>Categoría: {filterCategory !== "ALL" ? getSourceTableLabel(filterCategory) : "Todas"}</p>
+                  <p>Rango de fechas: {
+                    dateRange?.from && dateRange?.to 
+                      ? `${dateRange.from.toLocaleDateString()} - ${dateRange.to.toLocaleDateString()}`
+                      : "Sin límite"
+                  }</p>
+                </div>
+              </div>
+
+              <div className="flex justify-end space-x-3 pt-4">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowReportModal(false)}
+                  className="border-gray-600 text-gray-300"
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  onClick={generateFilteredReport}
+                  disabled={generating}
+                  className="bg-purple-600 hover:bg-purple-700 text-white"
+                >
+                  {generating ? "Generando..." : "Generar Reporte y Descargar"}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

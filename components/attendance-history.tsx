@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { formatDateLongWithoutTimezone, formatDateOnlyWithoutTimezone } from "@/lib/date-utils"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -285,12 +286,7 @@ export function AttendanceHistory() {
                   <div className="flex items-center space-x-3 text-green-200 mb-2">
                     <span className="flex items-center space-x-2">
                       <span>📅</span>
-                      <span>{new Date(selectedSessionInfo.date).toLocaleDateString("es-ES", { 
-                        weekday: 'long', 
-                        day: '2-digit', 
-                        month: 'long', 
-                        year: 'numeric' 
-                      })}</span>
+                      <span>{formatDateLongWithoutTimezone(selectedSessionInfo.date)}</span>
                     </span>
                     <span className="flex items-center space-x-2">
                       <span>🕐</span>
@@ -390,10 +386,7 @@ export function AttendanceHistory() {
                 Asistencia por Día
                 {selectedSessionInfo ? (
                   <span className="text-lg font-normal text-green-300 ml-2">
-                    - {selectedSessionInfo.danceClass.name} ({new Date(selectedSessionInfo.date).toLocaleDateString("es-ES", { 
-                      day: '2-digit', 
-                      month: '2-digit' 
-                    })})
+                    - {selectedSessionInfo.danceClass.name} ({formatDateOnlyWithoutTimezone(selectedSessionInfo.date)})
                   </span>
                 ) : selectedClassInfo && (
                   <span className="text-lg font-normal text-blue-300 ml-2">
@@ -434,10 +427,7 @@ export function AttendanceHistory() {
                 Distribución General
                 {selectedSessionInfo ? (
                   <span className="text-lg font-normal text-green-300 ml-2">
-                    - {selectedSessionInfo.danceClass.name} ({new Date(selectedSessionInfo.date).toLocaleDateString("es-ES", { 
-                      day: '2-digit', 
-                      month: '2-digit' 
-                    })})
+                    - {selectedSessionInfo.danceClass.name} ({formatDateOnlyWithoutTimezone(selectedSessionInfo.date)})
                   </span>
                 ) : selectedClassInfo && (
                   <span className="text-lg font-normal text-blue-300 ml-2">
@@ -510,10 +500,7 @@ export function AttendanceHistory() {
               Estadísticas por Estudiante
               {selectedSessionInfo ? (
                 <span className="text-lg font-normal text-green-300 ml-2">
-                  - {selectedSessionInfo.danceClass.name} ({new Date(selectedSessionInfo.date).toLocaleDateString("es-ES", { 
-                    day: '2-digit', 
-                    month: '2-digit' 
-                  })})
+                  - {selectedSessionInfo.danceClass.name} ({formatDateOnlyWithoutTimezone(selectedSessionInfo.date)})
                 </span>
               ) : selectedClassInfo && (
                 <span className="text-lg font-normal text-blue-300 ml-2">

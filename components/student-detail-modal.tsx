@@ -21,6 +21,7 @@ import {
   Camera,
 } from "lucide-react";
 import { ProfilePhotoModal } from "@/components/profile/ProfilePhotoModal";
+import { formatDateLongWithoutTimezone } from "@/lib/date-utils";
 
 interface StudentEnrollmentData {
   id: number;
@@ -295,11 +296,7 @@ export function StudentDetailModal({ enrollment }: StudentDetailModalProps) {
   }, [enrollment]);
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("es-CO", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    });
+    return formatDateLongWithoutTimezone(dateString);
   };
 
   const formatCurrency = (amount: number) => {

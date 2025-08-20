@@ -45,9 +45,9 @@ export async function GET(request: NextRequest) {
     // Filtrar por stock si se especifica
     if (stock === "LOW") {
       // Menor a 10 y mayor a 0
-      where.AND = [...(where.AND || []), { stock: { gt: 0, lt: 10 } }]
+      where.stock = { gt: 0, lt: 10 }
     } else if (stock === "OUT") {
-      where.AND = [...(where.AND || []), { stock: 0 }]
+      where.stock = 0
     }
 
     // Obtener productos con paginación

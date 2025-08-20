@@ -24,6 +24,7 @@ import {
 import { toast } from 'sonner'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
+import { formatDateShortWithoutTimezone, formatTimeWithoutTimezone } from '@/lib/date-utils'
 
 interface Trainer {
   id: string
@@ -330,11 +331,11 @@ export default function ClassManagement() {
                   <div>
                     <h3 className="text-xl font-bold text-green-300">{activeClass.name}</h3>
                     <p className="text-green-400">Instructor: {activeClass.trainer.name}</p>
-                    <p className="text-green-500">
-                      {format(new Date(activeClass.date), 'dd MMMM yyyy', { locale: es })} • 
-                      {format(new Date(activeClass.startTime), 'HH:mm')} - 
-                      {format(new Date(activeClass.endTime), 'HH:mm')}
-                    </p>
+                                         <p className="text-green-500">
+                       {formatDateShortWithoutTimezone(activeClass.date)} • 
+                       {formatTimeWithoutTimezone(activeClass.startTime)} - 
+                       {formatTimeWithoutTimezone(activeClass.endTime)}
+                     </p>
                   </div>
                   <div className="flex space-x-2">
                     <Button
@@ -385,14 +386,14 @@ export default function ClassManagement() {
                   <BookOpen className="h-4 w-4 mr-2" />
                   {classItem.trainer.name}
                 </div>
-                <div className="flex items-center text-gray-300">
-                  <Calendar className="h-4 w-4 mr-2" />
-                  {format(new Date(classItem.date), 'dd MMM yyyy', { locale: es })}
-                </div>
-                <div className="flex items-center text-gray-300">
-                  <Clock className="h-4 w-4 mr-2" />
-                  {format(new Date(classItem.startTime), 'HH:mm')} - {format(new Date(classItem.endTime), 'HH:mm')}
-                </div>
+                                 <div className="flex items-center text-gray-300">
+                   <Calendar className="h-4 w-4 mr-2" />
+                   {formatDateShortWithoutTimezone(classItem.date)}
+                 </div>
+                 <div className="flex items-center text-gray-300">
+                   <Clock className="h-4 w-4 mr-2" />
+                   {formatTimeWithoutTimezone(classItem.startTime)} - {formatTimeWithoutTimezone(classItem.endTime)}
+                 </div>
               </div>
 
               {!classItem.isCompleted && (
@@ -435,12 +436,12 @@ export default function ClassManagement() {
                 <div>
                   <strong className="text-gray-200">Instructor:</strong> <span className="text-gray-300">{selectedClass.trainer.name}</span>
                 </div>
-                <div>
-                  <strong className="text-gray-200">Fecha:</strong> <span className="text-gray-300">{format(new Date(selectedClass.date), 'dd MMMM yyyy', { locale: es })}</span>
-                </div>
-                <div>
-                  <strong className="text-gray-200">Horario:</strong> <span className="text-gray-300">{format(new Date(selectedClass.startTime), 'HH:mm')} - {format(new Date(selectedClass.endTime), 'HH:mm')}</span>
-                </div>
+                                 <div>
+                   <strong className="text-gray-200">Fecha:</strong> <span className="text-gray-300">{formatDateShortWithoutTimezone(selectedClass.date)}</span>
+                 </div>
+                 <div>
+                   <strong className="text-gray-200">Horario:</strong> <span className="text-gray-300">{formatTimeWithoutTimezone(selectedClass.startTime)} - {formatTimeWithoutTimezone(selectedClass.endTime)}</span>
+                 </div>
               </div>
               
               {selectedClass.isActive && (

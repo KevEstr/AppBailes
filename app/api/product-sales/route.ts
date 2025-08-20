@@ -17,10 +17,19 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { productId, quantity, notes } = body as { productId?: number; quantity?: number; notes?: string }
+    const { productId, quantity, paymentMethod, notes } = body as { 
+      productId?: number; 
+      quantity?: number; 
+      paymentMethod?: string;
+      notes?: string 
+    }
 
     if (!productId || !quantity || quantity <= 0) {
       return NextResponse.json({ error: "Datos inválidos" }, { status: 400 })
+    }
+
+    if (!paymentMethod || !["CASH", "TRANSFER"].includes(paymentMethod)) {
+      return NextResponse.json({ error: "Método de pago inválido" }, { status: 400 })
     }
 
     const userId = parseInt(session.user.id as string, 10)
@@ -56,6 +65,7 @@ export async function POST(request: NextRequest) {
           quantity,
           unitPrice,
           totalAmount,
+          paymentMethod,
           notes: notes ?? null,
           processedBy: userId,
         },

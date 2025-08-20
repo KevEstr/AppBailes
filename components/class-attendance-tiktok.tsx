@@ -120,6 +120,9 @@ export default function ClassAttendanceTikTok() {
   );
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  // Debug: Log del estado de loading
+  console.log('🔄 Estado de loading:', loading);
   const [currentStudentIndex, setCurrentStudentIndex] = useState(0);
   const [showSummary, setShowSummary] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
@@ -140,66 +143,57 @@ export default function ClassAttendanceTikTok() {
   const [showTransferModal, setShowTransferModal] = useState(false);
   const [selectedStudentForTransfer, setSelectedStudentForTransfer] = useState<Student | null>(null);
 
-  // Función para verificar si una clase está activa en este momento
+  // Función mejorada para verificar si una clase está activa en este momento
   const isClassActiveNow = useCallback((schedules: ClassSchedule[]) => {
     const now = new Date();
     const currentDay = now.getDay(); // 0 = Domingo, 1 = Lunes, etc.
     const currentTime = now.getHours() * 60 + now.getMinutes(); // Minutos desde medianoche
 
-    // console.log('🕐 DEBUG - Verificando horarios:', {
-    //   currentDay,
-    //   currentTime,
-    //   currentHour: now.getHours(),
-    //   currentMinute: now.getMinutes(),
-    //   schedules: schedules.map(s => ({
-    //     dayOfWeek: s.dayOfWeek,
-    //     startTime: s.startTime,
-    //     endTime: s.endTime,
-    //     isActive: s.isActive
-    //   }))
-    // })
+    // Filtrar solo horarios del día actual y activos
+    const todaySchedules = schedules.filter(s => s.dayOfWeek === currentDay && s.isActive);
+    
+    if (todaySchedules.length === 0) {
+      return false;
+    }
 
-    return schedules.some((schedule) => {
-      if (schedule.dayOfWeek !== currentDay || !schedule.isActive) {
-        // console.log('❌ Horario descartado:', {
-        //   reason: schedule.dayOfWeek !== currentDay ? 'Día diferente' : 'No activo',
-        //   scheduleDayOfWeek: schedule.dayOfWeek,
-        //   currentDay,
-        //   isActive: schedule.isActive
-        // })
-        return false;
-      }
-
-      const [startHour, startMinute] = schedule.startTime
-        .split(":")
-        .map(Number);
+    // Verificar si alguno de los horarios de hoy está activo
+    const isActive = todaySchedules.some((schedule) => {
+      const [startHour, startMinute] = schedule.startTime.split(":").map(Number);
       const [endHour, endMinute] = schedule.endTime.split(":").map(Number);
 
       const startTime = startHour * 60 + startMinute;
       const endTime = endHour * 60 + endMinute;
 
       // Manejar horarios que cruzan medianoche (ej: 23:00 - 01:00)
-      let isActive = false;
+      let isInTimeRange = false;
       if (endTime < startTime) {
         // Horario cruza medianoche
-        isActive = currentTime >= startTime || currentTime <= endTime;
+        isInTimeRange = currentTime >= startTime || currentTime <= endTime;
       } else {
         // Horario normal
-        isActive = currentTime >= startTime && currentTime <= endTime;
+        isInTimeRange = currentTime >= startTime && currentTime <= endTime;
       }
 
-      // console.log('⏰ Verificando horario:', {
-      //   startTime: schedule.startTime,
-      //   endTime: schedule.endTime,
-      //   startTimeMinutes: startTime,
-      //   endTimeMinutes: endTime,
-      //   currentTime,
-      //   crossesMidnight: endTime < startTime,
-      //   isActive
-      // })
+      // Log detallado para debugging (solo si está activo)
+      if (isInTimeRange) {
+        console.log('⏰ Horario ACTIVO:', {
+          startTime: schedule.startTime,
+          endTime: schedule.endTime,
+          currentTime: `${now.getHours()}:${now.getMinutes()}`
+        });
+      }
 
-      return isActive;
+      return isInTimeRange;
     });
+
+            // Log resumen para la clase (solo si está activa)
+        if (isActive) {
+          console.log('📅 Clase ACTIVA hoy:', {
+            schedules: todaySchedules.map(s => `${s.startTime}-${s.endTime}`)
+          });
+        }
+
+    return isActive;
   }, []);
 
   // Función para verificar si se puede retomar asistencia
@@ -247,29 +241,34 @@ export default function ClassAttendanceTikTok() {
   const loadActiveClasses = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await fetch("/api/classes?active=true");
+      // Cargar todas las clases sin paginación para poder filtrar correctamente
+      const response = await fetch("/api/classes?active=true&pageSize=100");
       const data = await response.json();
 
-      // console.log('📡 DEBUG - Respuesta del API:', data)
+      console.log('📡 DEBUG - Respuesta del API:', { success: data.success, totalClases: data.classes?.length || 0 })
 
       if (data.success) {
-        // console.log('📚 DEBUG - Clases recibidas:', data.classes.length)
-        // data.classes.forEach((danceClass: DanceClass, index: number) => {
-        //   console.log(`📖 Clase ${index + 1}:`, {
-        //     id: danceClass.id,
-        //     name: danceClass.name,
-        //     schedules: danceClass.schedules
-        //   })
-        // })
+        console.log('📚 DEBUG - Clases recibidas:', data.classes.length)
+        // Mostrar solo las clases de DANCE para debug
+        const danceClasses = data.classes.filter((c: DanceClass) => c.sport === 'DANCE');
+        console.log('💃 Clases de DANCE encontradas:', danceClasses.map((c: DanceClass) => ({ id: c.id, name: c.name })))
 
         // Filtrar solo las clases que están activas en este momento
         const activeClasses = data.classes.filter((danceClass: DanceClass) => {
           const isActive = isClassActiveNow(danceClass.schedules);
-          // console.log(`🔍 Clase "${danceClass.name}" es activa:`, isActive)
+          console.log(`🔍 Clase "${danceClass.name}" (${danceClass.sport}) es activa:`, isActive)
           return isActive;
         });
 
-        // console.log('✅ DEBUG - Clases activas encontradas:', activeClasses.length)
+        console.log('✅ DEBUG - Clases activas encontradas:', activeClasses.length)
+        console.log('📋 Clases activas:', activeClasses.map((c: DanceClass) => ({ 
+          id: c.id, 
+          name: c.name, 
+          sport: c.sport,
+          enrollments: c.enrollments.length,
+          trainer: c.trainer.name
+        })))
+        console.log('🔄 Llamando setClasses con:', activeClasses.length, 'clases');
         setClasses(activeClasses);
       } else {
         // console.error('❌ Error en respuesta del API:', data)
@@ -289,15 +288,20 @@ export default function ClassAttendanceTikTok() {
         variant: "destructive",
       });
     } finally {
+      console.log('🏁 Finalizando loadActiveClasses - setLoading(false)');
       setLoading(false);
     }
   }, [isClassActiveNow, toast]);
 
   useEffect(() => {
+    console.log('🔄 useEffect ejecutándose - cargando clases activas');
     loadActiveClasses();
 
     // Recargar cada minuto para mantener actualizada la lista
-    const interval = setInterval(loadActiveClasses, 60000);
+    const interval = setInterval(() => {
+      console.log('🔄 Intervalo ejecutándose - recargando clases activas');
+      loadActiveClasses();
+    }, 60000);
     return () => clearInterval(interval);
   }, [loadActiveClasses]);
 
@@ -800,6 +804,16 @@ export default function ClassAttendanceTikTok() {
         return "Sin marcar";
     }
   };
+
+  // Debug: Log del estado actual
+  console.log('🎨 RENDERIZANDO COMPONENTE:', {
+    loading,
+    classesCount: classes.length,
+    classes: classes.map(c => ({ id: c.id, name: c.name })),
+    classesArray: classes,
+    classesType: typeof classes,
+    classesIsArray: Array.isArray(classes)
+  });
 
   if (loading) {
     return (

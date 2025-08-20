@@ -59,7 +59,7 @@ export async function GET(request: Request) {
         : "";
       
       // Obtener datos de la vista consolidada con filtros
-      const transactions = await prisma.$queryRawUnsafe(`
+      const transactionsRaw = await prisma.$queryRawUnsafe(`
         SELECT 
           source_table,
           transaction_id,
@@ -73,6 +73,8 @@ export async function GET(request: Request) {
           period_id,
           related_id,
           related_type,
+          user_id,
+          user_name,
           created_at,
           updated_at
         FROM financial_transactions_view
@@ -80,6 +82,14 @@ export async function GET(request: Request) {
         ORDER BY transaction_date DESC, created_at DESC
         LIMIT ${limit} OFFSET ${offset}
       `, ...queryParams);
+
+      // Serializar fechas como cadenas en zona horaria de Bogotá (sin convertir a UTC)
+      const transactions = (transactionsRaw as any[]).map((t) => ({
+        ...t,
+        transaction_date: formatAsBogotaString(t.transaction_date),
+        created_at: formatAsBogotaString(t.created_at),
+        updated_at: formatAsBogotaString(t.updated_at),
+      }));
       
       // Obtener total de registros con filtros
       const totalResult = await prisma.$queryRawUnsafe(`
@@ -91,6 +101,26 @@ export async function GET(request: Request) {
       const total = parseInt((totalResult as any)[0].total);
       const totalPages = Math.ceil(total / limit);
       
+      // Calcular totales agregados cuando hay filtros aplicados
+      let totals = undefined;
+      if (startDate || endDate || (type && type !== "ALL") || (category && category !== "ALL") || search) {
+        const totalsResult = await prisma.$queryRawUnsafe(`
+          SELECT 
+            SUM(CASE WHEN transaction_type = 'INCOME' THEN amount ELSE 0 END) as total_income,
+            SUM(CASE WHEN transaction_type = 'EXPENSE' THEN amount ELSE 0 END) as total_expense,
+            SUM(CASE WHEN transaction_type = 'PENDING_LIABILITY' THEN amount ELSE 0 END) as total_pending_liability
+          FROM financial_transactions_view
+          ${whereClause}
+        `, ...queryParams);
+        
+        const totalsData = (totalsResult as any)[0];
+        totals = {
+          total_income: parseFloat(totalsData.total_income || 0),
+          total_expense: parseFloat(totalsData.total_expense || 0),
+          total_pending_liability: parseFloat(totalsData.total_pending_liability || 0)
+        };
+      }
+      
       return NextResponse.json({
         transactions,
         pagination: {
@@ -100,7 +130,8 @@ export async function GET(request: Request) {
           totalPages,
           hasNext: page < totalPages,
           hasPrev: page > 1
-        }
+        },
+        totals
       });
     }
     
@@ -125,7 +156,7 @@ export async function GET(request: Request) {
       };
     }
 
-    const reports = await prisma.financialReport.findMany({
+    const reportsRaw = await prisma.financialReport.findMany({
       where: whereClause,
       include: {
         period: {
@@ -138,6 +169,13 @@ export async function GET(request: Request) {
       orderBy: [{ period: { year: "desc" } }, { period: { month: "desc" } }],
     });
 
+    // Serializar fechas de reportes en zona horaria de Bogotá
+    const reports = (reportsRaw as any[]).map((r) => ({
+      ...r,
+      generatedAt: formatAsBogotaString(r.generatedAt),
+      period: r.period,
+    }));
+
     return NextResponse.json(reports);
   } catch (error) {
     console.error("Error fetching financial data:", error);
@@ -145,6 +183,38 @@ export async function GET(request: Request) {
       { message: "Error interno del servidor" },
       { status: 500 }
     );
+  }
+}
+
+// Formatea un valor Date o string a 'YYYY-MM-DDTHH:mm:ss.SSS-05:00' en zona 'America/Bogota'
+function formatAsBogotaString(value: Date | string | null | undefined): string | null {
+  if (!value) return null;
+  const date = typeof value === 'string' ? new Date(value) : value;
+  try {
+    // Obtener partes en zona horaria de Bogotá
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/Bogota',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hourCycle: 'h23',
+    }).formatToParts(date);
+
+    const get = (type: string) => parts.find(p => p.type === type)?.value ?? '';
+    const year = get('year');
+    const month = get('month');
+    const day = get('day');
+    const hour = get('hour');
+    const minute = get('minute');
+    const second = get('second');
+
+    // No incluimos milisegundos ya que Intl no los entrega; conservamos :00
+    return `${year}-${month}-${day}T${hour}:${minute}:${second}-05:00`;
+  } catch {
+    return date.toISOString();
   }
 }
 

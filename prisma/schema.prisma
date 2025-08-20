@@ -6,9 +6,10 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
-  // Configurar zona horaria en la URL de conexión
-  // Ejemplo: postgresql://user:pass@localhost:5432/db?timezone=America/Bogota
-  // TIMESTAMPTZ almacena fechas con zona horaria
+  // IMPORTANTE: Para que las fechas se guarden con hora de Colombia sin zona horaria:
+  // Configurar en DATABASE_URL: postgresql://user:pass@localhost:5432/db?timezone=America/Bogota
+  // Los campos DateTime sin @db.Timestamptz se guardan en la zona horaria del servidor
+  // Los campos con @db.Timestamptz almacenan la zona horaria explícitamente
 }
 
 model Student {
@@ -81,8 +82,8 @@ model StudentEnrollmentData {
   monthlyFee        Float?
   
   // Timestamps
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  createdAt         DateTime @default(now()) @db.Timestamptz
+  updatedAt         DateTime @updatedAt @db.Timestamptz
 
   // Relations
   student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
@@ -93,8 +94,8 @@ model StudentEnrollmentData {
 model DanceClass {
   name        String
   isActive    Boolean           @default(true)
-  createdAt   DateTime          @default(now())
-  updatedAt   DateTime          @updatedAt
+  createdAt   DateTime          @default(now()) @db.Timestamptz
+  updatedAt   DateTime          @updatedAt @db.Timestamptz
   capacity    Int               @default(20)
   description String?
   price       Float?
@@ -123,8 +124,8 @@ model SportLocation {
   name      String       @unique
   address   String?
   isActive  Boolean      @default(true)
-  createdAt DateTime     @default(now())
-  updatedAt DateTime     @updatedAt
+  createdAt DateTime     @default(now()) @db.Timestamptz
+  updatedAt DateTime     @updatedAt @db.Timestamptz
 
   // Relations
   classes   DanceClass[]
@@ -139,8 +140,8 @@ model ClassSchedule {
   startTime  String
   endTime    String
   isActive   Boolean    @default(true)
-  createdAt  DateTime   @default(now())
-  updatedAt  DateTime   @updatedAt
+  createdAt  DateTime   @default(now()) @db.Timestamptz
+  updatedAt  DateTime   @updatedAt @db.Timestamptz
   danceClass DanceClass @relation(fields: [classId], references: [id], onDelete: Cascade)
 
   @@map("class_schedules")
@@ -149,13 +150,13 @@ model ClassSchedule {
 model ClassSession {
   id          Int           @id @default(autoincrement())
   classId     Int
-  date        DateTime
-  startTime   DateTime
-  endTime     DateTime
+  date        DateTime      @db.Timestamptz
+  startTime   DateTime      @db.Timestamptz
+  endTime     DateTime      @db.Timestamptz
   status      SessionStatus @default(SCHEDULED)
   notes       String?
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  createdAt   DateTime      @default(now()) @db.Timestamptz
+  updatedAt   DateTime      @updatedAt @db.Timestamptz
   attendances Attendance[]
   danceClass  DanceClass    @relation(fields: [classId], references: [id], onDelete: Cascade)
 
@@ -166,10 +167,10 @@ model ClassEnrollment {
   id         Int        @id @default(autoincrement())
   studentId  String
   classId    Int
-  enrolledAt DateTime   @default(now())
+  enrolledAt DateTime   @default(now()) @db.Timestamptz
   isActive   Boolean    @default(true)
-  createdAt  DateTime   @default(now())
-  updatedAt  DateTime   @updatedAt
+  createdAt  DateTime   @default(now()) @db.Timestamptz
+  updatedAt  DateTime   @updatedAt @db.Timestamptz
   danceClass DanceClass @relation(fields: [classId], references: [id], onDelete: Cascade)
   student    Student    @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
@@ -189,7 +190,7 @@ model StudentTransfer {
   toClassId       Int
   transferredBy   Int       // ID del usuario que realizó la transferencia
   reason          String?   // Motivo de la transferencia
-  transferredAt   DateTime  @default(now())
+  transferredAt   DateTime  @default(now()) @db.Timestamptz
   
   // Relations
   student         Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
@@ -206,10 +207,10 @@ model StudentTransfer {
 
 model Attendance {
   status    AttendanceStatus
-  date      DateTime         @default(now())
+  date      DateTime         @default(now()) @db.Timestamptz
   notes     String?
-  createdAt DateTime         @default(now())
-  updatedAt DateTime         @updatedAt
+  createdAt DateTime         @default(now()) @db.Timestamptz
+  updatedAt DateTime         @updatedAt @db.Timestamptz
   sessionId Int?
   id        Int              @id @default(autoincrement())
   studentId String
@@ -226,9 +227,9 @@ model Receipt {
   promotion     String?
   notes         String?
   whatsappSent  Boolean       @default(false)
-  sentAt        DateTime?
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+  sentAt        DateTime?     @db.Timestamptz
+  createdAt     DateTime      @default(now()) @db.Timestamptz
+  updatedAt     DateTime      @updatedAt @db.Timestamptz
   id            Int           @id @default(autoincrement())
   studentId     String
   student       Student       @relation(fields: [studentId], references: [id], onDelete: Cascade)
@@ -239,12 +240,12 @@ model Receipt {
 model Debt {
   amount       Float
   concept      String
-  dueDate      DateTime
+  dueDate      DateTime      @db.Timestamptz
   isPaid       Boolean   @default(false)
-  paidAt       DateTime?
-  lastReminder DateTime?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  paidAt       DateTime? @db.Timestamptz
+  lastReminder DateTime? @db.Timestamptz
+  createdAt    DateTime  @default(now()) @db.Timestamptz
+  updatedAt    DateTime  @updatedAt @db.Timestamptz
   id           Int       @id @default(autoincrement())
   studentId    String
   student      Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
@@ -257,8 +258,8 @@ model MassiveMessage {
   message     String
   targetGroup String
   sentCount   Int         @default(0)
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  createdAt   DateTime    @default(now()) @db.Timestamptz
+  updatedAt   DateTime    @updatedAt @db.Timestamptz
   id          Int         @id @default(autoincrement())
   recipients  Student[]   @relation("MessageRecipients")
 
@@ -269,8 +270,8 @@ model Trainer {
   name        String
   phone       String              @unique
   isActive    Boolean             @default(true)
-  createdAt   DateTime            @default(now())
-  updatedAt   DateTime            @updatedAt
+  createdAt   DateTime            @default(now()) @db.Timestamptz
+  updatedAt   DateTime            @updatedAt @db.Timestamptz
   id          Int                 @id @default(autoincrement())
   classes     DanceClass[]
   attendances TrainerAttendance[]
@@ -282,10 +283,10 @@ model Trainer {
 
 model TrainerAttendance {
   status    AttendanceStatus
-  date      DateTime         @default(now())
+  date      DateTime         @default(now()) @db.Timestamptz
   notes     String?
-  createdAt DateTime         @default(now())
-  updatedAt DateTime         @updatedAt
+  createdAt DateTime         @default(now()) @db.Timestamptz
+  updatedAt DateTime         @updatedAt @db.Timestamptz
   id        Int              @id @default(autoincrement())
   trainerId Int
   trainer   Trainer          @relation(fields: [trainerId], references: [id], onDelete: Cascade)
@@ -298,11 +299,11 @@ model MonthlyFeeConfig {
   amount          Float
   description     String?
   isActive        Boolean          @default(true)
-  validFrom       DateTime         @default(now())
-  validUntil      DateTime?
+  validFrom       DateTime         @default(now()) @db.Timestamptz
+  validUntil      DateTime?        @db.Timestamptz
   createdBy       String?
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
+  createdAt       DateTime         @default(now()) @db.Timestamptz
+  updatedAt       DateTime         @updatedAt @db.Timestamptz
   monthlyPayments MonthlyPayment[]
 
   @@map("monthly_fee_configs")
@@ -313,10 +314,10 @@ model PaymentPeriod {
   year            Int
   month           Int
   name            String
-  dueDate         DateTime
+  dueDate         DateTime         @db.Timestamptz
   isActive        Boolean          @default(true)
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
+  createdAt       DateTime         @default(now()) @db.Timestamptz
+  updatedAt       DateTime         @updatedAt @db.Timestamptz
   monthlyPayments MonthlyPayment[]
   paymentForms    PaymentForm[]
   schedulerExecutions SchedulerExecution[]
@@ -333,11 +334,11 @@ model MonthlyPayment {
   expectedAmount Float
   paidAmount     Float?
   status         MonthlyPaymentStatus @default(PENDING)
-  paymentDate    DateTime?
+  paymentDate    DateTime?            @db.Timestamptz
   approvedBy     String?
   notes          String?
-  createdAt      DateTime             @default(now())
-  updatedAt      DateTime             @updatedAt
+  createdAt      DateTime             @default(now()) @db.Timestamptz
+  updatedAt      DateTime             @updatedAt @db.Timestamptz
   feeConfig      MonthlyFeeConfig     @relation(fields: [feeConfigId], references: [id])
   period         PaymentPeriod        @relation(fields: [periodId], references: [id], onDelete: Cascade)
   student        Student              @relation(fields: [studentId], references: [id], onDelete: Cascade)
@@ -355,10 +356,10 @@ model PaymentForm {
   studentName      String
   amount           Float
   status           PaymentFormStatus @default(ACTIVE)
-  expiresAt        DateTime?
-  usedAt           DateTime?
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
+  expiresAt        DateTime?         @db.Timestamptz
+  usedAt           DateTime?         @db.Timestamptz
+  createdAt        DateTime          @default(now()) @db.Timestamptz
+  updatedAt        DateTime          @updatedAt @db.Timestamptz
   monthlyPayment   MonthlyPayment    @relation(fields: [monthlyPaymentId], references: [id], onDelete: Cascade)
   period           PaymentPeriod     @relation(fields: [periodId], references: [id], onDelete: Cascade)
   student          Student           @relation(fields: [studentId], references: [id], onDelete: Cascade)
@@ -377,13 +378,13 @@ model PaymentProof {
   amount        Float
   paymentMethod PaymentMethod
   proofImageUrl String
-  uploadedAt    DateTime           @default(now())
+  uploadedAt    DateTime           @default(now()) @db.Timestamptz
   status        PaymentProofStatus @default(PENDING)
-  reviewedAt    DateTime?
+  reviewedAt    DateTime?          @db.Timestamptz
   reviewedBy    String?
   reviewNotes   String?
-  createdAt     DateTime           @default(now())
-  updatedAt     DateTime           @updatedAt
+  createdAt     DateTime           @default(now()) @db.Timestamptz
+  updatedAt     DateTime           @updatedAt @db.Timestamptz
   paymentForm   PaymentForm        @relation(fields: [formId], references: [id], onDelete: Cascade)
 
   @@map("payment_proofs")
@@ -397,9 +398,9 @@ model EnrollmentPayment {
   sport           SportType
   expectedAmount  Float
   status          EnrollmentPaymentStatus @default(PENDING)
-  paidAt          DateTime?
-  createdAt       DateTime                @default(now())
-  updatedAt       DateTime                @updatedAt
+  paidAt          DateTime?               @db.Timestamptz
+  createdAt       DateTime                @default(now()) @db.Timestamptz
+  updatedAt       DateTime                @updatedAt @db.Timestamptz
   
   // Relaciones
   student         Student                 @relation(fields: [studentId], references: [id], onDelete: Cascade)
@@ -416,10 +417,10 @@ model EnrollmentPaymentForm {
   sport                 SportType
   amount                Float
   status                EnrollmentPaymentFormStatus  @default(ACTIVE)
-  expiresAt             DateTime?
-  usedAt                DateTime?
-  createdAt             DateTime                    @default(now())
-  updatedAt             DateTime                    @updatedAt
+  expiresAt             DateTime?                    @db.Timestamptz
+  usedAt                DateTime?                    @db.Timestamptz
+  createdAt             DateTime                    @default(now()) @db.Timestamptz
+  updatedAt             DateTime                    @updatedAt @db.Timestamptz
   
   // Relaciones
   student               Student                     @relation(fields: [studentId], references: [id], onDelete: Cascade)
@@ -438,13 +439,13 @@ model EnrollmentPaymentProof {
   amount        Float
   paymentMethod PaymentMethod
   proofImageUrl String
-  uploadedAt    DateTime           @default(now())
+  uploadedAt    DateTime           @default(now()) @db.Timestamptz
   status        PaymentProofStatus @default(PENDING)
-  reviewedAt    DateTime?
+  reviewedAt    DateTime?          @db.Timestamptz
   reviewedBy    String?
   reviewNotes   String?
-  createdAt     DateTime           @default(now())
-  updatedAt     DateTime           @updatedAt
+  createdAt     DateTime           @default(now()) @db.Timestamptz
+  updatedAt     DateTime           @updatedAt @db.Timestamptz
   
   // Campos para identificar el tipo de pago
   paymentType   String?            @default("MONTHLY") // "MONTHLY" o "ENROLLMENT"
@@ -528,18 +529,18 @@ model ScheduledWhatsAppSend {
   id              Int                     @id @default(autoincrement())
   studentId       String
   message         String
-  scheduledFor    DateTime
-  scheduledDate   DateTime?               // Campo adicional para compatibilidad
+  scheduledFor    DateTime                @db.Timestamptz
+  scheduledDate   DateTime?               @db.Timestamptz // Campo adicional para compatibilidad
   name            String?                 // Campo para identificar el envío
   status          ScheduledMessageStatus  @default(PENDING)
-  sentAt          DateTime?
+  sentAt          DateTime?               @db.Timestamptz
   errorMessage    String?
   retryCount      Int                     @default(0)
   maxRetries      Int                     @default(3)
   messageType     String?
   priority        Int                     @default(0)
-  createdAt       DateTime                @default(now())
-  updatedAt       DateTime                @updatedAt
+  createdAt       DateTime                @default(now()) @db.Timestamptz
+  updatedAt       DateTime                @updatedAt @db.Timestamptz
   student         Student                 @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
   @@map("scheduled_whatsapp_sends")
@@ -582,8 +583,8 @@ model PaymentScheduler {
   customFilter    String?                 // Filtro personalizado (JSON)
   
   // Control de ejecución
-  lastExecuted    DateTime?               // Última vez que se ejecutó
-  nextExecution   DateTime?               // Próxima ejecución calculada
+  lastExecuted    DateTime?               @db.Timestamptz // Última vez que se ejecutó
+  nextExecution   DateTime?               @db.Timestamptz // Próxima ejecución calculada
   totalExecutions Int                     @default(0)     // Contador de ejecuciones
   
   // Estadísticas
@@ -592,8 +593,8 @@ model PaymentScheduler {
   
   // Metadatos
   createdBy       String?                 // Usuario que lo creó
-  createdAt       DateTime                @default(now())
-  updatedAt       DateTime                @updatedAt
+  createdAt       DateTime                @default(now()) @db.Timestamptz
+  updatedAt       DateTime                @updatedAt @db.Timestamptz
   
   // Relaciones PROFESIONALES
   executions      SchedulerExecution[]    // Historial de ejecuciones
@@ -610,11 +611,11 @@ model SchedulerRecipient {
   
   // Estado del destinatario
   isActive        Boolean                 @default(true)  // Si está activo para este scheduler
-  lastSent        DateTime?               // Último mensaje enviado
+  lastSent        DateTime?               @db.Timestamptz // Último mensaje enviado
   totalSent       Int                     @default(0)     // Total de mensajes enviados a este estudiante
   
   // Metadatos
-  addedAt         DateTime                @default(now())
+  addedAt         DateTime                @default(now()) @db.Timestamptz
   addedBy         String?                 // Quién lo agregó
   notes           String?                 // Notas adicionales
   
@@ -633,8 +634,8 @@ model SchedulerExecution {
   
   // Estado de la ejecución
   status          SchedulerExecutionStatus @default(PENDING)
-  startedAt       DateTime?
-  completedAt     DateTime?
+  startedAt       DateTime?               @db.Timestamptz
+  completedAt     DateTime?               @db.Timestamptz
   
   // Resultados
   totalMessages   Int                     @default(0)
@@ -647,8 +648,8 @@ model SchedulerExecution {
   executionLogs   String?                 // Logs detallados de la ejecución (JSON)
   
   // Metadatos
-  createdAt       DateTime                @default(now())
-  updatedAt       DateTime                @updatedAt
+  createdAt       DateTime                @default(now()) @db.Timestamptz
+  updatedAt       DateTime                @updatedAt @db.Timestamptz
   
   // Relaciones
   scheduler       PaymentScheduler        @relation(fields: [schedulerId], references: [id], onDelete: Cascade)
@@ -680,8 +681,8 @@ model User {
   password  String
   role      UserRole @default(STUDENT)
   isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @updatedAt @db.Timestamptz
   
   // Relations
   student   Student? // Relación con Student
@@ -717,8 +718,8 @@ model Service {
   basePrice   Float
   category    ServiceCategory
   isActive    Boolean   @default(true)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  createdAt   DateTime  @default(now()) @db.Timestamptz
+  updatedAt   DateTime  @updatedAt @db.Timestamptz
   
   // Relaciones
   serviceRates ServiceRate[]
@@ -734,10 +735,10 @@ model ServiceRate {
   sportType SportType?
   price     Float
   isDefault Boolean   @default(false)
-  validFrom DateTime  @default(now())
-  validUntil DateTime?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  validFrom DateTime  @default(now()) @db.Timestamptz
+  validUntil DateTime? @db.Timestamptz
+  createdAt DateTime  @default(now()) @db.Timestamptz
+  updatedAt DateTime  @updatedAt @db.Timestamptz
   
   // Relaciones
   service Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
@@ -753,11 +754,11 @@ model ServiceOrder {
   unitPrice     Float
   totalAmount   Float
   status        ServiceOrderStatus @default(PENDING)
-  scheduledDate DateTime?
-  completedDate DateTime?
+  scheduledDate DateTime?         @db.Timestamptz
+  completedDate DateTime?         @db.Timestamptz
   notes         String?
-  createdAt     DateTime          @default(now())
-  updatedAt     DateTime          @updatedAt
+  createdAt     DateTime          @default(now()) @db.Timestamptz
+  updatedAt     DateTime          @updatedAt @db.Timestamptz
   
   // Relaciones
   student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
@@ -773,11 +774,11 @@ model ServicePayment {
   amount        Float
   paymentMethod PaymentMethod
   status        PaymentStatus @default(PENDING)
-  paymentDate   DateTime?
+  paymentDate   DateTime?     @db.Timestamptz
   reference     String?
   notes         String?
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+  createdAt     DateTime      @default(now()) @db.Timestamptz
+  updatedAt     DateTime      @updatedAt @db.Timestamptz
   
   // Relaciones  
   order ServiceOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
@@ -791,13 +792,13 @@ model FinancialPeriod {
   id        Int       @id @default(autoincrement())
   year      Int
   month     Int
-  startDate DateTime
-  endDate   DateTime
+  startDate DateTime  @db.Timestamptz
+  endDate   DateTime  @db.Timestamptz
   isClosed  Boolean   @default(false)
-  closedAt  DateTime?
+  closedAt  DateTime? @db.Timestamptz
   closedBy  String?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  createdAt DateTime  @default(now()) @db.Timestamptz
+  updatedAt DateTime  @updatedAt @db.Timestamptz
   
   // Relaciones
   transactions FinancialTransaction[]
@@ -816,12 +817,12 @@ model FinancialTransaction {
   description String
   reference   String?
   paymentMethod PaymentMethod?      // Método de pago usado
-  date        DateTime              @default(now())
+  date        DateTime              @default(now()) @db.Timestamptz
   studentId   String?
   relatedId   Int?                  // ID relacionado (receipt, service_payment, etc)
   relatedType String?               // Tipo de registro relacionado
-  createdAt   DateTime              @default(now())
-  updatedAt   DateTime              @updatedAt
+  createdAt   DateTime              @default(now()) @db.Timestamptz
+  updatedAt   DateTime              @updatedAt @db.Timestamptz
   
   // Relaciones
   period FinancialPeriod @relation(fields: [periodId], references: [id], onDelete: Cascade)
@@ -832,7 +833,7 @@ model FinancialTransaction {
 
 model FinancialReport {
   id                Int             @id @default(autoincrement())
-  periodId          Int
+  periodId          Int?
   reportType        ReportType
   totalIncome       Float           @default(0)
   totalExpenses     Float           @default(0)
@@ -842,11 +843,11 @@ model FinancialReport {
   otherIncome       Float           @default(0)
   operatingExpenses Float           @default(0)
   summary           Json?
-  generatedAt       DateTime        @default(now())
+  generatedAt       DateTime        @default(now()) @db.Timestamptz
   generatedBy       String?
   
   // Relaciones
-  period FinancialPeriod @relation(fields: [periodId], references: [id], onDelete: Cascade)
+  period FinancialPeriod? @relation(fields: [periodId], references: [id], onDelete: Cascade)
 
   @@unique([periodId, reportType])
   @@map("financial_reports")
@@ -901,6 +902,7 @@ enum ReportType {
   QUARTERLY
   ANNUAL
   CUSTOM
+  FILTERED
 }
 
 // ===== MODELOS PARA PRODUCTOS =====
@@ -927,20 +929,21 @@ model Product {
 }
 
 model ProductSale {
-  id          Int       @id @default(autoincrement())
-  productId   Int
-  quantity    Int
-  unitPrice   Float
-  totalAmount Float
-  soldAt      DateTime  @default(now())
-  notes       String?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  processedBy Int
+  id            Int       @id @default(autoincrement())
+  productId     Int
+  quantity      Int
+  unitPrice     Float
+  totalAmount   Float
+  paymentMethod String?   // CASH, TRANSFER
+  soldAt        DateTime  @default(now()) @db.Timestamptz
+  notes         String?
+  createdAt     DateTime  @default(now()) @db.Timestamptz
+  updatedAt     DateTime  @updatedAt @db.Timestamptz
+  processedBy   Int
   
   // Relaciones
-  product     Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
-  user        User      @relation(fields: [processedBy], references: [id])
+  product       Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user          User      @relation(fields: [processedBy], references: [id])
 
   @@index([productId])
   @@index([processedBy])

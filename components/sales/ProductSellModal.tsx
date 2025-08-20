@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 import { Loader2 } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
@@ -26,12 +27,14 @@ interface ProductSellModalProps {
 
 export function ProductSellModal({ isOpen, product, onClose, onCompleted }: ProductSellModalProps) {
   const [quantity, setQuantity] = useState<number>(1)
+  const [paymentMethod, setPaymentMethod] = useState<string>("CASH")
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
 
   useEffect(() => {
     if (isOpen) {
       setQuantity(1)
+      setPaymentMethod("CASH")
       setShowConfirm(false)
       setIsSubmitting(false)
     }
@@ -45,6 +48,15 @@ export function ProductSellModal({ isOpen, product, onClose, onCompleted }: Prod
 
   const formatPrice = (value: number) => new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP" }).format(value)
 
+  const getPaymentMethodLabel = (method: string) => {
+    const labels: Record<string, string> = {
+      CASH: "Efectivo",
+      TRANSFER: "Transferencia",
+      CARD: "Tarjeta",
+    };
+    return labels[method] || method;
+  };
+
   const handleSubmit = async () => {
     if (!product) return
     if (quantity <= 0) {
@@ -53,6 +65,10 @@ export function ProductSellModal({ isOpen, product, onClose, onCompleted }: Prod
     }
     if (quantity > product.stock) {
       toast({ title: "Stock insuficiente", description: `Stock disponible: ${product.stock}` })
+      return
+    }
+    if (!paymentMethod) {
+      toast({ title: "Método de pago requerido", description: "Selecciona un método de pago" })
       return
     }
     setShowConfirm(true)
@@ -65,14 +81,14 @@ export function ProductSellModal({ isOpen, product, onClose, onCompleted }: Prod
       const res = await fetch("/api/product-sales", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ productId: product.id, quantity }),
+        body: JSON.stringify({ productId: product.id, quantity, paymentMethod }),
       })
       const data = await res.json()
       if (!res.ok || !data.success) {
         toast({ title: "Error", description: data.error || "No se pudo registrar la venta" })
         return
       }
-      toast({ title: "Venta registrada", description: `${quantity} x ${product.name} por ${formatPrice(total)}` })
+      toast({ title: "Venta registrada", description: `${quantity} x ${product.name} por ${formatPrice(total)} - ${getPaymentMethodLabel(paymentMethod)}` })
       onCompleted?.()
       onClose()
     } catch (e) {
@@ -120,6 +136,19 @@ export function ProductSellModal({ isOpen, product, onClose, onCompleted }: Prod
                 />
               </div>
 
+              <div className="space-y-2">
+                <Label htmlFor="paymentMethod" className="text-gray-200">Método de Pago</Label>
+                <Select value={paymentMethod} onValueChange={setPaymentMethod}>
+                  <SelectTrigger className="bg-gray-700 border-gray-600 text-white">
+                    <SelectValue placeholder="Seleccionar método de pago" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="CASH">Efectivo</SelectItem>
+                    <SelectItem value="TRANSFER">Transferencia</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
               <div className="flex items-center justify-between p-3 rounded-md bg-gray-700/50 border border-gray-600">
                 <span className="text-gray-300">Total a recibir</span>
                 <span className="text-green-400 font-semibold">{formatPrice(total)}</span>
@@ -142,7 +171,7 @@ export function ProductSellModal({ isOpen, product, onClose, onCompleted }: Prod
           <AlertDialogHeader>
             <AlertDialogTitle>Confirmar venta</AlertDialogTitle>
             <AlertDialogDescription>
-              ¿Estás seguro de registrar la venta de {quantity} unidad(es){product ? ` de "${product.name}"` : ""}?
+              ¿Estás seguro de registrar la venta de {quantity} unidad(es){product ? ` de "${product.name}"` : ""} por {formatPrice(total)} mediante {getPaymentMethodLabel(paymentMethod)}?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
