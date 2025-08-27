@@ -258,6 +258,9 @@ export function ProductModal({ isOpen, product, isLoading, onSave, onClose }: Pr
                 <SelectItem value="SNACKS">Snacks</SelectItem>
                 <SelectItem value="BEVERAGES">Bebidas</SelectItem>
                 <SelectItem value="FOOD">Comida</SelectItem>
+                <SelectItem value="UNIFORMS">Uniformes</SelectItem>
+                <SelectItem value="ACCESSORIES">Accesorios</SelectItem>
+                <SelectItem value="ADDITIONS">Adiciones</SelectItem>
                 <SelectItem value="OTHER">Otros</SelectItem>
               </SelectContent>
             </Select>

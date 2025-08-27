@@ -247,6 +247,9 @@ export function ProductsManagement() {
       SNACKS: "Snacks",
       BEVERAGES: "Bebidas",
       FOOD: "Comida",
+      UNIFORMS: "Uniformes",
+      ACCESSORIES: "Accesorios",
+      ADDITIONS: "Adiciones",
       OTHER: "Otros"
     }
     return labels[category] || category
@@ -258,6 +261,9 @@ export function ProductsManagement() {
       SNACKS: "bg-yellow-900/30 text-yellow-300 border border-yellow-600/30",
       BEVERAGES: "bg-blue-900/30 text-blue-300 border border-blue-600/30",
       FOOD: "bg-green-900/30 text-green-300 border border-green-600/30",
+      UNIFORMS: "bg-purple-900/30 text-purple-300 border border-purple-600/30",
+      ACCESSORIES: "bg-cyan-900/30 text-cyan-300 border border-cyan-600/30",
+      ADDITIONS: "bg-pink-900/30 text-pink-300 border border-pink-600/30",
       OTHER: "bg-gray-800 text-gray-300 border border-gray-600/50"
     }
     return colors[category] || "bg-gray-800 text-gray-300 border border-gray-600/50"
@@ -365,6 +371,9 @@ export function ProductsManagement() {
                 <SelectItem value="SNACKS">Snacks</SelectItem>
                 <SelectItem value="BEVERAGES">Bebidas</SelectItem>
                 <SelectItem value="FOOD">Comida</SelectItem>
+                <SelectItem value="UNIFORMS">Uniformes</SelectItem>
+                <SelectItem value="ACCESSORIES">Accesorios</SelectItem>
+                <SelectItem value="ADDITIONS">Adiciones</SelectItem>
                 <SelectItem value="OTHER">Otros</SelectItem>
               </SelectContent>
             </Select>

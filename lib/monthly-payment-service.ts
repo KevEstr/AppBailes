@@ -14,10 +14,11 @@ export class MonthlyPaymentService {
     description?: string;
     createdBy: string;
     validFrom?: Date;
+    sport: 'DANCE' | 'VOLLEYBALL';
   }) {
-    // Desactivar configuración anterior
+    // Desactivar configuraciones anteriores SOLO del mismo deporte
     await prisma.monthlyFeeConfig.updateMany({
-      where: { isActive: true },
+      where: { isActive: true, sport: data.sport },
       data: {
         isActive: false,
         validUntil: new Date(),
@@ -32,6 +33,7 @@ export class MonthlyPaymentService {
         isActive: true,
         validFrom: data.validFrom || new Date(),
         createdBy: data.createdBy,
+        sport: data.sport,
       },
     });
   }
@@ -39,11 +41,21 @@ export class MonthlyPaymentService {
   /**
    * Obtiene la configuración actual de mensualidad
    */
-  async getCurrentMonthlyFee() {
+  async getCurrentMonthlyFee(sport: 'DANCE' | 'VOLLEYBALL') {
+    // Obtener la última configuración activa por deporte (más reciente por id)
     return await prisma.monthlyFeeConfig.findFirst({
-      where: { isActive: true },
-      orderBy: { validFrom: "desc" },
+      where: { isActive: true, sport },
+      orderBy: { id: 'desc' },
     });
+  }
+
+  async getLatestFeesBySport() {
+    const [dance, volleyball] = await Promise.all([
+      prisma.monthlyFeeConfig.findFirst({ where: { isActive: true, sport: 'DANCE' }, orderBy: { id: 'desc' } }),
+      prisma.monthlyFeeConfig.findFirst({ where: { isActive: true, sport: 'VOLLEYBALL' }, orderBy: { id: 'desc' } }),
+    ]);
+
+    return { dance, volleyball };
   }
 
   // ========== GESTIÓN DE PERÍODOS ==========
@@ -96,10 +108,7 @@ export class MonthlyPaymentService {
       throw new Error("Período no encontrado");
     }
 
-    const currentFeeConfig = await this.getCurrentMonthlyFee();
-    if (!currentFeeConfig) {
-      throw new Error("No hay configuración de mensualidad activa");
-    }
+    // Las tarifas ahora son por deporte; se resuelve por estudiante
 
     // Obtener estudiantes activos con sus datos de inscripción y clases
     const activeStudents = await prisma.student.findMany({
@@ -117,7 +126,7 @@ export class MonthlyPaymentService {
       }
     });
 
-    const monthlyPayments = [];
+    const monthlyPayments = [] as any[];
 
     for (const student of activeStudents) {
       // Verificar si ya existe un pago para este estudiante y período
@@ -131,15 +140,14 @@ export class MonthlyPaymentService {
       });
 
       if (!existingPayment) {
-        // Determinar el monto correcto para este estudiante
-        const expectedAmount = await this.getStudentMonthlyFee(student, currentFeeConfig.amount);
+        const { amount, feeConfigId } = await this.resolveStudentFeeAndConfig(student);
 
         const monthlyPayment = await prisma.monthlyPayment.create({
           data: {
             studentId: student.id,
             periodId: period.id,
-            feeConfigId: currentFeeConfig.id,
-            expectedAmount: expectedAmount,
+            feeConfigId: feeConfigId,
+            expectedAmount: amount,
             status: "PENDING",
           },
         });
@@ -156,14 +164,14 @@ export class MonthlyPaymentService {
    * Prioridad: 1) Mensualidad individual, 2) Por deporte, 3) Configuración global
    * FUNCIÓN PÚBLICA para usar en otras partes del sistema
    */
-  async getStudentMonthlyFee(student: any, defaultAmount: number): Promise<number> {
+  async getStudentMonthlyFee(student: any, defaultAmount?: number): Promise<number> {
     // 1. Si el estudiante tiene mensualidad individual configurada, usarla
     if (student.enrollmentData?.monthlyFee && student.enrollmentData.monthlyFee > 0) {
       console.log(`💰 Estudiante ${student.name}: Usando mensualidad individual $${student.enrollmentData.monthlyFee.toLocaleString()}`);
       return student.enrollmentData.monthlyFee;
     }
 
-    // 2. Determinar mensualidad por deporte
+    // 2. Determinar mensualidad por deporte usando la tabla monthly_fee_configs
     if (student.classEnrollments && student.classEnrollments.length > 0) {
       // Obtener deportes únicos de las inscripciones activas
       const sports = [...new Set(student.classEnrollments.map((enrollment: any) => enrollment.danceClass.sport))];
@@ -171,26 +179,68 @@ export class MonthlyPaymentService {
       if (sports.length > 0) {
         // Si tiene múltiples deportes, priorizar DANCE sobre VOLLEYBALL
         const primarySport = sports.includes('DANCE') ? 'DANCE' : sports[0];
-        
-        let sportFee: number;
-        if (primarySport === 'DANCE') {
-          sportFee = 60000; // $60,000 para baile
-          console.log(`💃 Estudiante ${student.name}: Deporte DANCE - Mensualidad $${sportFee.toLocaleString()}`);
-        } else if (primarySport === 'VOLLEYBALL') {
-          sportFee = 65000; // $65,000 para volleyball
-          console.log(`🏐 Estudiante ${student.name}: Deporte VOLLEYBALL - Mensualidad $${sportFee.toLocaleString()}`);
-        } else {
-          console.log(`⚠️ Estudiante ${student.name}: Deporte desconocido ${primarySport}, usando configuración global`);
-          return defaultAmount;
+        const feeConfig = await prisma.monthlyFeeConfig.findFirst({
+          where: { isActive: true, sport: primarySport as any },
+          orderBy: { id: 'desc' },
+        });
+
+        if (feeConfig) {
+          console.log(`🏷️ Estudiante ${student.name}: Deporte ${primarySport} - Mensualidad $${feeConfig.amount.toLocaleString()} (config ${feeConfig.id})`);
+          return feeConfig.amount;
         }
-        
-        return sportFee;
+
+        console.log(`⚠️ Estudiante ${student.name}: No hay configuración activa para ${primarySport}${defaultAmount ? ', usando fallback' : ''}`);
+        if (defaultAmount) return defaultAmount;
+        throw new Error('No hay configuración de mensualidad activa para el deporte');
       }
     }
 
     // 3. Como respaldo, usar configuración global
-    console.log(`📋 Estudiante ${student.name}: Sin inscripciones activas, usando configuración global $${defaultAmount.toLocaleString()}`);
-    return defaultAmount;
+    if (typeof defaultAmount === 'number') {
+      console.log(`📋 Estudiante ${student.name}: Sin inscripciones activas, usando configuración global $${defaultAmount.toLocaleString()}`);
+      return defaultAmount;
+    }
+
+    // Si no se pasó defaultAmount, intentar buscar cualquier configuración activa más reciente (priorizar DANCE)
+    const anyConfig = await prisma.monthlyFeeConfig.findFirst({ orderBy: { id: 'desc' } });
+    if (anyConfig) return anyConfig.amount;
+    throw new Error('No hay configuración de mensualidad disponible');
+  }
+
+  /**
+   * Resuelve el monto y feeConfigId por estudiante considerando override individual y deporte
+   */
+  private async resolveStudentFeeAndConfig(student: any): Promise<{ amount: number; feeConfigId: number }> {
+    // override individual
+    if (student.enrollmentData?.monthlyFee && student.enrollmentData.monthlyFee > 0) {
+      // Buscar la config más reciente del deporte del estudiante (si existe) para referenciar feeConfigId coherente
+      const primarySport = this.pickPrimarySport(student);
+      const feeConfig = primarySport
+        ? await prisma.monthlyFeeConfig.findFirst({ where: { isActive: true, sport: primarySport as any }, orderBy: { id: 'desc' } })
+        : await prisma.monthlyFeeConfig.findFirst({ orderBy: { id: 'desc' } });
+
+      if (!feeConfig) throw new Error('No hay configuración de mensualidad activa');
+      return { amount: student.enrollmentData.monthlyFee, feeConfigId: feeConfig.id };
+    }
+
+    const primarySport = this.pickPrimarySport(student);
+    if (!primarySport) {
+      // Sin deporte: tomar la última configuración disponible (cualquier deporte)
+      const fallback = await prisma.monthlyFeeConfig.findFirst({ orderBy: { id: 'desc' } });
+      if (!fallback) throw new Error('No hay configuración de mensualidad activa');
+      return { amount: fallback.amount, feeConfigId: fallback.id };
+    }
+
+    const feeConfig = await prisma.monthlyFeeConfig.findFirst({ where: { isActive: true, sport: primarySport as any }, orderBy: { id: 'desc' } });
+    if (!feeConfig) throw new Error(`No hay configuración activa para ${primarySport}`);
+    return { amount: feeConfig.amount, feeConfigId: feeConfig.id };
+  }
+
+  private pickPrimarySport(student: any): 'DANCE' | 'VOLLEYBALL' | null {
+    if (!student.classEnrollments || student.classEnrollments.length === 0) return null;
+    const sports = [...new Set(student.classEnrollments.map((enrollment: any) => enrollment.danceClass.sport))];
+    if (sports.length === 0) return null;
+    return (sports.includes('DANCE') ? 'DANCE' : sports[0]) as any;
   }
 
   // ========== FORMULARIOS DE PAGO ==========
@@ -198,53 +248,92 @@ export class MonthlyPaymentService {
   /**
    * Genera formularios de pago para un período específico
    */
-  async generatePaymentForms(periodId: number) {
+  async generatePaymentForms(periodId: number, options: { regenerate?: boolean } = {}) {
+    const { regenerate = false } = options;
+
+    // Recalcular montos de pagos pendientes para reflejar cambios de mensualidad
+    await this.recalculatePendingPaymentsForPeriod(periodId);
+
     const monthlyPayments = await prisma.monthlyPayment.findMany({
-      where: {
-        periodId,
-        status: "PENDING",
-      },
-      include: {
-        student: true,
-        period: true,
-      },
+      where: { periodId, status: "PENDING" },
+      include: { student: true, period: true },
     });
 
-    const paymentForms = [];
+    const paymentForms = [] as any[];
 
     for (const payment of monthlyPayments) {
-      // Verificar si ya existe un formulario activo
-      const existingForm = await prisma.paymentForm.findFirst({
-        where: {
+      // Cancelar/eliminar formularios activos si se solicitó regeneración
+      if (regenerate) {
+        // 1) Borrar definitivamente formularios ACTIVE sin comprobantes
+        await prisma.paymentForm.deleteMany({
+          where: {
+            monthlyPaymentId: payment.id,
+            status: "ACTIVE",
+            paymentProofs: { none: {} },
+          },
+        });
+        // 2) Formularios ACTIVE restantes (si quedara alguno), marcarlos CANCELLED
+        await prisma.paymentForm.updateMany({
+          where: { monthlyPaymentId: payment.id, status: "ACTIVE" },
+          data: { status: "CANCELLED" },
+        });
+      } else {
+        // Evitar duplicados si ya existe uno activo o usado
+        const existingForm = await prisma.paymentForm.findFirst({
+          where: { monthlyPaymentId: payment.id, status: { in: ["ACTIVE", "USED"] } },
+        });
+        if (existingForm) continue;
+      }
+
+      const formId = generateId();
+      const paymentForm = await prisma.paymentForm.create({
+        data: {
+          id: formId,
+          studentId: payment.studentId,
+          periodId: payment.periodId,
           monthlyPaymentId: payment.id,
-          status: { in: ["ACTIVE", "USED"] },
+          studentName: payment.student.name,
+          amount: payment.expectedAmount,
+          status: "ACTIVE",
+          expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
         },
       });
 
-      if (!existingForm) {
-        const formId = generateId(); // Generar CUID único
-
-        const paymentForm = await prisma.paymentForm.create({
-          data: {
-            id: formId,
-            studentId: payment.studentId,
-            periodId: payment.periodId,
-            monthlyPaymentId: payment.id,
-            studentName: payment.student.name,
-            amount: payment.expectedAmount,
-            status: "ACTIVE",
-            expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 días
-          },
-        });
-
-        paymentForms.push({
-          ...paymentForm,
-          url: `/payment/${formId}`,
-        });
-      }
+      paymentForms.push({ ...paymentForm, url: `/payment/${formId}` });
     }
 
     return paymentForms;
+  }
+
+  /**
+   * Recalcula montos y feeConfigId para pagos PENDING de un período, usando la configuración más reciente por deporte
+   */
+  async recalculatePendingPaymentsForPeriod(periodId: number) {
+    const payments = await prisma.monthlyPayment.findMany({
+      where: { periodId, status: "PENDING" },
+      include: {
+        student: {
+          include: {
+            enrollmentData: true,
+            classEnrollments: {
+              where: { isActive: true },
+              include: { danceClass: { select: { sport: true } } },
+            },
+          },
+        },
+      },
+    });
+
+    for (const payment of payments) {
+      const { amount, feeConfigId } = await this.resolveStudentFeeAndConfig(payment.student);
+      // Actualizar solo si cambió algo
+      if (payment.expectedAmount !== amount || payment.feeConfigId !== feeConfigId) {
+        await prisma.monthlyPayment.update({
+          where: { id: payment.id },
+          data: { expectedAmount: amount, feeConfigId },
+        });
+      }
+    }
   }
 
   /**

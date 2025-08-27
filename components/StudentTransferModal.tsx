@@ -3,7 +3,6 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import {
@@ -60,13 +59,10 @@ interface StudentTransferModalProps {
   onTransferComplete: () => void;
 }
 
-export function StudentTransferModal({
-  isOpen,
-  onClose,
-  student,
-  currentClass,
-  onTransferComplete,
-}: StudentTransferModalProps) {
+export function StudentTransferModal(
+  props: Readonly<StudentTransferModalProps>
+) {
+  const { isOpen, onClose, student, currentClass, onTransferComplete } = props;
   const { toast } = useToast();
   const [availableClasses, setAvailableClasses] = useState<DanceClass[]>([]);
   const [selectedClassId, setSelectedClassId] = useState<string>('');
@@ -87,7 +83,7 @@ export function StudentTransferModal({
     setLoadingClasses(true);
     try {
       const response = await fetch(
-        `/api/classes?active=true&sport=${currentClass.sport}&excludeId=${currentClass.id}`
+        `/api/classes?active=true&pageSize=500&sport=${currentClass.sport}&excludeId=${currentClass.id}`
       );
       const data = await response.json();
 
@@ -186,6 +182,43 @@ export function StudentTransferModal({
     }
   };
 
+  const renderClassOptions = () => {
+    if (loadingClasses) {
+      return (
+        <SelectItem value="loading" disabled>
+          Cargando clases...
+        </SelectItem>
+      );
+    }
+    if (availableClasses.length === 0) {
+      return (
+        <SelectItem value="no-classes" disabled>
+          No hay clases disponibles
+        </SelectItem>
+      );
+    }
+    return availableClasses.map((cls) => (
+      <SelectItem key={cls.id} value={cls.id.toString()} className="py-2">
+        <div className="flex flex-col w-full">
+          <span className="text-sm leading-5 whitespace-normal break-words line-clamp-2">{cls.name}</span>
+          <div className="mt-1 grid grid-cols-[1fr_auto] items-center gap-x-3 gap-y-1 w-full">
+            <div className="flex items-center gap-2 min-w-0 overflow-hidden">
+              <Badge className={getLevelColor(cls.level)}>
+                {getLevelText(cls.level)}
+              </Badge>
+              <span className="text-xs text-gray-400 truncate">
+                Prof. {cls.trainer.name}
+              </span>
+            </div>
+            <span className="text-xs text-gray-500">
+              {cls._count.enrollments}/{cls.capacity}
+            </span>
+          </div>
+        </div>
+      </SelectItem>
+    ));
+  };
+
   const getLevelText = (level: string) => {
     switch (level) {
       case 'BEGINNER':
@@ -262,7 +295,7 @@ export function StudentTransferModal({
 
           {/* Selección de nueva clase */}
           <div className="space-y-3">
-            <Label htmlFor="newClass" className="text-white">
+            <Label htmlFor="newClass" className="text-white text-left leading-5">
               Nueva Clase
             </Label>
             <Select
@@ -270,35 +303,14 @@ export function StudentTransferModal({
               onValueChange={setSelectedClassId}
               disabled={loadingClasses}
             >
-              <SelectTrigger>
-                <SelectValue placeholder="Selecciona la nueva clase" />
+              <SelectTrigger className="min-h-[80px] items-start py-2">
+                <SelectValue
+                  placeholder="Selecciona la nueva clase"
+                  className="whitespace-normal text-left leading-5 line-clamp-2"
+                />
               </SelectTrigger>
-              <SelectContent>
-                {loadingClasses ? (
-                  <SelectItem value="loading" disabled>
-                    Cargando clases...
-                  </SelectItem>
-                ) : availableClasses.length === 0 ? (
-                  <SelectItem value="no-classes" disabled>
-                    No hay clases disponibles
-                  </SelectItem>
-                ) : (
-                  availableClasses.map((cls) => (
-                    <SelectItem key={cls.id} value={cls.id.toString()}>
-                      <div className="flex items-center justify-between w-full">
-                        <span>{cls.name}</span>
-                        <div className="flex items-center gap-2">
-                          <Badge className={getLevelColor(cls.level)}>
-                            {getLevelText(cls.level)}
-                          </Badge>
-                          <span className="text-xs text-gray-500">
-                            {cls._count.enrollments}/{cls.capacity}
-                          </span>
-                        </div>
-                      </div>
-                    </SelectItem>
-                  ))
-                )}
+              <SelectContent position="popper" className="w-[--radix-select-trigger-width] max-w-[95vw]">
+                {renderClassOptions()}
               </SelectContent>
             </Select>
           </div>

@@ -220,7 +220,7 @@ export default function ClassAttendanceTikTok() {
     try {
       setLoading(true);
       // Cargar todas las clases sin paginación para poder filtrar correctamente
-      const response = await fetch("/api/classes?active=true&pageSize=100");
+      const response = await fetch("/api/classes?active=true&pageSize=500");
       const data = await response.json();
 
       console.log('📡 DEBUG - Respuesta del API:', { success: data.success, totalClases: data.classes?.length || 0 })
@@ -868,7 +868,16 @@ export default function ClassAttendanceTikTok() {
   return (
     <div className="w-full h-full bg-gray-900">
       {/* Confirmation Dialog */}
-      <Dialog open={showConfirmation} onOpenChange={setShowConfirmation}>
+      <Dialog
+        open={showConfirmation}
+        onOpenChange={(open) => {
+          setShowConfirmation(open);
+          if (!open) {
+            // Si el usuario cierra el modal sin confirmar, volver a la selección
+            cancelClassSelection();
+          }
+        }}
+      >
         <DialogContent className="bg-gray-800 border-gray-700 text-white max-w-md">
           <DialogHeader>
             <DialogTitle className="text-xl font-bold flex items-center gap-2">

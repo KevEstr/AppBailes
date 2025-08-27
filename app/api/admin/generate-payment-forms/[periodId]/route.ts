@@ -16,14 +16,17 @@ export async function POST(
       );
     }
 
+    const { searchParams } = new URL(request.url);
+    const regenerate = searchParams.get('regenerate') === 'true';
+
     // Primero generar pagos mensuales si no existen
     const monthlyPayments = await monthlyPaymentService.generateMonthlyPayments(periodId);
     
-    // Luego generar formularios
-    const paymentForms = await monthlyPaymentService.generatePaymentForms(periodId);
+    // Luego generar formularios (posible regeneración)
+    const paymentForms = await monthlyPaymentService.generatePaymentForms(periodId, { regenerate });
 
     return NextResponse.json({
-      message: 'Formularios generados exitosamente',
+      message: regenerate ? 'Formularios regenerados exitosamente' : 'Formularios generados exitosamente',
       monthlyPaymentsCreated: monthlyPayments.length,
       paymentFormsCreated: paymentForms.length,
       forms: paymentForms

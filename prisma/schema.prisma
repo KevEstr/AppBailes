@@ -304,6 +304,7 @@ model MonthlyFeeConfig {
   createdBy       String?
   createdAt       DateTime         @default(now()) @db.Timestamptz
   updatedAt       DateTime         @updatedAt @db.Timestamptz
+  sport           SportType?
   monthlyPayments MonthlyPayment[]
 
   @@map("monthly_fee_configs")
@@ -956,5 +957,8 @@ enum ProductCategory {
   SNACKS      // Snacks
   BEVERAGES   // Bebidas
   FOOD        // Comida
+  UNIFORMS    // Uniformes deportivos
+  ACCESSORIES // Accesorios y complementos
+  ADDITIONS   // Adiciones y complementos
   OTHER       // Otros
 }

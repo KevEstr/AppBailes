@@ -23,7 +23,7 @@ import { formatCurrency } from '@/lib/utils';
 import { toast } from 'sonner';
 import Link from 'next/link';
 
-interface MonthlyFeeConfig {
+interface FeeConfigItem {
   id: number;
   amount: number;
   description?: string;
@@ -32,11 +32,13 @@ interface MonthlyFeeConfig {
   validUntil?: Date;
   createdBy?: string;
   createdAt: Date;
+  sport?: 'DANCE' | 'VOLLEYBALL';
 }
 
 export function MonthlyFeeConfig() {
-  const [currentConfig, setCurrentConfig] = useState<MonthlyFeeConfig | null>(null);
-  const [configHistory, setConfigHistory] = useState<MonthlyFeeConfig[]>([]);
+  const [danceConfig, setDanceConfig] = useState<FeeConfigItem | null>(null);
+  const [volleyballConfig, setVolleyballConfig] = useState<FeeConfigItem | null>(null);
+  const [configHistory, setConfigHistory] = useState<FeeConfigItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -44,6 +46,7 @@ export function MonthlyFeeConfig() {
   // Form state
   const [newAmount, setNewAmount] = useState('');
   const [newDescription, setNewDescription] = useState('');
+  const [newSport, setNewSport] = useState<'DANCE' | 'VOLLEYBALL'>('DANCE');
 
   useEffect(() => {
     loadConfigData();
@@ -53,13 +56,17 @@ export function MonthlyFeeConfig() {
     try {
       setLoading(true);
       
-      // Cargar configuración actual
+      // Cargar configuraciones actuales por deporte
       const currentResponse = await fetch('/api/admin/monthly-fee');
       if (currentResponse.ok) {
-        const currentData = await currentResponse.json();
-        setCurrentConfig(currentData);
-        setNewAmount(currentData.amount.toString());
-        setNewDescription(currentData.description || '');
+        const data = await currentResponse.json();
+        setDanceConfig(data?.dance || null);
+        setVolleyballConfig(data?.volleyball || null);
+        const prefill = data?.dance || data?.volleyball;
+        if (prefill) {
+          setNewAmount(prefill.amount.toString());
+          setNewDescription(prefill.description || '');
+        }
       }
 
     } catch (err) {
@@ -84,7 +91,8 @@ export function MonthlyFeeConfig() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           amount: parseFloat(newAmount),
-          description: newDescription || undefined
+          description: newDescription || undefined,
+          sport: newSport
         })
       });
 
@@ -94,14 +102,14 @@ export function MonthlyFeeConfig() {
       }
 
       const savedConfig = await response.json();
-      setCurrentConfig(savedConfig);
+      if (savedConfig.sport === 'DANCE') setDanceConfig(savedConfig);
+      if (savedConfig.sport === 'VOLLEYBALL') setVolleyballConfig(savedConfig);
       
       toast.success('Configuración guardada exitosamente');
       
       // Agregar a historial local
-      if (currentConfig) {
-        setConfigHistory(prev => [currentConfig, ...prev]);
-      }
+      const previous = savedConfig.sport === 'DANCE' ? danceConfig : volleyballConfig;
+      if (previous) setConfigHistory(prev => [previous, ...prev]);
 
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Error al guardar configuración';
@@ -148,82 +156,47 @@ export function MonthlyFeeConfig() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Configuración Actual */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Estado Actual */}
-          {currentConfig && (
-            <Card className="border-0 bg-gray-800/90 shadow-2xl backdrop-blur-sm border border-gray-600">
-              <CardHeader>
-                <CardTitle className="text-white flex items-center space-x-2">
-                  <CheckCircle className="h-5 w-5 text-green-400" />
-                  <span>Configuración Actual</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="bg-green-500/10 border border-green-500 rounded-lg p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-green-400 font-medium">Valor Mensualidad Global (Respaldo)</p>
-                      <p className="text-3xl font-bold text-green-400">
-                        {formatCurrency(currentConfig.amount)}
-                      </p>
-                    </div>
-                    <Badge className="bg-green-500 text-white">Activo</Badge>
-                  </div>
-                </div>
-                
-                {/* Información sobre precios por deporte */}
-                <div className="bg-blue-500/10 border border-blue-500 rounded-lg p-4">
-                  <div className="flex items-center space-x-2 mb-3">
-                    <Info className="h-5 w-5 text-blue-400" />
-                    <p className="text-blue-400 font-medium">Sistema de Precios por Deporte</p>
-                  </div>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex items-center justify-between">
-                      <span className="text-gray-300 flex items-center space-x-2">
-                        <span>💃</span>
-                        <span>Baile</span>
-                      </span>
-                      <span className="text-white font-medium">{formatCurrency(60000)}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-gray-300 flex items-center space-x-2">
-                        <span>🏐</span>
-                        <span>Voleibol</span>
-                      </span>
-                      <span className="text-white font-medium">{formatCurrency(65000)}</span>
-                    </div>
-                    <p className="text-gray-400 text-xs mt-2">
-                      El sistema automáticamente asigna estos precios según el deporte del estudiante. 
-                      El precio global se usa solo como respaldo.
-                    </p>
-                  </div>
-                </div>
-                
-                {currentConfig.description && (
+          {/* Estado Actual por Deporte */}
+          <Card className="border-0 bg-gray-800/90 shadow-2xl backdrop-blur-sm border border-gray-600">
+            <CardHeader>
+              <CardTitle className="text-white flex items-center space-x-2">
+                <CheckCircle className="h-5 w-5 text-green-400" />
+                <span>Configuraciones Actuales por Deporte</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="bg-green-500/10 border border-green-500 rounded-lg p-4">
+                <div className="flex items-center justify-between">
                   <div>
-                    <Label className="text-gray-300">Descripción</Label>
-                    <p className="text-gray-400 bg-gray-700/50 p-3 rounded-lg">
-                      {currentConfig.description}
-                    </p>
+                    <p className="text-green-400 font-medium">Baile</p>
+                    <p className="text-3xl font-bold text-green-400">{danceConfig ? formatCurrency(danceConfig.amount) : '—'}</p>
                   </div>
+                  {danceConfig && <Badge className="bg-green-500 text-white">Activo</Badge>}
+                </div>
+                {danceConfig?.description && (
+                  <p className="text-gray-400 mt-2">{danceConfig.description}</p>
                 )}
-
-                <div className="grid grid-cols-2 gap-4 text-sm">
+                {danceConfig && (
+                  <p className="text-xs text-gray-500 mt-1">Vigente desde: {new Date(danceConfig.validFrom).toLocaleDateString('es-ES')}</p>
+                )}
+              </div>
+              <div className="bg-green-500/10 border border-green-500 rounded-lg p-4">
+                <div className="flex items-center justify-between">
                   <div>
-                    <Label className="text-gray-300">Válido desde</Label>
-                    <p className="text-gray-400">
-                      {new Date(currentConfig.validFrom).toLocaleDateString('es-ES')}
-                    </p>
+                    <p className="text-green-400 font-medium">Voleibol</p>
+                    <p className="text-3xl font-bold text-green-400">{volleyballConfig ? formatCurrency(volleyballConfig.amount) : '—'}</p>
                   </div>
-                  <div>
-                    <Label className="text-gray-300">Creado el</Label>
-                    <p className="text-gray-400">
-                      {new Date(currentConfig.createdAt).toLocaleDateString('es-ES')}
-                    </p>
-                  </div>
+                  {volleyballConfig && <Badge className="bg-green-500 text-white">Activo</Badge>}
                 </div>
-              </CardContent>
-            </Card>
-          )}
+                {volleyballConfig?.description && (
+                  <p className="text-gray-400 mt-2">{volleyballConfig.description}</p>
+                )}
+                {volleyballConfig && (
+                  <p className="text-xs text-gray-500 mt-1">Vigente desde: {new Date(volleyballConfig.validFrom).toLocaleDateString('es-ES')}</p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
 
           {/* Nueva Configuración */}
           <Card className="border-0 bg-gray-800/90 shadow-2xl backdrop-blur-sm border border-gray-600">
@@ -235,22 +208,31 @@ export function MonthlyFeeConfig() {
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="space-y-4">
-                <div>
-                  <Label htmlFor="amount" className="text-white">
-                    Valor de Mensualidad Global (Respaldo) *
-                  </Label>
-                  <Input
-                    id="amount"
-                    type="number"
-                    placeholder="150000"
-                    value={newAmount}
-                    onChange={(e) => setNewAmount(e.target.value)}
-                    className="bg-gray-700 border-gray-600 text-white placeholder-gray-400"
-                  />
-                  <p className="text-sm text-gray-400 mt-1">
-                    Este valor solo se usa para estudiantes sin deporte específico definido. 
-                    La mayoría de estudiantes usarán los precios por deporte mostrados arriba.
-                  </p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-white">Deporte *</Label>
+                    <div className="mt-1">
+                      <select
+                        value={newSport}
+                        onChange={(e) => setNewSport(e.target.value as 'DANCE' | 'VOLLEYBALL')}
+                        className="w-full bg-gray-700 border-gray-600 text-white rounded-md px-3 py-2"
+                      >
+                        <option value="DANCE">Baile</option>
+                        <option value="VOLLEYBALL">Voleibol</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div>
+                    <Label htmlFor="amount" className="text-white">Valor *</Label>
+                    <Input
+                      id="amount"
+                      type="number"
+                      placeholder="150000"
+                      value={newAmount}
+                      onChange={(e) => setNewAmount(e.target.value)}
+                      className="bg-gray-700 border-gray-600 text-white placeholder-gray-400"
+                    />
+                  </div>
                 </div>
 
                 <div>
@@ -270,7 +252,7 @@ export function MonthlyFeeConfig() {
                 {/* Preview */}
                 {newAmount && parseFloat(newAmount) > 0 && (
                   <div className="bg-purple-500/10 border border-purple-500 rounded-lg p-4">
-                    <p className="text-purple-400 font-medium">Vista Previa</p>
+                    <p className="text-purple-400 font-medium">Vista Previa ({newSport})</p>
                     <p className="text-2xl font-bold text-white">
                       {formatCurrency(parseFloat(newAmount))}
                     </p>

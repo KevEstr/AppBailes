@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { MonthlyPaymentService } from '@/lib/monthly-payment-service';
+import { monthlyPaymentService } from '@/lib/monthly-payment-service';
 
 export async function POST(request: NextRequest) {
   try {
-    const { periodId } = await request.json();
+    const { periodId, regenerate } = await request.json();
 
     if (!periodId) {
       return NextResponse.json(
@@ -25,92 +25,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Obtener la configuración de mensualidad actual
-    const currentFee = await prisma.monthlyFeeConfig.findFirst({
-      where: { isActive: true },
-      orderBy: { validFrom: 'desc' }
-    });
-
-    if (!currentFee) {
-      return NextResponse.json(
-        { message: 'No hay configuración de mensualidad activa' },
-        { status: 400 }
-      );
-    }
-
-    // Obtener todos los estudiantes activos con sus datos de inscripción y clases
-    const activeStudents = await prisma.student.findMany({
-      where: { isActive: true },
-      include: {
-        enrollmentData: true,
-        classEnrollments: {
-          where: { isActive: true },
-          include: {
-            danceClass: {
-              select: { sport: true }
-            }
-          }
-        }
-      }
-    });
-
-    // Instanciar el servicio para usar la lógica diferenciada
-    const monthlyPaymentService = new MonthlyPaymentService();
-
-    let generated = 0;
-    let existing = 0;
-
-    for (const student of activeStudents) {
-      // Verificar si ya existe un pago mensual para este estudiante y período
-      const existingPayment = await prisma.monthlyPayment.findUnique({
-        where: {
-          studentId_periodId: {
-            studentId: student.id,
-            periodId: periodId
-          }
-        }
-      });
-
-      if (existingPayment) {
-        existing++;
-        continue;
-      }
-
-      // Determinar el monto correcto para este estudiante (diferenciado por deporte)
-      const studentAmount = await monthlyPaymentService.getStudentMonthlyFee(student, currentFee.amount);
-
-      // Crear el pago mensual
-      const monthlyPayment = await prisma.monthlyPayment.create({
-        data: {
-          studentId: student.id,
-          periodId: periodId,
-          feeConfigId: currentFee.id,
-          expectedAmount: studentAmount,
-          status: 'PENDING'
-        }
-      });
-
-      // Crear el formulario de pago
-      await prisma.paymentForm.create({
-        data: {
-          studentId: student.id,
-          periodId: periodId,
-          monthlyPaymentId: monthlyPayment.id,
-          studentName: student.name,
-          amount: studentAmount,
-          status: 'ACTIVE',
-          expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 días
-        }
-      });
-
-      generated++;
-    }
+    // Generar pagos mensuales basados en configuración por deporte
+    const payments = await monthlyPaymentService.generateMonthlyPayments(periodId);
+    // Generar o regenerar formularios para esos pagos pendientes
+    const forms = await monthlyPaymentService.generatePaymentForms(periodId, { regenerate: !!regenerate });
 
     return NextResponse.json({
       success: true,
-      generated,
-      existing,
-      message: `Se generaron ${generated} formularios. ${existing} ya existían.`
+      generated: forms.length,
+      existing: 0,
+      message: regenerate ? `Se regeneraron ${forms.length} formularios.` : `Se generaron ${forms.length} formularios.`
     });
 
   } catch (error) {

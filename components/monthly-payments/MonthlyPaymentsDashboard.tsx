@@ -32,7 +32,8 @@ interface MonthlyFeeConfig {
 export function MonthlyPaymentsDashboard() {
   const [periods, setPeriods] = useState<PaymentPeriod[]>([]);
   const [selectedPeriod, setSelectedPeriod] = useState<number | null>(null);
-  const [currentFee, setCurrentFee] = useState<MonthlyFeeConfig | null>(null);
+  const [danceFee, setDanceFee] = useState<MonthlyFeeConfig | null>(null);
+  const [volleyballFee, setVolleyballFee] = useState<MonthlyFeeConfig | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [generatingForms, setGeneratingForms] = useState(false);
@@ -40,6 +41,7 @@ export function MonthlyPaymentsDashboard() {
   // Formulario de nueva mensualidad
   const [newFeeAmount, setNewFeeAmount] = useState('');
   const [newFeeDescription, setNewFeeDescription] = useState('');
+  const [newFeeSport, setNewFeeSport] = useState<'DANCE' | 'VOLLEYBALL' | ''>('');
   const [updatingFee, setUpdatingFee] = useState(false);
 
   // Formulario de nuevo período
@@ -83,12 +85,13 @@ export function MonthlyPaymentsDashboard() {
     const response = await fetch('/api/admin/monthly-fee');
     if (response.ok) {
       const data = await response.json();
-      setCurrentFee(data);
+      setDanceFee(data?.dance || null);
+      setVolleyballFee(data?.volleyball || null);
     }
   };
 
   const updateMonthlyFee = async () => {
-    if (!newFeeAmount) return;
+    if (!newFeeAmount || !newFeeSport) return;
 
     try {
       setUpdatingFee(true);
@@ -97,7 +100,8 @@ export function MonthlyPaymentsDashboard() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           amount: parseFloat(newFeeAmount),
-          description: newFeeDescription || undefined
+          description: newFeeDescription || undefined,
+          sport: newFeeSport
         })
       });
 
@@ -109,6 +113,7 @@ export function MonthlyPaymentsDashboard() {
       await loadCurrentFee();
       setNewFeeAmount('');
       setNewFeeDescription('');
+      setNewFeeSport('');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al actualizar mensualidad');
     } finally {
@@ -155,7 +160,7 @@ export function MonthlyPaymentsDashboard() {
       const response = await fetch('/api/admin/generate-payment-forms', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ periodId: selectedPeriod })
+        body: JSON.stringify({ periodId: selectedPeriod, regenerate: true })
       });
 
       if (!response.ok) {
@@ -164,7 +169,7 @@ export function MonthlyPaymentsDashboard() {
       }
 
       const result = await response.json();
-      alert(`✅ Se generaron ${result.generated} formularios de pago para todos los estudiantes activos.`);
+      alert(`✅ ${result.message}`);
       
       // Recargar dashboard
       window.location.reload();
@@ -275,6 +280,18 @@ export function MonthlyPaymentsDashboard() {
             </DialogHeader>
             <div className="space-y-4">
               <div>
+                <Label htmlFor="sport" className="text-gray-300">Deporte</Label>
+                <Select value={newFeeSport} onValueChange={(v) => setNewFeeSport(v as any)}>
+                  <SelectTrigger className="bg-gray-700 border-gray-600 text-white">
+                    <SelectValue placeholder="Selecciona un deporte" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-gray-800 border-gray-600">
+                    <SelectItem value="DANCE" className="text-white hover:bg-gray-700">Baile</SelectItem>
+                    <SelectItem value="VOLLEYBALL" className="text-white hover:bg-gray-700">Voleibol</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
                 <Label htmlFor="amount" className="text-gray-300">Monto mensual</Label>
                 <Input
                   id="amount"
@@ -296,8 +313,8 @@ export function MonthlyPaymentsDashboard() {
                 />
               </div>
               <Button 
-                onClick={updateMonthlyFee} 
-                disabled={updatingFee || !newFeeAmount}
+                onClick={updateMonthlyFee}
+                disabled={updatingFee || !newFeeAmount || !newFeeSport}
                 className="w-full bg-blue-600 hover:bg-blue-700"
               >
                 {updatingFee ? 'Actualizando...' : 'Actualizar Mensualidad'}
@@ -385,27 +402,30 @@ export function MonthlyPaymentsDashboard() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-white">
               <DollarSign className="h-5 w-5 text-green-400" />
-              Mensualidad Actual
+              Mensualidades por Deporte
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {currentFee ? (
-              <div>
-                <div className="text-2xl font-bold text-green-400">
-                  {formatCurrency(currentFee.amount)}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-gray-300">Baile (DANCE)</span>
+                <div className="text-right">
+                  <div className="text-xl font-bold text-green-400">{danceFee ? formatCurrency(danceFee.amount) : '—'}</div>
+                  {danceFee && (
+                    <p className="text-xs text-gray-500">Desde {new Date(danceFee.validFrom).toLocaleDateString()}</p>
+                  )}
                 </div>
-                {currentFee.description && (
-                  <p className="text-sm text-gray-400">
-                    {currentFee.description}
-                  </p>
-                )}
-                <p className="text-xs text-gray-500 mt-2">
-                  Vigente desde: {new Date(currentFee.validFrom).toLocaleDateString()}
-                </p>
               </div>
-            ) : (
-              <p className="text-gray-400">No configurada</p>
-            )}
+              <div className="flex items-center justify-between">
+                <span className="text-gray-300">Voleibol (VOLLEYBALL)</span>
+                <div className="text-right">
+                  <div className="text-xl font-bold text-green-400">{volleyballFee ? formatCurrency(volleyballFee.amount) : '—'}</div>
+                  {volleyballFee && (
+                    <p className="text-xs text-gray-500">Desde {new Date(volleyballFee.validFrom).toLocaleDateString()}</p>
+                  )}
+                </div>
+              </div>
+            </div>
           </CardContent>
         </Card>
 
