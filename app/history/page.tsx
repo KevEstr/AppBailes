@@ -14,7 +14,7 @@ export default function HistoryPage() {
   return (
     <InternalLayout 
       title="Análisis" 
-      description="Reportes de asistencia"
+      description="Reportes de asistencia de estudiantes"
     >
       <AttendanceHistory />
     </InternalLayout>

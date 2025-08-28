@@ -55,8 +55,10 @@ export async function GET(request: NextRequest) {
         name: true,
         phone: true,
         isActive: true,
+        userId: true,
         user: {
           select: {
+            id: true,
             email: true
           }
         }

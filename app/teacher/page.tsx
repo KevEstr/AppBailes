@@ -316,12 +316,6 @@ function TeacherContent() {
                               Asistencia
                             </Button>
                           </Link>
-                          <Link href={`/classes/${danceClass.id}`} className="flex-1">
-                            <Button size="sm" variant="outline" className="w-full border-gray-500 text-gray-300">
-                              <ArrowRight className="h-4 w-4 mr-1" />
-                              Ver Detalles
-                            </Button>
-                          </Link>
                         </div>
                       </CardContent>
                     </Card>

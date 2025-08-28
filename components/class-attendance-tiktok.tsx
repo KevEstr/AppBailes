@@ -21,8 +21,10 @@ import {
   RefreshCw as RefreshIcon,
   AlertCircle,
   ArrowRight,
+  Star as StarIcon,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useSession } from "next-auth/react";
 import {
   Select,
   SelectItem,
@@ -112,6 +114,37 @@ interface AttendanceHistory {
 
 export default function ClassAttendanceTikTok() {
   const { toast } = useToast();
+  const { data: session, status } = useSession();
+  const [userSession, setUserSession] = useState<any>(null);
+  const [sessionLoading, setSessionLoading] = useState(true);
+  
+  // Cargar sesión directamente como en otras páginas
+  useEffect(() => {
+    const loadSession = async () => {
+      try {
+        const sessionResponse = await fetch("/api/auth/session");
+        const session = await sessionResponse.json();
+        setUserSession(session);
+        console.log('🔐 SESSION LOADED:', session);
+      } catch (error) {
+        console.error("Error loading session:", error);
+      } finally {
+        setSessionLoading(false);
+      }
+    };
+
+    loadSession();
+  }, []);
+  
+  console.log('🔐 SESSION DEBUG:', {
+    useSessionStatus: status,
+    useSessionData: session,
+    directSession: userSession,
+    user: userSession?.user,
+    trainerId: userSession?.user?.trainerId,
+    role: userSession?.user?.role
+  });
+  
   const [classes, setClasses] = useState<DanceClass[]>([]);
   const [selectedClass, setSelectedClass] = useState<number | null>(null);
   const [showConfirmation, setShowConfirmation] = useState(false);
@@ -142,6 +175,55 @@ export default function ClassAttendanceTikTok() {
   // Estados para transferencia de estudiantes
   const [showTransferModal, setShowTransferModal] = useState(false);
   const [selectedStudentForTransfer, setSelectedStudentForTransfer] = useState<Student | null>(null);
+
+  // Separar clases en "Mis Clases" y "Todas las Clases"
+  const { myClasses, otherClasses } = useMemo(() => {
+    console.log('🔍 DEBUG - Separando clases - INICIO:', {
+      sessionUser: userSession?.user,
+      trainerId: userSession?.user?.trainerId,
+      classesCount: classes.length,
+      classes: classes.map(c => ({ id: c.id, name: c.name, trainerId: c.trainer.id, trainerName: c.trainer.name }))
+    });
+
+    if (!userSession?.user?.trainerId || !classes.length) {
+      console.log('⚠️ No hay trainerId o clases, retornando todas como otherClasses');
+      return { myClasses: [], otherClasses: classes };
+    }
+
+    const currentTrainerId = parseInt(userSession.user.trainerId);
+    console.log('👤 Trainer actual ID:', currentTrainerId, 'Type:', typeof currentTrainerId);
+
+    const myClasses = classes.filter(cls => {
+      // Asegurar que ambos sean números para la comparación
+      const trainerIdNum = typeof cls.trainer.id === 'string' ? parseInt(cls.trainer.id) : cls.trainer.id;
+      const isMyClass = trainerIdNum === currentTrainerId;
+      
+      console.log(`🏫 Clase "${cls.name}" - Trainer: ${cls.trainer.id} (${cls.trainer.name}) - Es mía: ${isMyClass}`, {
+        originalTrainerId: cls.trainer.id,
+        trainerIdNum,
+        currentTrainerId,
+        typeComparison: `${typeof trainerIdNum} === ${typeof currentTrainerId}`,
+        strictEquality: trainerIdNum === currentTrainerId,
+        looseEquality: trainerIdNum == currentTrainerId
+      });
+      return isMyClass;
+    });
+    
+    const otherClasses = classes.filter(cls => {
+      const trainerIdNum = typeof cls.trainer.id === 'string' ? parseInt(cls.trainer.id) : cls.trainer.id;
+      return trainerIdNum !== currentTrainerId;
+    });
+
+    console.log('📊 Resultado separación:', {
+      myClassesCount: myClasses.length,
+      otherClassesCount: otherClasses.length,
+      myClasses: myClasses.map(c => c.name),
+      otherClasses: otherClasses.map(c => c.name)
+    });
+
+    console.log('🔍 DEBUG - Separando clases - FIN');
+    return { myClasses, otherClasses };
+  }, [classes, userSession?.user?.trainerId]);
 
   // Función mejorada para verificar si una clase está activa en este momento
   const isClassActiveNow = useCallback((schedules: ClassSchedule[]) => {
@@ -219,24 +301,52 @@ export default function ClassAttendanceTikTok() {
   const loadActiveClasses = useCallback(async () => {
     try {
       setLoading(true);
+      console.log('🚀 Iniciando loadActiveClasses...');
+      
       // Cargar todas las clases sin paginación para poder filtrar correctamente
       const response = await fetch("/api/classes?active=true&pageSize=500");
       const data = await response.json();
 
-      console.log('📡 DEBUG - Respuesta del API:', { success: data.success, totalClases: data.classes?.length || 0 })
+      console.log('📡 DEBUG - Respuesta del API:', { 
+        success: data.success, 
+        totalClases: data.classes?.length || 0,
+        sessionUser: userSession?.user,
+        trainerId: userSession?.user?.trainerId
+      })
 
       if (data.success) {
         console.log('📚 DEBUG - Clases recibidas:', data.classes.length)
+        
         // Mostrar solo las clases de DANCE para debug
         const danceClasses = data.classes.filter((c: DanceClass) => c.sport === 'DANCE');
-        console.log('💃 Clases de DANCE encontradas:', danceClasses.map((c: DanceClass) => ({ id: c.id, name: c.name })))
+        console.log('💃 Clases de DANCE encontradas:', danceClasses.map((c: DanceClass) => ({ 
+          id: c.id, 
+          name: c.name, 
+          trainerId: c.trainer.id,
+          trainerName: c.trainer.name
+        })))
 
         // Filtrar solo las clases que están activas en este momento
-        const activeClasses = data.classes.filter((danceClass: DanceClass) => {
-          const isActive = isClassActiveNow(danceClass.schedules);
-          console.log(`🔍 Clase "${danceClass.name}" (${danceClass.sport}) es activa:`, isActive)
-          return isActive;
-        });
+        console.log('🔍 Iniciando filtrado de clases activas...');
+        let activeClasses: DanceClass[] = [];
+        try {
+          activeClasses = data.classes.filter((danceClass: DanceClass) => {
+            const isActive = isClassActiveNow(danceClass.schedules);
+            console.log(`🔍 Clase "${danceClass.name}" (${danceClass.sport}) - Trainer: ${danceClass.trainer.name} (ID: ${danceClass.trainer.id}) - Es activa: ${isActive}`, {
+              schedules: danceClass.schedules.map(s => ({
+                day: s.dayOfWeek,
+                start: s.startTime,
+                end: s.endTime,
+                isActive: s.isActive
+              }))
+            });
+            return isActive;
+          });
+          console.log('✅ Filtrado completado, clases activas encontradas:', activeClasses.length);
+        } catch (error) {
+          console.error('❌ Error durante el filtrado de clases activas:', error);
+          activeClasses = [];
+        }
 
         console.log('✅ DEBUG - Clases activas encontradas:', activeClasses.length)
         console.log('📋 Clases activas:', activeClasses.map((c: DanceClass) => ({ 
@@ -244,12 +354,28 @@ export default function ClassAttendanceTikTok() {
           name: c.name, 
           sport: c.sport,
           enrollments: c.enrollments.length,
-          trainer: c.trainer.name
+          trainer: c.trainer.name,
+          trainerId: c.trainer.id
         })))
+        
+        // Verificar si hay clases activas del trainer actual
+        const currentTrainerId = userSession?.user?.trainerId ? parseInt(userSession.user.trainerId) : null;
+        const myActiveClasses = activeClasses.filter((c: DanceClass) => {
+          const trainerIdNum = typeof c.trainer.id === 'string' ? parseInt(c.trainer.id) : c.trainer.id;
+          return trainerIdNum === currentTrainerId;
+        });
+        console.log('👤 Mis clases activas:', myActiveClasses.length, myActiveClasses.map((c: DanceClass) => c.name));
+        
         console.log('🔄 Llamando setClasses con:', activeClasses.length, 'clases');
+        console.log('📋 Detalle de clases a establecer:', activeClasses.map((c: DanceClass) => ({
+          id: c.id,
+          name: c.name,
+          trainerId: c.trainer.id,
+          trainerName: c.trainer.name
+        })));
         setClasses(activeClasses);
       } else {
-        // console.error('❌ Error en respuesta del API:', data)
+        console.error('❌ Error en respuesta del API:', data)
         toast({
           title: "Error al cargar clases",
           description:
@@ -269,10 +395,22 @@ export default function ClassAttendanceTikTok() {
       console.log('🏁 Finalizando loadActiveClasses - setLoading(false)');
       setLoading(false);
     }
-  }, [isClassActiveNow, toast]);
+  }, [isClassActiveNow, toast, userSession?.user]);
 
   useEffect(() => {
-    console.log('🔄 useEffect ejecutándose - cargando clases activas');
+    console.log('🔄 useEffect ejecutándose - cargando clases activas', {
+      sessionStatus: status,
+      sessionUser: userSession?.user,
+      trainerId: userSession?.user?.trainerId,
+      classesCount: classes.length
+    });
+    
+    // Solo cargar clases cuando la sesión esté completamente cargada
+    if (sessionLoading) {
+      console.log('⏳ Sesión aún cargando, esperando...');
+      return;
+    }
+    
     loadActiveClasses();
 
     // Recargar cada minuto para mantener actualizada la lista
@@ -281,7 +419,7 @@ export default function ClassAttendanceTikTok() {
       loadActiveClasses();
     }, 60000);
     return () => clearInterval(interval);
-  }, [loadActiveClasses]);
+  }, [loadActiveClasses, sessionLoading]);
 
   const handleClassSelection = (classId: number) => {
     setSelectedClass(classId);
@@ -696,6 +834,30 @@ export default function ClassAttendanceTikTok() {
         throw new Error("Error al completar sesión");
       }
 
+      // Registrar asistencia del trainer solo si el usuario es TEACHER o ADMIN
+      if (userSession?.user?.role === "TEACHER" || userSession?.user?.role === "ADMIN") {
+        try {
+          const trainerAttendanceResponse = await fetch("/api/trainer-attendance", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              classId: currentSession.danceClass.id,
+              status: "PRESENT",
+              notes: `Asistencia completada para clase ${currentSession.danceClass.name} - Sesión ${currentSession.id}`,
+            }),
+          });
+
+          if (trainerAttendanceResponse.ok) {
+            console.log("✅ Asistencia registrada exitosamente");
+          } else {
+            console.warn("⚠️ No se pudo registrar la asistencia");
+          }
+        } catch (trainerError) {
+          console.warn("⚠️ Error al registrar asistencia:", trainerError);
+          // No fallar la sesión completa por este error
+        }
+      }
+
       // Calcular resumen
       const list = finalStudents ?? students;
       const summary = list.reduce(
@@ -727,7 +889,30 @@ export default function ClassAttendanceTikTok() {
     }
   };
 
-  const finishAttendance = () => {
+  const finishAttendance = async () => {
+    // Si estamos finalizando una modificación de sesión ya completada, registrar asistencia solo si es TEACHER o ADMIN
+    if (currentSession?.status === "COMPLETED" && sessionAlreadyCompleted && (userSession?.user?.role === "TEACHER" || userSession?.user?.role === "ADMIN")) {
+      try {
+        const trainerAttendanceResponse = await fetch("/api/trainer-attendance", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            classId: currentSession.danceClass.id,
+            status: "PRESENT",
+            notes: `Modificación de asistencia completada para clase ${currentSession.danceClass.name} - Sesión ${currentSession.id}`,
+          }),
+        });
+
+        if (trainerAttendanceResponse.ok) {
+          console.log("✅ Asistencia registrada después de modificación");
+        } else {
+          console.warn("⚠️ No se pudo registrar la asistencia después de modificación");
+        }
+      } catch (trainerError) {
+        console.warn("⚠️ Error al registrar asistencia después de modificación:", trainerError);
+      }
+    }
+
     setShowSummary(false);
     setSelectedClass(null);
     setCurrentStudentIndex(0);
@@ -842,18 +1027,28 @@ export default function ClassAttendanceTikTok() {
   console.log('🎨 RENDERIZANDO COMPONENTE:', {
     loading,
     classesCount: classes.length,
-    classes: classes.map(c => ({ id: c.id, name: c.name })),
-    classesArray: classes,
-    classesType: typeof classes,
-    classesIsArray: Array.isArray(classes)
+    sessionUser: userSession?.user,
+    trainerId: userSession?.user?.trainerId,
+    classes: classes.map(c => ({ 
+      id: c.id, 
+      name: c.name, 
+      trainerId: c.trainer.id,
+      trainerName: c.trainer.name 
+    })),
+    myClassesCount: myClasses.length,
+    otherClassesCount: otherClasses.length,
+    myClasses: myClasses.map(c => ({ id: c.id, name: c.name, trainerId: c.trainer.id })),
+    otherClasses: otherClasses.map(c => ({ id: c.id, name: c.name, trainerId: c.trainer.id }))
   });
 
-  if (loading) {
+  if (sessionLoading || loading) {
     return (
       <div className="w-full h-full flex items-center justify-center p-4">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
-          <p className="text-gray-400 mt-4">Cargando clases activas...</p>
+          <p className="text-gray-400 mt-4">
+            {sessionLoading ? 'Cargando sesión...' : 'Cargando clases activas...'}
+          </p>
         </div>
       </div>
     );
@@ -889,7 +1084,11 @@ export default function ClassAttendanceTikTok() {
           {selectedClassData && (
             <div className="space-y-4 py-4">
               <div className="text-center">
-                <div className="w-16 h-16 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 ${
+                  userSession?.user?.trainerId && parseInt(userSession.user.trainerId) === selectedClassData.trainer.id
+                    ? 'bg-gradient-to-br from-yellow-500 to-orange-500'
+                    : 'bg-gradient-to-br from-blue-600 to-indigo-600'
+                }`}>
                   <span className="text-white text-2xl font-bold">
                     {selectedClassData.name.charAt(0)}
                   </span>
@@ -897,9 +1096,17 @@ export default function ClassAttendanceTikTok() {
                 <h3 className="text-lg font-semibold">
                   {selectedClassData.name}
                 </h3>
-                <p className="text-gray-400">
-                  Instructor: {selectedClassData.trainer.name}
-                </p>
+                <div className="flex items-center justify-center gap-2">
+                  <p className="text-gray-400">
+                    Instructor: {selectedClassData.trainer.name}
+                  </p>
+                  {userSession?.user?.trainerId && parseInt(userSession.user.trainerId) === selectedClassData.trainer.id && (
+                    <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30 text-xs">
+                      <StarIcon className="h-3 w-3 mr-1" />
+                      Mi clase
+                    </Badge>
+                  )}
+                </div>
               </div>
 
               <div className="bg-gray-700/50 rounded-lg p-4 space-y-2">
@@ -1119,6 +1326,11 @@ export default function ClassAttendanceTikTok() {
               <div className="text-right">
                 <p className="text-gray-400 text-sm md:text-base">
                   {classes.length} clases activas ahora
+                  {userSession?.user?.trainerId && (
+                    <span className="block text-xs text-yellow-400">
+                      {myClasses.length} mías • {otherClasses.length} otras
+                    </span>
+                  )}
                 </p>
                 <p className="text-gray-500 text-xs">
                   {new Date().toLocaleTimeString("es-ES", {
@@ -1126,44 +1338,134 @@ export default function ClassAttendanceTikTok() {
                     minute: "2-digit",
                   })}
                 </p>
+                <Button
+                  onClick={() => {
+                    console.log('🔄 Forzando recarga manual...');
+                    loadActiveClasses();
+                  }}
+                  variant="outline"
+                  size="sm"
+                  className="mt-2 text-xs"
+                >
+                  🔄 Recargar
+                </Button>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
-              {classes.map((danceClass) => (
-                <Button
-                  key={danceClass.id}
-                  onClick={() => handleClassSelection(danceClass.id)}
-                  className="h-auto p-4 bg-gray-800 hover:bg-gray-700 text-left flex items-center space-x-4 rounded-xl border border-gray-700 transition-all duration-200 hover:border-gray-600 group"
-                >
-                  <div className="w-12 h-12 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center flex-shrink-0 group-hover:from-blue-500 group-hover:to-indigo-500 transition-all duration-200">
-                    <span className="text-white text-lg font-bold">
-                      {danceClass.name.charAt(0)}
-                    </span>
+            {/* Sección: Mis Clases Activas */}
+            {myClasses.length > 0 && (
+              <div className="mb-8">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-8 h-8 bg-gradient-to-br from-yellow-500 to-orange-500 rounded-lg flex items-center justify-center">
+                    <StarIcon className="h-5 w-5 text-white" />
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="font-semibold text-lg text-white truncate">
-                      {danceClass.name}
-                    </div>
-                    <div className="text-sm text-gray-400 truncate flex items-center gap-2">
-                      <UserIcon className="h-4 w-4" />
-                      {danceClass.trainer.name}
-                    </div>
-                    {danceClass.schedules.length > 0 && (
-                      <div className="text-xs text-gray-500 mt-1">
-                        {danceClass.schedules.map((schedule, index) => (
-                          <span key={index} className="mr-2">
-                            {getDayNameFromNumber(schedule.dayOfWeek)}{" "}
-                            {formatTime(schedule.startTime)}
-                          </span>
-                        ))}
+                  <h2 className="text-xl font-semibold text-white">
+                    Mis Clases Activas
+                  </h2>
+                  <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30">
+                    {myClasses.length} clase{myClasses.length !== 1 ? 's' : ''}
+                  </Badge>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
+                  {myClasses.map((danceClass) => (
+                    <Button
+                      key={danceClass.id}
+                      onClick={() => handleClassSelection(danceClass.id)}
+                      className="h-auto p-4 bg-gradient-to-br from-gray-800 to-gray-700 hover:from-gray-700 hover:to-gray-600 text-left flex items-center space-x-4 rounded-xl border-2 border-yellow-500/30 transition-all duration-200 hover:border-yellow-500/50 group relative overflow-hidden"
+                    >
+                      <div className="absolute top-2 right-2">
+                        <div className="w-3 h-3 bg-yellow-500 rounded-full animate-pulse"></div>
                       </div>
-                    )}
-                  </div>
-                </Button>
-              ))}
-            </div>
+                      <div className="w-12 h-12 bg-gradient-to-br from-yellow-500 to-orange-500 rounded-lg flex items-center justify-center flex-shrink-0 group-hover:from-yellow-400 group-hover:to-orange-400 transition-all duration-200">
+                        <span className="text-white text-lg font-bold">
+                          {danceClass.name.charAt(0)}
+                        </span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-semibold text-lg text-white truncate">
+                          {danceClass.name}
+                        </div>
+                        <div className="text-sm text-yellow-300 truncate flex items-center gap-2">
+                          <UserIcon className="h-4 w-4" />
+                          {danceClass.trainer.name}
+                        </div>
+                        {danceClass.schedules.length > 0 && (
+                          <div className="text-xs text-gray-400 mt-1">
+                            {danceClass.schedules.map((schedule, index) => (
+                              <span key={index} className="mr-2">
+                                {getDayNameFromNumber(schedule.dayOfWeek)}{" "}
+                                {formatTime(schedule.startTime)}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                        <div className="text-xs text-yellow-400 mt-1 font-medium">
+                          {danceClass.enrollments.length} estudiante{danceClass.enrollments.length !== 1 ? 's' : ''} inscrito{danceClass.enrollments.length !== 1 ? 's' : ''}
+                        </div>
+                      </div>
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            )}
 
+            {/* Sección: Todas las Clases Activas */}
+            {otherClasses.length > 0 && (
+              <div className="mb-8">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center">
+                    <UsersIcon className="h-5 w-5 text-white" />
+                  </div>
+                  <h2 className="text-xl font-semibold text-white">
+                    Todas las Clases Activas
+                  </h2>
+                  <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30">
+                    {otherClasses.length} clase{otherClasses.length !== 1 ? 's' : ''}
+                  </Badge>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
+                  {otherClasses.map((danceClass) => (
+                    <Button
+                      key={danceClass.id}
+                      onClick={() => handleClassSelection(danceClass.id)}
+                      className="h-auto p-4 bg-gray-800 hover:bg-gray-700 text-left flex items-center space-x-4 rounded-xl border border-gray-700 transition-all duration-200 hover:border-gray-600 group"
+                    >
+                      <div className="w-12 h-12 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center flex-shrink-0 group-hover:from-blue-500 group-hover:to-indigo-500 transition-all duration-200">
+                        <span className="text-white text-lg font-bold">
+                          {danceClass.name.charAt(0)}
+                        </span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-semibold text-lg text-white truncate">
+                          {danceClass.name}
+                        </div>
+                        <div className="text-sm text-gray-400 truncate flex items-center gap-2">
+                          <UserIcon className="h-4 w-4" />
+                          {danceClass.trainer.name}
+                        </div>
+                        {danceClass.schedules.length > 0 && (
+                          <div className="text-xs text-gray-500 mt-1">
+                            {danceClass.schedules.map((schedule, index) => (
+                              <span key={index} className="mr-2">
+                                {getDayNameFromNumber(schedule.dayOfWeek)}{" "}
+                                {formatTime(schedule.startTime)}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                        <div className="text-xs text-gray-500 mt-1">
+                          {danceClass.enrollments.length} estudiante{danceClass.enrollments.length !== 1 ? 's' : ''} inscrito{danceClass.enrollments.length !== 1 ? 's' : ''}
+                        </div>
+                      </div>
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Estado vacío cuando no hay clases */}
             {(!classes || classes.length === 0) && (
               <div className="text-center py-12">
                 <ClockIcon className="h-12 w-12 text-gray-600 mx-auto mb-4" />
@@ -1181,6 +1483,21 @@ export default function ClassAttendanceTikTok() {
                   <RefreshIcon className="h-4 w-4 mr-2" />
                   Actualizar
                 </Button>
+              </div>
+            )}
+
+            {/* Estado cuando solo hay clases de otros trainers */}
+            {myClasses.length === 0 && otherClasses.length > 0 && (
+              <div className="text-center py-8">
+                <div className="w-16 h-16 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <UsersIcon className="h-8 w-8 text-white" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-300 mb-2">
+                  No tienes clases activas ahora
+                </h3>
+                <p className="text-gray-500 text-sm">
+                  Pero puedes tomar asistencia de otras clases activas
+                </p>
               </div>
             )}
           </div>

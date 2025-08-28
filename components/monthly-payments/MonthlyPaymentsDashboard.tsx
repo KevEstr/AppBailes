@@ -408,16 +408,14 @@ export function MonthlyPaymentsDashboard() {
           <CardContent>
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-gray-300">Baile (DANCE)</span>
+                <span className="text-gray-300">Baile</span>
                 <div className="text-right">
                   <div className="text-xl font-bold text-green-400">{danceFee ? formatCurrency(danceFee.amount) : '—'}</div>
                   {danceFee && (
                     <p className="text-xs text-gray-500">Desde {new Date(danceFee.validFrom).toLocaleDateString()}</p>
                   )}
                 </div>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-gray-300">Voleibol (VOLLEYBALL)</span>
+                <span className="text-gray-300">Voleibol</span>
                 <div className="text-right">
                   <div className="text-xl font-bold text-green-400">{volleyballFee ? formatCurrency(volleyballFee.amount) : '—'}</div>
                   {volleyballFee && (
@@ -466,7 +464,7 @@ export function MonthlyPaymentsDashboard() {
               Acciones Rápidas
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2">
+          <CardContent className="gap-2 flex items-center justify-between">
             <Button 
               onClick={generatePaymentForms}
               disabled={!selectedPeriod || generatingForms}

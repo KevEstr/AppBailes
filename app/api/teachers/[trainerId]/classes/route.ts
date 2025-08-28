@@ -7,7 +7,7 @@ const prisma = new PrismaClient()
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { trainerId: string } }
+  context: { params: Promise<{ trainerId: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -16,12 +16,17 @@ export async function GET(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    const { trainerId: trainerIdParam } = await context.params
+
     // Solo permitir que los profesores vean sus propias clases o que los admins vean cualquier clase
-    if (session.user.role === "TEACHER" && session.user.trainerId !== params.trainerId) {
+    if (
+      session.user.role === "TEACHER" &&
+      String(session.user.trainerId) !== String(trainerIdParam)
+    ) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
-    const trainerId = parseInt(params.trainerId)
+    const trainerId = parseInt(trainerIdParam)
 
     if (isNaN(trainerId)) {
       return NextResponse.json({ error: "Invalid trainer ID" }, { status: 400 })
@@ -59,7 +64,7 @@ export async function GET(
       }
     })
 
-    return NextResponse.json(classes)
+    return NextResponse.json({ success: true, classes })
   } catch (error) {
     console.error("Error fetching teacher classes:", error)
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })

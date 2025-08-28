@@ -48,37 +48,7 @@ import { AddExpenseModal } from "@/components/admin/AddExpenseModal";
 import { formatDateWithoutTimezone } from "@/lib/date-utils";
 import * as XLSX from 'xlsx';
 
-interface FinancialSummary {
-  totalIncome: number;
-  totalTransactions: number;
-  monthlyPayments: {
-    amount: number;
-    count: number;
-  };
-  servicePayments: {
-    amount: number;
-    count: number;
-  };
-}
 
-interface RecentTransaction {
-  id: number;
-  amount: number;
-  concept: string;
-  paymentMethod: string;
-  studentName: string;
-  createdAt: Date;
-}
-
-interface DashboardData {
-  period: {
-    type: string;
-    startDate: Date;
-    endDate: Date;
-  };
-  summary: FinancialSummary;
-  recentTransactions: RecentTransaction[];
-}
 
 interface FinancialReport {
   id: number;
@@ -141,15 +111,11 @@ interface ConsolidatedData {
 }
 
 export function FinancialDashboard() {
-  const [dashboardData, setDashboardData] = useState<DashboardData | null>(
-    null
-  );
   const [reports, setReports] = useState<FinancialReport[]>([]);
   const [consolidatedData, setConsolidatedData] = useState<ConsolidatedData | null>(null);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
-  const [selectedPeriod, setSelectedPeriod] = useState("month");
-  const [activeTab, setActiveTab] = useState("dashboard");
+  const [activeTab, setActiveTab] = useState("consolidated");
   
   // Estados para la tabla consolidada
   const [currentPage, setCurrentPage] = useState(1);
@@ -165,7 +131,7 @@ export function FinancialDashboard() {
 
   useEffect(() => {
     loadData();
-  }, [selectedPeriod]);
+  }, []);
 
   useEffect(() => {
     if (activeTab === "consolidated") {
@@ -176,7 +142,7 @@ export function FinancialDashboard() {
   const loadData = async () => {
     try {
       setLoading(true);
-      await Promise.all([loadDashboard(), loadReports()]);
+      await loadReports();
     } catch (error) {
       console.error(error);
       toast.error("Error al cargar datos financieros");
@@ -220,16 +186,6 @@ export function FinancialDashboard() {
       toast.error("Error al cargar datos consolidados");
     } finally {
       setLoadingConsolidated(false);
-    }
-  };
-
-  const loadDashboard = async () => {
-    const response = await fetch(
-      `/api/admin/financial-dashboard?period=${selectedPeriod}`
-    );
-    if (response.ok) {
-      const data = await response.json();
-      setDashboardData(data);
     }
   };
 
@@ -589,27 +545,6 @@ export function FinancialDashboard() {
             Consolidado Financiero
           </h1>
         </div>
-
-        <div className="flex items-center space-x-3">
-          <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
-            <SelectTrigger className="w-40 bg-gray-700 border-gray-600 text-white">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="month">Este Mes</SelectItem>
-              <SelectItem value="quarter">Este Trimestre</SelectItem>
-              <SelectItem value="year">Este Año</SelectItem>
-            </SelectContent>
-          </Select>
-
-          <Button
-            onClick={generateReport}
-            disabled={generating}
-            className="bg-purple-600 hover:bg-purple-700 text-white"
-          >
-            {generating ? "Generando..." : "Generar Reporte"}
-          </Button>
-        </div>
       </div>
 
       <Tabs
@@ -618,9 +553,6 @@ export function FinancialDashboard() {
         className="space-y-4"
       >
         <TabsList className="bg-gray-800 border-gray-600">
-          <TabsTrigger value="dashboard" className="text-white">
-            Dashboard
-          </TabsTrigger>
           <TabsTrigger value="consolidated" className="text-white">
             Consolidado
           </TabsTrigger>
@@ -629,153 +561,7 @@ export function FinancialDashboard() {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="dashboard" className="space-y-6">
-          {dashboardData && (
-            <>
-              {/* Métricas principales */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <Card className="bg-gray-800/90 border-gray-600">
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium text-white">
-                      Ingresos Totales
-                    </CardTitle>
-                    <DollarSign className="h-4 w-4 text-green-400" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold text-green-400">
-                      {formatCurrency(dashboardData.summary.totalIncome)}
-                    </div>
-                    <p className="text-xs text-gray-400">
-                      {dashboardData.summary.totalTransactions} transacciones
-                    </p>
-                  </CardContent>
-                </Card>
 
-                <Card className="bg-gray-800/90 border-gray-600">
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium text-white">
-                      Mensualidades
-                    </CardTitle>
-                    <Receipt className="h-4 w-4 text-blue-400" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold text-blue-400">
-                      {formatCurrency(
-                        dashboardData.summary.monthlyPayments.amount
-                      )}
-                    </div>
-                    <p className="text-xs text-gray-400">
-                      {dashboardData.summary.monthlyPayments.count} pagos
-                    </p>
-                  </CardContent>
-                </Card>
-
-                <Card className="bg-gray-800/90 border-gray-600">
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium text-white">
-                      Servicios
-                    </CardTitle>
-                    <Users className="h-4 w-4 text-purple-400" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold text-purple-400">
-                      {formatCurrency(
-                        dashboardData.summary.servicePayments.amount
-                      )}
-                    </div>
-                    <p className="text-xs text-gray-400">
-                      {dashboardData.summary.servicePayments.count} servicios
-                    </p>
-                  </CardContent>
-                </Card>
-
-                <Card className="bg-gray-800/90 border-gray-600">
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium text-white">
-                      Crecimiento
-                    </CardTitle>
-                    <TrendingUp className="h-4 w-4 text-orange-400" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold text-orange-400">
-                      +12.5%
-                    </div>
-                    <p className="text-xs text-gray-400">
-                      vs. período anterior
-                    </p>
-                  </CardContent>
-                </Card>
-              </div>
-
-              {/* Transacciones recientes */}
-              <Card className="bg-gray-800/90 border-gray-600">
-                <CardHeader className="flex flex-row items-center justify-between">
-                  <CardTitle className="text-white">
-                    Transacciones Recientes
-                  </CardTitle>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() =>
-                      exportToCSV(
-                        dashboardData.recentTransactions,
-                        "transacciones.csv"
-                      )
-                    }
-                    className="border-gray-600 text-gray-300"
-                  >
-                    <Download className="h-4 w-4 mr-2" />
-                    Exportar
-                  </Button>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {dashboardData.recentTransactions.length === 0 ? (
-                      <p className="text-gray-400 text-center py-8">
-                        No hay transacciones recientes
-                      </p>
-                    ) : (
-                      dashboardData.recentTransactions.map((transaction) => (
-                        <div
-                          key={transaction.id}
-                          className="flex items-center justify-between p-4 bg-gray-700/50 rounded-lg"
-                        >
-                          <div className="flex-1">
-                            <div className="flex items-center space-x-3">
-                              <div className="h-10 w-10 rounded-full bg-gray-600 flex items-center justify-center">
-                                <Receipt className="h-5 w-5 text-gray-300" />
-                              </div>
-                              <div>
-                                <p className="text-white font-medium">
-                                  {transaction.concept}
-                                </p>
-                                <p className="text-gray-400 text-sm">
-                                  {transaction.studentName}
-                                </p>
-                              </div>
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-white font-bold">
-                              {formatCurrency(transaction.amount)}
-                            </p>
-                            <p
-                              className={`text-sm ${getPaymentMethodColor(
-                                transaction.paymentMethod
-                              )}`}
-                            >
-                              {getPaymentMethodLabel(transaction.paymentMethod)}
-                            </p>
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            </>
-          )}
-        </TabsContent>
 
         <TabsContent value="consolidated" className="space-y-6">
           <Card className="bg-gray-800/90 border-gray-600">

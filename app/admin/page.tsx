@@ -151,14 +151,14 @@ function AdminContent() {
       description: "Registra ventas de productos y snacks",
       color: "from-orange-500 to-red-600",
     },
-    // {
-    //   id: "services",
-    //   href: "/admin/services",
-    //   label: "Servicios Adicionales",
-    //   icon: Settings,
-    //   description: "Gestión de servicios y tarifas",
-    //   color: "from-indigo-500 to-purple-600",
-    // },
+    {
+      id: "trainer-attendance",
+      href: "/admin/trainer-attendance",
+      label: "Asistencias de Entrenadores",
+      icon: UserCheck,
+      description: "Historial de asistencias de Entrenadores",
+      color: "from-indigo-500 to-purple-600",
+    }
   ]
 
   return (

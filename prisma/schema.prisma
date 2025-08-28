@@ -115,6 +115,7 @@ model DanceClass {
   trainer     Trainer           @relation(fields: [trainerId], references: [id])
   studentTransfersFrom StudentTransfer[] @relation("TransferFrom")
   studentTransfersTo StudentTransfer[] @relation("TransferTo")
+  trainerAttendances TrainerAttendance[]
 
   @@map("classes")
 }
@@ -274,7 +275,6 @@ model Trainer {
   updatedAt   DateTime            @updatedAt @db.Timestamptz
   id          Int                 @id @default(autoincrement())
   classes     DanceClass[]
-  attendances TrainerAttendance[]
   userId      Int?                @unique
   user        User?               @relation(fields: [userId], references: [id], onDelete: SetNull)
 
@@ -288,8 +288,10 @@ model TrainerAttendance {
   createdAt DateTime         @default(now()) @db.Timestamptz
   updatedAt DateTime         @updatedAt @db.Timestamptz
   id        Int              @id @default(autoincrement())
-  trainerId Int
-  trainer   Trainer          @relation(fields: [trainerId], references: [id], onDelete: Cascade)
+  userId    Int              // ID del usuario que tomó la asistencia (puede ser admin o trainer)
+  classId   Int
+  class     DanceClass       @relation(fields: [classId], references: [id], onDelete: Cascade)
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("trainer_attendances")
 }
@@ -690,6 +692,7 @@ model User {
   trainer   Trainer? // Relación con Trainer
   studentTransfers StudentTransfer[]
   productSales ProductSale[]
+  trainerAttendances TrainerAttendance[]
   @@map("users")
 }
 

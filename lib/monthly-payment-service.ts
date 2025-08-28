@@ -1069,6 +1069,288 @@ export class MonthlyPaymentService {
     await whatsappService.sendProofRejectedNotification(notificationData);
     console.log("✅ Notificación de rechazo enviada exitosamente");
   }
+
+  /**
+   * Obtiene estudiantes con formularios de pago para un período específico
+   */
+  async getStudentsWithPaymentForms(periodId: number, options: {
+    page?: number;
+    limit?: number;
+    search?: string;
+  } = {}) {
+    const { page = 1, limit = 10, search } = options;
+    const offset = (page - 1) * limit;
+
+    const period = await prisma.paymentPeriod.findUnique({
+      where: { id: periodId },
+    });
+
+    if (!period) {
+      throw new Error("Período no encontrado");
+    }
+
+    // Construir filtros de búsqueda
+    const searchFilter = search ? {
+      student: {
+        OR: [
+          { name: { contains: search, mode: 'insensitive' as const } },
+          { id: { contains: search, mode: 'insensitive' as const } }, // id es el documento
+          { phone: { contains: search, mode: 'insensitive' as const } } // teléfono
+        ]
+      }
+    } : {};
+
+    const whereClause = {
+      periodId,
+      ...searchFilter
+    };
+
+    // Obtener pagos con formularios y paginación
+    const [payments, total] = await Promise.all([
+      prisma.monthlyPayment.findMany({
+        where: whereClause,
+        include: {
+          student: true,
+          paymentForms: {
+            where: { status: 'ACTIVE' },
+            take: 1
+          }
+        },
+        skip: offset,
+        take: limit,
+        orderBy: { student: { name: 'asc' } }
+      }),
+      prisma.monthlyPayment.count({ where: whereClause })
+    ]);
+
+    // Procesar datos para el frontend
+    const students = payments.map(payment => ({
+      id: payment.student.id,
+      name: payment.student.name,
+      parentPhone: payment.student.phone,
+      hasForm: payment.paymentForms.length > 0,
+      paymentFormId: payment.paymentForms[0]?.id || null
+    }));
+
+    const totalPages = Math.ceil(total / limit);
+
+    return {
+      students,
+      pagination: {
+        page,
+        limit,
+        totalCount: total,
+        totalPages,
+        hasNext: page < totalPages,
+        hasPrev: page > 1
+      }
+    };
+  }
+
+  /**
+   * Obtiene todos los estudiantes con formularios de pago para un período específico (sin paginación)
+   */
+  async getAllStudentsWithPaymentForms(periodId: number) {
+    const period = await prisma.paymentPeriod.findUnique({
+      where: { id: periodId },
+    });
+
+    if (!period) {
+      throw new Error("Período no encontrado");
+    }
+
+    const payments = await prisma.monthlyPayment.findMany({
+      where: { periodId },
+      include: {
+        student: true,
+        paymentForms: {
+          where: { status: 'ACTIVE' },
+          take: 1
+        }
+      },
+      orderBy: { student: { name: 'asc' } }
+    });
+
+    // Procesar datos para el frontend
+    const students = payments.map(payment => ({
+      id: payment.student.id,
+      name: payment.student.name,
+      parentPhone: payment.student.phone,
+      hasForm: payment.paymentForms.length > 0,
+      paymentFormId: payment.paymentForms[0]?.id || null
+    }));
+
+    return students;
+  }
+
+  /**
+   * Obtiene formularios de pago con paginación para un período específico
+   */
+  async getPaymentFormsWithPagination(periodId: number, options: {
+    page?: number;
+    limit?: number;
+    search?: string;
+  } = {}) {
+    const { page = 1, limit = 10, search } = options;
+    const offset = (page - 1) * limit;
+
+    const period = await prisma.paymentPeriod.findUnique({
+      where: { id: periodId },
+    });
+
+    if (!period) {
+      throw new Error("Período no encontrado");
+    }
+
+    // Construir filtros de búsqueda
+    const searchFilter = search ? {
+      student: {
+        OR: [
+          { name: { contains: search, mode: 'insensitive' as const } },
+          { id: { contains: search, mode: 'insensitive' as const } }, // id es el documento
+          { phone: { contains: search, mode: 'insensitive' as const } } // teléfono
+        ]
+      }
+    } : {};
+
+    const whereClause = {
+      periodId,
+      paymentForms: {
+        some: {
+          status: 'ACTIVE' as const
+        }
+      },
+      ...searchFilter
+    };
+
+    // Obtener pagos con formularios y paginación
+    const [payments, total] = await Promise.all([
+      prisma.monthlyPayment.findMany({
+        where: whereClause,
+        include: {
+          student: true,
+          paymentForms: {
+            where: { status: 'ACTIVE' },
+            take: 1
+          }
+        },
+        skip: offset,
+        take: limit,
+        orderBy: { student: { name: 'asc' } }
+      }),
+      prisma.monthlyPayment.count({ where: whereClause })
+    ]);
+
+    // Procesar datos para el frontend
+    const paymentForms = payments.map(payment => ({
+      id: payment.id,
+      student: {
+        id: payment.student.id,
+        name: payment.student.name,
+        phone: payment.student.phone
+      },
+      expectedAmount: payment.expectedAmount,
+      paymentFormId: payment.paymentForms[0]?.id || null
+    }));
+
+    const totalPages = Math.ceil(total / limit);
+
+    return {
+      paymentForms,
+      pagination: {
+        page,
+        limit,
+        totalCount: total,
+        totalPages,
+        hasNext: page < totalPages,
+        hasPrev: page > 1
+      }
+    };
+  }
+
+  /**
+   * Obtiene pagos con paginación para un período específico
+   */
+  async getPaymentsWithPagination(periodId: number, options: {
+    page?: number;
+    limit?: number;
+    search?: string;
+  } = {}) {
+    const { page = 1, limit = 10, search } = options;
+    const offset = (page - 1) * limit;
+
+    const period = await prisma.paymentPeriod.findUnique({
+      where: { id: periodId },
+    });
+
+    if (!period) {
+      throw new Error("Período no encontrado");
+    }
+
+    // Construir filtros de búsqueda
+    const searchFilter = search ? {
+      student: {
+        OR: [
+          { name: { contains: search, mode: 'insensitive' as const } },
+          { id: { contains: search, mode: 'insensitive' as const } }, // id es el documento
+          { phone: { contains: search, mode: 'insensitive' as const } } // teléfono
+        ]
+      }
+    } : {};
+
+    const whereClause = {
+      periodId,
+      ...searchFilter
+    };
+
+    // Obtener pagos con paginación
+    const [payments, total] = await Promise.all([
+      prisma.monthlyPayment.findMany({
+        where: whereClause,
+        include: {
+          student: true,
+          paymentForms: {
+            where: { status: 'ACTIVE' },
+            take: 1
+          }
+        },
+        skip: offset,
+        take: limit,
+        orderBy: { student: { name: 'asc' } }
+      }),
+      prisma.monthlyPayment.count({ where: whereClause })
+    ]);
+
+    // Procesar datos para el frontend
+    const processedPayments = payments.map(payment => ({
+      id: payment.id,
+      student: {
+        id: payment.student.id,
+        name: payment.student.name,
+        phone: payment.student.phone
+      },
+      expectedAmount: payment.expectedAmount,
+      paidAmount: payment.paidAmount,
+      status: payment.status,
+      paymentDate: payment.paymentDate,
+      hasProofs: false, // Por ahora lo dejamos en false, se puede mejorar después
+      paymentFormId: payment.paymentForms[0]?.id || null
+    }));
+
+    const totalPages = Math.ceil(total / limit);
+
+    return {
+      payments: processedPayments,
+      pagination: {
+        page,
+        limit,
+        totalCount: total,
+        totalPages,
+        hasNext: page < totalPages,
+        hasPrev: page > 1
+      }
+    };
+  }
 }
 
 export const monthlyPaymentService = new MonthlyPaymentService();

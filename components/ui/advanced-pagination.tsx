@@ -29,7 +29,10 @@ export function AdvancedPagination({
   limitOptions = [5, 10, 20, 30, 50]
 }: AdvancedPaginationProps) {
   
-  if (pagination.totalCount === 0) return null
+  // Validar que totalCount sea un número válido
+  const totalCount = pagination.totalCount || 0;
+  
+  if (totalCount === 0) return null
 
   return (
     <div className="w-full mt-6 sm:mt-8">
@@ -75,7 +78,7 @@ export function AdvancedPagination({
          <div className="flex justify-center">
           <div className="flex items-center gap-3">
             <p className="text-gray-400 text-sm">
-              Mostrando {((pagination.page - 1) * pagination.limit) + 1} - {Math.min(pagination.page * pagination.limit, pagination.totalCount)} de {pagination.totalCount} {itemName}
+              Mostrando {((pagination.page - 1) * pagination.limit) + 1} - {Math.min(pagination.page * pagination.limit, totalCount)} de {totalCount} {itemName}
             </p>
             <div className="flex items-center gap-2">
               <span className="text-sm text-gray-400">Mostrar:</span>

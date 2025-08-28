@@ -26,7 +26,9 @@ export const InternalLayout = memo(function InternalLayout({ children, title, de
     'enrollment': 'Inscripciones',
     'admin': 'Administración',
     'monthly-payments': 'Sistema de Mensualidades',
-    'review': 'Revisión de Comprobantes'
+    'review': 'Revisión de Comprobantes',
+    'trainer-attendance': 'Asistencia de Entrenadores',
+    'financial-reports': 'Reportes Financieros'
   }), [])
 
   const getSegmentName = useMemo(() => (segment: string) => {

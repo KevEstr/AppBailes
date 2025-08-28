@@ -2,6 +2,7 @@ import { Metadata } from "next"
 import { InternalLayout } from "@/components/layouts/internal-layout"
 import { AttendanceSystem } from "@/components/attendance-system"
 import ClassAttendanceTikTok from "@/components/class-attendance-tiktok"
+import { AuthGuard } from "@/components/auth-guard"
 
 // Deshabilitar prerendering para evitar errores con event handlers
 export const dynamic = 'force-dynamic'
@@ -11,7 +12,7 @@ export const metadata: Metadata = {
   description: "Control visual de asistencias y registro de estudiantes en clases de baile",
 }
 
-export default function AttendancePage() {
+function AttendanceContent() {
   return (
     <InternalLayout 
       title="Asistencia de Estudiantes" 
@@ -20,5 +21,13 @@ export default function AttendancePage() {
       <ClassAttendanceTikTok />
       {/* <AttendanceSystem /> */}
     </InternalLayout>
+  )
+}
+
+export default function AttendancePage() {
+  return (
+    <AuthGuard>
+      <AttendanceContent />
+    </AuthGuard>
   )
 } 
