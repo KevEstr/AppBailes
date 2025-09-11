@@ -61,6 +61,12 @@ COPY --from=builder --chown=nextjs:nodejs /app/scripts/start-production.sh ./sta
 # Install prisma CLI in production
 RUN npm install prisma @prisma/client
 
+# Generate Prisma Client with correct permissions
+RUN npx prisma generate
+
+# Fix permissions for Prisma client
+RUN chown -R nextjs:nodejs /app/node_modules/.prisma
+
 # Make script executable
 RUN chmod +x ./start-production.sh
 
