@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { AuthGuard } from "@/components/auth-guard"
 import EditStudentModal from "@/components/edit-student-modal"
-import { MapPin, Phone, Mail, IdCard, Heart, Calendar, DollarSign, UserCheck, AlertTriangle, GraduationCap, User, Edit, Camera, CheckCircle } from "lucide-react"
+import { MapPin, Phone, Mail, IdCard, Heart, Calendar, DollarSign, UserCheck, AlertTriangle, GraduationCap, User, Edit, Camera, CheckCircle, Trophy } from "lucide-react"
 import { ProfilePhotoModal } from "@/components/profile/ProfilePhotoModal"
 
 interface StudentData {
@@ -41,6 +41,7 @@ interface StudentData {
     guardianRelation?: string
     guardianPhone?: string
     monthlyFee?: number
+    jerseyNumber?: number
   }
   classEnrollments?: any[]
 }
@@ -593,6 +594,26 @@ function StudentContent() {
               </Card>
             )}
 
+            {/* Información Deportiva */}
+            {student.enrollmentData?.jerseyNumber && (
+              <Card className="bg-slate-800 border-slate-700 hover:bg-slate-800/80 transition-colors">
+                <CardHeader className="pb-4">
+                  <CardTitle className="text-yellow-400 flex items-center gap-2 text-lg">
+                    <Trophy className="h-5 w-5" />
+                    Información Deportiva
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="text-sm">
+                  <div>
+                    <span className="text-slate-400">Número de Camiseta:</span>
+                    <p className="text-white font-medium text-lg">
+                      #{student.enrollmentData.jerseyNumber}
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             {/* Mis Clases */}
             {student.classEnrollments && student.classEnrollments.length > 0 && (
               <Card className="bg-slate-800 border-slate-700 hover:bg-slate-800/80 transition-colors">
@@ -666,7 +687,8 @@ function StudentContent() {
               guardianName: student.enrollmentData?.guardianName || '',
               guardianRelation: student.enrollmentData?.guardianRelation || '',
               guardianPhone: student.enrollmentData?.guardianPhone || '',
-              monthlyFee: student.enrollmentData?.monthlyFee || 0
+              monthlyFee: student.enrollmentData?.monthlyFee || 0,
+              jerseyNumber: student.enrollmentData?.jerseyNumber || undefined
             }}
             onStudentUpdated={handleStudentUpdated}
           />

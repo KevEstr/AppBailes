@@ -40,6 +40,7 @@ model Student {
   studentTransfers       StudentTransfer[]
   enrollmentPayments      EnrollmentPayment[]
   enrollmentPaymentForms  EnrollmentPaymentForm[]
+  matchAttendances       MatchAttendance[]
 
   @@index([name])
   @@index([phone])
@@ -81,6 +82,9 @@ model StudentEnrollmentData {
   // Información de Pago
   monthlyFee        Float?
   
+  // Información Deportiva
+  jerseyNumber      Int?     // Número de camiseta del estudiante
+  
   // Timestamps
   createdAt         DateTime @default(now()) @db.Timestamptz
   updatedAt         DateTime @updatedAt @db.Timestamptz
@@ -116,6 +120,7 @@ model DanceClass {
   studentTransfersFrom StudentTransfer[] @relation("TransferFrom")
   studentTransfersTo StudentTransfer[] @relation("TransferTo")
   trainerAttendances TrainerAttendance[]
+  matches Match[]
 
   @@map("classes")
 }
@@ -964,4 +969,51 @@ enum ProductCategory {
   ACCESSORIES // Accesorios y complementos
   ADDITIONS   // Adiciones y complementos
   OTHER       // Otros
+}
+
+// ===== MODELOS PARA PARTIDOS =====
+
+model Match {
+  id          Int       @id @default(autoincrement())
+  classId     Int
+  matchDate   DateTime  @db.Timestamptz
+  notes       String?
+  status      MatchStatus @default(SCHEDULED)
+  createdAt   DateTime  @default(now()) @db.Timestamptz
+  updatedAt   DateTime  @updatedAt @db.Timestamptz
+  
+  // Relaciones
+  danceClass  DanceClass @relation(fields: [classId], references: [id], onDelete: Cascade)
+  attendances MatchAttendance[]
+  
+  @@index([classId])
+  @@index([matchDate])
+  @@index([status])
+  @@map("matches")
+}
+
+model MatchAttendance {
+  id        Int              @id @default(autoincrement())
+  matchId   Int
+  studentId String
+  status    AttendanceStatus @default(ABSENT)
+  notes     String?
+  createdAt DateTime         @default(now()) @db.Timestamptz
+  updatedAt DateTime         @updatedAt @db.Timestamptz
+  
+  // Relaciones
+  match     Match            @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  student   Student          @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  
+  @@unique([matchId, studentId])
+  @@index([matchId])
+  @@index([studentId])
+  @@map("match_attendances")
+}
+
+enum MatchStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
 }

@@ -10,15 +10,17 @@ import { Upload, CheckCircle, AlertCircle, Camera, Info } from 'lucide-react';
 import Image from 'next/image';
 
 interface ProfilePhotoUploadProps {
-  studentId: string;
+  studentId?: string;
   currentPhotoUrl?: string;
   onSuccess?: (newPhotoUrl: string) => void;
+  uploadOnly?: boolean;
 }
 
 export function ProfilePhotoUpload({ 
   studentId, 
   currentPhotoUrl, 
-  onSuccess 
+  onSuccess,
+  uploadOnly
 }: ProfilePhotoUploadProps) {
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
@@ -87,7 +89,9 @@ export function ProfilePhotoUpload({
       // Subir imagen
       const uploadFormData = new FormData();
       uploadFormData.append('photo', photoFile);
-      uploadFormData.append('studentId', studentId);
+      if (studentId) {
+        uploadFormData.append('studentId', studentId);
+      }
       
       const uploadResponse = await fetch('/api/upload/profile-photo', {
         method: 'POST',
@@ -101,24 +105,30 @@ export function ProfilePhotoUpload({
 
       const uploadResult = await uploadResponse.json();
 
-      // Actualizar foto de perfil del estudiante
-      const updateResponse = await fetch(`/api/students/${studentId}/photo`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          photoUrl: uploadResult.url
-        })
-      });
+      // Si estamos en modo pre-inscripción o no hay studentId, retornar solo la URL
+      if (!studentId || uploadOnly) {
+        setSuccess(true);
+        onSuccess?.(uploadResult.url);
+      } else {
+        // Actualizar foto de perfil del estudiante
+        const updateResponse = await fetch(`/api/students/${studentId}/photo`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            photoUrl: uploadResult.url
+          })
+        });
 
-      if (!updateResponse.ok) {
-        const errorData = await updateResponse.json();
-        throw new Error(errorData.message || 'Error al actualizar la foto de perfil');
+        if (!updateResponse.ok) {
+          const errorData = await updateResponse.json();
+          throw new Error(errorData.message || 'Error al actualizar la foto de perfil');
+        }
+
+        setSuccess(true);
+        onSuccess?.(uploadResult.url);
       }
-
-      setSuccess(true);
-      onSuccess?.(uploadResult.url);
       
       // Limpiar formulario después de 2 segundos y redirigir
       setTimeout(() => {
@@ -151,7 +161,7 @@ export function ProfilePhotoUpload({
         <CardHeader>
           <CardTitle className="text-white flex items-center gap-2">
             <Camera className="w-5 h-5" />
-            Cambiar Foto de Perfil
+            {studentId ? 'Cambiar Foto de Perfil' : 'Subir Foto de Perfil'}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -305,7 +315,7 @@ export function ProfilePhotoUpload({
               ) : (
                 <>
                   <Camera className="w-4 h-4 mr-2" />
-                  Actualizar Foto de Perfil
+                  {studentId ? 'Actualizar Foto de Perfil' : 'Subir Foto de Perfil'}
                 </>
               )}
             </Button>

@@ -7,11 +7,12 @@ import { Camera } from 'lucide-react';
 import { ProfilePhotoUpload } from './ProfilePhotoUpload';
 
 interface ProfilePhotoModalProps {
-  studentId: string;
+  studentId?: string;
   currentPhotoUrl?: string;
   onSuccess?: (newPhotoUrl: string) => void;
   triggerText?: string | React.ReactNode;
   customTrigger?: React.ReactNode;
+  uploadOnly?: boolean;
 }
 
 export function ProfilePhotoModal({ 
@@ -19,7 +20,8 @@ export function ProfilePhotoModal({
   currentPhotoUrl, 
   onSuccess,
   triggerText = "Cambiar Foto",
-  customTrigger
+  customTrigger,
+  uploadOnly
 }: ProfilePhotoModalProps) {
   const [open, setOpen] = useState(false);
 
@@ -45,7 +47,7 @@ export function ProfilePhotoModal({
       <DialogContent className="max-w-2xl bg-slate-800 border-slate-700">
         <DialogHeader>
           <DialogTitle className="text-white">
-            Cambiar Foto de Perfil
+            {studentId && !uploadOnly ? 'Cambiar Foto de Perfil' : 'Subir Foto de Perfil'}
           </DialogTitle>
         </DialogHeader>
         <div className="max-h-[80vh] overflow-y-auto">
@@ -53,6 +55,7 @@ export function ProfilePhotoModal({
             studentId={studentId}
             currentPhotoUrl={currentPhotoUrl}
             onSuccess={handleSuccess}
+            uploadOnly={uploadOnly}
           />
         </div>
       </DialogContent>

@@ -5,6 +5,19 @@ import { EnrollmentPaymentService } from '@/lib/enrollment-payment-service'
 import { WhatsAppService } from '@/lib/whatsapp-service'
 import { formatPhoneForStorage } from '@/lib/phone-utils'
 
+// Función para capitalizar nombres (primera letra de cada palabra en mayúscula)
+function capitalizeName(name: string): string {
+  if (!name || typeof name !== 'string') return ''
+  
+  return name
+    .toLowerCase()
+    .trim()
+    .split(' ')
+    .filter(word => word.length > 0) // Filtrar espacios vacíos
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ')
+}
+
 const enrollmentPaymentService = new EnrollmentPaymentService()
 
 export async function POST(request: NextRequest) {
@@ -46,6 +59,91 @@ export async function POST(request: NextRequest) {
         success: false,
         error: 'El número de documento debe ser un número válido'
       }, { status: 400 })
+    }
+
+    // Validar nombre completo (solo letras y espacios, mínimo 2 caracteres)
+    const fullName = String(data.studentName || '').trim()
+    if (!/^[A-Za-z ]{2,}$/.test(fullName)) {
+      return NextResponse.json({
+        success: false,
+        error: 'El nombre solo puede contener letras y espacios'
+      }, { status: 400 })
+    }
+
+    // Capitalizar nombre del estudiante
+    const capitalizedStudentName = capitalizeName(fullName)
+
+    // Validar email
+    const email = String(data.email || '').trim()
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
+    if (!emailRegex.test(email)) {
+      return NextResponse.json({
+        success: false,
+        error: 'El correo no es válido'
+      }, { status: 400 })
+    }
+
+    // Validar fecha de nacimiento no futura (si viene)
+    if (data.birthDate) {
+      const birth = new Date(data.birthDate)
+      const today = new Date()
+      birth.setHours(0,0,0,0)
+      today.setHours(0,0,0,0)
+      if (isNaN(birth.getTime()) || birth > today) {
+        return NextResponse.json({
+          success: false,
+          error: 'La fecha de nacimiento no puede ser futura'
+        }, { status: 400 })
+      }
+    }
+
+    // Validar contacto de emergencia
+    let capitalizedEmergencyName = null
+    if (data.emergencyContactName) {
+      const emergencyName = String(data.emergencyContactName).trim()
+      if (!/^[A-Za-z ]{2,}$/.test(emergencyName)) {
+        return NextResponse.json({
+          success: false,
+          error: 'El nombre del contacto de emergencia solo puede contener letras y espacios'
+        }, { status: 400 })
+      }
+      capitalizedEmergencyName = capitalizeName(emergencyName)
+    }
+
+    // Validar teléfono de emergencia
+    if (data.emergencyContactPhone) {
+      const emergencyPhone = data.emergencyContactPhone.replace(/\D/g, '')
+      if (emergencyPhone.length !== 10) {
+        return NextResponse.json({
+          success: false,
+          error: 'El teléfono del contacto de emergencia debe tener exactamente 10 dígitos'
+        }, { status: 400 })
+      }
+    }
+
+    // Validar acudiente (si es menor de edad)
+    let capitalizedGuardianName = null
+    if (!data.isAdult) {
+      if (data.guardianName) {
+        const guardianName = String(data.guardianName).trim()
+        if (!/^[A-Za-z ]{2,}$/.test(guardianName)) {
+          return NextResponse.json({
+            success: false,
+            error: 'El nombre del acudiente solo puede contener letras y espacios'
+          }, { status: 400 })
+        }
+        capitalizedGuardianName = capitalizeName(guardianName)
+      }
+
+      if (data.guardianPhone) {
+        const guardianPhone = data.guardianPhone.replace(/\D/g, '')
+        if (guardianPhone.length !== 10) {
+          return NextResponse.json({
+            success: false,
+            error: 'El teléfono del acudiente debe tener exactamente 10 dígitos'
+          }, { status: 400 })
+        }
+      }
     }
 
     console.log('🔍 Buscando estudiante con ID:', documentNumberStr)
@@ -94,9 +192,9 @@ export async function POST(request: NextRequest) {
         student = await prisma.student.create({
           data: {
             id: documentNumberStr,
-            name: data.studentName,
+            name: capitalizedStudentName,
             phone: formatPhoneForStorage(data.phone),
-            avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(data.studentName)}`,
+            avatar: data.profilePhotoUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(capitalizedStudentName)}`,
             userId: user.id
           }
         });
@@ -122,13 +220,14 @@ export async function POST(request: NextRequest) {
             restrictionsDescription: data.restrictionsDescription || null,
             medicalConditions: data.medicalConditions || null,
             isAdult: data.isAdult !== undefined ? data.isAdult : true,
-            emergencyContactName: data.emergencyContactName || null,
+            emergencyContactName: capitalizedEmergencyName,
             emergencyContactRelation: data.emergencyContactRelation || null,
             emergencyContactPhone: data.emergencyContactPhone ? formatPhoneForStorage(data.emergencyContactPhone) : null,
-            guardianName: data.guardianName || null,
+            guardianName: capitalizedGuardianName,
             guardianRelation: data.guardianRelation || null,
             guardianPhone: data.guardianPhone ? formatPhoneForStorage(data.guardianPhone) : null,
-            monthlyFee: null // Se definirá por la administración
+            monthlyFee: null, // Se definirá por la administración
+            jerseyNumber: data.jerseyNumber || null
           }
         });
 
@@ -213,7 +312,7 @@ export async function POST(request: NextRequest) {
       
       const whatsappData = {
         parentPhone: student.phone,
-        studentName: student.name,
+        studentName: capitalizedStudentName,
         sport: data.sport === 'DANCE' ? 'Baile' : 'Voleibol',
         concept: `Inscripción ${data.sport === 'DANCE' ? 'Baile' : 'Voleibol'}`,
         amount: enrollmentPayment.expectedAmount,
@@ -245,7 +344,7 @@ export async function POST(request: NextRequest) {
       message: 'Inscripción procesada exitosamente',
       student: {
         id: student.id,
-        name: student.name,
+        name: capitalizedStudentName,
         phone: student.phone
       },
       enrollment: enrollment ? {

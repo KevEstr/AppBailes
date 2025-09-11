@@ -6,7 +6,7 @@ export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
     const photo = formData.get('photo') as File;
-    const studentId = formData.get('studentId') as string;
+    const studentId = formData.get('studentId') as string | null;
 
     if (!photo) {
       return NextResponse.json(
@@ -15,12 +15,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!studentId) {
-      return NextResponse.json(
-        { message: 'ID de estudiante requerido' },
-        { status: 400 }
-      );
-    }
+    // Nota: studentId es opcional para permitir carga previa en el formulario de inscripción
 
     // Validar tipo de archivo
     const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg'];
@@ -50,7 +45,8 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       url: photoUrl,
-      message: 'Foto subida exitosamente'
+      message: 'Foto subida exitosamente',
+      studentId: studentId || undefined
     });
 
   } catch (error) {

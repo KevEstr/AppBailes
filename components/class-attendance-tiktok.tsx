@@ -4,8 +4,6 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Label } from "@/components/ui/label";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Check,
   X,
@@ -17,21 +15,15 @@ import {
   Calendar as CalendarIcon,
   CheckCircle as CheckCircleIcon,
   History as HistoryIcon,
-  Eye as EyeIcon,
   RefreshCw as RefreshIcon,
   AlertCircle,
   ArrowRight,
   Star as StarIcon,
+  Trophy as TrophyIcon,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useSession } from "next-auth/react";
-import {
-  Select,
-  SelectItem,
-  SelectValue,
-  SelectTrigger,
-  SelectContent,
-} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
@@ -39,8 +31,8 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StudentTransferModal } from "./StudentTransferModal";
+import { MatchRegistrationModal } from "./MatchRegistrationModal";
 
 interface Student {
   id: string;
@@ -153,6 +145,7 @@ export default function ClassAttendanceTikTok() {
   );
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
+  const [classesLoading, setClassesLoading] = useState(false);
   
   // Debug: Log del estado de loading
   console.log('🔄 Estado de loading:', loading);
@@ -175,6 +168,15 @@ export default function ClassAttendanceTikTok() {
   // Estados para transferencia de estudiantes
   const [showTransferModal, setShowTransferModal] = useState(false);
   const [selectedStudentForTransfer, setSelectedStudentForTransfer] = useState<Student | null>(null);
+
+  // Estados para registro de partidos
+  const [showMatchModal, setShowMatchModal] = useState(false);
+
+  // Estados para validación de clases de otros profesores
+  const [showReasonModal, setShowReasonModal] = useState(false);
+  const [attendanceReason, setAttendanceReason] = useState("");
+  const [pendingClassId, setPendingClassId] = useState<number | null>(null);
+  const [reasonAlreadyProvided, setReasonAlreadyProvided] = useState(false);
 
   // Separar clases en "Mis Clases" y "Todas las Clases"
   const { myClasses, otherClasses } = useMemo(() => {
@@ -298,10 +300,14 @@ export default function ClassAttendanceTikTok() {
   }, []);
 
   // Cargar clases activas en este momento
-  const loadActiveClasses = useCallback(async () => {
+  const loadActiveClasses = useCallback(async (isInitialLoad = false) => {
     try {
-      setLoading(true);
-      console.log('🚀 Iniciando loadActiveClasses...');
+      if (isInitialLoad) {
+        setLoading(true);
+      } else {
+        setClassesLoading(true);
+      }
+      console.log('🚀 Iniciando loadActiveClasses...', { isInitialLoad });
       
       // Cargar todas las clases sin paginación para poder filtrar correctamente
       const response = await fetch("/api/classes?active=true&pageSize=500");
@@ -394,6 +400,7 @@ export default function ClassAttendanceTikTok() {
     } finally {
       console.log('🏁 Finalizando loadActiveClasses - setLoading(false)');
       setLoading(false);
+      setClassesLoading(false);
     }
   }, [isClassActiveNow, toast, userSession?.user]);
 
@@ -411,19 +418,45 @@ export default function ClassAttendanceTikTok() {
       return;
     }
     
-    loadActiveClasses();
+    loadActiveClasses(true); // Carga inicial
 
     // Recargar cada minuto para mantener actualizada la lista
     const interval = setInterval(() => {
       console.log('🔄 Intervalo ejecutándose - recargando clases activas');
-      loadActiveClasses();
-    }, 60000);
+      loadActiveClasses(false); // Recarga periódica
+    }, 10000);
     return () => clearInterval(interval);
-  }, [loadActiveClasses, sessionLoading]);
+  }, [sessionLoading]); // Removido loadActiveClasses de las dependencias
 
-  const handleClassSelection = (classId: number) => {
-    setSelectedClass(classId);
-    setShowConfirmation(true);
+  const handleClassSelection = (classId: number, isModification = false) => {
+    const selectedClassData = classes.find((c) => c.id === classId);
+    
+    if (!selectedClassData) {
+      toast({
+        title: "❌ Error",
+        description: "Clase no encontrada",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Verificar si la clase pertenece al profesor actual
+    const currentTrainerId = userSession?.user?.trainerId ? parseInt(userSession.user.trainerId) : null;
+    const classTrainerId = typeof selectedClassData.trainer.id === 'string' ? parseInt(selectedClassData.trainer.id) : selectedClassData.trainer.id;
+    
+    const isMyClass = currentTrainerId && classTrainerId === currentTrainerId;
+    
+    // Solo pedir motivo si no es su clase Y no se ha proporcionado ya
+    if (!isMyClass && !reasonAlreadyProvided) {
+      // Si no es su clase y no se ha proporcionado motivo, mostrar modal para ingresar motivo
+      setPendingClassId(classId);
+      setAttendanceReason("");
+      setShowReasonModal(true);
+    } else {
+      // Si es su clase o ya se proporcionó el motivo, proceder normalmente
+      setSelectedClass(classId);
+      setShowConfirmation(true);
+    }
   };
 
   const confirmStartAttendance = async () => {
@@ -434,6 +467,33 @@ export default function ClassAttendanceTikTok() {
   const cancelClassSelection = () => {
     setSelectedClass(null);
     setShowConfirmation(false);
+    setReasonAlreadyProvided(false); // Resetear el estado del motivo
+    setAttendanceReason(""); // Limpiar el motivo
+  };
+
+  const handleReasonSubmit = () => {
+    if (!attendanceReason.trim()) {
+      toast({
+        title: "❌ Error",
+        description: "Por favor ingresa el motivo por el cual estás tomando asistencia de esta clase",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (pendingClassId) {
+      setSelectedClass(pendingClassId);
+      setShowReasonModal(false);
+      setReasonAlreadyProvided(true); // Marcar que ya se proporcionó el motivo
+      setShowConfirmation(true);
+    }
+  };
+
+  const cancelReasonModal = () => {
+    setShowReasonModal(false);
+    setPendingClassId(null);
+    setAttendanceReason("");
+    setReasonAlreadyProvided(false); // Resetear el estado del motivo
   };
 
   const loadTodaySession = useCallback(async () => {
@@ -748,20 +808,35 @@ export default function ClassAttendanceTikTok() {
 
   // Funciones para manejar transferencia de estudiantes
   const handleTransferRequest = (student: Student) => {
+    // Marcar inmediatamente como change_request para actualizar el contador
+    if (student.status !== "change_request") {
+      setStudents((prev) =>
+        prev.map((s) =>
+          s.id === student.id
+            ? { ...s, status: "change_request" as Student["status"] }
+            : s
+        )
+      );
+    }
+    
     setSelectedStudentForTransfer(student);
     setShowTransferModal(true);
   };
 
   const handleTransferComplete = async () => {
     try {
-      // Recargar la lista de estudiantes después de la transferencia
-      if (currentSession) {
-        // Limpiar el estado actual antes de recargar
-        setStudents([]);
-        setCurrentStudentIndex(0);
+      // Remover el estudiante transferido de la lista local
+      if (selectedStudentForTransfer) {
+        setStudents((prev) => prev.filter(s => s.id !== selectedStudentForTransfer.id));
         
-        // Recargar la sesión
-        await loadTodaySession();
+        // Ajustar el índice del estudiante actual si es necesario
+        setCurrentStudentIndex((prevIndex) => {
+          const remainingStudents = students.filter(s => s.id !== selectedStudentForTransfer.id);
+          if (prevIndex >= remainingStudents.length) {
+            return Math.max(0, remainingStudents.length - 1);
+          }
+          return prevIndex;
+        });
         
         // Mostrar mensaje de éxito
         toast({
@@ -770,7 +845,7 @@ export default function ClassAttendanceTikTok() {
         });
       }
     } catch (error) {
-      console.error("Error al recargar después de transferencia:", error);
+      console.error("Error al actualizar después de transferencia:", error);
       toast({
         title: "⚠️ Advertencia",
         description: "La transferencia se completó pero hubo un problema al actualizar la vista",
@@ -779,6 +854,25 @@ export default function ClassAttendanceTikTok() {
     } finally {
       setSelectedStudentForTransfer(null);
     }
+  };
+
+  const handleTransferCancel = () => {
+    // Si se cancela la transferencia, revertir el estado del estudiante
+    if (selectedStudentForTransfer) {
+      setStudents((prev) =>
+        prev.map((s) =>
+          s.id === selectedStudentForTransfer.id
+            ? { ...s, status: undefined }
+            : s
+        )
+      );
+    }
+    setSelectedStudentForTransfer(null);
+  };
+
+  const handleMatchCreated = () => {
+    // Recargar las clases para mostrar cualquier cambio
+    loadActiveClasses(false);
   };
 
   const handleAttendanceAndNext = async (studentId: string, status: Student["status"]) => {
@@ -837,13 +931,24 @@ export default function ClassAttendanceTikTok() {
       // Registrar asistencia del trainer solo si el usuario es TEACHER o ADMIN
       if (userSession?.user?.role === "TEACHER" || userSession?.user?.role === "ADMIN") {
         try {
+          // Determinar si es una clase del propio trainer
+          const currentTrainerId = userSession?.user?.trainerId ? parseInt(userSession.user.trainerId) : null;
+          const classTrainerId = typeof currentSession.danceClass.trainer.id === 'string' ? parseInt(currentSession.danceClass.trainer.id) : currentSession.danceClass.trainer.id;
+          const isMyClass = currentTrainerId && classTrainerId === currentTrainerId;
+          
+          // Crear nota apropiada según si es su clase o no
+          let notes = `Asistencia completada para clase ${currentSession.danceClass.name} - Sesión ${currentSession.id}`;
+          if (!isMyClass && attendanceReason.trim()) {
+            notes = `Asistencia completada para clase ${currentSession.danceClass.name} (${currentSession.danceClass.trainer.name}) - Sesión ${currentSession.id}. Motivo: ${attendanceReason.trim()}`;
+          }
+
           const trainerAttendanceResponse = await fetch("/api/trainer-attendance", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               classId: currentSession.danceClass.id,
               status: "PRESENT",
-              notes: `Asistencia completada para clase ${currentSession.danceClass.name} - Sesión ${currentSession.id}`,
+              notes: notes,
             }),
           });
 
@@ -893,13 +998,24 @@ export default function ClassAttendanceTikTok() {
     // Si estamos finalizando una modificación de sesión ya completada, registrar asistencia solo si es TEACHER o ADMIN
     if (currentSession?.status === "COMPLETED" && sessionAlreadyCompleted && (userSession?.user?.role === "TEACHER" || userSession?.user?.role === "ADMIN")) {
       try {
+        // Determinar si es una clase del propio trainer
+        const currentTrainerId = userSession?.user?.trainerId ? parseInt(userSession.user.trainerId) : null;
+        const classTrainerId = typeof currentSession.danceClass.trainer.id === 'string' ? parseInt(currentSession.danceClass.trainer.id) : currentSession.danceClass.trainer.id;
+        const isMyClass = currentTrainerId && classTrainerId === currentTrainerId;
+        
+        // Crear nota apropiada según si es su clase o no
+        let notes = `Modificación de asistencia completada para clase ${currentSession.danceClass.name} - Sesión ${currentSession.id}`;
+        if (!isMyClass && attendanceReason.trim()) {
+          notes = `Modificación de asistencia completada para clase ${currentSession.danceClass.name} (${currentSession.danceClass.trainer.name}) - Sesión ${currentSession.id}. Motivo: ${attendanceReason.trim()}`;
+        }
+
         const trainerAttendanceResponse = await fetch("/api/trainer-attendance", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             classId: currentSession.danceClass.id,
             status: "PRESENT",
-            notes: `Modificación de asistencia completada para clase ${currentSession.danceClass.name} - Sesión ${currentSession.id}`,
+            notes: notes,
           }),
         });
 
@@ -920,6 +1036,8 @@ export default function ClassAttendanceTikTok() {
     setStudents([]);
     setSessionAlreadyCompleted(false);
     setCanRetakeAttendance(false);
+    setAttendanceReason(""); // Limpiar el motivo
+    setReasonAlreadyProvided(false); // Resetear el estado del motivo
     toast({
       title: "✅ Asistencia completada",
       description: "La asistencia ha sido registrada exitosamente",
@@ -1172,6 +1290,85 @@ export default function ClassAttendanceTikTok() {
         </DialogContent>
       </Dialog>
 
+      {/* Reason Modal for Other Trainer's Classes */}
+      <Dialog open={showReasonModal} onOpenChange={setShowReasonModal}>
+        <DialogContent className="bg-gray-800 border-gray-700 text-white max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold flex items-center gap-2">
+              <AlertIcon className="h-6 w-6 text-yellow-500" />
+              Clase de Otro Profesor
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="bg-yellow-600/10 border border-yellow-500/30 rounded-lg p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <AlertIcon className="h-5 w-5 text-yellow-400" />
+                <span className="font-medium text-yellow-400">Advertencia</span>
+              </div>
+              <p className="text-sm text-gray-300">
+                Estás a punto de tomar asistencia de una clase que no te pertenece. 
+                Por favor, ingresa el motivo por el cual estás realizando esta acción.
+              </p>
+            </div>
+
+            {pendingClassId && (() => {
+              const selectedClassData = classes.find((c) => c.id === pendingClassId);
+              if (!selectedClassData) return null;
+              
+              return (
+                <div className="bg-gray-700/50 rounded-lg p-3 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center">
+                      <span className="text-white text-sm font-bold">
+                        {selectedClassData.name.charAt(0)}
+                      </span>
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-white text-sm">
+                        {selectedClassData.name}
+                      </h3>
+                      <p className="text-xs text-gray-400">
+                        Profesor: {selectedClassData.trainer.name}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
+             <div className="space-y-2">
+               <label htmlFor="attendance-reason" className="text-sm font-medium text-gray-300">
+                 Motivo del llamado a lista *
+               </label>
+              <Textarea
+                id="attendance-reason"
+                value={attendanceReason}
+                onChange={(e) => setAttendanceReason(e.target.value)}
+                placeholder="Ej: El profesor titular no pudo asistir, reemplazo temporal, etc."
+                className="bg-gray-700 border-gray-600 text-white min-h-[80px]"
+                maxLength={500}
+              />
+              <p className="text-xs text-gray-400">
+                {attendanceReason.length}/500 caracteres
+              </p>
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={cancelReasonModal}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleReasonSubmit}
+              className="bg-yellow-600 hover:bg-yellow-700"
+            >
+              Continuar con Asistencia
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* History Dialog */}
       <Dialog open={showHistory} onOpenChange={setShowHistory}>
         <DialogContent className="bg-gray-800 border-gray-700 text-white max-w-2xl">
@@ -1322,6 +1519,11 @@ export default function ClassAttendanceTikTok() {
             <div className="flex items-center justify-between mb-6">
               <h1 className="text-2xl md:text-3xl font-bold text-white">
                 Toma de Asistencia
+                {classesLoading && (
+                  <span className="ml-3 inline-flex items-center">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-400"></div>
+                  </span>
+                )}
               </h1>
               <div className="text-right">
                 <p className="text-gray-400 text-sm md:text-base">
@@ -1338,17 +1540,29 @@ export default function ClassAttendanceTikTok() {
                     minute: "2-digit",
                   })}
                 </p>
-                <Button
-                  onClick={() => {
-                    console.log('🔄 Forzando recarga manual...');
-                    loadActiveClasses();
-                  }}
-                  variant="outline"
-                  size="sm"
-                  className="mt-2 text-xs"
-                >
-                  🔄 Recargar
-                </Button>
+                <div className="flex gap-2 mt-2">
+                  <Button
+                    onClick={() => {
+                      console.log('🔄 Forzando recarga manual...');
+                      loadActiveClasses(false);
+                    }}
+                    variant="outline"
+                    size="sm"
+                    className="text-xs"
+                    disabled={classesLoading}
+                  >
+                    {classesLoading ? '🔄 Cargando...' : '🔄 Recargar'}
+                  </Button>
+                  <Button
+                    onClick={() => setShowMatchModal(true)}
+                    variant="outline"
+                    size="sm"
+                    className="text-xs bg-yellow-600/20 border-yellow-500/30 text-yellow-400 hover:bg-yellow-600/30"
+                  >
+                    <TrophyIcon className="h-3 w-3 mr-1" />
+                    Registrar partido
+                  </Button>
+                </div>
               </div>
             </div>
 
@@ -1476,12 +1690,13 @@ export default function ClassAttendanceTikTok() {
                   No se encontraron clases en curso en este momento
                 </p>
                 <Button
-                  onClick={loadActiveClasses}
+                  onClick={() => loadActiveClasses(false)}
                   className="mt-4"
                   variant="outline"
+                  disabled={classesLoading}
                 >
                   <RefreshIcon className="h-4 w-4 mr-2" />
-                  Actualizar
+                  {classesLoading ? 'Actualizando...' : 'Actualizar'}
                 </Button>
               </div>
             )}
@@ -1846,7 +2061,7 @@ export default function ClassAttendanceTikTok() {
         isOpen={showTransferModal}
         onClose={() => {
           setShowTransferModal(false);
-          setSelectedStudentForTransfer(null);
+          handleTransferCancel();
         }}
         student={selectedStudentForTransfer ? {
           id: selectedStudentForTransfer.id.toString(),
@@ -1863,7 +2078,18 @@ export default function ClassAttendanceTikTok() {
           trainer: currentSession.danceClass.trainer,
           _count: { enrollments: currentSession.danceClass.enrollments.length }
         } : null}
-        onTransferComplete={handleTransferComplete}
+        onTransferComplete={() => {
+          setShowTransferModal(false);
+          handleTransferComplete();
+        }}
+      />
+
+      {/* Modal de Registro de Partidos */}
+      <MatchRegistrationModal
+        isOpen={showMatchModal}
+        onClose={() => setShowMatchModal(false)}
+        classes={classes}
+        onMatchCreated={handleMatchCreated}
       />
     </div>
   );

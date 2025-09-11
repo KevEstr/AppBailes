@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -22,11 +22,19 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { AdvancedPagination } from "@/components/ui/advanced-pagination";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import {
   Users,
   Plus,
   Calendar,
-  Clock,
   Edit,
   Trash2,
   UserPlus,
@@ -35,9 +43,11 @@ import {
   MapPin,
   Dumbbell,
   Building,
-  Home as HomeIcon,
   Search,
   X,
+  User,
+  History,
+  Filter,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { 
@@ -46,6 +56,71 @@ import {
   EnrollmentModal 
 } from "@/components/modals";
 import { Student, Trainer, Location, DanceClass, ClassSchedule } from "@/types/class-management";
+import { DateRangePicker } from "@/components/ui/date-range-picker";
+import { DateRange } from "react-day-picker";
+
+// Interfaces para transferencias
+interface StudentTransfer {
+  id: number;
+  studentId: string;
+  fromClassId: number;
+  toClassId: number;
+  transferredBy: number;
+  reason?: string;
+  transferredAt: string;
+  student: {
+    id: string;
+    name: string;
+    phone: string;
+    avatar?: string;
+    user?: {
+      email: string;
+    };
+  };
+  fromClass: {
+    id: number;
+    name: string;
+    sport: string;
+    level?: string;
+    trainer: {
+      id: number;
+      name: string;
+    };
+  };
+  toClass: {
+    id: number;
+    name: string;
+    sport: string;
+    level?: string;
+    trainer: {
+      id: number;
+      name: string;
+    };
+  };
+  user: {
+    id: number;
+    email: string;
+    role: string;
+    student?: {
+      name: string;
+    };
+    trainer?: {
+      name: string;
+    };
+  };
+}
+
+interface TransfersData {
+  transfers: StudentTransfer[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+    hasNext: boolean;
+    hasPrev: boolean;
+  };
+}
 
 const DAYS_OF_WEEK = [
   "Domingo",
@@ -267,6 +342,7 @@ export function ClassManagementNew() {
   // 7. Modales de confirmación para eliminaciones
   // 8. Componentes modales separados en archivos individuales para mejor organización
   // 9. Tipos compartidos centralizados en /types/class-management.ts
+  // 10. ✅ NUEVO: Sección de transferencias de estudiantes con pestañas
   
   const { toast } = useToast();
   const [classes, setClasses] = useState<DanceClass[]>([]);
@@ -284,6 +360,21 @@ export function ClassManagementNew() {
   const [viewingEnrolled, setViewingEnrolled] = useState(false);
   const [editingClass, setEditingClass] = useState<DanceClass | null>(null);
   const [isEditing, setIsEditing] = useState(false);
+
+  // ✅ NUEVO: Estados para la sección de transferencias
+  const [activeTab, setActiveTab] = useState("classes");
+  const [transfers, setTransfers] = useState<StudentTransfer[]>([]);
+  const [transfersLoading, setTransfersLoading] = useState(false);
+  const [transfersPagination, setTransfersPagination] = useState({
+    page: 1,
+    limit: 50,
+    total: 0,
+    totalPages: 0,
+    hasNext: false,
+    hasPrev: false
+  });
+  const [transfersSearch, setTransfersSearch] = useState("");
+  const [transfersDateRange, setTransfersDateRange] = useState<DateRange | undefined>();
 
   // ✅ NUEVO: Estados para modales de confirmación
   const [showDeleteClassDialog, setShowDeleteClassDialog] = useState(false);
@@ -370,6 +461,52 @@ export function ClassManagementNew() {
     if (data.success) setStudents(data.students);
   }, []);
 
+  // ✅ NUEVO: Cargar transferencias de estudiantes
+  const loadTransfers = useCallback(async () => {
+    setTransfersLoading(true);
+    try {
+      const params = new URLSearchParams();
+      params.set("page", transfersPagination.page.toString());
+      params.set("limit", transfersPagination.limit.toString());
+      if (transfersSearch.trim()) params.set("search", transfersSearch.trim());
+      if (transfersDateRange?.from) {
+        const year = transfersDateRange.from.getFullYear();
+        const month = (transfersDateRange.from.getMonth() + 1).toString().padStart(2, '0');
+        const day = transfersDateRange.from.getDate().toString().padStart(2, '0');
+        params.append("dateFrom", `${year}-${month}-${day}`);
+      }
+      if (transfersDateRange?.to) {
+        const year = transfersDateRange.to.getFullYear();
+        const month = (transfersDateRange.to.getMonth() + 1).toString().padStart(2, '0');
+        const day = transfersDateRange.to.getDate().toString().padStart(2, '0');
+        params.append("dateTo", `${year}-${month}-${day}`);
+      }
+
+      const res = await fetch(`/api/admin/student-transfers?${params.toString()}`);
+      const data = await res.json();
+      
+      if (data.success) {
+        setTransfers(data.transfers);
+        setTransfersPagination(data.pagination);
+      } else {
+        toast({
+          title: "❌ Error",
+          description: "No se pudieron cargar las transferencias",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Error loading transfers:", error);
+      toast({
+        title: "❌ Error",
+        description: "Error al cargar las transferencias",
+        variant: "destructive",
+      });
+    } finally {
+      setTransfersLoading(false);
+    }
+  }, [transfersPagination.page, transfersPagination.limit, transfersSearch, transfersDateRange, toast]);
+
   // ✅ OPTIMIZADO: Cargar clases paginadas y filtradas con loading separado
   const loadClasses = useCallback(async () => {
     setClassesLoading(true); // Solo loading de clases
@@ -425,6 +562,13 @@ export function ClassManagementNew() {
       loadClasses();
     }
   }, [currentPage, pageSize, filterSport, filterTrainer, filterLocation, filterLevel, debouncedSearchQuery, loading]);
+
+  // ✅ NUEVO: Efecto para cargar transferencias cuando cambian los filtros
+  useEffect(() => {
+    if (activeTab === "transfers") {
+      loadTransfers();
+    }
+  }, [activeTab, transfersPagination.page, transfersPagination.limit, transfersSearch, transfersDateRange, loadTransfers]);
 
   // ✅ OPTIMIZADO: Resetear página al cambiar filtros (sin searchQuery) - sin recargar todo
   useEffect(() => {
@@ -846,6 +990,163 @@ export function ClassManagementNew() {
   // Total de páginas
   const totalPages = Math.ceil(totalClasses / pageSize);
 
+  // ✅ NUEVO: Funciones auxiliares para transferencias
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString("es-ES", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  const getSportBadgeColor = (sport: string) => {
+    return sport === "DANCE" ? "bg-purple-600" : "bg-blue-600";
+  };
+
+  const getSportLabel = (sport: string) => {
+    return sport === "DANCE" ? "Baile" : "Voleibol";
+  };
+
+  const handleTransfersPageChange = (page: number) => {
+    setTransfersPagination(prev => ({ ...prev, page }));
+  };
+
+  const handleTransfersLimitChange = (limit: number) => {
+    setTransfersPagination(prev => ({ ...prev, limit, page: 1 }));
+  };
+
+  const clearTransfersFilters = () => {
+    setTransfersSearch("");
+    setTransfersDateRange(undefined);
+    setTransfersPagination(prev => ({ ...prev, page: 1 }));
+  };
+
+  // Helper function to get user display name
+  const getUserDisplayName = (user: StudentTransfer['user']) => {
+    return user.student?.name || user.trainer?.name || user.email;
+  };
+
+  // Helper function to render reason if exists
+  const renderReason = (reason?: string) => {
+    return reason ? `"${reason}"` : null;
+  };
+
+  // Helper function to render transfers content
+  const renderTransfersContent = () => {
+    if (transfersLoading) {
+      return (
+        <div className="flex justify-center items-center py-12">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+        </div>
+      );
+    }
+    
+    if (transfers.length === 0) {
+      return (
+        <div className="text-center py-12">
+          <History className="h-12 w-12 text-gray-600 mx-auto mb-4" />
+          <p className="text-gray-400">No hay transferencias para mostrar</p>
+        </div>
+      );
+    }
+    
+    return (
+      <div className="overflow-x-auto">
+        <Table>
+          <TableHeader>
+            <TableRow className="border-gray-600">
+              <TableHead className="text-gray-300">Estudiante</TableHead>
+              <TableHead className="text-gray-300">Clase de Origen</TableHead>
+              <TableHead className="text-gray-300">Clase de Destino</TableHead>
+              <TableHead className="text-gray-300">Transferido por</TableHead>
+              <TableHead className="text-gray-300">Motivo</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {transfers.map((transfer) => (
+              <TableRow key={transfer.id} className="border-gray-600">
+                {/* Estudiante */}
+                <TableCell>
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center flex-shrink-0">
+                      <User className="h-5 w-5 text-white" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-white font-medium truncate">
+                        {transfer.student.name}
+                      </p>
+                      <p className="text-xs text-gray-400 truncate">
+                        {transfer.student.phone}
+                      </p>
+                    </div>
+                  </div>
+                </TableCell>
+
+                {/* Clase de Origen */}
+                <TableCell>
+                  <div className="space-y-1">
+                    <Badge className={`${getSportBadgeColor(transfer.fromClass.sport)} text-white text-xs`}>
+                      {getSportLabel(transfer.fromClass.sport)}
+                    </Badge>
+                    <p className="text-sm font-medium text-white truncate">
+                      {transfer.fromClass.name}
+                    </p>
+                    <p className="text-xs text-gray-400 truncate">
+                      {transfer.fromClass.trainer.name}
+                    </p>
+                  </div>
+                </TableCell>
+
+                {/* Clase de Destino */}
+                <TableCell>
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <Badge className={`${getSportBadgeColor(transfer.toClass.sport)} text-white text-xs`}>
+                        {getSportLabel(transfer.toClass.sport)}
+                      </Badge>
+                    </div>
+                    <p className="text-sm font-medium text-white truncate">
+                      {transfer.toClass.name.split(' - ')[0]}
+                    </p>
+                    <p className="text-xs text-gray-400 truncate">
+                      {transfer.toClass.trainer.name}
+                    </p>
+                  </div>
+                </TableCell>
+
+                {/* Transferido por */}
+                <TableCell>
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium text-white truncate">
+                      {getUserDisplayName(transfer.user)}
+                    </p>
+                    <p className="text-xs text-gray-400">
+                      {formatDate(transfer.transferredAt)}
+                    </p>
+                  </div>
+                </TableCell>
+
+
+                {/* Motivo */}
+                <TableCell>
+                  <div className="text-sm text-gray-400">
+                    {transfer.reason ? (
+                      <span className="italic">"{transfer.reason}"</span>
+                    ) : (
+                      <span className="text-gray-500">Sin motivo</span>
+                    )}
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+    );
+  };
+
   // ✅ OPTIMIZADO: Memorizar estudiantes disponibles para inscripción con búsqueda
   const availableStudents = useMemo(() => {
     if (!selectedClass) return [];
@@ -968,8 +1269,29 @@ export function ClassManagementNew() {
 
   return (
     <div className="w-full mx-auto px-2 sm:px-4 md:px-6">
-      {/* Card de Filtros */}
-      <Card className="border-0 bg-gradient-to-r from-gray-800/90 via-slate-800/90 to-gray-700/90 text-white shadow-2xl mb-6 sm:mb-8 rounded-3xl border border-gray-600 backdrop-blur-sm">
+      {/* Pestañas principales */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="grid w-full grid-cols-2 mb-6 bg-gray-800 border border-gray-600">
+          <TabsTrigger 
+            value="classes" 
+            className="data-[state=active]:bg-blue-600 data-[state=active]:text-white text-gray-300"
+          >
+            <BookOpen className="h-4 w-4 mr-2" />
+            Gestión de Clases
+          </TabsTrigger>
+          <TabsTrigger 
+            value="transfers" 
+            className="data-[state=active]:bg-blue-600 data-[state=active]:text-white text-gray-300"
+          >
+            <History className="h-4 w-4 mr-2" />
+            Transferencias
+          </TabsTrigger>
+        </TabsList>
+
+        {/* Pestaña de Gestión de Clases */}
+        <TabsContent value="classes" className="space-y-6">
+          {/* Card de Filtros */}
+          <Card className="border-0 bg-gradient-to-r from-gray-800/90 via-slate-800/90 to-gray-700/90 text-white shadow-2xl mb-6 sm:mb-8 rounded-3xl border border-gray-600 backdrop-blur-sm">
         <CardContent className="p-4 sm:p-6">
           <div className="flex flex-col sm:flex-row flex-wrap gap-3 sm:gap-4 items-stretch sm:items-end">
             <div className="flex-1 min-w-[140px]">
@@ -1563,6 +1885,100 @@ export function ClassManagementNew() {
           removeEnrollment(enrollmentToDelete.enrollmentId, enrollmentToDelete.classId)
         }
       />
+        </TabsContent>
+
+        {/* Pestaña de Transferencias */}
+        <TabsContent value="transfers" className="space-y-6">
+          {/* Card de Filtros para Transferencias */}
+          <Card className="border-0 bg-gradient-to-r from-gray-800/90 via-slate-800/90 to-gray-700/90 text-white shadow-2xl mb-6 sm:mb-8 rounded-3xl border border-gray-600 backdrop-blur-sm">
+            <CardContent className="p-4 sm:p-6">
+              <div className="flex flex-col sm:flex-row flex-wrap gap-3 sm:gap-4 items-stretch sm:items-end">
+                <div className="flex-1 min-w-[200px]">
+                  <Label className="text-gray-300">Buscar</Label>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Input
+                      type="text"
+                      placeholder="Buscar por estudiante, clase, profesor..."
+                      value={transfersSearch}
+                      onChange={(e) => setTransfersSearch(e.target.value)}
+                      className="bg-gray-700 border-gray-600 text-white pl-10 pr-10 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                    />
+                    {transfersSearch && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setTransfersSearch("")}
+                        className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 p-0 text-gray-400 hover:text-white hover:bg-gray-600"
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex-1 min-w-[200px]">
+                  <Label className="text-gray-300">Rango de Fechas</Label>
+                  <DateRangePicker
+                    dateRange={transfersDateRange}
+                    onDateRangeChange={setTransfersDateRange}
+                    placeholder="Seleccionar rango de fechas"
+                  />
+                </div>
+
+                <div className="flex-1 min-w-[140px] sm:max-w-[200px]">
+                  <Button
+                    onClick={clearTransfersFilters}
+                    variant="outline"
+                    className="w-full border-gray-600 text-gray-300 hover:bg-gray-700"
+                  >
+                    <Filter className="h-4 w-4 mr-2" />
+                    Limpiar Filtros
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Tabla de Transferencias */}
+          <Card className="border-0 bg-gray-800/90 border border-gray-600 shadow-2xl rounded-3xl">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-semibold text-white flex items-center gap-2">
+                  <History className="h-5 w-5 text-blue-400" />
+                  Historial de Transferencias
+                </h3>
+                <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30">
+                  {transfersPagination.total} transferencias
+                </Badge>
+              </div>
+
+              {renderTransfersContent()}
+
+              {/* Paginación para transferencias */}
+              {transfers.length > 0 && (
+                <div className="mt-6">
+                  <AdvancedPagination
+                    pagination={{
+                      page: transfersPagination.page,
+                      limit: transfersPagination.limit,
+                      totalCount: transfersPagination.total,
+                      totalPages: transfersPagination.totalPages,
+                      hasNext: transfersPagination.hasNext,
+                      hasPrev: transfersPagination.hasPrev
+                    }}
+                    currentPage={transfersPagination.page}
+                    onPageChange={handleTransfersPageChange}
+                    onLimitChange={handleTransfersLimitChange}
+                    itemName="transferencias"
+                    limitOptions={[25, 50, 100]}
+                  />
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

@@ -4,31 +4,26 @@ import { prisma } from "@/lib/prisma"
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
-    const period = searchParams.get("period") || "month"
     const studentIdParam = searchParams.get("student") || "all"
     const classIdParam = searchParams.get("class") || "all"
-    const sessionIdParam = searchParams.get("session") || "all"
     const pageParam = parseInt(searchParams.get("page") || "1")
     const limitParam = parseInt(searchParams.get("limit") || "25")
     const search = (searchParams.get("search") || "").trim()
+    const customStartDate = searchParams.get("startDate")
+    const customEndDate = searchParams.get("endDate")
 
-    // Calcular fechas según el período
-    const endDate = new Date()
-    const startDate = new Date()
+    // Calcular fechas según el período o usar fechas personalizadas
+    let endDate = new Date()
+    let startDate = new Date()
 
-    switch (period) {
-      case "week":
-        startDate.setDate(endDate.getDate() - 7)
-        break
-      case "month":
-        startDate.setDate(endDate.getDate() - 30)
-        break
-      case "quarter":
-        startDate.setDate(endDate.getDate() - 90)
-        break
-      case "year":
-        startDate.setFullYear(endDate.getFullYear() - 1)
-        break
+    if (customStartDate && customEndDate) {
+      // Usar fechas personalizadas - crear fechas en zona horaria de Colombia
+      // Agregar zona horaria de Colombia para evitar problemas de conversión
+      startDate = new Date(`${customStartDate}T00:00:00.000-05:00`)
+      endDate = new Date(`${customEndDate}T23:59:59.999-05:00`)
+    } else {
+      // Usar período por defecto (último mes)
+      startDate.setDate(endDate.getDate() - 30)
     }
 
     // Construir filtro base para asistencias
@@ -47,14 +42,8 @@ export async function GET(request: Request) {
       }
     }
 
-    // Filtro por sesión específica (tiene prioridad sobre filtro por clase)
-    if (sessionIdParam !== "all") {
-      const sessionId = parseInt(sessionIdParam)
-      if (sessionId) {
-        whereClause.sessionId = sessionId
-      }
-    } else if (classIdParam !== "all") {
-      // Filtro por clase específica (solo si no hay filtro por sesión)
+    // Filtro por clase específica
+    if (classIdParam !== "all") {
       const classId = parseInt(classIdParam)
       if (classId) {
         whereClause.session = {
@@ -82,18 +71,16 @@ export async function GET(request: Request) {
       },
     })
 
-    // Generar datos para el gráfico
+    // Generar datos para el gráfico basándose en el rango de fechas
     const chartData = []
-    const days = period === "week" ? 7 : period === "month" ? 30 : 90
-
-    for (let i = days - 1; i >= 0; i--) {
-      const date = new Date()
-      date.setDate(date.getDate() - i)
-      const dateStr = date.toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit" })
+    const currentDate = new Date(startDate)
+    
+    while (currentDate <= endDate) {
+      const dateStr = currentDate.toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit" })
 
       const dayAttendances = attendances.filter((att: any) => {
         const attDate = new Date(att.date)
-        return attDate.toDateString() === date.toDateString()
+        return attDate.toDateString() === currentDate.toDateString()
       })
 
       chartData.push({
@@ -102,6 +89,8 @@ export async function GET(request: Request) {
         late: dayAttendances.filter((att: any) => att.status === 'LATE').length,
         absent: dayAttendances.filter((att: any) => att.status === 'ABSENT').length,
       })
+      
+      currentDate.setDate(currentDate.getDate() + 1)
     }
 
     // Generar estadísticas por estudiante (considerando filtro por clase)
@@ -112,13 +101,8 @@ export async function GET(request: Request) {
       },
     }
 
-    // Aplicar filtros por sesión o clase a las estadísticas de estudiantes
-    if (sessionIdParam !== "all") {
-      const sessionId = parseInt(sessionIdParam)
-      if (sessionId) {
-        studentAttendanceFilter.sessionId = sessionId
-      }
-    } else if (classIdParam !== "all") {
+    // Aplicar filtro por clase a las estadísticas de estudiantes
+    if (classIdParam !== "all") {
       const classId = parseInt(classIdParam)
       if (classId) {
         studentAttendanceFilter.session = {
@@ -135,28 +119,24 @@ export async function GET(request: Request) {
       ]
     }
 
-    // Cuando se filtra por sesión o clase, limitar estudiantes a quienes tengan asistencias en ese rango
+    // Limitar estudiantes a quienes tengan asistencias en el rango de fechas seleccionado
     // para no traer todos los estudiantes.
-    if (sessionIdParam !== "all" || classIdParam !== "all") {
-      const relationFilter: any = {
-        date: {
-          gte: startDate,
-          lte: endDate,
-        }
+    const relationFilter: any = {
+      date: {
+        gte: startDate,
+        lte: endDate,
       }
-      if (sessionIdParam !== "all") {
-        const sessionId = parseInt(sessionIdParam)
-        if (sessionId) {
-          relationFilter.sessionId = sessionId
-        }
-      } else if (classIdParam !== "all") {
-        const classId = parseInt(classIdParam)
-        if (classId) {
-          relationFilter.session = { classId }
-        }
-      }
-      studentWhere.attendances = { some: relationFilter }
     }
+    
+    // Si hay una clase específica seleccionada, agregar ese filtro también
+    if (classIdParam !== "all") {
+      const classId = parseInt(classIdParam)
+      if (classId) {
+        relationFilter.session = { classId }
+      }
+    }
+    
+    studentWhere.attendances = { some: relationFilter }
 
     const skip = (Math.max(pageParam, 1) - 1) * Math.max(limitParam, 1)
 
@@ -207,6 +187,7 @@ export async function GET(request: Request) {
       where: { isActive: true },
       include: {
         trainer: true,
+        schedules: true, // Incluir horarios para verificar días de la semana
         sessions: {
           where: {
             date: {
@@ -223,35 +204,22 @@ export async function GET(request: Request) {
       ]
     })
 
-    // Filtrar solo las clases que tuvieron sesiones en el período seleccionado
-    const classesWithSessions = availableClasses.filter(cls => cls.sessions.length > 0)
+    // Filtrar clases que tuvieron sesiones en el período seleccionado
+    let classesWithSessions = availableClasses.filter(cls => cls.sessions.length > 0)
+
+    // Si se seleccionó un solo día, filtrar también por día de la semana
+    const isSingleDay = startDate.toDateString() === endDate.toDateString()
+    if (isSingleDay) {
+      const selectedDayOfWeek = startDate.getDay() // 0 = domingo, 1 = lunes, etc.
+      classesWithSessions = classesWithSessions.filter(cls => 
+        cls.schedules.some(schedule => schedule.dayOfWeek === selectedDayOfWeek)
+      )
+    }
 
     // Información adicional de la clase seleccionada (si aplica)
     let selectedClassInfo = null
-    let availableSessions: any[] = []
-    let selectedSessionInfo = null
 
-    if (sessionIdParam !== "all") {
-      // Si hay una sesión específica seleccionada
-      const sessionId = parseInt(sessionIdParam)
-      if (sessionId) {
-        selectedSessionInfo = await prisma.classSession.findUnique({
-          where: { id: sessionId },
-          include: {
-            danceClass: {
-              include: {
-                trainer: true
-              }
-            },
-            attendances: {
-              include: {
-                student: true
-              }
-            }
-          }
-        })
-      }
-    } else if (classIdParam !== "all") {
+    if (classIdParam !== "all") {
       // Si hay una clase específica seleccionada, obtener sus sesiones
       const classId = parseInt(classIdParam)
       if (classId) {
@@ -272,28 +240,6 @@ export async function GET(request: Request) {
             }
           }
         })
-
-        // Obtener sesiones disponibles para el filtro
-        availableSessions = await prisma.classSession.findMany({
-          where: {
-            classId: classId,
-            date: {
-              gte: startDate,
-              lte: endDate,
-            },
-          },
-          include: {
-            danceClass: {
-              select: { name: true, sport: true }
-            },
-            attendances: {
-              take: 1 // Solo para verificar si tiene asistencias
-            }
-          },
-          orderBy: {
-            date: 'desc'
-          }
-        })
       }
     }
 
@@ -304,8 +250,6 @@ export async function GET(request: Request) {
       studentStats,
       availableClasses: classesWithSessions,
       selectedClassInfo,
-      availableSessions,
-      selectedSessionInfo,
       pagination: {
         page: Math.max(pageParam, 1),
         limit: Math.max(limitParam, 1),

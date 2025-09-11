@@ -22,7 +22,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { User, MapPin, Heart, Phone, DollarSign, Camera } from "lucide-react";
+import { User, MapPin, Heart, Phone, DollarSign, Camera, Trophy } from "lucide-react";
 import { InteractiveMap } from "./interactive-map";
 import { ProfilePhotoModal } from "@/components/profile/ProfilePhotoModal";
 
@@ -42,10 +42,10 @@ interface Student {
   hasSisben?: boolean
   eps?: string
   bloodType?: string
-  hasRestrictions?: boolean
-  restrictionsDescription?: string
-  medicalConditions?: string
-  isAdult?: boolean
+    hasRestrictions?: boolean
+    restrictionsDescription?: string
+    medicalConditions?: string
+    isAdult?: boolean
   emergencyContactName?: string
   emergencyContactRelation?: string
   emergencyContactPhone?: string
@@ -53,6 +53,7 @@ interface Student {
   guardianRelation?: string
   guardianPhone?: string
   monthlyFee: number
+  jerseyNumber?: number
   isActive?: boolean // <-- Añadido para manejar el estado activo/inactivo
   // Relación con User
   user?: {
@@ -166,8 +167,10 @@ export default function EditStudentModal({
   const isStudentEditingOwnProfile = session?.user?.role === 'STUDENT' && 
     (session?.user?.email === formData?.email || session?.user?.email === student?.email);
   
-  // Check if user is admin
+  // Check if user is admin or teacher
   const isAdmin = session?.user?.role === 'ADMIN';
+  const isTeacher = session?.user?.role === 'TEACHER';
+  const canEditJerseyNumber = isAdmin || isTeacher;
 
   useEffect(() => {
     const loadStudentData = async () => {
@@ -206,7 +209,8 @@ export default function EditStudentModal({
               guardianName: fullStudent.guardianName || fullStudent.enrollmentData?.guardianName || '',
               guardianRelation: fullStudent.guardianRelation || fullStudent.enrollmentData?.guardianRelation || '',
               guardianPhone: fullStudent.guardianPhone || fullStudent.enrollmentData?.guardianPhone || '',
-                             monthlyFee: fullStudent.enrollmentData?.monthlyFee || 0,
+              monthlyFee: fullStudent.enrollmentData?.monthlyFee || 0,
+              jerseyNumber: fullStudent.enrollmentData?.jerseyNumber || undefined,
               isActive: fullStudent.isActive ?? true
             }
             setFormData(initialData)
@@ -240,6 +244,7 @@ export default function EditStudentModal({
               guardianRelation: student.guardianRelation || '',
               guardianPhone: student.guardianPhone || '',
               monthlyFee: student.enrollmentData?.monthlyFee || 0,
+              jerseyNumber: student.jerseyNumber || undefined,
               isActive: student.isActive ?? true
             }
             setFormData(initialData)
@@ -271,11 +276,12 @@ export default function EditStudentModal({
             emergencyContactName: student.emergencyContactName || '',
             emergencyContactRelation: student.emergencyContactRelation || '',
             emergencyContactPhone: student.emergencyContactPhone || '',
-            guardianName: student.guardianName || '',
-            guardianRelation: student.guardianRelation || '',
-            guardianPhone: student.guardianPhone || '',
-            monthlyFee: student.enrollmentData?.monthlyFee || 0,
-            isActive: student.isActive ?? true
+              guardianName: student.guardianName || '',
+              guardianRelation: student.guardianRelation || '',
+              guardianPhone: student.guardianPhone || '',
+              monthlyFee: student.enrollmentData?.monthlyFee || 0,
+              jerseyNumber: student.jerseyNumber || undefined,
+              isActive: student.isActive ?? true
           }
           setFormData(initialData)
         }
@@ -293,6 +299,11 @@ export default function EditStudentModal({
     // Validar campos sensibles
     if ((field === 'monthlyFee' || field === 'isActive') && !isAdmin) {
       console.warn(`Campo ${field} no puede ser modificado por usuarios no administradores`);
+      return;
+    }
+    
+    if (field === 'jerseyNumber' && !canEditJerseyNumber) {
+      console.warn(`Campo ${field} no puede ser modificado por usuarios no autorizados`);
       return;
     }
     
@@ -350,6 +361,12 @@ export default function EditStudentModal({
       if (isAdmin) {
         requestBody.enrollmentData.monthlyFee = monthlyFee;
         console.log("🔍 Modal: Admin updating monthlyFee to:", monthlyFee);
+      }
+      
+      // Incluir jerseyNumber si es admin o teacher
+      if (canEditJerseyNumber) {
+        requestBody.enrollmentData.jerseyNumber = formData.jerseyNumber;
+        console.log("🔍 Modal: Authorized user updating jerseyNumber to:", formData.jerseyNumber);
       }
 
       // Solo incluir campos sensibles si es admin
@@ -937,6 +954,46 @@ export default function EditStudentModal({
                     : 'Desmarca esta opción para desactivar al estudiante'
                   }
                 </p>
+              </CardContent>
+            </Card>
+
+            {/* Información Deportiva */}
+            <Card className="bg-gray-800 border-gray-600">
+              <CardHeader className="pb-4">
+                <CardTitle className="text-yellow-400 flex items-center gap-2 text-lg">
+                  <Trophy className="h-5 w-5" />
+                  Información Deportiva
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="max-w-sm">
+                  <Label htmlFor="jerseyNumber">
+                    Número de Camiseta {!canEditJerseyNumber ? '(Solo profesores y administradores)' : ''}
+                  </Label>
+                  <Input
+                    id="jerseyNumber"
+                    type="number"
+                    min="1"
+                    max="99"
+                    placeholder="Ej: 10"
+                    value={formData.jerseyNumber || ''}
+                    onChange={(e) =>
+                      handleInputChange(
+                        "jerseyNumber",
+                        e.target.value ? parseInt(e.target.value) : undefined
+                      )
+                    }
+                    disabled={!canEditJerseyNumber}
+                    className={`bg-gray-800 border-gray-600 text-white ${
+                      !canEditJerseyNumber ? 'cursor-not-allowed opacity-50' : ''
+                    }`}
+                  />
+                  {!canEditJerseyNumber && (
+                    <p className="text-xs text-gray-400 mt-1">
+                      Solo los profesores y administradores pueden modificar este campo
+                    </p>
+                  )}
+                </div>
               </CardContent>
             </Card>
 

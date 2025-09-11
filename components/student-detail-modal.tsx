@@ -14,11 +14,10 @@ import {
   Calendar,
   DollarSign,
   UserCheck,
-  AlertTriangle,
-  Clock,
   GraduationCap,
   User,
   Camera,
+  Trophy,
 } from "lucide-react";
 import { ProfilePhotoModal } from "@/components/profile/ProfilePhotoModal";
 import { formatDateLongWithoutTimezone } from "@/lib/date-utils";
@@ -46,6 +45,7 @@ interface StudentEnrollmentData {
   guardianRelation?: string;
   guardianPhone?: string;
   monthlyFee?: number;
+  jerseyNumber?: number;
   // Legacy fields for compatibility
   age?: number;
   maritalStatus?: string;
@@ -177,7 +177,8 @@ export function StudentDetailModal({ enrollment }: StudentDetailModalProps) {
                 ...data.student.enrollmentData,
                 id: data.student.enrollmentData.id,
                 hasMedicalRestrictions: data.student.enrollmentData.hasRestrictions || false,
-                medicalRestrictions: data.student.enrollmentData.restrictionsDescription || data.student.enrollmentData.medicalConditions
+                medicalRestrictions: data.student.enrollmentData.restrictionsDescription || data.student.enrollmentData.medicalConditions,
+                jerseyNumber: data.student.enrollmentData.jerseyNumber
               } : undefined,
               debts: [],
               receipts: [],
@@ -738,6 +739,30 @@ export function StudentDetailModal({ enrollment }: StudentDetailModalProps) {
                 )}
             </CardContent>
           </Card>
+
+          {/* Información Deportiva */}
+          {detailData.student.enrollmentData?.jerseyNumber && (
+            <Card className="bg-slate-800 border-slate-700 hover:bg-slate-800/80 transition-colors">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-yellow-400 flex items-center gap-2 text-lg">
+                  <div className="p-1.5 rounded-lg bg-yellow-500/20">
+                    <Trophy className="w-4 h-4" />
+                  </div>
+                  Información Deportiva
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3 text-sm">
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-300">Número de camiseta:</span>
+                  <Badge
+                    className="bg-yellow-600 hover:bg-yellow-700 text-white border-0 text-lg font-bold px-3 py-1"
+                  >
+                    #{detailData.student.enrollmentData.jerseyNumber}
+                  </Badge>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Información Médica - Ahora en la misma columna */}
           {detailData.student.enrollmentData && (

@@ -191,8 +191,8 @@ export async function PUT(request: NextRequest) {
     
     let existingStudent;
     
-    // Si es admin, puede editar cualquier estudiante usando studentId del body
-    if (userRole === 'ADMIN' && body.studentId) {
+    // Si es admin o teacher, puede editar cualquier estudiante usando studentId del body
+    if ((userRole === 'ADMIN' || userRole === 'TEACHER') && body.studentId) {
       existingStudent = await prisma.student.findUnique({
         where: { id: body.studentId },
         include: {
@@ -281,6 +281,7 @@ export async function PUT(request: NextRequest) {
         guardianName: body.enrollmentData.guardianName,
         guardianRelation: body.enrollmentData.guardianRelation,
         guardianPhone: body.enrollmentData.guardianPhone ? formatPhoneForStorage(body.enrollmentData.guardianPhone) : null,
+        jerseyNumber: body.enrollmentData.jerseyNumber,
       }
 
       // Solo permitir que los administradores actualicen monthlyFee
@@ -291,6 +292,16 @@ export async function PUT(request: NextRequest) {
         // Si no es admin, mantener el valor actual
         enrollmentUpdate.monthlyFee = existingStudent.enrollmentData.monthlyFee;
         console.log("🔍 API: Non-admin, keeping current monthlyFee:", existingStudent.enrollmentData.monthlyFee);
+      }
+
+      // Permitir que administradores y profesores actualicen jerseyNumber
+      if ((userRole === 'ADMIN' || userRole === 'TEACHER') && body.enrollmentData.jerseyNumber !== undefined) {
+        enrollmentUpdate.jerseyNumber = body.enrollmentData.jerseyNumber;
+        console.log("🔍 API: Authorized user updating jerseyNumber to:", body.enrollmentData.jerseyNumber);
+      } else if (existingStudent.enrollmentData?.jerseyNumber !== undefined) {
+        // Si no tiene permisos, mantener el valor actual
+        enrollmentUpdate.jerseyNumber = existingStudent.enrollmentData.jerseyNumber;
+        console.log("🔍 API: Non-authorized user, keeping current jerseyNumber:", existingStudent.enrollmentData.jerseyNumber);
       }
 
       await prisma.studentEnrollmentData.upsert({

@@ -3,8 +3,6 @@
 import { useState, useEffect } from "react"
 import { 
   User, 
-  Calendar, 
-  Phone, 
   MapPin, 
   Heart, 
   UserCheck, 
@@ -14,25 +12,21 @@ import {
   ChevronRight,
   Send,
   AlertCircle,
-  Users,
   CheckCircle,
   Trophy,
-  Clock,
-  Star
+  Clock
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { InteractiveMap } from './interactive-map'
-import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { isValidPhoneFormat } from "@/lib/phone-utils"
+import { ProfilePhotoModal } from "@/components/profile/ProfilePhotoModal"
 
 // Función de utilidad para validar y formatear números de teléfono
 const validateAndFormatPhone = (value: string): string => {
@@ -42,6 +36,46 @@ const validateAndFormatPhone = (value: string): string => {
   // Limitar a 10 dígitos
   return numbersOnly.slice(0, 10)
 }
+
+
+// === Utilidades de validación adicionales ===
+const validateAndFormatDocumentNumber = (value: string): string => {
+  // Solo permitir números
+  return value.replace(/\D/g, '')
+}
+
+const isValidEmailFormat = (value: string): boolean => {
+  // Validación simple de email
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
+  return emailRegex.test(value)
+}
+
+const validateAndFormatFullName = (value: string): string => {
+  // Permitir solo letras A-Z y espacios (sin acentos ni caracteres especiales)
+  // Quitar números y caracteres especiales y colapsar espacios múltiples
+  return value
+    .replace(/[^A-Za-z ]/g, '')
+    .replace(/\s+/g, ' ')
+    .trimStart()
+}
+
+const isValidFullName = (value: string): boolean => {
+  if (!value) return false
+  // Al menos dos letras, solo letras y espacios, sin caracteres especiales ni números
+  return /^[A-Za-z ]{10,}$/.test(value.trim())
+}
+
+const isValidBirthDate = (value: string): boolean => {
+  if (!value) return false
+  const date = new Date(value)
+  const today = new Date()
+  // Normalizar horas para comparar solo fecha
+  date.setHours(0,0,0,0)
+  today.setHours(0,0,0,0)
+  return date <= today
+}
+
+// (Se reutiliza isValidFullName para validar nombres de contacto y acudiente)
 
 
 
@@ -57,6 +91,7 @@ interface EnrollmentFormData {
   studentName: string
   email: string
   phone: string
+  profilePhotoUrl?: string
   
   // Información detallada (para tabla StudentEnrollmentData)
   documentType: string
@@ -83,6 +118,7 @@ interface EnrollmentFormData {
   guardianName?: string
   guardianRelation?: string
   guardianPhone?: string
+  
   
   // Términos
   acceptsTerms: boolean
@@ -160,6 +196,7 @@ export function EnrollmentForm() {
     studentName: '',
     email: '',
     phone: '',
+    profilePhotoUrl: '',
     documentType: '',
     birthDate: '',
     address: '',
@@ -175,6 +212,9 @@ export function EnrollmentForm() {
     emergencyContactPhone: '',
     acceptsTerms: false
   })
+
+  // Estado para el nombre del archivo de la foto
+  const [photoFileName, setPhotoFileName] = useState<string>('')
 
   const totalSteps = 5
 
@@ -391,6 +431,7 @@ export function EnrollmentForm() {
           emergencyContactPhone: '',
           acceptsTerms: false
         })
+        setPhotoFileName('')
         setSelectedClass(null)
         setCurrentStep(1)
       } else {
@@ -418,13 +459,14 @@ export function EnrollmentForm() {
       case 2:
         // Solo validar que los campos estén completos, no su unicidad
         return !!(
-          formData.studentName && 
+          formData.studentName && isValidFullName(formData.studentName) &&
           formData.studentId && 
           formData.documentType && 
-          formData.birthDate && 
-          formData.email && 
+          formData.birthDate && isValidBirthDate(formData.birthDate) &&
+          formData.email && isValidEmailFormat(formData.email) && 
           formData.phone &&
-          isValidPhoneFormat(formData.phone)
+          isValidPhoneFormat(formData.phone) &&
+          formData.profilePhotoUrl
         )
       case 3:
         return !!(
@@ -437,11 +479,13 @@ export function EnrollmentForm() {
       case 4:
         return !!(
           formData.emergencyContactName && 
+          isValidFullName(formData.emergencyContactName) &&
           formData.emergencyContactRelation && 
                     formData.emergencyContactPhone &&
           isValidPhoneFormat(formData.emergencyContactPhone) &&
           (formData.isAdult || (
             formData.guardianName && 
+            isValidFullName(formData.guardianName) &&
             formData.guardianRelation && 
             formData.guardianPhone &&
             isValidPhoneFormat(formData.guardianPhone || '')
@@ -666,51 +710,93 @@ export function EnrollmentForm() {
             )}
 
             {/* Formulario de información personal */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 bg-gray-800/50 p-4 rounded-lg border border-gray-600">
-              <div className="md:col-span-2 lg:col-span-3">
-                <Label htmlFor="studentName" className="text-white font-medium text-sm">
-                  Nombre Completo *
-                </Label>
+            <div className="space-y-4 bg-gray-800/50 p-4 rounded-lg border border-gray-600">
+              {/* Primera línea: Nombre y Fecha de Nacimiento */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="studentName" className="text-white font-medium text-sm">
+                    Nombre Completo del Participante *
+                  </Label>
                   <Input
                     id="studentName"
-                  placeholder="Nombres y apellidos"
+                    placeholder="Nombres y apellidos del participante"
                     value={formData.studentName}
-                    onChange={(e) => updateFormData('studentName', e.target.value)}
-                  className="bg-gray-800 border-gray-600 text-white mt-1"
-                />
-              </div>
-
-              <div className="lg:col-span-2">
-                <Label htmlFor="birthDate" className="text-white font-medium text-sm">
-                  Fecha de Nacimiento *
-                </Label>
-                <Input
-                  id="birthDate"
-                  type="date"
-                  value={formData.birthDate}
-                  onChange={(e) => {
-                    const birthDate = new Date(e.target.value);
-                    const today = new Date();
-                    const age = today.getFullYear() - birthDate.getFullYear();
-                    const isAdult = age >= 18;
-                    
-                    // Actualizar tanto la fecha como el estado de mayoría de edad
-                    updateFormData('birthDate', e.target.value);
-                    updateFormData('isAdult', isAdult);
-                  }}
-                  className="bg-gray-800 border-gray-600 text-white mt-1"
+                    onChange={(e) => updateFormData('studentName', validateAndFormatFullName(e.target.value))}
+                    className="bg-gray-800 border-gray-600 text-white mt-1"
                   />
+                  {formData.studentName && !isValidFullName(formData.studentName) && (
+                    <p className="text-red-400 text-xs mt-1">
+                      Solo letras y espacios, mínimo 10 caracteres
+                    </p>
+                  )}
                 </div>
 
                 <div>
-                <Label htmlFor="documentType" className="text-white font-medium text-sm">
-                  Tipo de Documento *
-                </Label>
+                  <Label htmlFor="birthDate" className="text-white font-medium text-sm">
+                    Fecha de Nacimiento del Participante *
+                  </Label>
+                  <Input
+                    id="birthDate"
+                    type="date"
+                    value={formData.birthDate}
+                    onChange={(e) => {
+                      const nextVal = e.target.value
+                      const birthDate = new Date(nextVal)
+                      const today = new Date()
+                      const age = today.getFullYear() - birthDate.getFullYear()
+                      const adult = age >= 18
+                      updateFormData('birthDate', nextVal)
+                      updateFormData('isAdult', adult)
+                    }}
+                    className={`bg-gray-800 border-gray-600 text-white mt-1 ${formData.birthDate && !isValidBirthDate(formData.birthDate) ? 'border-red-500 focus:border-red-500' : ''}`}
+                    max={new Date().toISOString().split('T')[0]}
+                  />
+                  {formData.birthDate && !isValidBirthDate(formData.birthDate) && (
+                    <p className="text-red-400 text-xs mt-1">La fecha no puede ser futura</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Segunda línea: Foto, Tipo de Documento y Número de Documento */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                <div>
+                  <Label className="text-white font-medium text-sm">Foto de Perfil del Participante *</Label>
+                  <div className="mt-2 space-y-2">
+                    <div className="flex items-center gap-3">
+                      <ProfilePhotoModal
+                        uploadOnly
+                        currentPhotoUrl={formData.profilePhotoUrl || undefined}
+                        onSuccess={(url: string) => {
+                          updateFormData('profilePhotoUrl', url)
+                          // Extraer el nombre del archivo de la URL
+                          const fileName = url.split('/').pop() || ''
+                          setPhotoFileName(fileName)
+                        }}
+                        triggerText={formData.profilePhotoUrl ? 'Cambiar foto' : 'Subir foto'}
+                      />
+                      {photoFileName && (
+                        <div className="flex-1 min-w-0">
+                          <p className="text-gray-300 text-xs truncate" title={photoFileName}>
+                            {photoFileName}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                    {!formData.profilePhotoUrl && (
+                      <p className="text-red-400 text-xs">Debes subir una foto de perfil para continuar</p>
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <Label htmlFor="documentType" className="text-white font-medium text-sm">
+                    Tipo de Documento del Participante *
+                  </Label>
                   <Select
                     value={formData.documentType}
                     onValueChange={(value) => updateFormData('documentType', value)}
                   >
-                  <SelectTrigger className="bg-gray-800 border-gray-600 text-white mt-1">
+                    <SelectTrigger className="bg-gray-800 border-gray-600 text-white mt-1">
                       <SelectValue placeholder="Seleccionar tipo" />
                     </SelectTrigger>
                     <SelectContent>
@@ -724,36 +810,43 @@ export function EnrollmentForm() {
                 </div>
 
                 <div>
-                <Label htmlFor="studentId" className="text-white font-medium text-sm">
-                  Número de Documento *
-                </Label>
+                  <Label htmlFor="studentId" className="text-white font-medium text-sm">
+                    Número de Documento del Participante *
+                  </Label>
                   <Input
-                  id="studentId"
-                  placeholder="Número de documento"
-                  value={formData.studentId}
-                  onChange={(e) => updateFormData('studentId', e.target.value)}
-                  className="bg-gray-800 border-gray-600 text-white mt-1"
+                    id="studentId"
+                    placeholder="Número de documento del participante"
+                    value={formData.studentId}
+                    onChange={(e) => updateFormData('studentId', validateAndFormatDocumentNumber(e.target.value))}
+                    className="bg-gray-800 border-gray-600 text-white mt-1"
+                    inputMode="numeric"
                   />
                 </div>
+              </div>
 
-              <div className="lg:col-span-2">
-                <Label htmlFor="email" className="text-white font-medium text-sm">
-                  Email *
-                </Label>
+              {/* Tercera línea: Email y Teléfono */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="email" className="text-white font-medium text-sm">
+                    Email del Participante *
+                  </Label>
                   <Input
-                  id="email"
-                  type="email"
-                  placeholder="correo@ejemplo.com"
-                  value={formData.email}
-                  onChange={(e) => updateFormData('email', e.target.value)}
-                  className="bg-gray-800 border-gray-600 text-white mt-1"
+                    id="email"
+                    type="email"
+                    placeholder="correo@ejemplo.com del participante"
+                    value={formData.email}
+                    onChange={(e) => updateFormData('email', e.target.value)}
+                    className={`bg-gray-800 border-gray-600 text-white mt-1 ${formData.email && !isValidEmailFormat(formData.email) ? 'border-red-500 focus:border-red-500' : formData.email && isValidEmailFormat(formData.email) ? 'border-green-500 focus:border-green-500' : ''}`}
                   />
+                  {formData.email && !isValidEmailFormat(formData.email) && (
+                    <p className="text-red-400 text-xs mt-1">Ingresa un correo válido</p>
+                  )}
                 </div>
 
                 <div>
-                <Label htmlFor="phone" className="text-white font-medium text-sm">
-                  Teléfono *
-                </Label>
+                  <Label htmlFor="phone" className="text-white font-medium text-sm">
+                    Teléfono del Participante *
+                  </Label>
                   <div className="relative">
                     <Input
                       id="phone"
@@ -784,7 +877,8 @@ export function EnrollmentForm() {
                     </p>
                   )}
                 </div>
-                </div>
+              </div>
+            </div>
           </div>
         )
 
@@ -837,14 +931,14 @@ export function EnrollmentForm() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 bg-gray-800/50 p-4 rounded-lg border border-gray-600">
               <div className="col-span-full flex items-center gap-2 mb-2">
                 <Heart className="h-5 w-5 text-red-400" />
-                <h3 className="text-lg font-semibold text-white">Información Médica</h3>
+                <h3 className="text-lg font-semibold text-white">Información Médica del Participante</h3>
                   </div>
 
               <div className="lg:col-span-2">
-                <Label htmlFor="eps" className="text-white">EPS *</Label>
+                <Label htmlFor="eps" className="text-white">EPS del Participante *</Label>
                   <Input
                     id="eps"
-                    placeholder="Nombre de la EPS"
+                    placeholder="Nombre de la EPS del participante"
                     value={formData.eps}
                     onChange={(e) => updateFormData('eps', e.target.value)}
                   className="bg-gray-800 border-gray-600 text-white mt-1"
@@ -852,7 +946,7 @@ export function EnrollmentForm() {
                 </div>
 
                 <div>
-                <Label htmlFor="bloodType" className="text-white">Tipo de Sangre *</Label>
+                <Label htmlFor="bloodType" className="text-white">Tipo de Sangre del Participante *</Label>
                   <Select
                     value={formData.bloodType}
                     onValueChange={(value) => updateFormData('bloodType', value)}
@@ -890,7 +984,7 @@ export function EnrollmentForm() {
                   </div>
                   {formData.hasRestrictions && (
                     <Textarea
-                      placeholder="Describa las restricciones médicas..."
+                      placeholder="Describa las restricciones médicas del participante..."
                     value={formData.restrictionsDescription || ''}
                       onChange={(e) => updateFormData('restrictionsDescription', e.target.value)}
                     className="bg-gray-800 border-gray-600 text-white mt-2"
@@ -899,16 +993,17 @@ export function EnrollmentForm() {
                 </div>
 
                 <div className="col-span-full">
-                <Label htmlFor="medicalConditions" className="text-white">Condiciones Médicas</Label>
+                <Label htmlFor="medicalConditions" className="text-white">Condiciones Médicas del Participante</Label>
                   <Textarea
                     id="medicalConditions"
-                  placeholder="Describa cualquier condición médica relevante..."
+                  placeholder="Describa cualquier condición médica relevante del participante..."
                   value={formData.medicalConditions || ''}
                   onChange={(e) => updateFormData('medicalConditions', e.target.value)}
                   className="bg-gray-800 border-gray-600 text-white mt-1"
                 />
               </div>
             </div>
+
           </div>
         )
 
@@ -919,18 +1014,23 @@ export function EnrollmentForm() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 bg-gray-800/50 p-4 rounded-lg border border-gray-600">
               <div className="col-span-full flex items-center gap-2 mb-2">
                 <AlertCircle className="h-5 w-5 text-orange-400" />
-                <h3 className="text-lg font-semibold text-white">Contacto de Emergencia</h3>
+                <h3 className="text-lg font-semibold text-white">Contacto de Emergencia del Participante</h3>
             </div>
 
-                  <div>
-                <Label className="text-white mb-1">Nombres y apellidos *</Label>
-                    <Input
-                      placeholder="Nombre del contacto"
-                      value={formData.emergencyContactName}
-                      onChange={(e) => updateFormData('emergencyContactName', e.target.value)}
-                      className="bg-gray-800 border-gray-600 text-white"
-                    />
-                  </div>
+                    <div>
+                  <Label className="text-white mb-1">Nombres y apellidos del contacto de emergencia *</Label>
+                      <Input
+                        placeholder="Nombre del contacto de emergencia"
+                        value={formData.emergencyContactName}
+                        onChange={(e) => updateFormData('emergencyContactName', validateAndFormatFullName(e.target.value))}
+                        className={`bg-gray-800 border-gray-600 text-white ${formData.emergencyContactName && !isValidFullName(formData.emergencyContactName) ? 'border-red-500 focus:border-red-500' : ''}`}
+                      />
+                      {formData.emergencyContactName && !isValidFullName(formData.emergencyContactName) && (
+                        <p className="text-red-400 text-xs mt-1">
+                          Solo letras y espacios, mínimo 10 caracteres
+                        </p>
+                      )}
+                    </div>
 
                   <div>
                 <Label className="text-white mb-1">Parentesco *</Label>
@@ -950,10 +1050,10 @@ export function EnrollmentForm() {
                   </div>
 
               <div>
-                <Label className="text-white mb-1">Celular del contacto *</Label>
+                <Label className="text-white mb-1">Celular del contacto de emergencia *</Label>
                 <div className="relative">
                   <Input
-                    placeholder="Número de teléfono"
+                    placeholder="Número de teléfono del contacto de emergencia"
                     value={formData.emergencyContactPhone}
                     onChange={(e) => updateFormData('emergencyContactPhone', validateAndFormatPhone(e.target.value))}
                     className={`bg-gray-800 border-gray-600 text-white pr-10 ${
@@ -991,13 +1091,18 @@ export function EnrollmentForm() {
                 </div>
 
                     <div>
-                  <Label className="text-white mb-1">Nombres y apellidos *</Label>
+                  <Label className="text-white mb-1">Nombres y apellidos del Acudiente *</Label>
                       <Input
                         placeholder="Nombre del acudiente"
                         value={formData.guardianName || ''}
-                        onChange={(e) => updateFormData('guardianName', e.target.value)}
-                        className="bg-gray-800 border-gray-600 text-white"
+                        onChange={(e) => updateFormData('guardianName', validateAndFormatFullName(e.target.value))}
+                        className={`bg-gray-800 border-gray-600 text-white ${formData.guardianName && !isValidFullName(formData.guardianName) ? 'border-red-500 focus:border-red-500' : ''}`}
                       />
+                      {formData.guardianName && !isValidFullName(formData.guardianName) && (
+                        <p className="text-red-400 text-xs mt-1">
+                          Solo letras y espacios, mínimo 10 caracteres
+                        </p>
+                      )}
                     </div>
 
                     <div>
@@ -1018,10 +1123,10 @@ export function EnrollmentForm() {
                     </div>
 
                 <div>
-                  <Label className="text-white mb-1">📲 Celular del acudiente *</Label>
+                  <Label className="text-white mb-1">Celular del Acudiente *</Label>
                   <div className="relative">
                     <Input
-                      placeholder="Número de teléfono"
+                      placeholder="Número de teléfono del acudiente"
                       value={formData.guardianPhone || ''}
                       onChange={(e) => updateFormData('guardianPhone', validateAndFormatPhone(e.target.value))}
                       className={`bg-gray-800 border-gray-600 text-white pr-10 ${
@@ -1182,8 +1287,8 @@ export function EnrollmentForm() {
             <div>
               <h2 className="text-lg sm:text-2xl font-bold text-white">
                 {currentStep === 1 && "Selecciona tu Actividad"}
-                {currentStep === 2 && "Información Personal"}
-                {currentStep === 3 && "Información Detallada"}
+                {currentStep === 2 && "Información Personal del Participante"}
+                {currentStep === 3 && "Información Detallada del Participante"}
                 {currentStep === 4 && "Contactos de Emergencia"}
                 {currentStep === 5 && "Confirmar Inscripción"}
               </h2>
