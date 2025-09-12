@@ -153,19 +153,8 @@ export function MatchRegistrationModal({
       return;
     }
 
-    // Validar que la fecha no sea en el pasado
+    // Crear la fecha del partido
     const selectedDate = new Date(matchDate);
-    const now = new Date();
-    now.setHours(0, 0, 0, 0);
-    
-    if (selectedDate < now) {
-      toast({
-        title: "❌ Error",
-        description: "La fecha del partido no puede ser en el pasado",
-        variant: "destructive",
-      });
-      return;
-    }
 
     // Validar que todos los estudiantes tengan un estado de asistencia seleccionado
     const studentsWithoutAttendance = classStudents.filter(student => 
@@ -501,7 +490,6 @@ export function MatchRegistrationModal({
                   onChange={(e) => setMatchDate(e.target.value)}
                   disabled={isLoading}
                   className="bg-gray-700 border-gray-600 text-white"
-                  min={new Date().toISOString().split('T')[0]}
                 />
                 <CalendarIcon className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
               </div>

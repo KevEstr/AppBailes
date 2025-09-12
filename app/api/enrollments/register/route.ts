@@ -157,17 +157,21 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
+    // Limpiar email y contraseña antes de procesar
+    const cleanEmail = data.email.trim();
+    const cleanPassword = documentNumberStr.trim();
+    
     // Buscar usuario existente por email
     user = await prisma.user.findUnique({
-      where: { email: data.email }
+      where: { email: cleanEmail }
     });
 
     if (!user) {
       // Hashear la contraseña antes de guardar
-      const hashedPassword = await bcrypt.hash(documentNumberStr, 10);
+      const hashedPassword = await bcrypt.hash(cleanPassword, 10);
       user = await prisma.user.create({
         data: {
-          email: data.email,
+          email: cleanEmail,
           password: hashedPassword,
           role: 'STUDENT',
           isActive: true

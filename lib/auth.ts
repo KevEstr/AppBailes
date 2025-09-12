@@ -19,9 +19,12 @@ export const authOptions: NextAuthOptions = {
         }
 
         try {
+          // Limpiar el email para evitar problemas con espacios o caracteres invisibles
+          const cleanEmail = credentials.email.trim()
+          
           const user = await prisma.user.findUnique({
             where: {
-              email: credentials.email
+              email: cleanEmail
             },
             include: {
               trainer: true

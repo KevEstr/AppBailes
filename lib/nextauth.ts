@@ -22,9 +22,13 @@ export const authOptions: NextAuthOptions = {
         try {
           console.log("🔍 Attempting to authenticate:", credentials.email)
           
+          // Limpiar el email para evitar problemas con espacios o caracteres invisibles
+          const cleanEmail = credentials.email.trim()
+          console.log("🧹 Cleaned email:", cleanEmail)
+          
           const user = await prisma.user.findUnique({
             where: {
-              email: credentials.email
+              email: cleanEmail
             },
             include: {
               trainer: true
@@ -32,12 +36,12 @@ export const authOptions: NextAuthOptions = {
           })
 
           if (!user) {
-            console.log("❌ User not found:", credentials.email)
+            console.log("❌ User not found:", cleanEmail)
             return null
           }
 
           if (!user.isActive) {
-            console.log("❌ User not active:", credentials.email)
+            console.log("❌ User not active:", cleanEmail)
             throw new Error("USER_INACTIVE")
           }
 
@@ -47,7 +51,7 @@ export const authOptions: NextAuthOptions = {
           )
 
           if (!isPasswordValid) {
-            console.log("❌ Invalid password for:", credentials.email)
+            console.log("❌ Invalid password for:", cleanEmail)
             return null
           }
 

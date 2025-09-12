@@ -91,7 +91,11 @@ export async function POST(request: NextRequest) {
 
     const { email, password, role, phone, name } = await request.json()
 
-    if (!email || !password || !role) {
+    // Limpiar email y contraseña antes de procesar
+    const cleanEmail = email?.trim();
+    const cleanPassword = password?.trim();
+
+    if (!cleanEmail || !cleanPassword || !role) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
     }
 
@@ -110,7 +114,7 @@ export async function POST(request: NextRequest) {
 
     // Verificar si el email ya existe
     const existingUser = await prisma.user.findUnique({
-      where: { email }
+      where: { email: cleanEmail }
     })
 
     if (existingUser) {
@@ -132,14 +136,14 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const hashedPassword = await bcrypt.hash(password, 12)
+    const hashedPassword = await bcrypt.hash(cleanPassword, 12)
 
     // Crear usuario y trainer en una transacción
     const result = await prisma.$transaction(async (tx) => {
       // Crear el usuario
       const newUser = await tx.user.create({
         data: {
-          email,
+          email: cleanEmail,
           password: hashedPassword,
           role,
         }

@@ -7,13 +7,14 @@ async function main() {
   console.log('🌱 Creando usuarios iniciales...')
 
   // Crear usuario administrador
-  const adminPassword = await bcrypt.hash('admin123', 12)
+  const adminEmail = 'admin@paradisedance.com'.trim();
+  const adminPassword = await bcrypt.hash('admin123'.trim(), 12)
   
   const admin = await prisma.user.upsert({
-    where: { email: 'admin@paradisedance.com' },
+    where: { email: adminEmail },
     update: {},
     create: {
-      email: 'admin@paradisedance.com',
+      email: adminEmail,
       password: adminPassword,
       name: 'Administrador Paradise',
       role: 'ADMIN',
@@ -40,7 +41,7 @@ async function main() {
 
   // Crear usuarios profesor para los trainers
   for (const trainer of trainers) {
-    const teacherPassword = await bcrypt.hash('teacher123', 12)
+    const teacherPassword = await bcrypt.hash('teacher123'.trim(), 12)
     
     // Verificar si ya existe un usuario para este trainer
     const existingUser = await prisma.user.findUnique({
@@ -48,7 +49,7 @@ async function main() {
     })
 
     if (!existingUser) {
-      const teacherEmail = trainer.user?.email || `profesor${trainer.id}@paradisedance.com`
+      const teacherEmail = (trainer.user?.email || `profesor${trainer.id}@paradisedance.com`).trim()
       
       const teacher = await prisma.user.upsert({
         where: { email: teacherEmail },
@@ -79,7 +80,7 @@ async function main() {
   console.log('   Contraseña para todos: teacher123')
   
   for (const trainer of trainers) {
-    const teacherEmail = trainer.user?.email || `profesor${trainer.id}@paradisedance.com`
+    const teacherEmail = (trainer.user?.email || `profesor${trainer.id}@paradisedance.com`).trim()
     console.log(`   Email: ${teacherEmail} (${trainer.name})`)
   }
 }

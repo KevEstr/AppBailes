@@ -82,6 +82,14 @@ export async function POST(request: Request) {
       }, { status: 400 });
     }
 
+    // Limpiar email antes de procesar
+    const cleanEmail = data.email?.trim();
+    if (!cleanEmail) {
+      return NextResponse.json({
+        error: "El email es requerido"
+      }, { status: 400 });
+    }
+
     // Verificar que no existe un estudiante con la misma cédula
     const existingStudentById = await prisma.student.findUnique({
       where: { id: cedula }
@@ -106,7 +114,7 @@ export async function POST(request: Request) {
         avatar: data.avatar,
         user: {
           create: {
-            email: data.email,
+            email: cleanEmail,
             password: hashedPassword
           }
         }
