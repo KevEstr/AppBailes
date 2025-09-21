@@ -32,33 +32,26 @@ export async function GET(request: NextRequest) {
       // Productos inactivos
       prisma.product.count({ where: { isActive: false } }),
       
-      // Productos con stock bajo (menos de 10 unidades)
-      prisma.product.count({ where: { stock: { lt: 10 }, isActive: true } }),
+      // Productos con stock bajo (menos de 10 unidades) - solo productos simples
+      prisma.product.count({ where: { stock: { lt: 10 }, isActive: true, productType: "SIMPLE" } }),
       
-      // Productos sin stock
-      prisma.product.count({ where: { stock: 0, isActive: true } }),
+      // Productos sin stock - solo productos simples
+      prisma.product.count({ where: { stock: 0, isActive: true, productType: "SIMPLE" } }),
       
-      // Valor total del inventario
-      prisma.product.aggregate({
-        where: { isActive: true },
-        _sum: {
-          stock: true
-        }
-      }).then(result => {
-        return prisma.product.findMany({
-          where: { isActive: true },
-          select: { price: true, stock: true }
-        }).then(products => {
-          return products.reduce((total, product) => {
-            return total + (product.price * product.stock)
-          }, 0)
-        })
+      // Valor total del inventario - solo productos simples
+      prisma.product.findMany({
+        where: { isActive: true, productType: "SIMPLE" },
+        select: { price: true, stock: true }
+      }).then(products => {
+        return products.reduce((total, product) => {
+          return total + (product.price * (product.stock || 0))
+        }, 0)
       }),
       
-      // Estadísticas por categoría
+      // Estadísticas por categoría - solo productos simples
       prisma.product.groupBy({
         by: ['category'],
-        where: { isActive: true },
+        where: { isActive: true, productType: "SIMPLE" },
         _count: {
           id: true
         },

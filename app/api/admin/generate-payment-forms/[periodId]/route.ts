@@ -19,17 +19,13 @@ export async function POST(
     const { searchParams } = new URL(request.url);
     const regenerate = searchParams.get('regenerate') === 'true';
 
-    // Primero generar pagos mensuales si no existen
+    // Generar pagos mensuales si no existen
     const monthlyPayments = await monthlyPaymentService.generateMonthlyPayments(periodId);
-    
-    // Luego generar formularios (posible regeneración)
-    const paymentForms = await monthlyPaymentService.generatePaymentForms(periodId, { regenerate });
 
     return NextResponse.json({
-      message: regenerate ? 'Formularios regenerados exitosamente' : 'Formularios generados exitosamente',
+      message: 'Pagos pendientes generados exitosamente',
       monthlyPaymentsCreated: monthlyPayments.length,
-      paymentFormsCreated: paymentForms.length,
-      forms: paymentForms
+      message: `Se generaron ${monthlyPayments.length} pagos pendientes. Los mensajes de WhatsApp se pueden enviar desde el panel de administración.`
     });
   } catch (error) {
     console.error('Error al generar formularios:', error);

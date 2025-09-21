@@ -48,6 +48,7 @@ import {
   User,
   History,
   Filter,
+  Download,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { 
@@ -353,6 +354,8 @@ export function ClassManagementNew() {
   const [loading, setLoading] = useState(true);
   // ✅ NUEVO: Estado separado para loading de clases
   const [classesLoading, setClassesLoading] = useState(false);
+  const [isDownloadingClasses, setIsDownloadingClasses] = useState(false);
+  const [isDownloadingTransfers, setIsDownloadingTransfers] = useState(false);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showLocationDialog, setShowLocationDialog] = useState(false);
   const [selectedClass, setSelectedClass] = useState<DanceClass | null>(null);
@@ -402,7 +405,6 @@ export function ClassManagementNew() {
   // Paginación
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(6);
-  const CLASSES_PER_PAGE = pageSize;
 
   // Formulario para nueva clase - memoizado
   const [newClass, setNewClass] = useState({
@@ -1023,15 +1025,162 @@ export function ClassManagementNew() {
     setTransfersPagination(prev => ({ ...prev, page: 1 }));
   };
 
+  // ✅ NUEVO: Función para exportar clases a Excel
+  const handleExportClassesExcel = async () => {
+    try {
+      setIsDownloadingClasses(true);
+      
+      const response = await fetch('/api/classes/export-excel', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Error al exportar clases');
+      }
+
+      // Obtener el blob del archivo
+      const blob = await response.blob();
+      
+      // Crear URL temporal para descarga
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      
+      // Obtener nombre del archivo desde los headers
+      const contentDisposition = response.headers.get('content-disposition');
+      let filename = 'clases.xlsx';
+      if (contentDisposition) {
+        const filenameRegex = /filename="(.+)"/
+        const filenameMatch = filenameRegex.exec(contentDisposition);
+        if (filenameMatch) {
+          filename = filenameMatch[1];
+        }
+      }
+      
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      
+      // Limpiar
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      toast({
+        title: "✅ Archivo descargado",
+        description: `Archivo ${filename} descargado exitosamente`,
+      });
+    } catch (error) {
+      console.error('Error downloading classes Excel file:', error);
+      toast({
+        title: "❌ Error",
+        description: error instanceof Error ? error.message : 'Error al descargar archivo Excel',
+        variant: "destructive",
+      });
+    } finally {
+      setIsDownloadingClasses(false);
+    }
+  };
+
+  // ✅ NUEVO: Función para exportar transferencias a Excel
+  const handleExportTransfersExcel = async () => {
+    try {
+      // ✅ VALIDACIÓN: Verificar que hay al menos un filtro de fecha
+      if (!transfersDateRange?.from && !transfersDateRange?.to) {
+        toast({
+          title: "⚠️ Filtro de fecha requerido",
+          description: "Debe seleccionar al menos una fecha (desde o hasta) para exportar las transferencias",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      setIsDownloadingTransfers(true);
+      
+      // Construir parámetros de consulta basados en los filtros actuales
+      const params = new URLSearchParams();
+      
+      if (transfersSearch.trim()) {
+        params.set('search', transfersSearch.trim());
+      }
+      
+      if (transfersDateRange?.from) {
+        const year = transfersDateRange.from.getFullYear();
+        const month = (transfersDateRange.from.getMonth() + 1).toString().padStart(2, '0');
+        const day = transfersDateRange.from.getDate().toString().padStart(2, '0');
+        params.set('dateFrom', `${year}-${month}-${day}`);
+      }
+      
+      if (transfersDateRange?.to) {
+        const year = transfersDateRange.to.getFullYear();
+        const month = (transfersDateRange.to.getMonth() + 1).toString().padStart(2, '0');
+        const day = transfersDateRange.to.getDate().toString().padStart(2, '0');
+        params.set('dateTo', `${year}-${month}-${day}`);
+      }
+      
+      const response = await fetch(`/api/admin/student-transfers/export-excel?${params.toString()}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Error al exportar transferencias');
+      }
+
+      // Obtener el blob del archivo
+      const blob = await response.blob();
+      
+      // Crear URL temporal para descarga
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      
+      // Obtener nombre del archivo desde los headers
+      const contentDisposition = response.headers.get('content-disposition');
+      let filename = 'transferencias.xlsx';
+      if (contentDisposition) {
+        const filenameRegex = /filename="(.+)"/
+        const filenameMatch = filenameRegex.exec(contentDisposition);
+        if (filenameMatch) {
+          filename = filenameMatch[1];
+        }
+      }
+      
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      
+      // Limpiar
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      toast({
+        title: "✅ Archivo descargado",
+        description: `Archivo ${filename} descargado exitosamente`,
+      });
+    } catch (error) {
+      console.error('Error downloading transfers Excel file:', error);
+      toast({
+        title: "❌ Error",
+        description: error instanceof Error ? error.message : 'Error al descargar archivo Excel',
+        variant: "destructive",
+      });
+    } finally {
+      setIsDownloadingTransfers(false);
+    }
+  };
+
   // Helper function to get user display name
   const getUserDisplayName = (user: StudentTransfer['user']) => {
     return user.student?.name || user.trainer?.name || user.email;
   };
 
-  // Helper function to render reason if exists
-  const renderReason = (reason?: string) => {
-    return reason ? `"${reason}"` : null;
-  };
 
   // Helper function to render transfers content
   const renderTransfersContent = () => {
@@ -1291,7 +1440,7 @@ export function ClassManagementNew() {
         {/* Pestaña de Gestión de Clases */}
         <TabsContent value="classes" className="space-y-6">
           {/* Card de Filtros */}
-          <Card className="border-0 bg-gradient-to-r from-gray-800/90 via-slate-800/90 to-gray-700/90 text-white shadow-2xl mb-6 sm:mb-8 rounded-3xl border border-gray-600 backdrop-blur-sm">
+          <Card className="border-0 bg-gray-800/90 text-white shadow-2xl mb-6 sm:mb-8 rounded-3xl border border-gray-600">
         <CardContent className="p-4 sm:p-6">
           <div className="flex flex-col sm:flex-row flex-wrap gap-3 sm:gap-4 items-stretch sm:items-end">
             <div className="flex-1 min-w-[140px]">
@@ -1383,8 +1532,30 @@ export function ClassManagementNew() {
               </div>
             </div>
 
-            {/* Botón Nueva Clase */}
-            <div className="flex-1 min-w-[140px] sm:max-w-[220px]">
+            {/* Botones de Acción - Layout mejorado */}
+            <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+              <Button
+                onClick={handleExportClassesExcel}
+                disabled={isDownloadingClasses}
+                variant="outline"
+                size="sm"
+                className="border-green-600 text-green-400 hover:bg-green-900/50 px-3 py-2 rounded-lg text-xs font-medium flex-1 sm:flex-none"
+              >
+                {isDownloadingClasses ? (
+                  <>
+                    <div className="w-3 h-3 border-2 border-green-400 border-t-transparent rounded-full animate-spin mr-1" />
+                    <span className="hidden sm:inline">Descargando...</span>
+                    <span className="sm:hidden">...</span>
+                  </>
+                ) : (
+                  <>
+                    <Download className="h-3 w-3 mr-1" />
+                    <span className="hidden sm:inline">Exportar Excel</span>
+                    <span className="sm:hidden">Excel</span>
+                  </>
+                )}
+              </Button>
+              
               <Dialog
                 open={showCreateDialog}
                 onOpenChange={(open) => {
@@ -1398,10 +1569,12 @@ export function ClassManagementNew() {
                       await loadAllTrainers();
                       setShowCreateDialog(true);
                     }}
-                    className="w-full sm:w-auto bg-blue-600/60 hover:bg-blue-700/60 border border-blue-500 text-white text-lg px-6 py-3 rounded-2xl hover:text-white backdrop-blur-sm"
+                    size="sm"
+                    className="bg-blue-600/60 hover:bg-blue-700/60 border border-blue-500 text-white px-3 py-2 rounded-lg hover:text-white backdrop-blur-sm text-xs font-medium flex-1 sm:flex-none"
                   >
-                    <Plus className="w-6 h-6 mr-2 text-white" />
-                    Nueva Clase
+                    <Plus className="w-3 h-3 mr-1 text-white" />
+                    <span className="hidden sm:inline">Nueva Clase</span>
+                    <span className="sm:hidden">Nueva</span>
                   </Button>
                 </DialogTrigger>
                 <DialogContent className="w-full sm:!w-[95vw] sm:!max-w-5xl h-[90vh] max-h-[90vh] overflow-y-auto overflow-x-hidden bg-gray-800 border border-gray-600 text-white !left-1/2 !-translate-x-1/2">
@@ -1890,7 +2063,7 @@ export function ClassManagementNew() {
         {/* Pestaña de Transferencias */}
         <TabsContent value="transfers" className="space-y-6">
           {/* Card de Filtros para Transferencias */}
-          <Card className="border-0 bg-gradient-to-r from-gray-800/90 via-slate-800/90 to-gray-700/90 text-white shadow-2xl mb-6 sm:mb-8 rounded-3xl border border-gray-600 backdrop-blur-sm">
+          <Card className="border-0 bg-gray-800/90 text-white shadow-2xl mb-6 sm:mb-8 rounded-3xl border border-gray-600">
             <CardContent className="p-4 sm:p-6">
               <div className="flex flex-col sm:flex-row flex-wrap gap-3 sm:gap-4 items-stretch sm:items-end">
                 <div className="flex-1 min-w-[200px]">
@@ -1926,14 +2099,39 @@ export function ClassManagementNew() {
                   />
                 </div>
 
-                <div className="flex-1 min-w-[140px] sm:max-w-[200px]">
+                <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                  <Button
+                    onClick={handleExportTransfersExcel}
+                    disabled={isDownloadingTransfers || (!transfersDateRange?.from && !transfersDateRange?.to)}
+                    variant="outline"
+                    size="sm"
+                    className="border-green-600 text-green-400 hover:bg-green-900/50 px-3 py-2 rounded-lg text-xs font-medium flex-1 sm:flex-none disabled:opacity-50 disabled:cursor-not-allowed"
+                    title={(!transfersDateRange?.from && !transfersDateRange?.to) ? "Seleccione al menos una fecha para exportar" : "Exportar transferencias filtradas"}
+                  >
+                    {isDownloadingTransfers ? (
+                      <>
+                        <div className="w-3 h-3 border-2 border-green-400 border-t-transparent rounded-full animate-spin mr-1" />
+                        <span className="hidden sm:inline">Descargando...</span>
+                        <span className="sm:hidden">...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Download className="h-3 w-3 mr-1" />
+                        <span className="hidden sm:inline">Exportar Excel</span>
+                        <span className="sm:hidden">Excel</span>
+                      </>
+                    )}
+                  </Button>
+                  
                   <Button
                     onClick={clearTransfersFilters}
                     variant="outline"
-                    className="w-full border-gray-600 text-gray-300 hover:bg-gray-700"
+                    size="sm"
+                    className="border-gray-600 text-gray-300 hover:bg-gray-700 px-3 py-2 rounded-lg text-xs font-medium flex-1 sm:flex-none"
                   >
-                    <Filter className="h-4 w-4 mr-2" />
-                    Limpiar Filtros
+                    <Filter className="h-3 w-3 mr-1" />
+                    <span className="hidden sm:inline">Limpiar Filtros</span>
+                    <span className="sm:hidden">Limpiar</span>
                   </Button>
                 </div>
               </div>

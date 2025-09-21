@@ -16,7 +16,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { Calendar as CalendarIcon, Trophy as TrophyIcon, Search as SearchIcon, Users as UsersIcon, Check as CheckIcon, X as XIcon, Clock as ClockIcon } from "lucide-react";
 
-interface DanceClass {
+interface EventClass {
   id: number;
   name: string;
   sport: string;
@@ -33,59 +33,59 @@ interface DanceClass {
   }[];
 }
 
-interface MatchRegistrationModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  classes: DanceClass[];
-  onMatchCreated: () => void;
+interface EventRegistrationModalProps {
+  readonly isOpen: boolean;
+  readonly onClose: () => void;
+  readonly classes: EventClass[];
+  readonly onEventCreated: () => void;
 }
 
-export function MatchRegistrationModal({
+export function EventRegistrationModal({
   isOpen,
   onClose,
   classes,
-  onMatchCreated,
-}: MatchRegistrationModalProps) {
+  onEventCreated,
+}: EventRegistrationModalProps) {
   const { toast } = useToast();
   const [selectedClassId, setSelectedClassId] = useState<string>("");
-  const [matchDate, setMatchDate] = useState<string>("");
+  const [eventDate, setEventDate] = useState<string>("");
   const [notes, setNotes] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState<string>("");
-  const [allVolleyballClasses, setAllVolleyballClasses] = useState<DanceClass[]>([]);
+  const [allClasses, setAllClasses] = useState<EventClass[]>([]);
   const [loadingClasses, setLoadingClasses] = useState(false);
   const [activeTab, setActiveTab] = useState<string>("class");
   const [classStudents, setClassStudents] = useState<any[]>([]);
   const [studentAttendances, setStudentAttendances] = useState<{[key: string]: string}>({});
 
-  // Cargar todas las clases de volleyball cuando se abre el modal
+  // Cargar todas las clases cuando se abre el modal
   useEffect(() => {
     if (isOpen) {
-      loadAllVolleyballClasses();
+      loadAllClasses();
     }
   }, [isOpen]);
 
-  const loadAllVolleyballClasses = async () => {
+  const loadAllClasses = async () => {
     setLoadingClasses(true);
     try {
       const response = await fetch("/api/classes?active=true&pageSize=1000");
       const data = await response.json();
       
       if (data.success) {
-        const volleyballClasses = data.classes.filter((cls: DanceClass) => cls.sport === "VOLLEYBALL");
-        setAllVolleyballClasses(volleyballClasses);
+        // Cargar todas las clases (bailes y deportes)
+        setAllClasses(data.classes);
       } else {
         toast({
           title: "❌ Error",
-          description: "No se pudieron cargar las clases de volleyball",
+          description: "No se pudieron cargar las clases",
           variant: "destructive",
         });
       }
     } catch (error) {
-      console.error("Error loading volleyball classes:", error);
+      console.error("Error loading classes:", error);
       toast({
         title: "❌ Error",
-        description: "Error al cargar las clases de volleyball",
+        description: "Error al cargar las clases",
         variant: "destructive",
       });
     } finally {
@@ -93,8 +93,8 @@ export function MatchRegistrationModal({
     }
   };
 
-  // Usar las clases cargadas específicamente para volleyball
-  const volleyballClasses = allVolleyballClasses;
+  // Usar todas las clases cargadas
+  const availableClasses = allClasses;
 
   // Cargar estudiantes de la clase seleccionada
   const loadClassStudents = async (classId: number) => {
@@ -126,25 +126,26 @@ export function MatchRegistrationModal({
 
   // Filtrar clases basado en el término de búsqueda
   const filteredClasses = useMemo(() => {
-    let filtered = volleyballClasses;
+    let filtered = availableClasses;
     
     if (searchTerm.trim()) {
       const term = searchTerm.toLowerCase();
-      filtered = volleyballClasses.filter(cls => 
+      filtered = availableClasses.filter(cls => 
         cls.name.toLowerCase().includes(term) ||
-        cls.trainer.name.toLowerCase().includes(term)
+        cls.trainer.name.toLowerCase().includes(term) ||
+        cls.sport.toLowerCase().includes(term)
       );
     }
     
-    // Limitar resultados: 3 por defecto, 5 máximo al buscar
-    const maxResults = searchTerm.trim() ? 5 : 3;
+    // Limitar resultados: 5 por defecto, 8 máximo al buscar
+    const maxResults = searchTerm.trim() ? 8 : 5;
     return filtered.slice(0, maxResults);
-  }, [volleyballClasses, searchTerm]);
+  }, [availableClasses, searchTerm]);
 
-  const selectedClass = volleyballClasses.find(c => c.id.toString() === selectedClassId);
+  const selectedClass = availableClasses.find(c => c.id.toString() === selectedClassId);
 
   const handleSubmit = async () => {
-    if (!selectedClassId || !matchDate) {
+    if (!selectedClassId || !eventDate) {
       toast({
         title: "❌ Error",
         description: "Por favor completa todos los campos requeridos",
@@ -153,8 +154,8 @@ export function MatchRegistrationModal({
       return;
     }
 
-    // Crear la fecha del partido
-    const selectedDate = new Date(matchDate);
+    // Crear la fecha del evento
+    const selectedDate = new Date(eventDate);
 
     // Validar que todos los estudiantes tengan un estado de asistencia seleccionado
     const studentsWithoutAttendance = classStudents.filter(student => 
@@ -173,14 +174,14 @@ export function MatchRegistrationModal({
     setIsLoading(true);
 
     try {
-      const response = await fetch("/api/matches", {
+      const response = await fetch("/api/events", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
           classId: parseInt(selectedClassId),
-          matchDate: selectedDate.toISOString(),
+          eventDate: selectedDate.toISOString(),
           notes: notes.trim() || null,
           studentAttendances: studentAttendances,
         }),
@@ -189,14 +190,15 @@ export function MatchRegistrationModal({
       const data = await response.json();
 
       if (data.success) {
+        const eventType = selectedClass?.sport === "VOLLEYBALL" ? "partido" : "evento";
         toast({
-          title: "✅ Partido registrado",
-          description: `Partido creado exitosamente para ${selectedClass?.name}`,
+          title: "✅ Evento registrado",
+          description: `${eventType.charAt(0).toUpperCase() + eventType.slice(1)} creado exitosamente para ${selectedClass?.name}`,
         });
         
         // Limpiar formulario
         setSelectedClassId("");
-        setMatchDate("");
+        setEventDate("");
         setNotes("");
         setClassStudents([]);
         setStudentAttendances({});
@@ -204,19 +206,19 @@ export function MatchRegistrationModal({
         
         // Cerrar modal y notificar al componente padre
         onClose();
-        onMatchCreated();
+        onEventCreated();
       } else {
         toast({
           title: "❌ Error",
-          description: data.error || "No se pudo crear el partido",
+          description: data.error || "No se pudo crear el evento",
           variant: "destructive",
         });
       }
     } catch (error) {
-      console.error("Error creating match:", error);
+      console.error("Error creating event:", error);
       toast({
         title: "❌ Error",
-        description: "Error al crear el partido",
+        description: "Error al crear el evento",
         variant: "destructive",
       });
     } finally {
@@ -229,17 +231,17 @@ export function MatchRegistrationModal({
       if (!selectedClassId) {
         toast({
           title: "❌ Error",
-          description: "Por favor selecciona una clase de volleyball",
+          description: "Por favor selecciona una clase",
           variant: "destructive",
         });
         return;
       }
       setActiveTab("details");
     } else if (activeTab === "details") {
-      if (!matchDate) {
+      if (!eventDate) {
         toast({
           title: "❌ Error",
-          description: "Por favor selecciona la fecha del partido",
+          description: "Por favor selecciona la fecha del evento",
           variant: "destructive",
         });
         return;
@@ -259,10 +261,10 @@ export function MatchRegistrationModal({
   const handleClose = () => {
     if (!isLoading) {
       setSelectedClassId("");
-      setMatchDate("");
+      setEventDate("");
       setNotes("");
       setSearchTerm("");
-      setAllVolleyballClasses([]);
+      setAllClasses([]);
       setClassStudents([]);
       setStudentAttendances({});
       setActiveTab("class");
@@ -276,7 +278,7 @@ export function MatchRegistrationModal({
         <DialogHeader>
           <DialogTitle className="text-xl font-bold flex items-center gap-2">
             <TrophyIcon className="h-6 w-6 text-yellow-500" />
-            Registrar Partido de Volleyball
+            Registrar Evento
           </DialogTitle>
         </DialogHeader>
 
@@ -303,7 +305,7 @@ export function MatchRegistrationModal({
               let detailsTabClass = "text-xs bg-gray-600 text-gray-400";
               if (activeTab === "details") {
                 detailsTabClass = "text-xs bg-yellow-600 text-white";
-              } else if (matchDate) {
+              } else if (eventDate) {
                 detailsTabClass = "text-xs bg-green-600/20 text-green-400";
               }
               return (
@@ -333,7 +335,7 @@ export function MatchRegistrationModal({
             {/* Búsqueda de Clase */}
             <div className="space-y-2">
               <Label htmlFor="class-search" className="text-sm font-medium">
-                Buscar Clase de Volleyball *
+                Buscar Clase *
               </Label>
               <div className="relative">
                 <Input
@@ -341,7 +343,7 @@ export function MatchRegistrationModal({
                   type="text"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="Buscar por nombre de clase o profesor..."
+                  placeholder="Buscar por nombre, profesor o deporte..."
                   disabled={isLoading}
                   className="bg-gray-700 border-gray-600 text-white pr-10"
                 />
@@ -352,7 +354,7 @@ export function MatchRegistrationModal({
             {/* Lista de Clases Filtradas */}
             <div className="space-y-2">
               <Label className="text-sm font-medium">
-                Clases de Volleyball Disponibles ({filteredClasses.length}{searchTerm.trim() ? '/5' : '/3'})
+                Clases Disponibles ({filteredClasses.length}{searchTerm.trim() ? '/8' : '/5'})
               </Label>
               <div className="max-h-40 overflow-y-auto bg-gray-700/50 rounded-lg border border-gray-600 scrollbar-thin scrollbar-thumb-gray-500 scrollbar-track-gray-700">
                 {(() => {
@@ -360,7 +362,7 @@ export function MatchRegistrationModal({
                     return (
                       <div className="p-4 text-center text-gray-400">
                         <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-yellow-500 mx-auto mb-2"></div>
-                        Cargando clases de volleyball...
+                        Cargando clases...
                       </div>
                     );
                   }
@@ -368,7 +370,7 @@ export function MatchRegistrationModal({
                   if (filteredClasses.length === 0) {
                     const message = searchTerm 
                       ? "No se encontraron clases con ese criterio" 
-                      : "No hay clases de volleyball disponibles";
+                      : "No hay clases disponibles";
                     return (
                       <div className="p-4 text-center text-gray-400">
                         {message}
@@ -378,15 +380,17 @@ export function MatchRegistrationModal({
                   
                   // Verificar si hay más clases disponibles
                   const hasMoreClasses = searchTerm.trim() 
-                    ? volleyballClasses.filter(cls => {
+                    ? availableClasses.filter(cls => {
                         const term = searchTerm.toLowerCase();
-                        return cls.name.toLowerCase().includes(term) || cls.trainer.name.toLowerCase().includes(term);
-                      }).length > 5
-                    : volleyballClasses.length > 3;
+                        return cls.name.toLowerCase().includes(term) || 
+                               cls.trainer.name.toLowerCase().includes(term) ||
+                               cls.sport.toLowerCase().includes(term);
+                      }).length > 8
+                    : availableClasses.length > 5;
                   
                   return (
                     <div className="p-1 space-y-0.5 w-full">
-                      {filteredClasses.map((danceClass) => {
+                      {filteredClasses.map((eventClass) => {
                         // Mapear niveles para mostrar texto más amigable
                         const levelMap: { [key: string]: string } = {
                           'BEGINNER': 'Principiante',
@@ -394,32 +398,50 @@ export function MatchRegistrationModal({
                           'ADVANCED': 'Avanzado'
                         };
                         
-                        const displayLevel = levelMap[danceClass.level] || danceClass.level;
+                        // Mapear deportes para mostrar texto más amigable
+                        const sportMap: { [key: string]: string } = {
+                          'VOLLEYBALL': 'Volleyball',
+                          'BACHATA': 'Bachata',
+                          'SALSA': 'Salsa',
+                          'MERENGUE': 'Merengue',
+                          'REGGAETON': 'Reggaetón',
+                          'URBAN': 'Urbano'
+                        };
+                        
+                        const displayLevel = levelMap[eventClass.level] || eventClass.level;
+                        const displaySport = sportMap[eventClass.sport] || eventClass.sport;
                         
                         return (
                            <button
-                             key={danceClass.id}
+                             key={eventClass.id}
                              onClick={() => {
-                               setSelectedClassId(danceClass.id.toString());
-                               loadClassStudents(danceClass.id);
+                               setSelectedClassId(eventClass.id.toString());
+                               loadClassStudents(eventClass.id);
                              }}
                              disabled={isLoading}
                              className={`w-full text-left p-2 rounded-lg transition-all duration-200 overflow-hidden ${
-                               selectedClassId === danceClass.id.toString()
+                               selectedClassId === eventClass.id.toString()
                                  ? "bg-yellow-600/20 border-2 border-yellow-500/50 text-yellow-100"
                                  : "bg-gray-600/50 hover:bg-gray-600 text-white border border-transparent"
                              }`}
                            >
                              <div className="flex flex-col space-y-1 min-w-0 w-full">
-                               <span className="font-medium text-sm truncate w-full" title={danceClass.name}>
-                                 {danceClass.name.split(' - ')[0]}
+                               <span className="font-medium text-sm truncate w-full" title={eventClass.name}>
+                                 {eventClass.name.split(' - ')[0]}
                                </span>
                                <div className="flex items-center gap-2 w-full">
-                                 <span className="text-xs text-gray-400 truncate flex-1 min-w-0" title={danceClass.trainer.name}>
-                                   {danceClass.trainer.name}
+                                 <span className="text-xs text-gray-400 truncate flex-1 min-w-0" title={eventClass.trainer.name}>
+                                   {eventClass.trainer.name}
                                  </span>
                                  <span className="text-xs bg-blue-500/20 text-blue-300 px-1.5 py-0.5 rounded flex-shrink-0">
                                    {displayLevel}
+                                 </span>
+                                 <span className={`text-xs px-1.5 py-0.5 rounded flex-shrink-0 ${
+                                   eventClass.sport === 'VOLLEYBALL' 
+                                     ? 'bg-orange-500/20 text-orange-300' 
+                                     : 'bg-purple-500/20 text-purple-300'
+                                 }`}>
+                                   {displaySport}
                                  </span>
                                </div>
                              </div>
@@ -450,7 +472,18 @@ export function MatchRegistrationModal({
                 'ADVANCED': 'Avanzado'
               };
               
+              // Mapear deportes para mostrar texto más amigable
+              const sportMap: { [key: string]: string } = {
+                'VOLLEYBALL': 'Volleyball',
+                'BACHATA': 'Bachata',
+                'SALSA': 'Salsa',
+                'MERENGUE': 'Merengue',
+                'REGGAETON': 'Reggaetón',
+                'URBAN': 'Urbano'
+              };
+              
               const displayLevel = levelMap[selectedClass.level] || selectedClass.level;
+              const displaySport = sportMap[selectedClass.sport] || selectedClass.sport;
               
               return (
                 <div className="bg-yellow-600/10 border border-yellow-500/30 rounded-lg p-3 space-y-2">
@@ -459,8 +492,12 @@ export function MatchRegistrationModal({
                     <span className="font-medium text-yellow-400 text-sm truncate flex-1" title={selectedClass.name}>
                       {selectedClass.name.split(' - ')[0]}
                     </span>
-                    <span className="text-xs bg-yellow-500/20 text-yellow-300 px-2 py-1 rounded flex-shrink-0">
-                      VB
+                    <span className={`text-xs px-2 py-1 rounded flex-shrink-0 ${
+                      selectedClass.sport === 'VOLLEYBALL' 
+                        ? 'bg-orange-500/20 text-orange-300' 
+                        : 'bg-purple-500/20 text-purple-300'
+                    }`}>
+                      {displaySport}
                     </span>
                   </div>
                   <div className="flex items-center justify-between gap-2">
@@ -477,17 +514,17 @@ export function MatchRegistrationModal({
           </TabsContent>
 
           <TabsContent value="details" className="space-y-3 py-3">
-            {/* Fecha del Partido */}
+            {/* Fecha del Evento */}
             <div className="space-y-2">
-              <Label htmlFor="match-date" className="text-sm font-medium">
-                Fecha del Partido *
+              <Label htmlFor="event-date" className="text-sm font-medium">
+                Fecha del Evento *
               </Label>
               <div className="relative">
                 <Input
-                  id="match-date"
+                  id="event-date"
                   type="date"
-                  value={matchDate}
-                  onChange={(e) => setMatchDate(e.target.value)}
+                  value={eventDate}
+                  onChange={(e) => setEventDate(e.target.value)}
                   disabled={isLoading}
                   className="bg-gray-700 border-gray-600 text-white"
                 />
@@ -505,7 +542,7 @@ export function MatchRegistrationModal({
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 disabled={isLoading}
-                placeholder="Información adicional sobre el partido (opcional)"
+                placeholder="Información adicional sobre el evento (opcional)"
                 className="bg-gray-700 border-gray-600 text-white min-h-[80px]"
                 maxLength={500}
               />
@@ -614,7 +651,7 @@ export function MatchRegistrationModal({
               ) : (
                 <>
                   <TrophyIcon className="h-4 w-4 mr-2" />
-                  Registrar Partido
+                  Registrar Evento
                 </>
               )}
             </Button>

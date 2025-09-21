@@ -20,7 +20,17 @@ export async function GET(
     const receipt = await prisma.receipt.findUnique({
       where: { id: receiptId },
       include: {
-        student: true
+        student: {
+          include: {
+            classEnrollments: {
+              include: {
+                danceClass: {
+                  select: { sport: true }
+                }
+              }
+            }
+          }
+        }
       }
     });
 
@@ -39,6 +49,16 @@ export async function GET(
       return `${day}/${month}/${year}`;
     };
 
+    // Determinar el deporte del estudiante
+    const pickPrimarySport = (student: any): 'DANCE' | 'VOLLEYBALL' | null => {
+      if (!student.classEnrollments || student.classEnrollments.length === 0) return null;
+      const sports = [...new Set(student.classEnrollments.map((enrollment: any) => enrollment.danceClass.sport))];
+      if (sports.length === 0) return null;
+      return (sports.includes('DANCE') ? 'DANCE' : sports[0]) as any;
+    };
+
+    const sport = pickPrimarySport(receipt.student);
+
     // Calcular próximo pago (añadir 1 mes)
     const nextPaymentDate = new Date(receipt.createdAt);
     nextPaymentDate.setMonth(nextPaymentDate.getMonth() + 1);
@@ -53,7 +73,8 @@ export async function GET(
       paymentDate: formatDate(new Date(receipt.createdAt)),
       paymentMethod: receipt.paymentMethod,
       receivedBy: 'Sebastian Vasquez Correa',
-      nextPaymentDate: formatDate(nextPaymentDate)
+      nextPaymentDate: formatDate(nextPaymentDate),
+      sport: sport || 'DANCE' // Default a DANCE si no se puede determinar
     };
 
     return NextResponse.json({ receipt: receiptData });

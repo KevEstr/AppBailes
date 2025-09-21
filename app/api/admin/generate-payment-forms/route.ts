@@ -27,14 +27,12 @@ export async function POST(request: NextRequest) {
 
     // Generar pagos mensuales basados en configuración por deporte
     const payments = await monthlyPaymentService.generateMonthlyPayments(periodId);
-    // Generar o regenerar formularios para esos pagos pendientes
-    const forms = await monthlyPaymentService.generatePaymentForms(periodId, { regenerate: !!regenerate });
 
     return NextResponse.json({
       success: true,
-      generated: forms.length,
+      generated: payments.length,
       existing: 0,
-      message: regenerate ? `Se regeneraron ${forms.length} formularios.` : `Se generaron ${forms.length} formularios.`
+      message: `Se generaron ${payments.length} pagos pendientes. Los mensajes de WhatsApp se pueden enviar desde el panel de administración.`
     });
 
   } catch (error) {

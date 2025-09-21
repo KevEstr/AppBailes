@@ -32,7 +32,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { StudentTransferModal } from "./StudentTransferModal";
-import { MatchRegistrationModal } from "./MatchRegistrationModal";
+import { EventRegistrationModal } from "./EventRegistrationModal";
 
 interface Student {
   id: string;
@@ -169,8 +169,8 @@ export default function ClassAttendanceTikTok() {
   const [showTransferModal, setShowTransferModal] = useState(false);
   const [selectedStudentForTransfer, setSelectedStudentForTransfer] = useState<Student | null>(null);
 
-  // Estados para registro de partidos
-  const [showMatchModal, setShowMatchModal] = useState(false);
+  // Estados para registro de eventos
+  const [showEventModal, setShowEventModal] = useState(false);
 
   // Estados para validación de clases de otros profesores
   const [showReasonModal, setShowReasonModal] = useState(false);
@@ -870,7 +870,7 @@ export default function ClassAttendanceTikTok() {
     setSelectedStudentForTransfer(null);
   };
 
-  const handleMatchCreated = () => {
+  const handleEventCreated = () => {
     // Recargar las clases para mostrar cualquier cambio
     loadActiveClasses(false);
   };
@@ -1554,13 +1554,13 @@ export default function ClassAttendanceTikTok() {
                     {classesLoading ? '🔄 Cargando...' : '🔄 Recargar'}
                   </Button>
                   <Button
-                    onClick={() => setShowMatchModal(true)}
+                    onClick={() => setShowEventModal(true)}
                     variant="outline"
                     size="sm"
                     className="text-xs bg-yellow-600/20 border-yellow-500/30 text-yellow-400 hover:bg-yellow-600/30"
                   >
                     <TrophyIcon className="h-3 w-3 mr-1" />
-                    Registrar partido
+                    Registrar evento
                   </Button>
                 </div>
               </div>
@@ -2084,12 +2084,12 @@ export default function ClassAttendanceTikTok() {
         }}
       />
 
-      {/* Modal de Registro de Partidos */}
-      <MatchRegistrationModal
-        isOpen={showMatchModal}
-        onClose={() => setShowMatchModal(false)}
+      {/* Modal de Registro de Eventos */}
+      <EventRegistrationModal
+        isOpen={showEventModal}
+        onClose={() => setShowEventModal(false)}
         classes={classes}
-        onMatchCreated={handleMatchCreated}
+        onEventCreated={handleEventCreated}
       />
     </div>
   );

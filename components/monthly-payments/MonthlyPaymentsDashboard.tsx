@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { PaymentDashboard } from '@/components/monthly-payments/PaymentDashboard';
+import { PendingPaymentsDashboard } from '@/components/monthly-payments/PendingPaymentsDashboard';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -36,7 +37,8 @@ export function MonthlyPaymentsDashboard() {
   const [volleyballFee, setVolleyballFee] = useState<MonthlyFeeConfig | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [generatingForms, setGeneratingForms] = useState(false);
+  const [generatingPayments, setGeneratingPayments] = useState(false);
+  const [pendingStats, setPendingStats] = useState<any>(null);
 
   // Formulario de nueva mensualidad
   const [newFeeAmount, setNewFeeAmount] = useState('');
@@ -68,6 +70,18 @@ export function MonthlyPaymentsDashboard() {
     }
   };
 
+  const loadPendingStats = async (periodId: number) => {
+    try {
+      const response = await fetch(`/api/admin/monthly-payments/pending-stats?periodId=${periodId}`);
+      if (response.ok) {
+        const data = await response.json();
+        setPendingStats(data);
+      }
+    } catch (err) {
+      console.error('Error cargando estadísticas de pagos pendientes:', err);
+    }
+  };
+
   const loadPeriods = async () => {
     const response = await fetch('/api/admin/payment-periods');
     if (!response.ok) throw new Error('Error al cargar períodos');
@@ -78,6 +92,7 @@ export function MonthlyPaymentsDashboard() {
     // Seleccionar el período más reciente por defecto
     if (data.length > 0 && !selectedPeriod) {
       setSelectedPeriod(data[0].id);
+      loadPendingStats(data[0].id);
     }
   };
 
@@ -152,11 +167,11 @@ export function MonthlyPaymentsDashboard() {
     }
   };
 
-  const generatePaymentForms = async () => {
+  const generatePendingPayments = async () => {
     if (!selectedPeriod) return;
 
     try {
-      setGeneratingForms(true);
+      setGeneratingPayments(true);
       const response = await fetch('/api/admin/generate-payment-forms', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -171,12 +186,14 @@ export function MonthlyPaymentsDashboard() {
       const result = await response.json();
       alert(`✅ ${result.message}`);
       
-      // Recargar dashboard
-      window.location.reload();
+      // Recargar estadísticas
+      if (selectedPeriod) {
+        await loadPendingStats(selectedPeriod);
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al generar formularios');
+      setError(err instanceof Error ? err.message : 'Error al generar pagos pendientes');
     } finally {
-      setGeneratingForms(false);
+      setGeneratingPayments(false);
     }
   };
 
@@ -191,43 +208,15 @@ export function MonthlyPaymentsDashboard() {
   return (
     <div className="space-y-6">
       {/* Navegación rápida */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
         <Link href="/admin/monthly-payments/config">
           <Card className="border-0 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 transition-all cursor-pointer">
-            <CardContent className="p-4">
-              <div className="flex items-center space-x-3">
-                <Settings className="h-6 w-6 text-white" />
+            <CardContent className="p-6">
+              <div className="flex items-center space-x-4">
+                <Settings className="h-8 w-8 text-white" />
                 <div>
-                  <h3 className="text-white font-semibold">Configuración</h3>
-                  <p className="text-purple-100 text-sm">Valores y parámetros</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </Link>
-
-        <Link href="/admin/monthly-payments/periods">
-          <Card className="border-0 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 transition-all cursor-pointer">
-            <CardContent className="p-4">
-              <div className="flex items-center space-x-3">
-                <Calendar className="h-6 w-6 text-white" />
-                <div>
-                  <h3 className="text-white font-semibold">Períodos</h3>
-                  <p className="text-blue-100 text-sm">Gestionar períodos</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </Link>
-
-        <Link href="/admin/monthly-payments/review">
-          <Card className="border-0 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 transition-all cursor-pointer">
-            <CardContent className="p-4">
-              <div className="flex items-center space-x-3">
-                <Eye className="h-6 w-6 text-white" />
-                <div>
-                  <h3 className="text-white font-semibold">Comprobantes</h3>
-                  <p className="text-green-100 text-sm">Revisar pagos</p>
+                  <h3 className="text-white font-semibold text-lg">Configuración</h3>
+                  <p className="text-purple-100 text-sm">Valores y parámetros del sistema</p>
                 </div>
               </div>
             </CardContent>
@@ -236,12 +225,12 @@ export function MonthlyPaymentsDashboard() {
 
         <Link href="/admin/monthly-payments/scheduler">
           <Card className="border-0 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 transition-all cursor-pointer">
-            <CardContent className="p-4">
-              <div className="flex items-center space-x-3">
-                <Clock className="h-6 w-6 text-white" />
+            <CardContent className="p-6">
+              <div className="flex items-center space-x-4">
+                <Clock className="h-8 w-8 text-white" />
                 <div>
-                  <h3 className="text-white font-semibold">Scheduler</h3>
-                  <p className="text-indigo-100 text-sm">Envíos automáticos</p>
+                  <h3 className="text-white font-semibold text-lg">Scheduler</h3>
+                  <p className="text-indigo-100 text-sm">Envíos automáticos y programación</p>
                 </div>
               </div>
             </CardContent>
@@ -249,151 +238,83 @@ export function MonthlyPaymentsDashboard() {
         </Link>
 
         <Card className="border-0 bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 transition-all cursor-pointer">
-          <CardContent className="p-4">
-            <div className="flex items-center space-x-3">
-              <FileText className="h-6 w-6 text-white" />
+          <CardContent className="p-6">
+            <div className="flex items-center space-x-4">
+              <FileText className="h-8 w-8 text-white" />
               <div>
-                <h3 className="text-white font-semibold">Reportes</h3>
-                <p className="text-orange-100 text-sm">Análisis y stats</p>
+                <h3 className="text-white font-semibold text-lg">Reportes</h3>
+                <p className="text-orange-100 text-sm">Análisis y estadísticas</p>
               </div>
             </div>
           </CardContent>
         </Card>
-      </div>
+      </div>      
 
-      {/* Acciones rápidas */}
-      <div className="flex gap-4 justify-end">
+      {/* Estadísticas de pagos pendientes */}
+      {pendingStats && (
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <Card className="bg-gray-800/90 border-gray-600">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-white">
+                <Users className="h-5 w-5 text-blue-400" />
+                Total Estudiantes
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-blue-400">
+                {pendingStats.totalStudents}
+              </div>
+            </CardContent>
+          </Card>
 
-        <Dialog>
-          <DialogTrigger asChild>
-            <Button 
-              variant="outline"
-              className="bg-gray-800/90 border-gray-600 text-white hover:bg-gray-700 hover:border-gray-500"
-            >
-              <Settings className="h-4 w-4 mr-2" />
-              Configurar Mensualidad
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="bg-gray-800 border-gray-600">
-            <DialogHeader>
-              <DialogTitle className="text-white">Configurar Valor de Mensualidad</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="sport" className="text-gray-300">Deporte</Label>
-                <Select value={newFeeSport} onValueChange={(v) => setNewFeeSport(v as any)}>
-                  <SelectTrigger className="bg-gray-700 border-gray-600 text-white">
-                    <SelectValue placeholder="Selecciona un deporte" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-gray-800 border-gray-600">
-                    <SelectItem value="DANCE" className="text-white hover:bg-gray-700">Baile</SelectItem>
-                    <SelectItem value="VOLLEYBALL" className="text-white hover:bg-gray-700">Voleibol</SelectItem>
-                  </SelectContent>
-                </Select>
+          <Card className="bg-gray-800/90 border-gray-600">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-white">
+                <DollarSign className="h-5 w-5 text-green-400" />
+                Monto Esperado
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-green-400">
+                {formatCurrency(pendingStats.totalExpected)}
               </div>
-              <div>
-                <Label htmlFor="amount" className="text-gray-300">Monto mensual</Label>
-                <Input
-                  id="amount"
-                  type="number"
-                  value={newFeeAmount}
-                  onChange={(e) => setNewFeeAmount(e.target.value)}
-                  placeholder="150000"
-                  className="bg-gray-700 border-gray-600 text-white"
-                />
-              </div>
-              <div>
-                <Label htmlFor="description" className="text-gray-300">Descripción (opcional)</Label>
-                <Input
-                  id="description"
-                  value={newFeeDescription}
-                  onChange={(e) => setNewFeeDescription(e.target.value)}
-                  placeholder="Mensualidad 2024"
-                  className="bg-gray-700 border-gray-600 text-white"
-                />
-              </div>
-              <Button 
-                onClick={updateMonthlyFee}
-                disabled={updatingFee || !newFeeAmount || !newFeeSport}
-                className="w-full bg-blue-600 hover:bg-blue-700"
-              >
-                {updatingFee ? 'Actualizando...' : 'Actualizar Mensualidad'}
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+            </CardContent>
+          </Card>
 
-        <Dialog>
-          <DialogTrigger asChild>
-            <Button className="bg-blue-600 hover:bg-blue-700">
-              <Plus className="h-4 w-4 mr-2" />
-              Nuevo Período
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="bg-gray-800 border-gray-600">
-            <DialogHeader>
-              <DialogTitle className="text-white">Crear Nuevo Período</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="year" className="text-gray-300">Año</Label>
-                  <Input
-                    id="year"
-                    type="number"
-                    value={newPeriodYear}
-                    onChange={(e) => setNewPeriodYear(e.target.value)}
-                    className="bg-gray-700 border-gray-600 text-white"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="month" className="text-gray-300">Mes</Label>
-                  <Select value={newPeriodMonth} onValueChange={setNewPeriodMonth}>
-                    <SelectTrigger className="bg-gray-700 border-gray-600 text-white">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="bg-gray-800 border-gray-600">
-                      {Array.from({ length: 12 }, (_, i) => (
-                        <SelectItem 
-                          key={i + 1} 
-                          value={(i + 1).toString()}
-                          className="text-white hover:bg-gray-700"
-                        >
-                          {new Date(2024, i).toLocaleString('es', { month: 'long' })}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+          <Card className="bg-gray-800/90 border-gray-600">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-white">
+                <CheckCircle className="h-5 w-5 text-emerald-400" />
+                Monto Recaudado
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-emerald-400">
+                {formatCurrency(pendingStats.totalCollected)}
               </div>
-              <div>
-                <Label htmlFor="dueDate" className="text-gray-300">Fecha de vencimiento</Label>
-                <Input
-                  id="dueDate"
-                  type="date"
-                  value={newPeriodDueDate}
-                  onChange={(e) => setNewPeriodDueDate(e.target.value)}
-                  className="bg-gray-700 border-gray-600 text-white"
-                />
-              </div>
-              <Button 
-                onClick={createPeriod} 
-                disabled={creatingPeriod || !newPeriodDueDate}
-                className="w-full bg-blue-600 hover:bg-blue-700"
-              >
-                {creatingPeriod ? 'Creando...' : 'Crear Período'}
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
-      </div>
+              <p className="text-xs text-gray-400">
+                {pendingStats.collectionRate.toFixed(1)}% recaudado
+              </p>
+            </CardContent>
+          </Card>
 
-      {error && (
-        <Card className="bg-red-900/50 border-red-600">
-          <CardContent className="p-4">
-            <p className="text-red-300">⚠️ {error}</p>
-          </CardContent>
-        </Card>
+          <Card className="bg-gray-800/90 border-gray-600">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-white">
+                <Clock className="h-5 w-5 text-yellow-400" />
+                Pagos Pendientes
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-yellow-400">
+                {pendingStats.pendingCount}
+              </div>
+              <p className="text-xs text-gray-400">
+                {pendingStats.overdueCount} vencidos
+              </p>
+            </CardContent>
+          </Card>
+        </div>
       )}
 
       {/* Configuración actual */}
@@ -437,7 +358,11 @@ export function MonthlyPaymentsDashboard() {
           <CardContent>
             <Select 
               value={selectedPeriod?.toString() || ''} 
-              onValueChange={(value) => setSelectedPeriod(parseInt(value))}
+              onValueChange={(value) => {
+                const periodId = parseInt(value);
+                setSelectedPeriod(periodId);
+                loadPendingStats(periodId);
+              }}
             >
               <SelectTrigger className="bg-gray-700 border-gray-600 text-white">
                 <SelectValue placeholder="Seleccionar período" />
@@ -464,30 +389,93 @@ export function MonthlyPaymentsDashboard() {
               Acciones Rápidas
             </CardTitle>
           </CardHeader>
-          <CardContent className="gap-2 flex items-center justify-between">
-            <Button 
-              onClick={generatePaymentForms}
-              disabled={!selectedPeriod || generatingForms}
-              className="w-full bg-green-600 hover:bg-green-700"
-              size="sm"
-            >
-              <FileText className="h-4 w-4 mr-2" />
-              {generatingForms ? 'Generando...' : 'Generar Formularios'}
-            </Button>
-            <Button 
-              asChild
-              variant="outline"
-              className="w-full bg-gray-700 border-gray-600 text-white hover:bg-gray-600"
-              size="sm"
-            >
-              <Link href="/admin/monthly-payments/review">
-                <CheckCircle className="h-4 w-4 mr-2" />
-                Ver Comprobantes
-              </Link>
-            </Button>
+          <CardContent>
+            <div className="flex flex-col sm:flex-row gap-3">
+              <Button 
+                onClick={generatePendingPayments}
+                disabled={!selectedPeriod || generatingPayments}
+                className="flex-1 bg-green-600 hover:bg-green-700"
+                size="sm"
+              >
+                <FileText className="h-4 w-4 mr-2" />
+                {generatingPayments ? 'Generando...' : 'Generar Pagos Pendientes'}
+              </Button>
+
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button 
+                    className="flex-1 bg-blue-600 hover:bg-blue-700"
+                    size="sm"
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Nuevo Período
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="bg-gray-800 border-gray-600">
+                  <DialogHeader>
+                    <DialogTitle className="text-white">Crear Nuevo Período</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="year" className="text-gray-300">Año</Label>
+                        <Input
+                          id="year"
+                          type="number"
+                          value={newPeriodYear}
+                          onChange={(e) => setNewPeriodYear(e.target.value)}
+                          className="bg-gray-700 border-gray-600 text-white"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="month" className="text-gray-300">Mes</Label>
+                        <Select value={newPeriodMonth} onValueChange={setNewPeriodMonth}>
+                          <SelectTrigger className="bg-gray-700 border-gray-600 text-white">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="bg-gray-800 border-gray-600">
+                            {Array.from({ length: 12 }, (_, i) => (
+                              <SelectItem 
+                                key={i + 1} 
+                                value={(i + 1).toString()}
+                                className="text-white hover:bg-gray-700"
+                              >
+                                {new Date(2024, i).toLocaleString('es', { month: 'long' })}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <div>
+                      <Label htmlFor="dueDate" className="text-gray-300">Fecha de vencimiento</Label>
+                      <Input
+                        id="dueDate"
+                        type="date"
+                        value={newPeriodDueDate}
+                        onChange={(e) => setNewPeriodDueDate(e.target.value)}
+                        className="bg-gray-700 border-gray-600 text-white"
+                      />
+                    </div>
+                    <Button 
+                      onClick={createPeriod} 
+                      disabled={creatingPeriod || !newPeriodDueDate}
+                      className="w-full bg-blue-600 hover:bg-blue-700"
+                    >
+                      {creatingPeriod ? 'Creando...' : 'Crear Período'}
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </div>
           </CardContent>
         </Card>
       </div>
+
+      {/* Pagos pendientes */}
+      {selectedPeriod && (
+        <PendingPaymentsDashboard periodId={selectedPeriod} />
+      )}
 
       {/* Dashboard de pagos */}
       {selectedPeriod && (

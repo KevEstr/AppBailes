@@ -28,7 +28,6 @@ import {
   Clock,
   User,
   Calendar,
-  DollarSign,
   Phone,
   Mail,
   RefreshCw,
@@ -147,7 +146,8 @@ export function PaymentProofReview() {
     // Determinar el monto esperado según el tipo de pago
     let expectedAmount = 0;
     if (proof.paymentForm) {
-      expectedAmount = proof.paymentForm.monthlyPayment.expectedAmount;
+      // Usar el monto del formulario (ya con descuento aplicado si corresponde)
+      expectedAmount = proof.paymentForm.amount;
     } else if (proof.enrollmentPaymentForm) {
       expectedAmount = proof.enrollmentPaymentForm.enrollmentPayment.expectedAmount;
     }
@@ -291,7 +291,7 @@ export function PaymentProofReview() {
         name: proof.paymentForm.studentName,
         type: 'MONTHLY',
         period: proof.paymentForm.period.name,
-        expectedAmount: proof.paymentForm.monthlyPayment.expectedAmount
+        expectedAmount: proof.paymentForm.amount
       };
     } else if (proof.enrollmentPaymentForm) {
       return {
@@ -398,10 +398,10 @@ export function PaymentProofReview() {
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <CardTitle className="text-lg text-white mb-1">
-                        {proof.paymentForm.studentName}
+                        {proof.paymentForm?.studentName || ""}
                       </CardTitle>
                       <p className="text-sm text-gray-400 mb-2">
-                        {proof.paymentForm.period.name}
+                        {proof.paymentForm?.period.name || ""}
                       </p>
                       <div className="flex items-center gap-2 text-xs text-gray-500">
                         <Calendar className="h-3 w-3" />
@@ -444,9 +444,7 @@ export function PaymentProofReview() {
                           Monto esperado:
                         </span>
                         <span className="text-white font-medium">
-                          {formatCurrency(
-                            proof.paymentForm.monthlyPayment.expectedAmount
-                          )}
+                          {formatCurrency(proof.paymentForm?.amount || 0)}
                         </span>
                       </div>
                       <div>
@@ -493,10 +491,10 @@ export function PaymentProofReview() {
                       <DialogHeader className="pb-4 border-b border-gray-600">
                         <DialogTitle className="text-xl font-bold text-white">
                           Revisar Comprobante -{" "}
-                          {selectedProof?.paymentForm.studentName}
+                          {selectedProof?.paymentForm?.studentName || ''}
                         </DialogTitle>
                         <div className="flex flex-wrap items-center gap-4 text-sm text-gray-300 mt-2">
-                          <span>{selectedProof?.paymentForm.period.name}</span>
+                          <span>{selectedProof?.paymentForm?.period.name || ''}</span>
                           <span>•</span>
                           <span>
                             {selectedProof &&
@@ -613,8 +611,7 @@ export function PaymentProofReview() {
                                     </span>
                                     <span className="text-white font-medium">
                                       {formatCurrency(
-                                        selectedProof.paymentForm.monthlyPayment
-                                          .expectedAmount
+                                        selectedProof.paymentForm?.amount || 0
                                       )}
                                     </span>
                                   </div>
@@ -637,10 +634,8 @@ export function PaymentProofReview() {
                                     </span>
                                   </div>
                                   {(() => {
-                                    const difference =
-                                      selectedProof.amount -
-                                      selectedProof.paymentForm.monthlyPayment
-                                        .expectedAmount;
+                                    const expected = selectedProof.paymentForm?.amount || 0;
+                                    const difference = selectedProof.amount - expected;
                                     if (Math.abs(difference) >= 0.01) {
                                       return (
                                         <div className="flex justify-between text-sm pt-2 border-t border-gray-600">
@@ -720,10 +715,7 @@ export function PaymentProofReview() {
                                       placeholder="Monto a aprobar"
                                       className="bg-gray-700 border-gray-600 text-white placeholder:text-gray-400"
                                       min="0"
-                                      max={
-                                        selectedProof.paymentForm.monthlyPayment
-                                          .expectedAmount
-                                      }
+                                      max={selectedProof.paymentForm?.amount ?? 0}
                                       step="0.01"
                                     />
                                   </>

@@ -167,45 +167,37 @@ export function DigitalReceipt({ data, isPreview = false }: DigitalReceiptProps)
               </div>
             </div>
 
-            {/* Información del pago */}
-            <div className="grid grid-cols-2 gap-8">
-              {/* Datos del estudiante */}
+            {/* Información del pago - Estructura como en la imagen */}
+            <div className="text-center space-y-6">
+              {/* Texto principal del recibo */}
               <div className="space-y-4">
-                <div className="p-4 rounded-lg" style={{
-                  background: 'linear-gradient(135deg, rgba(0, 212, 255, 0.1) 0%, rgba(255, 204, 0, 0.1) 100%)',
-                  border: '1px solid rgba(0, 212, 255, 0.3)'
-                }}>
-                  <h2 className="text-lg font-bold mb-2" style={{ color: '#00d4ff' }}>Información del Estudiante</h2>
-                  <p className="text-xl font-bold text-white mb-2">{data.studentName}</p>
-                  <p className="text-cyan-300">{data.concept}</p>
-                </div>
+                <p className="text-2xl font-bold" style={{ color: '#00d4ff' }}>
+                  EL SOCIO {data.studentName}
+                </p>
+                <p className="text-2xl font-bold" style={{ color: '#00d4ff' }}>
+                  HA SATISFECHO LA CANTIDAD DE $ ${data.amount.toLocaleString()}
+                </p>
+                <p className="text-2xl font-bold" style={{ color: '#00d4ff' }}>
+                  CORRESPONDIENTE A LA FECHA DE {data.paymentDate}
+                </p>
+                <p className="text-2xl font-bold" style={{ color: '#00d4ff' }}>
+                  POR CONCEPTO DE {data.concept}
+                </p>
               </div>
 
-              {/* Detalles del pago */}
-              <div className="space-y-4">
-                <div className="p-4 rounded-lg" style={{
-                  background: 'linear-gradient(135deg, rgba(255, 204, 0, 0.1) 0%, rgba(0, 212, 255, 0.1) 100%)',
-                  border: '1px solid rgba(255, 204, 0, 0.3)'
-                }}>
-                  <h2 className="text-lg font-bold mb-2" style={{ color: '#ffcc00' }}>Detalles del Pago</h2>
-                  <div className="space-y-2">
-                    <div className="flex justify-between">
-                      <span>Monto:</span>
-                      <span className="font-bold">${data.amount.toLocaleString()}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Fecha:</span>
-                      <span>{data.paymentDate}</span>
-                    </div>
-                    {data.nextPaymentDate && (
-                      <div className="flex justify-between text-orange-300">
-                        <span>Próximo pago:</span>
-                        <span>{data.nextPaymentDate}</span>
-                      </div>
-                    )}
+              {/* Fecha del próximo pago */}
+              {data.nextPaymentDate && (
+                <div className="mt-8">
+                  <div className="inline-block px-6 py-3 rounded-full" style={{
+                    background: 'linear-gradient(135deg, rgba(0, 212, 255, 0.2) 0%, rgba(255, 204, 0, 0.2) 100%)',
+                    border: '2px solid #00d4ff'
+                  }}>
+                    <p className="text-lg font-bold" style={{ color: '#00d4ff' }}>
+                      FECHA DEL PRÓXIMO PAGO {data.nextPaymentDate}
+                    </p>
                   </div>
                 </div>
-              </div>
+              )}
             </div>
 
             {/* Pie del recibo */}

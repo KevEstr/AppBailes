@@ -25,7 +25,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -35,18 +34,14 @@ import {
   Power,
   PowerOff,
   Trash2,
-  MapPin,
   Users,
-  GraduationCap,
   Calendar,
   Phone,
   Mail,
   IdCard,
-  Heart,
   AlertTriangle,
   UserPlus,
-  ChevronLeft,
-  ChevronRight,
+  Download,
 } from "lucide-react";
 import { StudentDetailModal } from "@/components/student-detail-modal";
 import EditStudentModal from "@/components/edit-student-modal";
@@ -120,6 +115,7 @@ export function StudentsManagement() {
     useState<ClassEnrollment | null>(null);
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
 
   const { toast } = useToast();
 
@@ -311,13 +307,6 @@ export function StudentsManagement() {
     }
   };
 
-  const getClassTypeIcon = (sport: string) => {
-    return sport === "DANCE" ? (
-      <GraduationCap className="w-4 h-4" />
-    ) : (
-      <Users className="w-4 h-4" />
-    );
-  };
 
   const getClassTypeBadge = (sport: string) => {
     console.log('Sport type:', sport) 
@@ -330,6 +319,56 @@ export function StudentsManagement() {
         Deporte
       </Badge>
     );
+  };
+
+  const handleExportStudentsExcel = async () => {
+    try {
+      setIsDownloading(true);
+      const response = await fetch('/api/students/export-excel', {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Error al exportar estudiantes');
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      
+      const contentDisposition = response.headers.get('content-disposition');
+      let filename = 'estudiantes.xlsx';
+      if (contentDisposition) {
+        const filenameRegex = /filename="(.+)"/;
+        const filenameMatch = filenameRegex.exec(contentDisposition);
+        if (filenameMatch) {
+          filename = filenameMatch[1];
+        }
+      }
+      
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      toast({
+        title: "✅ Archivo descargado",
+        description: `Archivo ${filename} descargado exitosamente`
+      });
+    } catch (error) {
+      console.error('Error downloading students Excel file:', error);
+      toast({
+        title: "❌ Error",
+        description: error instanceof Error ? error.message : 'Error al descargar archivo Excel',
+        variant: "destructive",
+      });
+    } finally {
+      setIsDownloading(false);
+    }
   };
 
   return (
@@ -443,13 +482,38 @@ export function StudentsManagement() {
                   <Search className="w-4 h-4 mr-2" />
                   Buscar
                 </Button>
-                <Button
-                  onClick={() => window.open("/enrollment", "_blank")}
-                  className="bg-green-600 hover:bg-green-700"
-                >
-                  <UserPlus className="w-4 h-4 mr-2" />
-                  Nueva Inscripción
-                </Button>
+                <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                  <Button
+                    onClick={handleExportStudentsExcel}
+                    disabled={isDownloading}
+                    variant="outline"
+                    size="sm"
+                    className="border-green-600 text-green-400 hover:bg-green-900/50 px-3 py-2 rounded-lg text-xs font-medium flex-1 sm:flex-none"
+                  >
+                    {isDownloading ? (
+                      <>
+                        <div className="w-3 h-3 border-2 border-green-400 border-t-transparent rounded-full animate-spin mr-1" />
+                        <span className="hidden sm:inline">Descargando...</span>
+                        <span className="sm:hidden">...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Download className="h-3 w-3 mr-1" />
+                        <span className="hidden sm:inline">Exportar Excel</span>
+                        <span className="sm:hidden">Excel</span>
+                      </>
+                    )}
+                  </Button>
+                  <Button
+                    onClick={() => window.open("/enrollment", "_blank")}
+                    size="sm"
+                    className="bg-green-600 hover:bg-green-700 px-3 py-2 rounded-lg text-xs font-medium flex-1 sm:flex-none"
+                  >
+                    <UserPlus className="w-3 h-3 mr-1" />
+                    <span className="hidden sm:inline">Nueva Inscripción</span>
+                    <span className="sm:hidden">Nueva</span>
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>

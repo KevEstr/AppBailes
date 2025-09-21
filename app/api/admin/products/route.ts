@@ -50,11 +50,24 @@ export async function GET(request: NextRequest) {
       where.stock = 0
     }
 
-    // Obtener productos con paginación
+    // Obtener productos con paginación e ingredientes
     const productDelegate = (prisma as any).product
     const [products, totalCount] = await Promise.all([
       productDelegate.findMany({
         where,
+        include: {
+          compositeIngredients: {
+            include: {
+              ingredient: {
+                select: {
+                  id: true,
+                  name: true,
+                  stock: true
+                }
+              }
+            }
+          }
+        },
         orderBy: {
           createdAt: "desc"
         },
@@ -96,10 +109,10 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { name, description, price, stock, imageUrl, category } = body
+    const { name, description, price, stock, imageUrl, category, productType, allowNegativeStock, ingredients } = body
 
     // Validaciones
-    if (!name || !price || stock === undefined || !category) {
+    if (!name || !price || !category || !productType) {
       return NextResponse.json(
         { error: "Todos los campos obligatorios deben estar presentes" },
         { status: 400 }
@@ -113,29 +126,58 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    if (stock < 0) {
-      return NextResponse.json(
-        { error: "El stock no puede ser negativo" },
-        { status: 400 }
-      )
+    // Solo validar stock para productos simples
+    if (productType === "SIMPLE") {
+      if (stock === undefined || stock < 0) {
+        return NextResponse.json(
+          { error: "El stock es obligatorio y no puede ser negativo para productos simples" },
+          { status: 400 }
+        )
+      }
     }
 
-    // Crear producto
-    const productDelegate = (prisma as any).product
-    const product = await productDelegate.create({
-      data: {
+    // Crear producto con transacción para ingredientes
+    const result = await prisma.$transaction(async (tx) => {
+      // Preparar datos del producto
+      const productData: any = {
         name,
         description,
         price: parseFloat(price),
-        stock: parseInt(stock),
         imageUrl,
-        category
+        category,
+        productType,
+        allowNegativeStock: productType === "SIMPLE" 
+          ? (allowNegativeStock ?? true) 
+          : false
       }
+
+      // Solo incluir stock para productos simples
+      if (productType === "SIMPLE") {
+        productData.stock = parseFloat(stock)
+      }
+
+      const product = await tx.product.create({
+        data: productData
+      })
+
+      // Si es un producto compuesto, crear los ingredientes
+      if (productType === "COMPOSITE" && ingredients && ingredients.length > 0) {
+        await tx.productIngredient.createMany({
+          data: ingredients.map((ingredient: any) => ({
+            compositeProductId: product.id,
+            ingredientId: parseInt(ingredient.ingredientId),
+            quantity: parseFloat(ingredient.quantity),
+            unit: ingredient.unit || null
+          }))
+        })
+      }
+
+      return product
     })
 
     return NextResponse.json({
       success: true,
-      product,
+      product: result,
       message: "Producto creado exitosamente"
     })
   } catch (error) {

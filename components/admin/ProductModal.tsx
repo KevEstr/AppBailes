@@ -6,8 +6,18 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
-import { Loader2, Upload, Image as ImageIcon } from "lucide-react"
+import { Loader2, Upload, Image as ImageIcon, Package } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
+import { ProductIngredientsModal } from "./ProductIngredientsModal"
+
+interface Ingredient {
+  id?: number
+  ingredientId: number
+  ingredientName: string
+  quantity: number
+  unit?: string
+  currentStock?: number
+}
 
 interface Product {
   id?: number
@@ -17,7 +27,10 @@ interface Product {
   stock: number
   imageUrl?: string
   category: string
+  productType: "SIMPLE" | "COMPOSITE"
+  allowNegativeStock: boolean
   isActive: boolean
+  ingredients?: Ingredient[]
 }
 
 interface ProductModalProps {
@@ -36,12 +49,17 @@ export function ProductModal({ isOpen, product, isLoading, onSave, onClose }: Pr
     stock: 0,
     imageUrl: "",
     category: "SNACKS",
-    isActive: true
+    productType: "SIMPLE",
+    allowNegativeStock: true,
+    isActive: true,
+    ingredients: []
   })
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
+  const [showIngredientsModal, setShowIngredientsModal] = useState(false)
+  const [stockInput, setStockInput] = useState("")
 
   useEffect(() => {
     if (product) {
@@ -53,10 +71,14 @@ export function ProductModal({ isOpen, product, isLoading, onSave, onClose }: Pr
         stock: product.stock,
         imageUrl: product.imageUrl || "",
         category: product.category,
-        isActive: product.isActive
+        productType: product.productType ?? "SIMPLE",
+        allowNegativeStock: product.allowNegativeStock !== undefined ? product.allowNegativeStock : true,
+        isActive: product.isActive,
+        ingredients: product.ingredients || []
       })
       setImagePreviewUrl(product.imageUrl || null)
       setImageFile(null)
+      setStockInput(product.stock?.toString() || "0")
     } else {
       setFormData({
         name: "",
@@ -65,10 +87,14 @@ export function ProductModal({ isOpen, product, isLoading, onSave, onClose }: Pr
         stock: 0,
         imageUrl: "",
         category: "SNACKS",
-        isActive: true
+        productType: "SIMPLE",
+        allowNegativeStock: true,
+        isActive: true,
+        ingredients: []
       })
       setImagePreviewUrl(null)
       setImageFile(null)
+      setStockInput("0")
     }
     setErrors({})
   }, [product, isOpen])
@@ -84,12 +110,23 @@ export function ProductModal({ isOpen, product, isLoading, onSave, onClose }: Pr
       newErrors.price = "El precio debe ser mayor a 0"
     }
 
-    if (formData.stock < 0) {
-      newErrors.stock = "El stock no puede ser negativo"
+    // Solo validar stock para productos simples
+    if (formData.productType === "SIMPLE") {
+      if (formData.stock < 0) {
+        newErrors.stock = "El stock no puede ser negativo"
+      }
     }
 
     if (!formData.category) {
       newErrors.category = "La categoría es obligatoria"
+    }
+
+    if (!formData.productType) {
+      newErrors.productType = "El tipo de producto es obligatorio"
+    }
+
+    if (formData.productType === "COMPOSITE" && (!formData.ingredients || formData.ingredients.length === 0)) {
+      newErrors.ingredients = "Los productos compuestos deben tener al menos un ingrediente"
     }
 
     setErrors(newErrors)
@@ -124,7 +161,12 @@ export function ProductModal({ isOpen, product, isLoading, onSave, onClose }: Pr
         setUploading(false)
       }
 
-      onSave({ ...formData, imageUrl: imageUrlToUse })
+      // Para productos compuestos, no enviar stock
+      const productData = { ...formData, imageUrl: imageUrlToUse }
+      if (formData.productType === "COMPOSITE") {
+        delete productData.stock
+      }
+      onSave(productData)
     } finally {
       // no-op
     }
@@ -164,6 +206,22 @@ export function ProductModal({ isOpen, product, isLoading, onSave, onClose }: Pr
     setImagePreviewUrl(URL.createObjectURL(file))
     if (errors.imageUrl) {
       setErrors(prev => ({ ...prev, imageUrl: "" }))
+    }
+  }
+
+  const handleIngredientsSave = (ingredients: Ingredient[]) => {
+    setFormData(prev => ({
+      ...prev,
+      ingredients
+    }))
+    setShowIngredientsModal(false)
+    
+    // Limpiar error de ingredientes
+    if (errors.ingredients) {
+      setErrors(prev => ({
+        ...prev,
+        ingredients: ""
+      }))
     }
   }
 
@@ -207,6 +265,26 @@ export function ProductModal({ isOpen, product, isLoading, onSave, onClose }: Pr
             />
           </div>
 
+          {/* Tipo de Producto */}
+          <div className="space-y-2">
+            <Label htmlFor="productType" className="text-gray-200">Tipo de Producto *</Label>
+            <Select
+              value={formData.productType}
+              onValueChange={(value) => handleInputChange("productType", value)}
+            >
+              <SelectTrigger className={`bg-gray-700 border-gray-600 text-white ${errors.productType ? "border-red-500" : ""}`}>
+                <SelectValue placeholder="Seleccionar tipo" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="SIMPLE">Producto Simple</SelectItem>
+                <SelectItem value="COMPOSITE">Producto Compuesto</SelectItem>
+              </SelectContent>
+            </Select>
+            {errors.productType && (
+              <p className="text-sm text-red-500">{errors.productType}</p>
+            )}
+          </div>
+
           {/* Precio y Stock */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
@@ -226,21 +304,35 @@ export function ProductModal({ isOpen, product, isLoading, onSave, onClose }: Pr
               )}
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="stock" className="text-gray-200">Stock *</Label>
-              <Input
-                id="stock"
-                type="number"
-                min="0"
-                value={formData.stock}
-                onChange={(e) => handleInputChange("stock", parseInt(e.target.value) || 0)}
-                placeholder="0"
-                className={`bg-gray-700 border-gray-600 text-white placeholder:text-gray-400 ${errors.stock ? "border-red-500" : ""}`}
-              />
-              {errors.stock && (
-                <p className="text-sm text-red-500">{errors.stock}</p>
-              )}
-            </div>
+            {/* Solo mostrar stock para productos simples */}
+            {formData.productType === "SIMPLE" && (
+              <div className="space-y-2">
+                <Label htmlFor="stock" className="text-gray-200">Stock *</Label>
+                <Input
+                  id="stock"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={stockInput}
+                  onChange={(e) => {
+                    const value = e.target.value
+                    setStockInput(value)
+                    
+                    if (value === "" || value === ".") {
+                      handleInputChange("stock", 0)
+                    } else {
+                      const numValue = parseFloat(value)
+                      handleInputChange("stock", isNaN(numValue) ? 0 : numValue)
+                    }
+                  }}
+                  placeholder="0.00"
+                  className={`bg-gray-700 border-gray-600 text-white placeholder:text-gray-400 ${errors.stock ? "border-red-500" : ""}`}
+                />
+                {errors.stock && (
+                  <p className="text-sm text-red-500">{errors.stock}</p>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Categoría */}
@@ -297,14 +389,62 @@ export function ProductModal({ isOpen, product, isLoading, onSave, onClose }: Pr
             </div>
           </div>
 
-          {/* Estado Activo */}
-          <div className="flex items-center space-x-2">
-            <Switch
-              id="isActive"
-              checked={formData.isActive}
-              onCheckedChange={(checked) => handleInputChange("isActive", checked)}
-            />
-            <Label htmlFor="isActive" className="text-gray-200">Producto Activo</Label>
+          {/* Ingredientes para productos compuestos */}
+          {formData.productType === "COMPOSITE" && (
+            <div className="space-y-2">
+              <Label className="text-gray-200">Ingredientes *</Label>
+              <div className="p-4 border border-gray-600 rounded-lg bg-gray-700/50">
+                {formData.ingredients && formData.ingredients.length > 0 ? (
+                  <div className="space-y-2">
+                    {formData.ingredients.map((ingredient, index) => (
+                      <div key={`ingredient-${ingredient.ingredientId}-${index}`} className="flex items-center justify-between p-2 bg-gray-600 rounded">
+                        <span className="text-white">
+                          {ingredient.ingredientName} - {ingredient.quantity} {ingredient.unit || 'unidades'}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-gray-400 text-sm">No hay ingredientes agregados</p>
+                )}
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowIngredientsModal(true)}
+                  className="mt-2 border-gray-600 text-gray-200"
+                >
+                  <Package className="h-4 w-4 mr-2" />
+                  {formData.ingredients && formData.ingredients.length > 0 ? 'Editar Ingredientes' : 'Agregar Ingredientes'}
+                </Button>
+              </div>
+              {errors.ingredients && (
+                <p className="text-sm text-red-500">{errors.ingredients}</p>
+              )}
+            </div>
+          )}
+
+          {/* Configuraciones */}
+          <div className="space-y-4">
+            {/* Solo mostrar configuración de stock negativo para productos simples */}
+            {formData.productType === "SIMPLE" && (
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="allowNegativeStock"
+                  checked={formData.allowNegativeStock}
+                  onCheckedChange={(checked) => handleInputChange("allowNegativeStock", checked)}
+                />
+                <Label htmlFor="allowNegativeStock" className="text-gray-200">Permitir Stock Negativo</Label>
+              </div>
+            )}
+
+            <div className="flex items-center space-x-2">
+              <Switch
+                id="isActive"
+                checked={formData.isActive}
+                onCheckedChange={(checked) => handleInputChange("isActive", checked)}
+              />
+              <Label htmlFor="isActive" className="text-gray-200">Producto Activo</Label>
+            </div>
           </div>
 
           {/* Botones */}
@@ -328,6 +468,16 @@ export function ProductModal({ isOpen, product, isLoading, onSave, onClose }: Pr
             </Button>
           </div>
         </form>
+
+        {/* Modal de Ingredientes */}
+        {showIngredientsModal && (
+          <ProductIngredientsModal
+            isOpen={showIngredientsModal}
+            ingredients={formData.ingredients || []}
+            onSave={handleIngredientsSave}
+            onClose={() => setShowIngredientsModal(false)}
+          />
+        )}
       </DialogContent>
     </Dialog>
   )

@@ -22,7 +22,20 @@ export async function GET(
     }
 
     const product = await prisma.product.findUnique({
-      where: { id: productId }
+      where: { id: productId },
+      include: {
+        compositeIngredients: {
+          include: {
+            ingredient: {
+              select: {
+                id: true,
+                name: true,
+                stock: true
+              }
+            }
+          }
+        }
+      }
     })
 
     if (!product) {
@@ -59,10 +72,10 @@ export async function PUT(
     }
 
     const body = await request.json()
-    const { name, description, price, stock, imageUrl, category, isActive } = body
+    const { name, description, price, stock, imageUrl, category, productType, allowNegativeStock, isActive, ingredients } = body
 
     // Validaciones
-    if (!name || !price || stock === undefined || !category) {
+    if (!name || !price || !category || !productType) {
       return NextResponse.json(
         { error: "Todos los campos obligatorios deben estar presentes" },
         { status: 400 }
@@ -76,11 +89,14 @@ export async function PUT(
       )
     }
 
-    if (stock < 0) {
-      return NextResponse.json(
-        { error: "El stock no puede ser negativo" },
-        { status: 400 }
-      )
+    // Solo validar stock para productos simples
+    if (productType === "SIMPLE") {
+      if (stock === undefined || stock < 0) {
+        return NextResponse.json(
+          { error: "El stock es obligatorio y no puede ser negativo para productos simples" },
+          { status: 400 }
+        )
+      }
     }
 
     // Verificar que el producto existe
@@ -92,18 +108,61 @@ export async function PUT(
       return NextResponse.json({ error: "Producto no encontrado" }, { status: 404 })
     }
 
-    // Actualizar producto
-    const updatedProduct = await prisma.product.update({
-      where: { id: productId },
-      data: {
+    // Actualizar producto con transacción para ingredientes
+    const updatedProduct = await prisma.$transaction(async (tx) => {
+      // Preparar datos del producto
+      const productData: any = {
         name,
         description,
         price: parseFloat(price),
-        stock: parseInt(stock),
         imageUrl,
         category,
+        productType,
+        allowNegativeStock: productType === "SIMPLE" 
+          ? (allowNegativeStock ?? existingProduct.allowNegativeStock) 
+          : false,
         isActive: isActive !== undefined ? isActive : existingProduct.isActive
       }
+
+      // Solo incluir stock para productos simples
+      if (productType === "SIMPLE") {
+        productData.stock = parseFloat(stock)
+      } else {
+        // Para productos compuestos, establecer stock como null
+        productData.stock = null
+      }
+
+      const product = await tx.product.update({
+        where: { id: productId },
+        data: productData
+      })
+
+      // Si es un producto compuesto, actualizar ingredientes
+      if (productType === "COMPOSITE") {
+        // Eliminar ingredientes existentes
+        await tx.productIngredient.deleteMany({
+          where: { compositeProductId: productId }
+        })
+
+        // Crear nuevos ingredientes si se proporcionan
+        if (ingredients && ingredients.length > 0) {
+          await tx.productIngredient.createMany({
+            data: ingredients.map((ingredient: any) => ({
+              compositeProductId: productId,
+              ingredientId: parseInt(ingredient.ingredientId),
+              quantity: parseFloat(ingredient.quantity),
+              unit: ingredient.unit || null
+            }))
+          })
+        }
+      } else {
+        // Si cambia de compuesto a simple, eliminar ingredientes
+        await tx.productIngredient.deleteMany({
+          where: { compositeProductId: productId }
+        })
+      }
+
+      return product
     })
 
     return NextResponse.json({

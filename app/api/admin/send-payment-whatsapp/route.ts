@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Obtener formularios de pago del período
+    // Obtener formularios de pago del período con información del deporte
     const paymentForms = await monthlyPaymentService.getPaymentFormsByPeriod(periodId);
     
     if (!paymentForms || paymentForms.length === 0) {
@@ -57,13 +57,18 @@ export async function POST(request: NextRequest) {
         const paymentLink = `${baseUrl}/payment/${form.id}`;
         const dueDate = new Date(form.period.dueDate).toLocaleDateString('es-ES');
 
+        // Determinar el deporte del estudiante (priorizar DANCE sobre VOLLEYBALL)
+        const sports = form.student.classEnrollments?.map((enrollment: any) => enrollment.danceClass.sport) || [];
+        const primarySport = sports.includes('DANCE') ? 'DANCE' : (sports[0] || 'DANCE');
+
         const whatsappData = {
           studentName: form.student.name,
           parentPhone: form.student.phone,
           paymentLink: paymentLink,
           amount: form.amount,
           period: form.period.name,
-          dueDate: dueDate
+          dueDate: dueDate,
+          sport: primarySport
         };
 
         // Intentar enviar mensaje
@@ -130,13 +135,18 @@ export async function PUT(request: NextRequest) {
     const paymentLink = `${baseUrl}/payment/${form.id}`;
     const dueDate = new Date(form.period.dueDate).toLocaleDateString('es-ES');
 
+    // Determinar el deporte del estudiante (priorizar DANCE sobre VOLLEYBALL)
+    const sports = form.student.classEnrollments?.map((enrollment: any) => enrollment.danceClass.sport) || [];
+    const primarySport = sports.includes('DANCE') ? 'DANCE' : (sports[0] || 'DANCE');
+
     const whatsappData = {
       studentName: form.student.name,
       parentPhone: form.student.phone,
       paymentLink: paymentLink,
       amount: form.amount,
       period: form.period.name,
-      dueDate: dueDate
+      dueDate: dueDate,
+      sport: primarySport
     };
 
     // Enviar mensaje

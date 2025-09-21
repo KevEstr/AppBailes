@@ -3,11 +3,10 @@
 import React, { useEffect, useMemo, useState } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
-import { Loader2 } from "lucide-react"
+import { Loader2, Plus, Minus } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 
 export interface SellProductData {
@@ -16,6 +15,8 @@ export interface SellProductData {
   price: number
   stock: number
   imageUrl?: string
+  productType?: "SIMPLE" | "COMPOSITE"
+  allowNegativeStock?: boolean
 }
 
 interface ProductSellModalProps {
@@ -57,14 +58,39 @@ export function ProductSellModal({ isOpen, product, onClose, onCompleted }: Prod
     return labels[method] || method;
   };
 
+  const incrementQuantity = () => {
+    if (!product) return
+    
+    // Verificar límite de stock si el producto no permite stock negativo
+    if (product.productType === "SIMPLE" && product.allowNegativeStock === false) {
+      const maxQuantity = product.stock || 0
+      if (quantity < maxQuantity) {
+        setQuantity(prev => prev + 1)
+      } else {
+        toast({ 
+          title: "Stock insuficiente", 
+          description: `Stock disponible: ${maxQuantity}`,
+          variant: "destructive"
+        })
+      }
+    } else {
+      setQuantity(prev => prev + 1)
+    }
+  }
+
+  const decrementQuantity = () => {
+    setQuantity(prev => Math.max(1, prev - 1))
+  }
+
   const handleSubmit = async () => {
     if (!product) return
     if (quantity <= 0) {
       toast({ title: "Cantidad inválida", description: "Ingresa una cantidad mayor a 0" })
       return
     }
-    if (quantity > product.stock) {
-      toast({ title: "Stock insuficiente", description: `Stock disponible: ${product.stock}` })
+    // Solo validar stock si el producto no permite stock negativo
+    if (product.productType === "SIMPLE" && product.allowNegativeStock === false && quantity > (product.stock || 0)) {
+      toast({ title: "Stock insuficiente", description: `Stock disponible: ${product.stock || 0}` })
       return
     }
     if (!paymentMethod) {
@@ -91,7 +117,8 @@ export function ProductSellModal({ isOpen, product, onClose, onCompleted }: Prod
       toast({ title: "Venta registrada", description: `${quantity} x ${product.name} por ${formatPrice(total)} - ${getPaymentMethodLabel(paymentMethod)}` })
       onCompleted?.()
       onClose()
-    } catch (e) {
+    } catch (error) {
+      console.error("Error completing sale:", error)
       toast({ title: "Error de red", description: "No se pudo completar la operación" })
     } finally {
       setIsSubmitting(false)
@@ -125,15 +152,40 @@ export function ProductSellModal({ isOpen, product, onClose, onCompleted }: Prod
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="quantity" className="text-gray-200">Cantidad</Label>
-                <Input
-                  id="quantity"
-                  type="number"
-                  min={1}
-                  value={quantity}
-                  onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value || "1", 10)))}
-                  className="bg-gray-700 border-gray-600 text-white"
-                />
+                <div className="flex items-center justify-between">
+                  <Label className="text-gray-200">Cantidad</Label>
+                  {product.productType === "SIMPLE" && product.allowNegativeStock === false && (
+                    <span className="text-xs text-gray-400">
+                      Stock: {product.stock || 0}
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center justify-center gap-4">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={decrementQuantity}
+                    disabled={quantity <= 1}
+                    className="h-10 w-10 border-gray-600 text-gray-200 hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Minus className="h-4 w-4" />
+                  </Button>
+                  
+                  <div className="min-w-[60px] text-center">
+                    <span className="text-2xl font-bold text-white">{quantity}</span>
+                  </div>
+                  
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={incrementQuantity}
+                    className="h-10 w-10 border-gray-600 text-gray-200 hover:bg-gray-700"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
 
               <div className="space-y-2">

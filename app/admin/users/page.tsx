@@ -1,7 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation"
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -12,12 +11,12 @@ import { Badge } from "@/components/ui/badge"
 import { 
   Users, 
   UserPlus, 
-  GraduationCap, 
   ArrowLeft,
   Trash2,
   Edit,
   Search,
-  RotateCcw
+  RotateCcw,
+  Download
 } from "lucide-react"
 import Link from "next/link"
 import { Loading } from "@/components/ui/loading"
@@ -55,7 +54,6 @@ interface PaginationData {
 }
 
 function UsersManagementContent() {
-  const router = useRouter()
   const [users, setUsers] = useState<User[]>([])
   const [trainers, setTrainers] = useState<Trainer[]>([])
   const [pagination, setPagination] = useState<PaginationData>({
@@ -68,6 +66,7 @@ function UsersManagementContent() {
   })
   const [isLoading, setIsLoading] = useState(true)
   const [isModalLoading, setIsModalLoading] = useState(false)
+  const [isDownloading, setIsDownloading] = useState(false)
   const [showUserModal, setShowUserModal] = useState(false)
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
   const [error, setError] = useState("")
@@ -258,6 +257,72 @@ function UsersManagementContent() {
     setLimit(10)
   }
 
+  const handleExportExcel = async () => {
+    try {
+      setIsDownloading(true)
+      setError("")
+      
+      const response = await fetch('/api/users/export-excel', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Error al exportar usuarios')
+      }
+
+      // Obtener el blob del archivo
+      const blob = await response.blob()
+      
+      // Crear URL temporal para descarga
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      
+      // Obtener nombre del archivo desde los headers
+      const contentDisposition = response.headers.get('content-disposition')
+      let filename = 'usuarios.xlsx'
+      if (contentDisposition) {
+        const filenameRegex = /filename="(.+)"/
+        const filenameMatch = filenameRegex.exec(contentDisposition)
+        if (filenameMatch) {
+          filename = filenameMatch[1]
+        }
+      }
+      
+      link.download = filename
+      document.body.appendChild(link)
+      link.click()
+      
+      // Limpiar
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+      
+      setSuccess(`Archivo ${filename} descargado exitosamente`)
+    } catch (error) {
+      console.error('Error downloading Excel file:', error)
+      setError(error instanceof Error ? error.message : 'Error al descargar archivo Excel')
+    } finally {
+      setIsDownloading(false)
+    }
+  }
+
+  const getRoleDisplayName = (role: string) => {
+    switch (role) {
+      case "ADMIN":
+        return "Admin"
+      case "TEACHER":
+        return "Profesor"
+      case "STUDENT":
+        return "Deportista"
+      default:
+        return role
+    }
+  }
+
   const getRoleBadgeColor = (role: string) => {
     switch (role) {
       case "ADMIN":
@@ -300,14 +365,35 @@ function UsersManagementContent() {
               </div>
               <p className="text-gray-400 text-sm sm:ml-2 mt-1 sm:mt-0">Administrar usuarios y roles del sistema</p>
             </div>
-            <Button 
-              onClick={handleCreateUser}
-              size="sm"
-              className="bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 text-white px-4 py-1.5 rounded-md text-sm font-medium min-w-[140px]"
-            >
-              <UserPlus className="h-4 w-4 mr-1" />
-              Nuevo Usuario
-            </Button>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <Button 
+                onClick={handleExportExcel}
+                disabled={isDownloading}
+                size="sm"
+                variant="outline"
+                className="border-green-600 text-green-400 hover:bg-green-900/50 px-4 py-1.5 rounded-md text-sm font-medium min-w-[140px]"
+              >
+                {isDownloading ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-green-400 border-t-transparent rounded-full animate-spin mr-1" />
+                    Descargando...
+                  </>
+                ) : (
+                  <>
+                    <Download className="h-4 w-4 mr-1" />
+                    Exportar Excel
+                  </>
+                )}
+              </Button>
+              <Button 
+                onClick={handleCreateUser}
+                size="sm"
+                className="bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 text-white px-4 py-1.5 rounded-md text-sm font-medium min-w-[140px]"
+              >
+                <UserPlus className="h-4 w-4 mr-1" />
+                Nuevo Usuario
+              </Button>
+            </div>
           </div>
 
           {/* Mensajes */}
@@ -460,7 +546,7 @@ function UsersManagementContent() {
                             </div>
                             <div className="flex flex-wrap gap-2 mt-4 sm:mt-0 sm:flex-nowrap sm:items-center sm:space-x-3">
                               <Badge className={getRoleBadgeColor(user.role)}>
-                                {user.role}
+                                {getRoleDisplayName(user.role)}
                               </Badge>
                               <Badge variant={user.isActive ? "default" : "secondary"}>
                                 {user.isActive ? "Activo" : "Inactivo"}

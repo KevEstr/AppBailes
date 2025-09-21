@@ -463,6 +463,7 @@ export function FinancialDashboard() {
       RENT: "Alquiler",
       UTILITIES: "Servicios Públicos",
       SALARIES: "Salarios",
+      PURCHASES: "Compras",
       OTHER_INCOME: "Otros Ingresos",
       OTHER_EXPENSE: "Otros Gastos",
     };
@@ -718,6 +719,7 @@ export function FinancialDashboard() {
                         <SelectItem value="RENT">Alquiler</SelectItem>
                         <SelectItem value="UTILITIES">Servicios Públicos</SelectItem>
                         <SelectItem value="SALARIES">Salarios</SelectItem>
+                        <SelectItem value="PURCHASES">Compras</SelectItem>
                         <SelectItem value="OTHER_INCOME">Otros Ingresos</SelectItem>
                         <SelectItem value="OTHER_EXPENSE">Otros Gastos</SelectItem>
                       </SelectContent>

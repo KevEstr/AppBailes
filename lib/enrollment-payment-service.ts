@@ -497,7 +497,8 @@ Tu inscripción está completa y puedes comenzar a entrenar.
       paymentLink: '',
       amount: approvedAmount,
       period: `Inscripción ${enrollmentPayment.sport}`,
-      dueDate: new Date().toLocaleDateString('es-ES')
+      dueDate: new Date().toLocaleDateString('es-ES'),
+      sport: enrollmentPayment.sport
     });
   }
 
@@ -530,7 +531,8 @@ Tu inscripción está completa y puedes comenzar a entrenar.
       paymentLink: '',
       amount: proof.amount,
       period: `Inscripción ${enrollmentPayment.sport}`,
-      dueDate: new Date().toLocaleDateString('es-ES')
+      dueDate: new Date().toLocaleDateString('es-ES'),
+      sport: enrollmentPayment.sport
     });
   }
 

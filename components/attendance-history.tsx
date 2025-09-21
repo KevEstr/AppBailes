@@ -7,9 +7,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from "recharts"
-import { TrendingUp, Calendar, CheckCircle, Clock, XCircle, BarChart3, Search, Trophy, Users } from "lucide-react"
+import { TrendingUp, Calendar, CheckCircle, Clock, XCircle, BarChart3, Search, Trophy, Users, Download } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
+import { useToast } from "@/hooks/use-toast"
 import { AdvancedPagination } from "@/components/ui/advanced-pagination"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { DateRangePicker } from "@/components/ui/date-range-picker"
@@ -154,6 +155,12 @@ export function AttendanceHistory() {
 
   // Estado para el tab activo
   const [activeTab, setActiveTab] = useState("classes")
+  
+  // Estado para descarga de Excel
+  const [isDownloading, setIsDownloading] = useState(false)
+  const [isDownloadingEvents, setIsDownloadingEvents] = useState(false)
+  
+  const { toast } = useToast()
 
   useEffect(() => {
     if (activeTab === "classes") {
@@ -263,6 +270,182 @@ export function AttendanceHistory() {
     return "destructive"
   }
 
+  const handleExportAttendanceExcel = async () => {
+    try {
+      // Validar que al menos un filtro esté seleccionado
+      const hasDateFilter = dateRange?.from || dateRange?.to;
+      const hasStudentFilter = selectedStudent && selectedStudent !== 'all';
+      const hasClassFilter = selectedClass && selectedClass !== 'all';
+      
+      if (!hasDateFilter && !hasStudentFilter && !hasClassFilter) {
+        toast({
+          title: "⚠️ Filtro requerido",
+          description: "Debe seleccionar al menos un filtro (fecha, estudiante o clase) para exportar las asistencias",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      setIsDownloading(true);
+      const params = new URLSearchParams();
+      
+      if (dateRange?.from) {
+        const year = dateRange.from.getFullYear();
+        const month = (dateRange.from.getMonth() + 1).toString().padStart(2, '0');
+        const day = dateRange.from.getDate().toString().padStart(2, '0');
+        params.set('startDate', `${year}-${month}-${day}`);
+      }
+      
+      if (dateRange?.to) {
+        const year = dateRange.to.getFullYear();
+        const month = (dateRange.to.getMonth() + 1).toString().padStart(2, '0');
+        const day = dateRange.to.getDate().toString().padStart(2, '0');
+        params.set('endDate', `${year}-${month}-${day}`);
+      }
+      
+      if (selectedStudent && selectedStudent !== 'all') {
+        params.set('student', selectedStudent);
+      }
+      
+      if (selectedClass && selectedClass !== 'all') {
+        params.set('class', selectedClass);
+      }
+      
+      const response = await fetch(`/api/attendance/export-excel?${params.toString()}`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Error al exportar asistencias');
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      
+      const contentDisposition = response.headers.get('content-disposition');
+      let filename = 'asistencias.xlsx';
+      if (contentDisposition) {
+        const filenameRegex = /filename="(.+)"/;
+        const filenameMatch = filenameRegex.exec(contentDisposition);
+        if (filenameMatch) {
+          filename = filenameMatch[1];
+        }
+      }
+      
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      toast({
+        title: "✅ Archivo descargado",
+        description: `Archivo ${filename} descargado exitosamente`
+      });
+    } catch (error) {
+      console.error('Error downloading attendance Excel file:', error);
+      toast({
+        title: "❌ Error",
+        description: error instanceof Error ? error.message : 'Error al descargar archivo Excel',
+        variant: "destructive",
+      });
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
+  const handleExportEventsExcel = async () => {
+    try {
+      // Validar que al menos un filtro esté seleccionado
+      const hasDateFilter = matchDateRange?.from || matchDateRange?.to;
+      const hasStudentFilter = selectedMatchStudent && selectedMatchStudent !== 'all';
+      const hasEventFilter = selectedMatch && selectedMatch !== 'all';
+      
+      if (!hasDateFilter && !hasStudentFilter && !hasEventFilter) {
+        toast({
+          title: "⚠️ Filtro requerido",
+          description: "Debe seleccionar al menos un filtro (fecha, estudiante o evento) para exportar los eventos",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      setIsDownloadingEvents(true);
+      const params = new URLSearchParams();
+      
+      if (matchDateRange?.from) {
+        const year = matchDateRange.from.getFullYear();
+        const month = (matchDateRange.from.getMonth() + 1).toString().padStart(2, '0');
+        const day = matchDateRange.from.getDate().toString().padStart(2, '0');
+        params.set('startDate', `${year}-${month}-${day}`);
+      }
+      
+      if (matchDateRange?.to) {
+        const year = matchDateRange.to.getFullYear();
+        const month = (matchDateRange.to.getMonth() + 1).toString().padStart(2, '0');
+        const day = matchDateRange.to.getDate().toString().padStart(2, '0');
+        params.set('endDate', `${year}-${month}-${day}`);
+      }
+      
+      if (selectedMatchStudent && selectedMatchStudent !== 'all') {
+        params.set('student', selectedMatchStudent);
+      }
+      
+      if (selectedMatch && selectedMatch !== 'all') {
+        params.set('match', selectedMatch);
+      }
+      
+      const response = await fetch(`/api/events/export-excel?${params.toString()}`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Error al exportar eventos');
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      
+      const contentDisposition = response.headers.get('content-disposition');
+      let filename = 'eventos.xlsx';
+      if (contentDisposition) {
+        const filenameRegex = /filename="(.+)"/;
+        const filenameMatch = filenameRegex.exec(contentDisposition);
+        if (filenameMatch) {
+          filename = filenameMatch[1];
+        }
+      }
+      
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      toast({
+        title: "✅ Archivo descargado",
+        description: `Archivo ${filename} descargado exitosamente`
+      });
+    } catch (error) {
+      console.error('Error downloading events Excel file:', error);
+      toast({
+        title: "❌ Error",
+        description: error instanceof Error ? error.message : 'Error al descargar archivo Excel',
+        variant: "destructive",
+      });
+    } finally {
+      setIsDownloadingEvents(false);
+    }
+  };
+
   return (
     <div>
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -279,7 +462,7 @@ export function AttendanceHistory() {
             className="flex items-center gap-2 data-[state=active]:bg-yellow-600 data-[state=active]:text-white"
           >
             <Trophy className="h-4 w-4" />
-            Partidos
+            Eventos
           </TabsTrigger>
         </TabsList>
 
@@ -287,7 +470,7 @@ export function AttendanceHistory() {
           {/* Filtros para clases normales */}
           <Card className="border-0 shadow-2xl mb-4 rounded-xl bg-gray-800/90 border border-gray-600 backdrop-blur-sm">
             <CardContent className="p-4">
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
                 <div>
                   <h2 className="text-lg font-bold text-gray-200 mb-1">Rango de Fechas</h2>
                   <DateRangePicker
@@ -316,7 +499,6 @@ export function AttendanceHistory() {
                   </Select>
                 </div>
 
-
                 <div>
                   <h2 className="text-lg font-bold text-gray-200">Estudiante</h2>
                   <Select value={selectedStudent} onValueChange={setSelectedStudent}>
@@ -335,6 +517,32 @@ export function AttendanceHistory() {
                     </SelectContent>
                   </Select>
                 </div>
+
+                <div>
+                  <h2 className="text-lg font-bold text-gray-200 mb-1">Exportar</h2>
+                  <Button
+                    onClick={handleExportAttendanceExcel}
+                    disabled={isDownloading || (!dateRange?.from && !dateRange?.to && selectedStudent === 'all' && selectedClass === 'all')}
+                    variant="outline"
+                    size="sm"
+                    className="w-full border-green-600 text-green-400 hover:bg-green-900/50 px-3 py-2 rounded-lg text-xs font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                    title={(!dateRange?.from && !dateRange?.to && selectedStudent === 'all' && selectedClass === 'all') ? "Seleccione al menos un filtro para exportar" : "Exportar asistencias filtradas"}
+                  >
+                    {isDownloading ? (
+                      <>
+                        <div className="w-3 h-3 border-2 border-green-400 border-t-transparent rounded-full animate-spin mr-1" />
+                        <span className="hidden sm:inline">Descargando...</span>
+                        <span className="sm:hidden">...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Download className="h-3 w-3 mr-1" />
+                        <span className="hidden sm:inline">Exportar Excel</span>
+                        <span className="sm:hidden">Excel</span>
+                      </>
+                    )}
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -343,43 +551,51 @@ export function AttendanceHistory() {
       {/* Información de la clase seleccionada */}
       {selectedClassInfo && (
         <Card className="border-0 shadow-2xl mb-4 rounded-xl bg-gradient-to-r from-blue-800/90 via-purple-800/90 to-blue-700/90 border border-blue-500 backdrop-blur-sm">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <div className="rounded-2xl bg-blue-600/20 p-3 backdrop-blur-sm border border-blue-400">
+          <CardContent className="p-3 sm:p-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              {/* Sección principal - Icono y información */}
+              <div className="flex items-start space-x-3 flex-1 min-w-0">
+                <div className="rounded-2xl bg-blue-600/20 p-2 sm:p-3 backdrop-blur-sm border border-blue-400 flex-shrink-0">
                   {selectedClassInfo.sport === 'DANCE' ? (
-                    <span className="text-4xl">💃</span>
+                    <span className="text-2xl sm:text-4xl">💃</span>
                   ) : (
-                    <span className="text-4xl">🏐</span>
+                    <span className="text-2xl sm:text-4xl">🏐</span>
                   )}
                 </div>
-                <div>
-                  <h3 className="text-3xl font-bold text-white mb-2">{selectedClassInfo.name}</h3>
-                  <div className="flex items-center space-x-3 text-blue-200">
-                    <span className="flex items-center space-x-2">
-                      <span>👨‍🏫</span>
-                      <span>{selectedClassInfo.trainer.name}</span>
-                    </span>
-                    <span className="flex items-center space-x-2">
-                      <span>🏃‍♀️</span>
-                      <span>{selectedClassInfo.sport === 'DANCE' ? 'Baile' : 'Voleibol'}</span>
-                    </span>
-                    <span className="flex items-center space-x-2">
-                      <span>📅</span>
-                      <span>{selectedClassInfo.sessions.length} sesiones en el período</span>
-                    </span>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-lg sm:text-2xl lg:text-3xl font-bold text-white mb-2 break-words">
+                    {selectedClassInfo.name}
+                  </h3>
+                  
+                  {/* Información en columnas para móvil */}
+                  <div className="space-y-2 sm:space-y-0 sm:flex sm:items-center sm:space-x-3 text-blue-200">
+                    <div className="flex items-center space-x-2">
+                      <span className="text-sm sm:text-base">👨‍🏫</span>
+                      <span className="text-sm sm:text-base break-words">{selectedClassInfo.trainer.name}</span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-sm sm:text-base">🏃‍♀️</span>
+                      <span className="text-sm sm:text-base">{selectedClassInfo.sport === 'DANCE' ? 'Baile' : 'Voleibol'}</span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-sm sm:text-base">📅</span>
+                      <span className="text-sm sm:text-base">{selectedClassInfo.sessions.length} sesiones en el período</span>
+                    </div>
                   </div>
+                  
                   {selectedClassInfo.description && (
-                    <p className="text-blue-100 mt-2 text-sm">{selectedClassInfo.description}</p>
+                    <p className="text-blue-100 mt-2 text-xs sm:text-sm break-words">{selectedClassInfo.description}</p>
                   )}
                 </div>
               </div>
-              <div className="text-right">
-                <div className="bg-blue-600/30 rounded-xl p-3 border border-blue-400">
-                  <div className="text-2xl font-bold text-white">
+              
+              {/* Contador de sesiones */}
+              <div className="flex justify-center sm:justify-end">
+                <div className="bg-blue-600/30 rounded-xl p-2 sm:p-3 border border-blue-400">
+                  <div className="text-lg sm:text-2xl font-bold text-white text-center">
                     {selectedClassInfo.sessions.length}
                   </div>
-                  <div className="text-blue-200 text-sm">Sesiones</div>
+                  <div className="text-blue-200 text-xs sm:text-sm text-center">Sesiones</div>
                 </div>
               </div>
             </div>
@@ -629,10 +845,10 @@ export function AttendanceHistory() {
         </TabsContent>
 
         <TabsContent value="matches" className="space-y-4">
-          {/* Filtros para partidos */}
+          {/* Filtros para eventos */}
           <Card className="border-0 shadow-2xl mb-4 rounded-xl bg-gray-800/90 border border-gray-600 backdrop-blur-sm">
             <CardContent className="p-4">
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
                 <div>
                   <h2 className="text-lg font-bold text-gray-200 mb-1">Rango de Fechas</h2>
                   <DateRangePicker
@@ -643,14 +859,14 @@ export function AttendanceHistory() {
                 </div>
 
                 <div>
-                  <h2 className="text-lg font-bold text-gray-200 mb-1">Partido</h2>
+                  <h2 className="text-lg font-bold text-gray-200 mb-1">Evento</h2>
                   <Select value={selectedMatch} onValueChange={setSelectedMatch}>
                     <SelectTrigger className="bg-gray-800 border-gray-600 text-white py-2">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent className="bg-gray-700 border-gray-600">
                       <SelectItem value="all" className="text-white hover:bg-yellow-600">
-                        🏆 Todos los partidos
+                        🏆 Todos los eventos
                       </SelectItem>
                       {availableMatches.map((match) => {
                         const matchDate = new Date(match.matchDate);
@@ -687,50 +903,81 @@ export function AttendanceHistory() {
                     </SelectContent>
                   </Select>
                 </div>
+
+                <div>
+                  <h2 className="text-lg font-bold text-gray-200 mb-1">Exportar</h2>
+                  <Button
+                    onClick={handleExportEventsExcel}
+                    disabled={isDownloadingEvents || (!matchDateRange?.from && !matchDateRange?.to && selectedMatchStudent === 'all' && selectedMatch === 'all')}
+                    variant="outline"
+                    size="sm"
+                    className="w-full border-green-600 text-green-400 hover:bg-green-900/50 px-3 py-2 rounded-lg text-xs font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                    title={(!matchDateRange?.from && !matchDateRange?.to && selectedMatchStudent === 'all' && selectedMatch === 'all') ? "Seleccione al menos un filtro para exportar" : "Exportar eventos filtrados"}
+                  >
+                    {isDownloadingEvents ? (
+                      <>
+                        <div className="w-3 h-3 border-2 border-green-400 border-t-transparent rounded-full animate-spin mr-1" />
+                        <span className="hidden sm:inline">Descargando...</span>
+                        <span className="sm:hidden">...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Download className="h-3 w-3 mr-1" />
+                        <span className="hidden sm:inline">Exportar Excel</span>
+                        <span className="sm:hidden">Excel</span>
+                      </>
+                    )}
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>
 
-          {/* Información del partido específico seleccionado */}
+          {/* Información del evento específico seleccionado */}
           {selectedMatchInfo && (
             <Card className="border-0 shadow-2xl mb-4 rounded-xl bg-gradient-to-r from-yellow-800/90 via-orange-800/90 to-yellow-700/90 border border-yellow-500 backdrop-blur-sm">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
-                    <div className="rounded-2xl bg-yellow-600/20 p-3 backdrop-blur-sm border border-yellow-400">
-                      <span className="text-4xl">🏆</span>
+              <CardContent className="p-3 sm:p-4">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                  {/* Sección principal - Icono y información */}
+                  <div className="flex items-start space-x-3 flex-1 min-w-0">
+                    <div className="rounded-2xl bg-yellow-600/20 p-2 sm:p-3 backdrop-blur-sm border border-yellow-400 flex-shrink-0">
+                      <span className="text-2xl sm:text-4xl">🏆</span>
                     </div>
-                    <div>
-                      <h3 className="text-3xl font-bold text-white mb-2">
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-lg sm:text-2xl lg:text-3xl font-bold text-white mb-2 break-words">
                         🏐 {selectedMatchInfo.danceClass.name}
                       </h3>
-                      <div className="flex items-center space-x-3 text-yellow-200 mb-2">
-                        <span className="flex items-center space-x-2">
-                          <span>📅</span>
-                          <span>{formatDateLongWithoutTimezone(selectedMatchInfo.matchDate)}</span>
-                        </span>
-                        <span className="flex items-center space-x-2">
-                          <span>👨‍🏫</span>
-                          <span>{selectedMatchInfo.danceClass.trainer.name}</span>
-                        </span>
+                      
+                      {/* Información en columnas para móvil */}
+                      <div className="space-y-2 sm:space-y-0 sm:flex sm:items-center sm:space-x-3 text-yellow-200 mb-2">
+                        <div className="flex items-center space-x-2">
+                          <span className="text-sm sm:text-base">📅</span>
+                          <span className="text-sm sm:text-base break-words">{formatDateLongWithoutTimezone(selectedMatchInfo.matchDate)}</span>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <span className="text-sm sm:text-base">👨‍🏫</span>
+                          <span className="text-sm sm:text-base break-words">{selectedMatchInfo.danceClass.trainer.name}</span>
+                        </div>
                       </div>
-                      <div className="flex items-center space-x-4 text-yellow-200">
-                        <span className="flex items-center space-x-2">
-                          <span>📊</span>
-                          <span>{selectedMatchInfo.status === 'COMPLETED' ? 'Completado' : selectedMatchInfo.status === 'SCHEDULED' ? 'Programado' : selectedMatchInfo.status}</span>
-                        </span>
+                      
+                      <div className="flex items-center space-x-2 text-yellow-200">
+                        <span className="text-sm sm:text-base">📊</span>
+                        <span className="text-sm sm:text-base">{selectedMatchInfo.status === 'COMPLETED' ? 'Completado' : selectedMatchInfo.status === 'SCHEDULED' ? 'Programado' : selectedMatchInfo.status}</span>
                       </div>
+                      
                       {selectedMatchInfo.notes && (
-                        <p className="text-yellow-100 mt-2 text-sm">{selectedMatchInfo.notes}</p>
+                        <p className="text-yellow-100 mt-2 text-xs sm:text-sm break-words">{selectedMatchInfo.notes}</p>
                       )}
                     </div>
                   </div>
-                  <div className="text-right">
-                    <div className="bg-yellow-600/30 rounded-xl p-3 border border-yellow-400">
-                      <div className="text-2xl font-bold text-white">
+                  
+                  {/* Contador de asistencias */}
+                  <div className="flex justify-center sm:justify-end">
+                    <div className="bg-yellow-600/30 rounded-xl p-2 sm:p-3 border border-yellow-400">
+                      <div className="text-lg sm:text-2xl font-bold text-white text-center">
                         {selectedMatchInfo.attendances.length}
                       </div>
-                      <div className="text-yellow-200 text-sm">Asistencias</div>
+                      <div className="text-yellow-200 text-xs sm:text-sm text-center">Asistencias</div>
                     </div>
                   </div>
                 </div>
@@ -739,13 +986,13 @@ export function AttendanceHistory() {
           )}
 
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 mb-4">
-            {/* Gráfico de barras para partidos */}
+            {/* Gráfico de barras para eventos */}
             <Card className="border-0 shadow-2xl rounded-xl bg-gray-800/90 border border-gray-600 backdrop-blur-sm">
               <CardHeader className="pb-4">
                 <CardTitle className="flex items-center space-x-3 text-white">
                   <Calendar className="w-6 h-6" />
                   <span className="text-2xl font-bold">
-                    Asistencia por Partido
+                    Asistencia por Evento
                     {selectedMatchInfo && (
                       <span className="text-lg font-normal text-yellow-300 ml-2">
                         - {selectedMatchInfo.danceClass.name} ({formatDateOnlyWithoutTimezone(selectedMatchInfo.matchDate)})
@@ -776,13 +1023,13 @@ export function AttendanceHistory() {
               </CardContent>
             </Card>
 
-            {/* Gráfico circular para partidos */}
+            {/* Gráfico circular para eventos */}
             <Card className="border-0 shadow-2xl rounded-xl bg-gray-800/90 border border-gray-600 backdrop-blur-sm">
               <CardHeader className="pb-4">
                 <CardTitle className="flex items-center space-x-3 text-white">
                   <TrendingUp className="w-6 h-6" />
                   <span className="text-2xl font-bold">
-                    Distribución de Partidos
+                    Distribución de Eventos
                     {selectedMatchInfo && (
                       <span className="text-lg font-normal text-yellow-300 ml-2">
                         - {selectedMatchInfo.danceClass.name} ({formatDateOnlyWithoutTimezone(selectedMatchInfo.matchDate)})
@@ -797,9 +1044,9 @@ export function AttendanceHistory() {
                     <div className="w-20 h-20 bg-gray-700/50 rounded-full flex items-center justify-center mb-4">
                       <PieChart className="w-10 h-10 text-gray-400" />
                     </div>
-                    <h3 className="text-lg font-semibold text-gray-300 mb-2">Sin datos de partidos</h3>
+                    <h3 className="text-lg font-semibold text-gray-300 mb-2">Sin datos de eventos</h3>
                     <p className="text-sm text-gray-400 max-w-[250px]">
-                      No hay registros de asistencia para partidos en el período seleccionado
+                      No hay registros de asistencia para eventos en el período seleccionado
                     </p>
                   </div>
                 ) : (
@@ -845,13 +1092,13 @@ export function AttendanceHistory() {
             </Card>
           </div>
 
-          {/* Tabla de estudiantes para partidos */}
+          {/* Tabla de estudiantes para eventos */}
           <Card className="border-0 shadow-2xl rounded-xl bg-gray-800/90 border border-gray-600 backdrop-blur-sm">
             <CardHeader className="pb-4">
               <CardTitle className="flex items-center space-x-3 text-white">
                 <Trophy className="w-6 h-6" />
                 <span className="text-2xl font-bold">
-                  Estadísticas por Estudiante - Partidos
+                  Estadísticas por Estudiante - Eventos
                   {selectedMatchInfo && (
                     <span className="text-lg font-normal text-yellow-300 ml-2">
                       - {selectedMatchInfo.danceClass.name} ({formatDateOnlyWithoutTimezone(selectedMatchInfo.matchDate)})
@@ -861,7 +1108,7 @@ export function AttendanceHistory() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {/* Barra de búsqueda para partidos */}
+              {/* Barra de búsqueda para eventos */}
               <div className="mb-4">
                 <div className="relative flex gap-2">
                   <div className="relative flex-1">
@@ -886,8 +1133,8 @@ export function AttendanceHistory() {
                     <div className="w-24 h-24 mx-auto mb-6 bg-gradient-to-r from-yellow-300 to-orange-300 rounded-full flex items-center justify-center border-2 border-yellow-600">
                       <Trophy className="w-12 h-12 text-yellow-800" />
                     </div>
-                    <h3 className="text-2xl font-bold text-yellow-800 mb-2">Sin datos de partidos</h3>
-                    <p className="text-slate-700">No hay estadísticas de partidos para el período seleccionado</p>
+                    <h3 className="text-2xl font-bold text-yellow-800 mb-2">Sin datos de eventos</h3>
+                    <p className="text-slate-700">No hay estadísticas de eventos para el período seleccionado</p>
                   </div>
                 ) : (
                   matchStats.map((student) => (
@@ -908,7 +1155,7 @@ export function AttendanceHistory() {
                             <div>
                               <h4 className="text-base font-medium text-white">{student.name}</h4>
                               <p className="text-sm text-gray-300 mt-1">
-                                Cédula: {student.id} • {student.totalMatches} partidos totales
+                                Cédula: {student.id} • {student.totalMatches} eventos totales
                               </p>
                             </div>
                           </div>
@@ -957,7 +1204,7 @@ export function AttendanceHistory() {
                 )}
               </div>
 
-              {/* Paginación para partidos */}
+              {/* Paginación para eventos */}
               {matchPagination.totalPages > 1 && (
                 <AdvancedPagination
                   pagination={{

@@ -400,19 +400,19 @@ export function MassiveMessages() {
                   onClick={() => toggleStudentSelection(student.id)}
                 >
                   <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-12 h-12 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full flex items-center justify-center border border-blue-500">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                      <div className="flex items-center space-x-3 flex-1 min-w-0">
+                        <div className="w-12 h-12 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full flex items-center justify-center border border-blue-500 flex-shrink-0">
                           <span className="text-white font-bold text-lg">
                             {student.name.charAt(0)}
                           </span>
                         </div>
-                        <div>
-                          <h4 className="font-semibold text-white">
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-semibold text-white truncate">
                             {student.name}
                           </h4>
-                          <div className="flex items-center space-x-2 text-sm text-gray-400">
-                            <span>📱 {student.phone}</span>
+                          <div className="flex flex-wrap items-center gap-2 text-sm text-gray-400">
+                            <span className="truncate">📱 {student.phone}</span>
                             {student.hasDebt && (
                               <Badge variant="destructive" className="text-xs">
                                 Deuda
@@ -421,17 +421,17 @@ export function MassiveMessages() {
                           </div>
                         </div>
                       </div>
-                      <div className="flex items-center space-x-2">
+                      <div className="flex items-center justify-between sm:justify-end gap-2">
                         {student.classes && student.classes.length > 0 && (
                           <Badge
                             variant="outline"
-                            className="border-gray-500 text-gray-300"
+                            className="border-gray-500 text-gray-300 text-xs"
                           >
                             {student.classes.length} clases
                           </Badge>
                         )}
                         <div
-                          className={`w-5 h-5 rounded-full border-2 ${
+                          className={`w-5 h-5 rounded-full border-2 flex-shrink-0 ${
                             selectedStudents.includes(student.id)
                               ? "bg-blue-500 border-blue-500"
                               : "border-gray-500"

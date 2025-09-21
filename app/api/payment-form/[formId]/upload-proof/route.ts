@@ -14,7 +14,7 @@ export async function POST(
       payerName, 
       payerPhone, 
       payerEmail, 
-      amount, 
+      // amount ignorado por backend; se recalcula con descuento si aplica
       paymentMethod, 
       proofImageUrl 
     } = body;
@@ -27,12 +27,7 @@ export async function POST(
       );
     }
 
-    if (!amount || typeof amount !== 'number' || amount <= 0) {
-      return NextResponse.json(
-        { message: 'El monto debe ser un número positivo' },
-        { status: 400 }
-      );
-    }
+    // No validar amount: el backend calculará el monto efectivo
 
     if (!paymentMethod || !['CASH', 'TRANSFER', 'CARD'].includes(paymentMethod)) {
       return NextResponse.json(
@@ -52,7 +47,6 @@ export async function POST(
       payerName: payerName.trim(),
       payerPhone: payerPhone?.trim(),
       payerEmail: payerEmail?.trim(),
-      amount,
       paymentMethod,
       proofImageUrl: proofImageUrl.trim()
     });

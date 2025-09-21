@@ -260,65 +260,41 @@ export class PaymentSchedulerService {
         console.log(`✅ Ya existen ${existingPayments.length} pagos mensuales`);
       }
 
-      // ========== PASO 3: GENERAR FORMULARIOS DE PAGO SI NO EXISTEN ==========
-      console.log(`📋 Verificando formularios de pago para el período ${activePeriod.id}`);
+      // ========== PASO 3: OBTENER PAGOS PENDIENTES PARA ENVÍO DE WHATSAPP ==========
+      console.log(`📋 Obteniendo pagos pendientes para el período ${activePeriod.id}`);
       
-      const existingForms = await prisma.paymentForm.findMany({
-        where: { periodId: activePeriod.id }
-      });
-      
-      if (existingForms.length === 0) {
-        console.log(`🆕 Generando formularios de pago`);
-        
-        const monthlyPayments = await prisma.monthlyPayment.findMany({
-          where: {
-            periodId: activePeriod.id,
-            status: 'PENDING'
-          },
-          include: {
-            student: true
-          }
-        });
-        
-        for (const payment of monthlyPayments) {
-          await prisma.paymentForm.create({
-            data: {
-              studentId: payment.studentId,
-              periodId: activePeriod.id,
-              monthlyPaymentId: payment.id,
-              studentName: payment.student.name,
-              amount: payment.expectedAmount,
-              status: 'ACTIVE',
-              expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 días
-            }
-          });
-        }
-        
-        console.log(`✅ ${monthlyPayments.length} formularios de pago generados`);
-      } else {
-        console.log(`✅ Ya existen ${existingForms.length} formularios de pago`);
-      }
-
-      // ========== PASO 4: OBTENER DESTINATARIOS ESPECÍFICOS DEL SCHEDULER ==========
-      console.log(`🎯 Obteniendo destinatarios específicos para el scheduler "${scheduler.name}"`);
-      
-      // Obtener todos los formularios de pago del período
-      const allPaymentForms = await prisma.paymentForm.findMany({
+      const monthlyPayments = await prisma.monthlyPayment.findMany({
         where: {
           periodId: activePeriod.id,
-          status: 'ACTIVE'
+          status: 'PENDING'
         },
         include: {
-          student: true,
+          student: {
+            include: {
+              classEnrollments: {
+                where: { isActive: true },
+                include: {
+                  danceClass: {
+                    select: { sport: true }
+                  }
+                }
+              }
+            }
+          },
           period: true
         }
       });
+      
+      console.log(`✅ ${monthlyPayments.length} pagos pendientes encontrados`);
 
-      if (!allPaymentForms || allPaymentForms.length === 0) {
-        throw new Error('No se encontraron formularios de pago para enviar mensajes');
+      // ========== PASO 4: OBTENER DESTINATARIOS ESPECÍFICOS DEL SCHEDULER ==========
+      console.log(`🎯 Obteniendo destinatarios específicos para el scheduler "${scheduler.name}"`);
+
+      if (!monthlyPayments || monthlyPayments.length === 0) {
+        throw new Error('No se encontraron pagos pendientes para enviar mensajes');
       }
 
-      console.log(`📋 Encontrados ${allPaymentForms.length} formularios de pago totales`);
+      console.log(`📋 Encontrados ${monthlyPayments.length} pagos pendientes totales`);
 
       // Obtener destinatarios específicos del scheduler
       const schedulerRecipients = await (prisma as any).schedulerRecipient.findMany({
@@ -333,30 +309,30 @@ export class PaymentSchedulerService {
 
       console.log(`👥 Destinatarios configurados en el scheduler: ${schedulerRecipients.length}`);
 
-      // Filtrar formularios solo para los destinatarios del scheduler
-      let formsToSend = allPaymentForms;
+      // Filtrar pagos solo para los destinatarios del scheduler
+      let paymentsToSend = monthlyPayments;
       
       if (schedulerRecipients.length > 0) {
         // Si hay destinatarios específicos, filtrar solo esos
         const recipientStudentIds = schedulerRecipients.map((r: any) => r.studentId);
-        formsToSend = allPaymentForms.filter(form => 
-          recipientStudentIds.includes(form.studentId)
+        paymentsToSend = monthlyPayments.filter(payment => 
+          recipientStudentIds.includes(payment.studentId)
         );
-        console.log(`🎯 Filtrando solo destinatarios específicos: ${formsToSend.length} formularios`);
+        console.log(`🎯 Filtrando solo destinatarios específicos: ${paymentsToSend.length} pagos`);
       } else {
-        console.log(`⚠️  No hay destinatarios específicos configurados, usando todos los formularios`);
+        console.log(`⚠️  No hay destinatarios específicos configurados, usando todos los pagos`);
       }
 
       // Filtrar solo estudiantes activos con teléfono
-      const formsWithPhone = formsToSend.filter((form: any) =>
-        form.student.isActive && 
-        form.student.phone && 
-        form.student.phone.trim() !== ''
+      const paymentsWithPhone = paymentsToSend.filter((payment: any) =>
+        payment.student.isActive && 
+        payment.student.phone && 
+        payment.student.phone.trim() !== ''
       );
 
-      console.log(`📱 ${formsWithPhone.length} estudiantes con teléfono disponible para envío`);
+      console.log(`📱 ${paymentsWithPhone.length} estudiantes con teléfono disponible para envío`);
 
-      if (formsWithPhone.length === 0) {
+      if (paymentsWithPhone.length === 0) {
         throw new Error('No hay estudiantes activos con teléfono configurado para enviar mensajes');
       }
 
@@ -366,45 +342,48 @@ export class PaymentSchedulerService {
       let sentCount = 0;
       let failedCount = 0;
       const errors: string[] = [];
-      const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
 
       // Enviar mensajes con intervalo y manejo de errores robusto
-      for (let i = 0; i < formsWithPhone.length; i++) {
-        const form = formsWithPhone[i];
+      for (let i = 0; i < paymentsWithPhone.length; i++) {
+        const payment = paymentsWithPhone[i];
         
         try {
-          const paymentLink = `${baseUrl}/payment/${form.id}`;
-          const dueDate = new Date(form.period.dueDate).toLocaleDateString('es-ES');
+          const dueDate = new Date(payment.period.dueDate).toLocaleDateString('es-ES');
+          
+          // Determinar el deporte del estudiante (priorizar DANCE sobre VOLLEYBALL)
+          const sports = payment.student.classEnrollments?.map((enrollment: any) => enrollment.danceClass.sport) || [];
+          const primarySport = sports.includes('DANCE') ? 'DANCE' : (sports[0] || 'DANCE');
           
           const whatsappData = {
-            studentName: form.student.name,
-            parentPhone: form.student.phone,
-            paymentLink: paymentLink,
-            amount: form.amount,
-            period: form.period.name,
-            dueDate: dueDate
+            studentName: payment.student.name,
+            parentPhone: payment.student.phone,
+            amount: payment.expectedAmount,
+            period: payment.period.name,
+            dueDate: dueDate,
+            sport: primarySport,
+            paymentId: payment.id // Para referencia del pago pendiente
           };
 
-          console.log(`📱 [${i + 1}/${formsWithPhone.length}] Enviando a ${form.student.name} (${form.student.phone})`);
+          console.log(`📱 [${i + 1}/${paymentsWithPhone.length}] Enviando a ${payment.student.name} (${payment.student.phone})`);
           
-          // Enviar mensaje con timeout
+          // Enviar mensaje con timeout (nuevo método sin link)
           await Promise.race([
-            whatsappService.sendPaymentMessage(whatsappData),
+            whatsappService.sendPendingPaymentMessage(whatsappData),
             new Promise((_, reject) => 
               setTimeout(() => reject(new Error('Timeout WhatsApp')), 30000)
             )
           ]);
           
           sentCount++;
-          console.log(`✅ Enviado exitosamente a ${form.student.name}`);
+          console.log(`✅ Enviado exitosamente a ${payment.student.name}`);
 
           // Intervalo entre mensajes (solo si no es el último)
-          if (i < formsWithPhone.length - 1) {
+          if (i < paymentsWithPhone.length - 1) {
             console.log(`⏳ Esperando 2 segundos antes del siguiente envío...`);
             await new Promise(resolve => setTimeout(resolve, 2000));
           }
         } catch (messageError) {
-          const errorMsg = `Error enviando a ${form.student.name}: ${messageError instanceof Error ? messageError.message : 'Error desconocido'}`;
+          const errorMsg = `Error enviando a ${payment.student.name}: ${messageError instanceof Error ? messageError.message : 'Error desconocido'}`;
           console.error(`❌ ${errorMsg}`);
           errors.push(errorMsg);
           failedCount++;
@@ -420,15 +399,15 @@ export class PaymentSchedulerService {
         data: {
           status: 'COMPLETED',
           completedAt: endTime,
-          totalMessages: formsWithPhone.length,
+          totalMessages: paymentsWithPhone.length,
           sentMessages: sentCount,
           failedMessages: failedCount
           // executionLogs: JSON.stringify({
           //   targetPeriod: activePeriod.name,
-          //   totalFormsAvailable: paymentForms.length,
-          //   formsWithPhone: formsWithPhone.length,
+          //   totalPaymentsAvailable: monthlyPayments.length,
+          //   paymentsWithPhone: paymentsWithPhone.length,
           //   duration: `${duration}ms`,
-          //   successRate: `${((sentCount / formsWithPhone.length) * 100).toFixed(1)}%`,
+          //   successRate: `${((sentCount / paymentsWithPhone.length) * 100).toFixed(1)}%`,
           //   details: `Enviados: ${sentCount}, Fallidos: ${failedCount}`,
           //   errors: errors.slice(0, 5) // Solo primeros 5 errores
           // })
@@ -453,8 +432,8 @@ export class PaymentSchedulerService {
       console.log(`🎉 AUTOMATIZACIÓN COMPLETA EXITOSA:`);
       console.log(`   📅 Período: ${activePeriod.name}`);
       console.log(`   💰 Pagos generados: ${existingPayments.length === 0 ? 'Sí' : 'Ya existían'}`);
-      console.log(`   📋 Formularios generados: ${existingForms.length === 0 ? 'Sí' : 'Ya existían'}`);
-      console.log(`   📊 Mensajes procesados: ${formsWithPhone.length}`);
+      console.log(`   📋 Sistema: Pagos pendientes (sin formularios)`);
+      console.log(`   📊 Mensajes procesados: ${paymentsWithPhone.length}`);
       console.log(`   ✅ Mensajes enviados: ${sentCount}`);
       console.log(`   ❌ Mensajes fallidos: ${failedCount}`);
       console.log(`   ⏱️  Duración total: ${duration}ms`);

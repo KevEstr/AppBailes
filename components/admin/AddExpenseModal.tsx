@@ -159,6 +159,7 @@ export function AddExpenseModal({ onExpenseAdded }: AddExpenseModalProps) {
                 <SelectItem value="RENT">Alquiler</SelectItem>
                 <SelectItem value="UTILITIES">Servicios Públicos</SelectItem>
                 <SelectItem value="SALARIES">Salarios</SelectItem>
+                <SelectItem value="PURCHASES">Compras</SelectItem>
                 <SelectItem value="OTHER_EXPENSE">Otros Gastos</SelectItem>
               </SelectContent>
             </Select>

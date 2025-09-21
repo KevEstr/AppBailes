@@ -8,6 +8,8 @@ import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { AdvancedPagination } from "@/components/ui/advanced-pagination"
 import { ProductModal } from "@/components/admin/ProductModal"
+import { InventoryMovementModal } from "@/components/admin/InventoryMovementModal"
+import { InventoryHistory } from "@/components/admin/InventoryHistory"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 import { toast } from "@/hooks/use-toast"
 import { 
@@ -19,8 +21,20 @@ import {
   DollarSign, 
   TrendingUp, 
   AlertTriangle,
-  Image as ImageIcon
+  Image as ImageIcon,
+  ArrowUp,
+  ArrowDown,
+  History
 } from "lucide-react"
+
+interface Ingredient {
+  id?: number
+  ingredientId: number
+  ingredientName: string
+  quantity: number
+  unit?: string
+  currentStock?: number
+}
 
 interface Product {
   id: number
@@ -30,9 +44,21 @@ interface Product {
   stock: number
   imageUrl?: string
   category: string
+  productType: "SIMPLE" | "COMPOSITE"
+  allowNegativeStock: boolean
   isActive: boolean
   createdAt: string
   updatedAt: string
+  compositeIngredients?: Array<{
+    id: number
+    quantity: number
+    unit?: string
+    ingredient: {
+      id: number
+      name: string
+      stock: number
+    }
+  }>
 }
 
 interface ProductStats {
@@ -75,6 +101,9 @@ export function ProductsManagement() {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [productToDelete, setProductToDelete] = useState<Product | null>(null)
+  const [showInventoryModal, setShowInventoryModal] = useState(false)
+  const [inventoryModalType, setInventoryModalType] = useState<"ENTRY" | "EXIT">("ENTRY")
+  const [activeTab, setActiveTab] = useState("products")
   const [error, setError] = useState("")
 
   // Filtros y búsqueda
@@ -232,6 +261,7 @@ export function ProductsManagement() {
     setError("")
   }
 
+
   const handlePageChange = (page: number) => {
     setCurrentPage(page)
   }
@@ -283,62 +313,115 @@ export function ProductsManagement() {
           <h1 className="text-3xl font-bold text-white">Administración de Productos</h1>
           <p className="text-gray-300 mt-1">Gestiona el inventario de productos y snacks</p>
         </div>
-        <Button
-          onClick={handleCreateProduct}
-          className="bg-purple-600 hover:bg-purple-700 text-white"
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          Nuevo Producto
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            onClick={handleCreateProduct}
+            className="bg-purple-600 hover:bg-purple-700 text-white"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Nuevo Producto
+          </Button>
+          <Button
+            onClick={() => {
+              setInventoryModalType("ENTRY")
+              setShowInventoryModal(true)
+            }}
+            className="bg-green-600 hover:bg-green-700 text-white"
+          >
+            <ArrowUp className="h-4 w-4 mr-2" />
+            Entrada Inventario
+          </Button>
+          <Button
+            onClick={() => {
+              setInventoryModalType("EXIT")
+              setShowInventoryModal(true)
+            }}
+            className="bg-red-600 hover:bg-red-700 text-white"
+          >
+            <ArrowDown className="h-4 w-4 mr-2" />
+            Salida Inventario
+          </Button>
+        </div>
       </div>
 
-      {stats && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card className="bg-gray-800/90 border-gray-600">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-white">Total Productos</CardTitle>
-              <Package className="h-4 w-4 text-gray-300" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-white">{stats.totalProducts}</div>
-              <p className="text-xs text-gray-400">{stats.activeProducts} activos</p>
-            </CardContent>
-          </Card>
+      {/* Pestañas */}
+      <div className="border-b border-gray-600">
+        <nav className="-mb-px flex space-x-8">
+          <button
+            onClick={() => setActiveTab("products")}
+            className={`py-2 px-1 border-b-2 font-medium text-sm ${
+              activeTab === "products"
+                ? "border-purple-500 text-purple-400"
+                : "border-transparent text-gray-400 hover:text-gray-300 hover:border-gray-300"
+            }`}
+          >
+            <Package className="h-4 w-4 inline mr-2" />
+            Productos
+          </button>
+          <button
+            onClick={() => setActiveTab("history")}
+            className={`py-2 px-1 border-b-2 font-medium text-sm ${
+              activeTab === "history"
+                ? "border-purple-500 text-purple-400"
+                : "border-transparent text-gray-400 hover:text-gray-300 hover:border-gray-300"
+            }`}
+          >
+            <History className="h-4 w-4 inline mr-2" />
+            Historial de Movimientos
+          </button>
+        </nav>
+      </div>
 
-          <Card className="bg-gray-800/90 border-gray-600">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-white">Valor Inventario</CardTitle>
-              <DollarSign className="h-4 w-4 text-gray-300" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-green-400">{formatPrice(stats.totalStockValue)}</div>
-              <p className="text-xs text-gray-400">Valor total en stock</p>
-            </CardContent>
-          </Card>
+      {/* Contenido de la pestaña de Productos */}
+      {activeTab === "products" && (
+        <>
+          {stats && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <Card className="bg-gray-800/90 border-gray-600">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium text-white">Total Productos</CardTitle>
+                  <Package className="h-4 w-4 text-gray-300" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-white">{stats.totalProducts}</div>
+                  <p className="text-xs text-gray-400">{stats.activeProducts} activos</p>
+                </CardContent>
+              </Card>
 
-          <Card className="bg-gray-800/90 border-gray-600">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-white">Stock Bajo</CardTitle>
-              <AlertTriangle className="h-4 w-4 text-gray-300" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-orange-400">{stats.lowStockProducts}</div>
-              <p className="text-xs text-gray-400">Menos de 10 unidades</p>
-            </CardContent>
-          </Card>
+              <Card className="bg-gray-800/90 border-gray-600">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium text-white">Valor Inventario</CardTitle>
+                  <DollarSign className="h-4 w-4 text-gray-300" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-green-400">{formatPrice(stats.totalStockValue)}</div>
+                  <p className="text-xs text-gray-400">Valor total en stock</p>
+                </CardContent>
+              </Card>
 
-          <Card className="bg-gray-800/90 border-gray-600">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-white">Sin Stock</CardTitle>
-              <TrendingUp className="h-4 w-4 text-gray-300" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-red-400">{stats.outOfStockProducts}</div>
-              <p className="text-xs text-gray-400">Necesitan reposición</p>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+              <Card className="bg-gray-800/90 border-gray-600">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium text-white">Stock Bajo</CardTitle>
+                  <AlertTriangle className="h-4 w-4 text-gray-300" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-orange-400">{stats.lowStockProducts}</div>
+                  <p className="text-xs text-gray-400">Menos de 10 unidades</p>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-gray-800/90 border-gray-600">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium text-white">Sin Stock</CardTitle>
+                  <TrendingUp className="h-4 w-4 text-gray-300" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-red-400">{stats.outOfStockProducts}</div>
+                  <p className="text-xs text-gray-400">Necesitan reposición</p>
+                </CardContent>
+              </Card>
+            </div>
+          )}
 
       {error && (
         <div className="p-3 rounded-md bg-red-900/30 border border-red-700 text-red-300">
@@ -422,50 +505,77 @@ export function ProductsManagement() {
               {products.map((product) => (
                 <div
                   key={product.id}
-                  className="flex items-center justify-between p-4 bg-gray-700/50 border border-gray-600 rounded-lg hover:bg-gray-700 transition-colors"
+                  className="p-4 bg-gray-700/50 border border-gray-600 rounded-lg hover:bg-gray-700 transition-colors"
                 >
-                  <div className="flex items-center space-x-4">
-                    <div className="w-16 h-16 bg-gray-600 rounded-lg flex items-center justify-center overflow-hidden">
-                      {product.imageUrl ? (
-                        <img
-                          src={product.imageUrl}
-                          alt={product.name}
-                          className="w-full h-full object-cover rounded-lg"
-                        />
-                      ) : (
-                        <ImageIcon className="h-8 w-8 text-gray-300" />
-                      )}
+                  {/* Mobile-first responsive layout */}
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                    {/* Product image and basic info */}
+                    <div className="flex items-start space-x-4 flex-1 min-w-0">
+                      <div className="w-16 h-16 bg-gray-600 rounded-lg flex items-center justify-center overflow-hidden flex-shrink-0">
+                        {product.imageUrl ? (
+                          <img
+                            src={product.imageUrl}
+                            alt={product.name}
+                            className="w-full h-full object-cover rounded-lg"
+                          />
+                        ) : (
+                          <ImageIcon className="h-8 w-8 text-gray-300" />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-semibold text-white truncate">{product.name}</h3>
+                        {/* Badges - responsive wrapping */}
+                        <div className="flex flex-wrap items-center gap-1 mt-2">
+                          <Badge className={`${getCategoryColor(product.category)} text-xs`}>
+                            {getCategoryLabel(product.category)}
+                          </Badge>
+                          <Badge variant={product.productType === "COMPOSITE" ? "outline" : "default"} className="text-xs">
+                            {product.productType === "COMPOSITE" ? "Compuesto" : "Simple"}
+                          </Badge>
+                          <Badge variant={product.isActive ? "default" : "secondary"} className="text-xs">
+                            {product.isActive ? "Activo" : "Inactivo"}
+                          </Badge>
+                        </div>
+                        {/* Ingredients - only show on larger screens to save space */}
+                        {product.productType === "COMPOSITE" && product.compositeIngredients && product.compositeIngredients.length > 0 && (
+                          <div className="mt-2 text-xs text-gray-400 hidden sm:block">
+                            <strong>Ingredientes:</strong> {product.compositeIngredients.map(ing => 
+                              `${ing.ingredient.name} (${ing.quantity}${ing.unit || ''})`
+                            ).join(', ')}
+                          </div>
+                        )}
+                      </div>
                     </div>
-                    <div>
-                      <h3 className="font-semibold text-white">{product.name}</h3>
-                      {product.description && (
-                        <p className="text-sm text-gray-300">{product.description}</p>
-                      )}
-                      <div className="flex items-center space-x-2 mt-1">
-                        <Badge className={getCategoryColor(product.category)}>
-                          {getCategoryLabel(product.category)}
-                        </Badge>
-                        <Badge variant={product.isActive ? "default" : "secondary"}>
-                          {product.isActive ? "Activo" : "Inactivo"}
-                        </Badge>
+
+                    {/* Price and actions - responsive layout */}
+                    <div className="flex items-center justify-between sm:justify-end sm:flex-col sm:items-end gap-4 sm:gap-2">
+                      <div className="text-left sm:text-right">
+                        <div className="font-semibold text-white text-lg">{formatPrice(product.price)}</div>
+                        {product.productType === "SIMPLE" ? (
+                          <div className="text-sm text-gray-300">Stock: {product.stock}</div>
+                        ) : (
+                          <div className="text-sm text-gray-300">Producto Compuesto</div>
+                        )}
+                      </div>
+                      <div className="flex space-x-2">
+                        <Button variant="outline" size="sm" onClick={() => handleEditProduct(product)} className="border-gray-600 text-gray-200">
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={() => handleDeleteProduct(product)} className="text-red-400 hover:text-red-300 border-gray-600">
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </div>
                     </div>
                   </div>
 
-                  <div className="flex items-center space-x-4">
-                    <div className="text-right">
-                      <div className="font-semibold text-white">{formatPrice(product.price)}</div>
-                      <div className="text-sm text-gray-300">Stock: {product.stock}</div>
+                  {/* Ingredients for mobile - show at bottom on small screens */}
+                  {product.productType === "COMPOSITE" && product.compositeIngredients && product.compositeIngredients.length > 0 && (
+                    <div className="mt-3 text-xs text-gray-400 sm:hidden">
+                      <strong>Ingredientes:</strong> {product.compositeIngredients.map(ing => 
+                        `${ing.ingredient.name} (${ing.quantity}${ing.unit || ''})`
+                      ).join(', ')}
                     </div>
-                    <div className="flex space-x-2">
-                      <Button variant="outline" size="sm" onClick={() => handleEditProduct(product)} className="border-gray-600 text-gray-200">
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button variant="outline" size="sm" onClick={() => handleDeleteProduct(product)} className="text-red-400 hover:text-red-300 border-gray-600">
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -482,6 +592,13 @@ export function ProductsManagement() {
           )}
         </CardContent>
       </Card>
+        </>
+      )}
+
+      {/* Contenido de la pestaña de Historial */}
+      {activeTab === "history" && (
+        <InventoryHistory />
+      )}
 
       {showProductModal && (
         <ProductModal
@@ -490,6 +607,18 @@ export function ProductsManagement() {
           isLoading={isModalLoading}
           onSave={handleProductSaved}
           onClose={handleCloseModal}
+        />
+      )}
+
+      {showInventoryModal && (
+        <InventoryMovementModal
+          isOpen={showInventoryModal}
+          movementType={inventoryModalType}
+          onClose={() => setShowInventoryModal(false)}
+          onSuccess={() => {
+            // Recargar datos después de un movimiento exitoso
+            loadProducts()
+          }}
         />
       )}
 

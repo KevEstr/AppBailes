@@ -2,10 +2,7 @@
 
 import { useState, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Upload, FileImage, CheckCircle, AlertCircle } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
@@ -27,6 +24,28 @@ interface PaymentFormProps {
       reviewNotes?: string;
     }>;
   };
+}
+
+function EarlyPaymentNote({ dueDate }: { dueDate: Date }) {
+  let periodDate: Date | null = null;
+  try {
+    // dueDate puede venir como string serializado; normalizar
+    periodDate = new Date(dueDate as any);
+  } catch {}
+
+  const now = new Date();
+  const samePeriod = periodDate
+    ? now.getFullYear() === periodDate.getFullYear() && now.getMonth() === periodDate.getMonth()
+    : true; // si no hay fecha, asumimos período actual para no ocultar la nota en caso de duda
+  const isEarly = now.getDate() <= 15;
+
+  if (!(samePeriod && isEarly)) return null;
+
+  return (
+    <div className="text-sm text-green-400">
+      Aplica descuento por pronto pago: -$5.000 antes del día 15 del mes.
+    </div>
+  );
 }
 
 export function PaymentForm({ formData }: PaymentFormProps) {
@@ -99,9 +118,8 @@ export function PaymentForm({ formData }: PaymentFormProps) {
 
       // Crear comprobante de pago
       const proofData = {
-        payerName: formData.studentName, // Usar el nombre del estudiante
-        amount: formData.amount, // Usar el monto fijo
-        paymentMethod: 'TRANSFER', // Método por defecto
+        payerName: formData.studentName,
+        paymentMethod: 'TRANSFER',
         proofImageUrl: uploadResult.url
       };
 
@@ -298,6 +316,8 @@ export function PaymentForm({ formData }: PaymentFormProps) {
                     <span className="text-gray-300">Monto a pagar:</span>
                     <span className="font-bold text-2xl text-green-400">{formatCurrency(formData.amount)}</span>
                   </div>
+                  {/* Nota de descuento por pronto pago (explicativa) */}
+                  <EarlyPaymentNote dueDate={formData.period.dueDate} />
                   <div className="flex justify-between items-center">
                     <span className="text-gray-300">Fecha límite:</span>
                     <span className="font-medium text-yellow-400">{new Date(formData.period.dueDate).toLocaleDateString()}</span>

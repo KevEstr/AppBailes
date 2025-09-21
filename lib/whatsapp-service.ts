@@ -5,6 +5,17 @@ interface WhatsAppMessage {
   amount: number;
   period: string;
   dueDate: string;
+  sport?: 'DANCE' | 'VOLLEYBALL'; // Campo opcional para seleccionar template
+}
+
+interface PendingPaymentMessage {
+  studentName: string;
+  parentPhone: string;
+  amount: number;
+  period: string;
+  dueDate: string;
+  sport?: 'DANCE' | 'VOLLEYBALL';
+  paymentId: number; // ID del pago pendiente
 }
 
 interface WhatsAppResponse {
@@ -42,6 +53,7 @@ export class WhatsAppService {
     console.log('   📱 Phone Number ID:', this.phoneNumberId);
     console.log('   🔗 URL:', this.baseUrl);
     console.log('   🔑 Token length:', this.accessToken.length);
+    console.log('   🔑 Token preview:', this.accessToken.substring(0, 10) + '...');
     
     if (!this.accessToken || !this.phoneNumberId) {
       throw new Error('WhatsApp credentials not configured. Please set WHATSAPP_ACCESS_TOKEN and WHATSAPP_PHONE_NUMBER_ID environment variables.');
@@ -87,13 +99,33 @@ export class WhatsAppService {
   /**
    * Template personalizado profesional para pagos (APROBADO POR META)
    */
-  private async sendCustomPaymentTemplate(data: WhatsAppMessage, formattedPhone: string): Promise<WhatsAppResponse> {
+  async sendCustomPaymentTemplate(data: WhatsAppMessage, formattedPhone: string): Promise<WhatsAppResponse> {
+    console.log('🎯 sendCustomPaymentTemplate llamado con:');
+    console.log('   📱 Teléfono formateado recibido:', formattedPhone);
+    console.log('   📊 Datos:', data);
+    
+    // Utilidades para formatear período y próximo pago al día 15
+    const buildPeriodWithDay15 = (periodLabel: string): string => {
+      // Si ya contiene un día, lo respetamos; de lo contrario anteponemos "15 de "
+      const hasDay = /\b\d{1,2}\b/.test(periodLabel);
+      return hasDay ? periodLabel : `15 de ${periodLabel}`;
+    };
+
+    const periodWith15 = buildPeriodWithDay15(data.period);
+    // Seleccionar template según el deporte
+    console.log('🏃 Deporte detectado:', data.sport);
+    const templateName = data.sport === 'VOLLEYBALL' 
+      ? 'payment_reminder_paradise_volley' 
+      : 'payment_reminder_paradise';
+    
+    console.log('📋 Template seleccionado:', templateName);
+
     const requestBody = {
       messaging_product: 'whatsapp',
       to: formattedPhone,
       type: 'template',
       template: {
-        name: 'payment_reminder_paradise', // Nombre del template aprobado
+        name: templateName, // Template específico por deporte
         language: {
           code: 'es_CO'
         },
@@ -111,15 +143,7 @@ export class WhatsAppService {
               },
               {
                 type: 'text',
-                text: data.period // {{3}} - Período (ej: "Enero 2025")
-              },
-              {
-                type: 'text',
-                text: data.dueDate // {{4}} - Vence (ej: "31 de Enero")
-              },
-              {
-                type: 'text',
-                text: data.paymentLink // {{5}} - Enlace para subir comprobante
+                text: periodWith15 // {{3}} - Período con día 15 (ej: "15 de Enero 2025")
               }
             ]
           }
@@ -138,8 +162,11 @@ export class WhatsAppService {
       body: JSON.stringify(requestBody)
     });
 
+    console.log('📨 Response Status:', response.status);
+    console.log('📨 Response Headers:', Object.fromEntries(response.headers.entries()));
+    
     const responseData = await response.json();
-    console.log('📨 Response (Custom Template):', response.status, responseData);
+    console.log('📨 Response Body (Custom Template):', JSON.stringify(responseData, null, 2));
 
     if (!response.ok) {
       throw new Error(`Custom template error: ${JSON.stringify(responseData)}`);
@@ -308,6 +335,64 @@ ${data.paymentLink}
   }
 
   /**
+   * Envía mensaje de pago pendiente (nuevo sistema sin formularios)
+   */
+  async sendPendingPaymentMessage(data: PendingPaymentMessage): Promise<WhatsAppResponse> {
+    this.initialize(); // Lazy initialization
+    try {
+      // Formatear el número de teléfono (debe incluir código de país sin +)
+      const formattedPhone = this.formatPhoneNumber(data.parentPhone);
+      
+      console.log('📤 Preparando envío de WhatsApp (PAGO PENDIENTE):');
+      console.log('   👤 Estudiante:', data.studentName);
+      console.log('   📱 Teléfono original:', data.parentPhone);
+      console.log('   📱 Teléfono formateado:', formattedPhone);
+      console.log('   💰 Monto:', data.amount);
+      console.log('   📅 Período:', data.period);
+      console.log('   🆔 Payment ID:', data.paymentId);
+      
+      const message = this.createPendingPaymentMessage(data);
+      
+      const requestBody = {
+        messaging_product: 'whatsapp',
+        to: formattedPhone,
+        type: 'text',
+        text: {
+          body: message
+        }
+      };
+      
+      console.log('📋 Request Body (PAGO PENDIENTE):', JSON.stringify(requestBody, null, 2));
+      
+      const response = await fetch(this.baseUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody)
+      });
+
+      console.log('📨 Response Status:', response.status);
+      console.log('📨 Response Headers:', Object.fromEntries(response.headers.entries()));
+
+      const responseData = await response.json();
+      console.log('📨 Response Body:', JSON.stringify(responseData, null, 2));
+
+      if (!response.ok) {
+        console.error('❌ WhatsApp API Error:', responseData);
+        throw new Error(`WhatsApp API Error: ${JSON.stringify(responseData)}`);
+      }
+
+      console.log('✅ Mensaje de pago pendiente enviado exitosamente');
+      return responseData;
+    } catch (error) {
+      console.error('💥 Error sending WhatsApp pending payment message:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Envía un mensaje usando plantilla (más profesional)
    */
   async sendPaymentTemplate(data: WhatsAppMessage): Promise<WhatsAppResponse> {
@@ -383,7 +468,7 @@ ${data.paymentLink}
   /**
    * Formatea el número de teléfono para WhatsApp
    */
-  private formatPhoneNumber(phone: string): string {
+  formatPhoneNumber(phone: string): string {
     // Remover espacios, guiones y caracteres especiales
     let cleaned = phone.replace(/\D/g, '');
     
@@ -472,6 +557,33 @@ ${data.paymentLink}
   }
 
   /**
+   * Crea el mensaje para pagos pendientes (sin link de formulario)
+   */
+  private createPendingPaymentMessage(data: PendingPaymentMessage): string {
+    return `🩰 *Paradise Dance Academy*
+
+Hola! Te recordamos que tienes un pago pendiente para *${data.studentName}*.
+
+📋 *Detalles del pago:*
+• Estudiante: ${data.studentName}
+• Período: ${data.period}
+• Monto: $${data.amount.toLocaleString()}
+• Fecha límite: ${data.dueDate}
+
+💳 *Para realizar el pago:*
+Puedes pagar en efectivo, transferencia bancaria o tarjeta. Una vez realizado el pago, nuestro administrador lo marcará como recibido en el sistema.
+
+📱 *Información importante:*
+• Guarda tu comprobante de pago
+• El pago será confirmado por nuestro equipo
+• Recibirás notificación cuando sea procesado
+
+¿Tienes alguna pregunta? ¡No dudes en contactarnos!
+
+*Paradise Dance Academy* ✨`;
+  }
+
+  /**
    * Envía un recordatorio de pago
    */
   async sendPaymentReminder(data: WhatsAppMessage): Promise<WhatsAppResponse> {
@@ -525,15 +637,23 @@ ${data.paymentLink}
   async verifyConnection(): Promise<boolean> {
     this.initialize(); // Lazy initialization
     try {
-      const response = await fetch(`https://graph.facebook.com/v18.0/${this.phoneNumberId}`, {
+      console.log('🔍 Verificando conexión con WhatsApp API...');
+      console.log('   📱 Phone Number ID:', this.phoneNumberId);
+      console.log('   🔗 URL de verificación:', `https://graph.facebook.com/v22.0/${this.phoneNumberId}`);
+      
+      const response = await fetch(`https://graph.facebook.com/v22.0/${this.phoneNumberId}`, {
         headers: {
           'Authorization': `Bearer ${this.accessToken}`,
         },
       });
 
+      console.log('📨 Response Status:', response.status);
+      const responseData = await response.json();
+      console.log('📨 Response Data:', JSON.stringify(responseData, null, 2));
+
       return response.ok;
     } catch (error) {
-      console.error('Error verifying WhatsApp connection:', error);
+      console.error('❌ Error verifying WhatsApp connection:', error);
       return false;
     }
   }
@@ -568,6 +688,21 @@ ${data.paymentLink}
       phoneNumberId,
       errors
     };
+  }
+
+  /**
+   * Método estático para formatear números de teléfono
+   */
+  static formatPhoneNumber(phone: string): string {
+    // Remover espacios, guiones y caracteres especiales
+    let cleaned = phone.replace(/\D/g, '');
+    
+    // Si no empieza con código de país, agregar Colombia (57)
+    if (!cleaned.startsWith('57') && cleaned.length === 10) {
+      cleaned = '57' + cleaned;
+    }
+    
+    return cleaned;
   }
 
   /**
@@ -608,6 +743,7 @@ ${data.paymentLink}
     expectedAmount?: number;
     remainingAmount?: number;
     paymentStatus?: string;
+    nextPaymentDate?: string;
   }): Promise<WhatsAppResponse> {
     this.initialize(); // Lazy initialization
     try {
@@ -691,6 +827,7 @@ ${data.paymentLink}
     expectedAmount?: number;
     remainingAmount?: number;
     paymentStatus?: string;
+    nextPaymentDate?: string;
   }, formattedPhone: string): Promise<WhatsAppResponse> {
     
     // Usar template diferente según si es pago parcial o completo
@@ -718,13 +855,14 @@ ${data.paymentLink}
               { type: 'text', text: `$${(data.expectedAmount || 0).toLocaleString()}` }, // {{5}} Monto total
               { type: 'text', text: `$${data.amount.toLocaleString()}` },                // {{6}} Pagado
               { type: 'text', text: `$${(data.remainingAmount || 0).toLocaleString()}` },// {{7}} Saldo pendiente
-              { type: 'text', text: data.receiptUrl || 'Sin recibo disponible' }         // {{8}} URL recibo
+              { type: 'text', text: data.receiptUrl || 'Sin recibo disponible' },        // {{8}} URL recibo
             ] : [
               { type: 'text', text: data.studentName },                                    // {{1}} Estudiante
               { type: 'text', text: data.period },                                        // {{2}} Período
               { type: 'text', text: `$${data.amount.toLocaleString()}` },                // {{3}} Monto
               { type: 'text', text: data.paymentMethod },                                // {{4}} Método
-              { type: 'text', text: data.receiptUrl || 'Sin recibo disponible' }         // {{5}} URL recibo
+              { type: 'text', text: data.receiptUrl || 'Sin recibo disponible' },        // {{5}} URL recibo
+              { type: 'text', text: data.nextPaymentDate || 'Fecha por confirmar' }      // {{6}} Próximo pago
             ]
           }
         ]
@@ -834,6 +972,11 @@ ${data.paymentLink}
     amount: number;
     paymentMethod: string;
     receiptUrl?: string;
+    isPartialPayment?: boolean;
+    expectedAmount?: number;
+    remainingAmount?: number;
+    paymentStatus?: string;
+    nextPaymentDate?: string;
   }, formattedPhone: string): Promise<WhatsAppResponse> {
     // 1. Enviar template hello_world
     const helloWorldBody = {
@@ -947,6 +1090,7 @@ ${data.paymentLink}
     expectedAmount?: number;
     remainingAmount?: number;
     paymentStatus?: string;
+    nextPaymentDate?: string;
   }, formattedPhone: string): Promise<void> {
     const message = data.isPartialPayment 
       ? `¡Hola! Te informamos que tu comprobante de pago ha sido APROBADO.
@@ -965,6 +1109,8 @@ ${data.paymentLink}
 ⏰ Próximo paso:
 Debes completar el pago del saldo restante para evitar deudas.
 
+📅 Próximo pago: ${data.nextPaymentDate || 'Fecha por confirmar'}
+
 📄 Tu recibo digital:
 ${data.receiptUrl || 'Sin recibo disponible'}`
       : `¡Hola! Te informamos que tu comprobante de pago ha sido APROBADO.
@@ -974,6 +1120,8 @@ ${data.receiptUrl || 'Sin recibo disponible'}`
 💰 Monto pagado: $${data.amount.toLocaleString()}
 💳 Método: ${data.paymentMethod}
 ✅ Estado: Pago completo confirmado
+
+📅 Próximo pago: ${data.nextPaymentDate || 'Fecha por confirmar'}
 
 📄 Tu recibo digital:
 ${data.receiptUrl || 'Sin recibo disponible'}`;

@@ -239,6 +239,8 @@ model Receipt {
   id            Int           @id @default(autoincrement())
   studentId     String
   student       Student       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  monthlyPaymentId Int?
+  monthlyPayment MonthlyPayment? @relation(fields: [monthlyPaymentId], references: [id], onDelete: SetNull)
 
   @@map("receipts")
 }
@@ -345,12 +347,17 @@ model MonthlyPayment {
   paymentDate    DateTime?            @db.Timestamptz
   approvedBy     String?
   notes          String?
+  // Nuevos campos para el sistema de pagos pendientes
+  paymentMethod  PaymentMethod?       // Método de pago cuando se marca como recibido
+  receivedAt     DateTime?            @db.Timestamptz // Fecha cuando se recibió el pago
+  markedAsPaidBy String?              // Usuario que marcó el pago como recibido
   createdAt      DateTime             @default(now()) @db.Timestamptz
   updatedAt      DateTime             @updatedAt @db.Timestamptz
   feeConfig      MonthlyFeeConfig     @relation(fields: [feeConfigId], references: [id])
   period         PaymentPeriod        @relation(fields: [periodId], references: [id], onDelete: Cascade)
   student        Student              @relation(fields: [studentId], references: [id], onDelete: Cascade)
   paymentForms   PaymentForm[]
+  receipts       Receipt[]
 
   @@unique([studentId, periodId])
   @@map("monthly_payments")
@@ -698,6 +705,7 @@ model User {
   studentTransfers StudentTransfer[]
   productSales ProductSale[]
   trainerAttendances TrainerAttendance[]
+  inventoryMovements InventoryMovement[]
   @@map("users")
 }
 
@@ -902,6 +910,7 @@ enum TransactionCategory {
   RENT
   UTILITIES
   SALARIES
+  PURCHASES
   OTHER_INCOME
   OTHER_EXPENSE
 }
@@ -921,26 +930,76 @@ model Product {
   name        String
   description String?
   price       Float
-  stock       Int       @default(0)
+  stock       Float?    // NULL para productos compuestos, valor para productos simples
   imageUrl    String?
   category    ProductCategory
+  productType ProductType @default(SIMPLE)  // SIMPLE o COMPOSITE
   isActive    Boolean   @default(true)
+  allowNegativeStock Boolean @default(true)  // Solo aplica a productos simples
   createdAt   DateTime  @default(now()) @db.Timestamptz
   updatedAt   DateTime  @updatedAt @db.Timestamptz
   
   // Relaciones
   sales       ProductSale[]
+  inventoryMovements InventoryMovement[]
+  compositeIngredients ProductIngredient[] @relation("CompositeProduct")
+  ingredientInProducts ProductIngredient[] @relation("IngredientProduct")
 
   @@index([name])
   @@index([category])
+  @@index([productType])
   @@index([isActive])
   @@map("products")
+}
+
+// Modelo para ingredientes de productos compuestos
+model ProductIngredient {
+  id            Int       @id @default(autoincrement())
+  compositeProductId Int   // Producto compuesto
+  ingredientId  Int       // Ingrediente (producto simple)
+  quantity      Float     // Cantidad requerida del ingrediente
+  unit          String?   // Unidad de medida (opcional)
+  createdAt     DateTime  @default(now()) @db.Timestamptz
+  updatedAt     DateTime  @updatedAt @db.Timestamptz
+  
+  // Relaciones
+  compositeProduct Product @relation("CompositeProduct", fields: [compositeProductId], references: [id], onDelete: Cascade)
+  ingredient       Product @relation("IngredientProduct", fields: [ingredientId], references: [id], onDelete: Cascade)
+  
+  @@unique([compositeProductId, ingredientId])
+  @@index([compositeProductId])
+  @@index([ingredientId])
+  @@map("product_ingredients")
+}
+
+// Modelo para movimientos de inventario
+model InventoryMovement {
+  id            Int       @id @default(autoincrement())
+  productId     Int
+  movementType  InventoryMovementType
+  quantity      Float     // Cantidad (positiva para entradas, negativa para salidas)
+  price         Float?    // Precio de compra (solo para entradas, para registro de egresos)
+  reason        String?   // Motivo del movimiento
+  reference     String?   // Referencia externa (factura, orden, etc.)
+  notes         String?
+  processedBy   Int       // Usuario que procesó el movimiento
+  createdAt     DateTime  @default(now()) @db.Timestamptz
+  
+  // Relaciones
+  product       Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user          User      @relation(fields: [processedBy], references: [id])
+  
+  @@index([productId])
+  @@index([movementType])
+  @@index([processedBy])
+  @@index([createdAt])
+  @@map("inventory_movements")
 }
 
 model ProductSale {
   id            Int       @id @default(autoincrement())
   productId     Int
-  quantity      Int
+  quantity      Float     // Cambiado a Float para permitir decimales
   unitPrice     Float
   totalAmount   Float
   paymentMethod String?   // CASH, TRANSFER
@@ -969,6 +1028,20 @@ enum ProductCategory {
   ACCESSORIES // Accesorios y complementos
   ADDITIONS   // Adiciones y complementos
   OTHER       // Otros
+}
+
+enum ProductType {
+  SIMPLE      // Producto simple con inventario directo
+  COMPOSITE   // Producto compuesto por ingredientes
+}
+
+enum InventoryMovementType {
+  PURCHASE    // Compra/entrada de inventario
+  SALE        // Venta/salida por venta
+  ADJUSTMENT  // Ajuste manual de inventario
+  WASTE       // Pérdida/desperdicio
+  TRANSFER    // Transferencia entre ubicaciones
+  RETURN      // Devolución
 }
 
 // ===== MODELOS PARA PARTIDOS =====

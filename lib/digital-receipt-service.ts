@@ -10,6 +10,7 @@ export interface ReceiptData {
   nextPaymentDate?: string;
   paymentMethod: string;
   receivedBy: string;
+  sport?: 'DANCE' | 'VOLLEYBALL'; // Campo para determinar el tipo de recibo
 }
 
 export class DigitalReceiptService {
@@ -27,7 +28,17 @@ export class DigitalReceiptService {
       const monthlyPayment = await prisma.monthlyPayment.findUnique({
         where: { id: monthlyPaymentId },
         include: {
-          student: true,
+          student: {
+            include: {
+              classEnrollments: {
+                include: {
+                  danceClass: {
+                    select: { sport: true }
+                  }
+                }
+              }
+            }
+          },
           period: true
         }
       });
@@ -36,10 +47,14 @@ export class DigitalReceiptService {
         throw new Error('Pago mensual no encontrado');
       }
 
+      // Determinar el deporte del estudiante
+      const sport = this.pickPrimarySport(monthlyPayment.student);
+
       // Crear recibo en la base de datos
       const receipt = await prisma.receipt.create({
         data: {
           studentId: monthlyPayment.studentId,
+          monthlyPaymentId: monthlyPaymentId,
           amount: approvedAmount,
           concept: `Mensualidad ${monthlyPayment.period.name}`,
           paymentMethod: this.mapPaymentMethod(paymentMethod),
@@ -48,17 +63,32 @@ export class DigitalReceiptService {
         }
       });
 
+      // Calcular fecha del próximo pago (15 del mes siguiente)
+      const currentDate = new Date(monthlyPayment.period.year, monthlyPayment.period.month - 1, 1);
+      const nextMonth = new Date(currentDate);
+      nextMonth.setMonth(nextMonth.getMonth() + 1);
+      const nextPaymentDate = new Date(nextMonth.getFullYear(), nextMonth.getMonth(), 15);
+
       // Formatear datos del recibo
       const receiptData: ReceiptData = {
         id: receipt.id,
         receiptNumber: receipt.id.toString().padStart(4, '0'),
         studentName: monthlyPayment.student.name,
         amount: approvedAmount,
-        concept: `Mensualidad ${monthlyPayment.period.name}`,
-        paymentDate: new Date().toLocaleDateString('es-ES'),
-        nextPaymentDate: new Date(monthlyPayment.period.dueDate.getTime() + (30 * 24 * 60 * 60 * 1000)).toLocaleDateString('es-ES'),
+        concept: `Aporte mensual`,
+        paymentDate: new Date().toLocaleDateString('es-ES', { 
+          day: '2-digit', 
+          month: '2-digit', 
+          year: 'numeric' 
+        }),
+        nextPaymentDate: nextPaymentDate.toLocaleDateString('es-ES', { 
+          day: '2-digit', 
+          month: '2-digit', 
+          year: 'numeric' 
+        }),
         paymentMethod: this.getPaymentMethodLabel(paymentMethod),
-        receivedBy: 'Sebastian Vasquez Correa'
+        receivedBy: 'Sebastian Vasquez Correa',
+        sport: sport || 'DANCE' // Default a DANCE si no se puede determinar
       };
 
       return receiptData;
@@ -82,17 +112,29 @@ export class DigitalReceiptService {
     try {
       // Obtener información del estudiante
       const student = await prisma.student.findUnique({
-        where: { id: studentId }
+        where: { id: studentId.toString() },
+        include: {
+          classEnrollments: {
+            include: {
+              danceClass: {
+                select: { sport: true }
+              }
+            }
+          }
+        }
       });
 
       if (!student) {
         throw new Error('Estudiante no encontrado');
       }
 
+      // Determinar el deporte del estudiante
+      const sport = this.pickPrimarySport(student);
+
       // Crear recibo en la base de datos
       const receipt = await prisma.receipt.create({
         data: {
-          studentId,
+          studentId: studentId.toString(),
           amount,
           concept,
           paymentMethod: this.mapPaymentMethod(paymentMethod),
@@ -113,7 +155,8 @@ export class DigitalReceiptService {
           ? new Date(new Date().getTime() + (30 * 24 * 60 * 60 * 1000)).toLocaleDateString('es-ES')
           : undefined,
         paymentMethod: this.getPaymentMethodLabel(paymentMethod),
-        receivedBy: 'Sebastian Vasquez Correa'
+        receivedBy: 'Sebastian Vasquez Correa',
+        sport: sport || 'DANCE' // Default a DANCE si no se puede determinar
       };
 
       return receiptData;
@@ -132,13 +175,26 @@ export class DigitalReceiptService {
       const receipt = await prisma.receipt.findUnique({
         where: { id: receiptId },
         include: {
-          student: true
+          student: {
+            include: {
+              classEnrollments: {
+                include: {
+                  danceClass: {
+                    select: { sport: true }
+                  }
+                }
+              }
+            }
+          }
         }
       });
 
       if (!receipt) {
         return null;
       }
+
+      // Determinar el deporte del estudiante
+      const sport = this.pickPrimarySport(receipt.student);
 
       const receiptData: ReceiptData = {
         id: receipt.id,
@@ -151,7 +207,8 @@ export class DigitalReceiptService {
           ? new Date(new Date(receipt.createdAt).getTime() + (30 * 24 * 60 * 60 * 1000)).toLocaleDateString('es-ES')
           : undefined,
         paymentMethod: this.getPaymentMethodLabel(receipt.paymentMethod),
-        receivedBy: 'Sebastian Vasquez Correa'
+        receivedBy: 'Sebastian Vasquez Correa',
+        sport: sport || 'DANCE' // Default a DANCE si no se puede determinar
       };
 
       return receiptData;
@@ -204,5 +261,16 @@ export class DigitalReceiptService {
   static generateReceiptUrl(receiptId: number): string {
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
     return `${baseUrl}/recibo/${receiptId}`;
+  }
+
+  /**
+   * Determina el deporte principal del estudiante
+   * Prioriza DANCE sobre VOLLEYBALL si el estudiante está inscrito en ambos
+   */
+  private static pickPrimarySport(student: any): 'DANCE' | 'VOLLEYBALL' | null {
+    if (!student.classEnrollments || student.classEnrollments.length === 0) return null;
+    const sports = [...new Set(student.classEnrollments.map((enrollment: any) => enrollment.danceClass.sport))];
+    if (sports.length === 0) return null;
+    return (sports.includes('DANCE') ? 'DANCE' : sports[0]) as any;
   }
 } 
