@@ -237,7 +237,8 @@ export function PendingPaymentsDashboard({ periodId }: PendingPaymentsDashboardP
   };
 
   const getStatusBadge = (payment: PendingPayment) => {
-    if (payment.isOverdue) {
+    // Si está vencido y es pendiente
+    if (payment.isOverdue && (payment.status === 'PENDING' || payment.status === 'OVERDUE')) {
       return (
         <Badge variant="destructive" className="bg-red-600">
           <AlertTriangle className="h-3 w-3 mr-1" />
@@ -245,10 +246,52 @@ export function PendingPaymentsDashboard({ periodId }: PendingPaymentsDashboardP
         </Badge>
       );
     }
+    
+    // Si es pago parcial
+    if (payment.status === 'PARTIAL_PAID') {
+      return (
+        <Badge variant="secondary" className="bg-orange-600">
+          <Clock className="h-3 w-3 mr-1" />
+          Parcial
+        </Badge>
+      );
+    }
+    
+    // Si está pagado
+    if (payment.status === 'PAID') {
+      return (
+        <Badge variant="secondary" className="bg-green-600">
+          <CheckCircle className="h-3 w-3 mr-1" />
+          Pagado
+        </Badge>
+      );
+    }
+    
+    // Si está pendiente
+    if (payment.status === 'PENDING') {
+      return (
+        <Badge variant="secondary" className="bg-yellow-600">
+          <Clock className="h-3 w-3 mr-1" />
+          Pendiente
+        </Badge>
+      );
+    }
+    
+    // Si está vencido
+    if (payment.status === 'OVERDUE') {
+      return (
+        <Badge variant="destructive" className="bg-red-600">
+          <AlertTriangle className="h-3 w-3 mr-1" />
+          Vencido
+        </Badge>
+      );
+    }
+    
+    // Fallback
     return (
-      <Badge variant="secondary" className="bg-yellow-600">
+      <Badge variant="secondary" className="bg-gray-600">
         <Clock className="h-3 w-3 mr-1" />
-        Pendiente
+        {payment.status}
       </Badge>
     );
   };
@@ -391,8 +434,8 @@ export function PendingPaymentsDashboard({ periodId }: PendingPaymentsDashboardP
                         </Button>
                       )}
 
-                      {/* Solo mostrar botón "Recibo" para pagos completados */}
-                      {payment.status === 'PAID' && (
+                      {/* Mostrar botón "Recibo" para pagos completados y parciales */}
+                      {(payment.status === 'PAID' || payment.status === 'PARTIAL_PAID') && (
                         <Button
                           size="sm"
                           variant="outline"

@@ -46,15 +46,33 @@ export function MarkPaymentReceivedModal({
 }: MarkPaymentReceivedModalProps) {
   const [paymentMethod, setPaymentMethod] = useState<string>('');
   const [receivedAmount, setReceivedAmount] = useState<string>(payment?.expectedAmount.toString() || '');
+  const [additionalDebt, setAdditionalDebt] = useState<string>('');
+  const [discount, setDiscount] = useState<string>('');
   const [notes, setNotes] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
+
+  // Calcular si el pago será parcial
+  const baseAmount = payment?.expectedAmount || 0;
+  const discountValue = discount ? parseFloat(discount) : 0;
+  const effectiveExpectedAmount = Math.max(0, baseAmount - discountValue);
+  const receivedValue = receivedAmount ? parseFloat(receivedAmount) : effectiveExpectedAmount;
+  const isPartialPayment = receivedValue < effectiveExpectedAmount;
 
   // Actualizar el monto recibido cuando cambie el payment
   useEffect(() => {
     if (payment) {
       setReceivedAmount(payment.expectedAmount.toString());
+      setAdditionalDebt('');
+      setDiscount('');
     }
   }, [payment]);
+
+  // Limpiar adeudo adicional cuando el pago no es parcial
+  useEffect(() => {
+    if (!isPartialPayment && additionalDebt) {
+      setAdditionalDebt('');
+    }
+  }, [isPartialPayment, additionalDebt]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -65,6 +83,75 @@ export function MarkPaymentReceivedModal({
       toast({
         title: 'Error',
         description: 'Por favor selecciona un método de pago',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    // Validaciones de montos
+    const baseAmount = payment.expectedAmount;
+    const discountValue = discount ? parseFloat(discount) : 0;
+    const additionalDebtValue = additionalDebt ? parseFloat(additionalDebt) : 0;
+    const receivedValue = receivedAmount ? parseFloat(receivedAmount) : baseAmount;
+
+    // Validar que el descuento no sea mayor al monto esperado
+    if (discountValue > baseAmount) {
+      toast({
+        title: 'Error',
+        description: `El descuento ($${discountValue.toLocaleString()}) no puede ser mayor al monto esperado ($${baseAmount.toLocaleString()})`,
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    // Validar que el descuento no sea negativo
+    if (discountValue < 0) {
+      toast({
+        title: 'Error',
+        description: 'El descuento no puede ser negativo',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    // Validar que el adeudo adicional no sea negativo
+    if (additionalDebtValue < 0) {
+      toast({
+        title: 'Error',
+        description: 'El adeudo adicional no puede ser negativo',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    // Validar que el adeudo adicional no sea mayor al monto esperado
+    if (additionalDebtValue > baseAmount) {
+      toast({
+        title: 'Error',
+        description: `El adeudo adicional ($${additionalDebtValue.toLocaleString()}) no puede ser mayor al monto esperado ($${baseAmount.toLocaleString()})`,
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    // Validar que el adeudo adicional solo se permita en pagos parciales
+    const effectiveExpectedAmount = Math.max(0, baseAmount - discountValue);
+    const isPartialPayment = receivedValue < effectiveExpectedAmount;
+    
+    if (additionalDebtValue > 0 && !isPartialPayment) {
+      toast({
+        title: 'Error',
+        description: 'El adeudo adicional solo se puede registrar en pagos parciales',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    // Validar que el monto recibido no sea negativo
+    if (receivedValue < 0) {
+      toast({
+        title: 'Error',
+        description: 'El monto recibido no puede ser negativo',
         variant: 'destructive'
       });
       return;
@@ -81,6 +168,8 @@ export function MarkPaymentReceivedModal({
         body: JSON.stringify({
           paymentMethod,
           receivedAmount: receivedAmount ? parseFloat(receivedAmount) : undefined,
+          additionalDebt: additionalDebt ? parseFloat(additionalDebt) : undefined,
+          discount: discount ? parseFloat(discount) : undefined,
           notes: notes.trim() || undefined
         }),
       });
@@ -100,6 +189,8 @@ export function MarkPaymentReceivedModal({
       // Reset form
       setPaymentMethod('');
       setReceivedAmount('');
+      setAdditionalDebt('');
+      setDiscount('');
       setNotes('');
       
       onSuccess();
@@ -120,6 +211,8 @@ export function MarkPaymentReceivedModal({
     if (!isLoading) {
       setPaymentMethod('');
       setReceivedAmount('');
+      setAdditionalDebt('');
+      setDiscount('');
       setNotes('');
       onClose();
     }
@@ -195,6 +288,44 @@ export function MarkPaymentReceivedModal({
               </Select>
             </div>
           </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="additionalDebt" className="text-white">Adeudo (opcional)</Label>
+              <Input
+                id="additionalDebt"
+                type="number"
+                placeholder="0"
+                value={additionalDebt}
+                onChange={(e) => setAdditionalDebt(e.target.value)}
+                min="0"
+                step="100"
+                disabled={!isPartialPayment}
+                className={`bg-gray-700 border-gray-600 text-white ${!isPartialPayment ? 'opacity-50 cursor-not-allowed' : ''}`}
+              />
+              <p className="text-xs text-gray-400">
+                {isPartialPayment 
+                  ? "Monto adicional que debe el estudiante" 
+                  : "Solo disponible para pagos parciales"
+                }
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="discount" className="text-white">Descuento (opcional)</Label>
+              <Input
+                id="discount"
+                type="number"
+                placeholder="0"
+                value={discount}
+                onChange={(e) => setDiscount(e.target.value)}
+                min="0"
+                step="100"
+                className="bg-gray-700 border-gray-600 text-white"
+              />
+              <p className="text-xs text-gray-400">Descuento aplicado al pago</p>
+            </div>
+          </div>
+
 
           <div className="space-y-2">
             <Label htmlFor="notes" className="text-white">Notas (opcional)</Label>

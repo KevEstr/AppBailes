@@ -359,7 +359,6 @@ model MonthlyPayment {
   paymentForms   PaymentForm[]
   receipts       Receipt[]
 
-  @@unique([studentId, periodId])
   @@map("monthly_payments")
 }
 

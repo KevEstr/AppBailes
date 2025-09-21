@@ -129,12 +129,10 @@ export class MonthlyPaymentService {
 
     for (const student of activeStudents) {
       // Verificar si ya existe un pago para este estudiante y período
-      const existingPayment = await prisma.monthlyPayment.findUnique({
+      const existingPayment = await prisma.monthlyPayment.findFirst({
         where: {
-          studentId_periodId: {
-            studentId: student.id,
-            periodId: period.id,
-          },
+          studentId: student.id,
+          periodId: period.id,
         },
       });
 
@@ -252,6 +250,8 @@ export class MonthlyPaymentService {
     data: {
       paymentMethod: "CASH" | "TRANSFER" | "CARD";
       receivedAmount?: number;
+      additionalDebt?: number;
+      discount?: number;
       markedBy: string;
       notes?: string;
     }
@@ -269,8 +269,13 @@ export class MonthlyPaymentService {
       throw new Error("El pago ya ha sido marcado como recibido");
     }
 
-    const receivedAmount = data.receivedAmount || payment.expectedAmount;
-    const isPartialPayment = receivedAmount < payment.expectedAmount;
+    // Calcular el monto efectivo considerando descuentos
+    const baseAmount = payment.expectedAmount;
+    const discountAmount = data.discount || 0;
+    const effectiveExpectedAmount = Math.max(0, baseAmount - discountAmount);
+    
+    const receivedAmount = data.receivedAmount || effectiveExpectedAmount;
+    const isPartialPayment = receivedAmount < effectiveExpectedAmount;
     const newStatus: "PAID" | "PARTIAL_PAID" = isPartialPayment ? "PARTIAL_PAID" : "PAID";
 
     // Actualizar el pago
@@ -281,19 +286,21 @@ export class MonthlyPaymentService {
         paidAmount: receivedAmount,
         paymentDate: new Date(),
         approvedBy: data.markedBy,
-        notes: data.notes || (isPartialPayment 
-          ? `Pago parcial: $${receivedAmount.toLocaleString()} de $${payment.expectedAmount.toLocaleString()}`
-          : `Pago completo: $${receivedAmount.toLocaleString()}`
-        ),
+        notes: this.generatePaymentNotes(data, receivedAmount, effectiveExpectedAmount, baseAmount, isPartialPayment),
           },
         });
 
     // Actualizar estado de deuda del estudiante
     await this.updateStudentDebtStatus(payment.studentId);
 
-    // Crear deuda automática si es pago parcial
+    // Crear nuevo pago pendiente para el saldo restante si es pago parcial
     if (isPartialPayment) {
-      await this.createAutomaticDebt(payment.student, payment.period, payment.expectedAmount - receivedAmount);
+      await this.createRemainingPayment(payment.student, payment.period, effectiveExpectedAmount - receivedAmount, data.markedBy);
+    }
+
+    // Crear deuda adicional SOLO si es pago parcial y se especificó manualmente
+    if (isPartialPayment && data.additionalDebt && data.additionalDebt > 0) {
+      await this.createAdditionalDebt(payment.student, payment.period, data.additionalDebt, data.notes);
     }
 
     // Generar recibo digital
@@ -434,7 +441,7 @@ export class MonthlyPaymentService {
         status: payment.status,
         period: payment.period.name,
         dueDate: payment.period.dueDate,
-        isOverdue: new Date() > payment.period.dueDate,
+        isOverdue: new Date() > payment.period.dueDate && (payment.status === 'PENDING' || payment.status === 'OVERDUE'),
         createdAt: payment.createdAt,
         paymentDate: payment.paymentDate,
       })),
@@ -515,7 +522,7 @@ export class MonthlyPaymentService {
         status: payment.status,
         period: payment.period.name,
         dueDate: payment.period.dueDate,
-        isOverdue: new Date() > payment.period.dueDate,
+        isOverdue: new Date() > payment.period.dueDate && (payment.status === 'PENDING' || payment.status === 'OVERDUE'),
         createdAt: payment.createdAt,
       })),
       pagination: {
@@ -1020,7 +1027,7 @@ export class MonthlyPaymentService {
         expectedAmount: payment.expectedAmount,
         dueDate: payment.period.dueDate,
         period: payment.period.name,
-        isOverdue: new Date() > payment.period.dueDate,
+        isOverdue: new Date() > payment.period.dueDate && (payment.status === 'PENDING' || payment.status === 'OVERDUE'),
       }));
 
     // Deudas regulares
@@ -1136,10 +1143,8 @@ export class MonthlyPaymentService {
     // Actualizar el pago mensual
     await this.updateMonthlyPaymentStatus(monthlyPayment.id, paidAmount, paymentStatus, remainingAmount, data.reviewedBy);
 
-    // Crear deuda automática si es pago parcial
-    if (isPartialPayment) {
-      await this.createAutomaticDebt(student, period, remainingAmount);
-    }
+    // Nota: No se crean deudas automáticas por pagos parciales
+    // Las deudas solo se crean manualmente desde el modal de marcar pago como recibido
 
     // Actualizar estado de deuda del estudiante
     await this.updateStudentDebtStatus(monthlyPayment.studentId);
@@ -1175,39 +1180,98 @@ export class MonthlyPaymentService {
   }
 
   /**
-   * Crea una deuda automática para pagos parciales
+   * Genera las notas del pago considerando descuentos y adeudos
    */
-  private async createAutomaticDebt(student: any, period: any, remainingAmount: number) {
-    try {
-      console.log("📋 Creando deuda automática por pago parcial...");
+  private generatePaymentNotes(
+    data: any,
+    receivedAmount: number,
+    effectiveExpectedAmount: number,
+    baseAmount: number,
+    isPartialPayment: boolean
+  ): string {
+    let notes = [];
+    
+    if (data.notes) {
+      notes.push(data.notes);
+    }
+    
+    if (data.discount && data.discount > 0) {
+      notes.push(`Descuento aplicado: $${data.discount.toLocaleString()}`);
+    }
+    
+    if (isPartialPayment) {
+      notes.push(`Pago parcial: $${receivedAmount.toLocaleString()} de $${effectiveExpectedAmount.toLocaleString()}. Saldo restante: $${(effectiveExpectedAmount - receivedAmount).toLocaleString()}`);
+    } else {
+      notes.push(`Pago completo: $${receivedAmount.toLocaleString()}`);
+    }
+    
+    if (data.additionalDebt && data.additionalDebt > 0) {
+      notes.push(`Adeudo adicional registrado: $${data.additionalDebt.toLocaleString()}`);
+    }
+    
+    return notes.join('. ');
+  }
 
-      // Verificar si ya existe una deuda para este período
-      const existingDebt = await prisma.debt.findFirst({
-        where: {
+  /**
+   * Crea un nuevo pago pendiente para el saldo restante de un pago parcial
+   */
+  private async createRemainingPayment(student: any, period: any, remainingAmount: number, createdBy: string) {
+    try {
+      console.log("📋 Creando nuevo pago pendiente para saldo restante...");
+
+      // Obtener la configuración de tarifa más reciente
+      const feeConfig = await prisma.monthlyFeeConfig.findFirst({
+        where: { isActive: true },
+        orderBy: { id: 'desc' },
+      });
+
+      if (!feeConfig) {
+        throw new Error('No hay configuración de mensualidad activa');
+      }
+
+      const newPayment = await prisma.monthlyPayment.create({
+        data: {
           studentId: student.id,
-          concept: { contains: period.name },
-          isPaid: false,
+          periodId: period.id,
+          feeConfigId: feeConfig.id,
+          expectedAmount: remainingAmount,
+          status: "PENDING",
+          notes: `Saldo restante de pago parcial - ${period.name}`,
         },
       });
 
-      if (!existingDebt) {
-        const newDebt = await prisma.debt.create({
-          data: {
-            studentId: student.id,
-            amount: remainingAmount,
-            concept: `Saldo pendiente - ${period.name}`,
-            dueDate: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000), // 15 días
-          },
-        });
-
-        console.log(`✅ Deuda automática creada: ID ${newDebt.id} por $${remainingAmount.toLocaleString()}`);
-      } else {
-        console.log(`⚠️ Ya existe una deuda para ${period.name}, no se crea nueva deuda`);
-      }
-    } catch (debtError) {
-      console.error("❌ Error creando deuda automática:", debtError);
+      console.log(`✅ Nuevo pago pendiente creado: ID ${newPayment.id} por $${remainingAmount.toLocaleString()}`);
+    } catch (error) {
+      console.error("❌ Error creando nuevo pago pendiente:", error);
+      throw new Error("Error al crear nuevo pago pendiente");
     }
   }
+
+  /**
+   * Crea una deuda adicional manual
+   */
+  private async createAdditionalDebt(student: any, period: any, amount: number, notes?: string) {
+    try {
+      console.log("📋 Creando deuda adicional manual...");
+
+      const debtConcept = `Adeudo adicional - ${period.name}${notes ? ` (${notes})` : ''}`;
+      
+      const newDebt = await prisma.debt.create({
+        data: {
+          studentId: student.id,
+          amount: amount,
+          concept: debtConcept,
+          dueDate: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000), // 15 días
+        },
+      });
+
+      console.log(`✅ Deuda adicional creada: ID ${newDebt.id} por $${amount.toLocaleString()}`);
+    } catch (debtError) {
+      console.error("❌ Error creando deuda adicional:", debtError);
+      throw new Error("Error al crear deuda adicional");
+    }
+  }
+
 
   /**
    * Genera un recibo digital para el pago

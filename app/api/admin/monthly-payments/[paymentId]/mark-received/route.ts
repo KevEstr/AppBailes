@@ -27,7 +27,7 @@ export async function POST(
       );
     }
 
-    const { paymentMethod, receivedAmount, notes } = await request.json();
+    const { paymentMethod, receivedAmount, additionalDebt, discount, notes } = await request.json();
 
     if (!paymentMethod) {
       return NextResponse.json(
@@ -39,6 +39,8 @@ export async function POST(
     const updatedPayment = await monthlyPaymentService.markPaymentAsReceived(paymentId, {
       paymentMethod,
       receivedAmount,
+      additionalDebt,
+      discount,
       markedBy: session.user.id,
       notes
     });
