@@ -1,11 +1,15 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
 
 interface PaymentDashboardProps {
   periodId: number;
+}
+
+export interface PaymentDashboardRef {
+  refresh: () => void;
 }
 
 interface PaymentDashboardData {
@@ -44,7 +48,8 @@ interface PaymentDashboardData {
   };
 }
 
-export function PaymentDashboard({ periodId }: PaymentDashboardProps) {
+export const PaymentDashboard = forwardRef<PaymentDashboardRef, PaymentDashboardProps>(
+  ({ periodId }, ref) => {
   const [data, setData] = useState<PaymentDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -112,6 +117,15 @@ export function PaymentDashboard({ periodId }: PaymentDashboardProps) {
   const [paymentsLoading, setPaymentsLoading] = useState(false);
   
   const router = useRouter();
+
+  // Exponer método refresh al componente padre
+  useImperativeHandle(ref, () => ({
+    refresh: () => {
+      loadDashboardData();
+      loadPaymentForms();
+      loadPayments();
+    }
+  }));
 
   useEffect(() => {
     loadDashboardData();
@@ -317,4 +331,4 @@ export function PaymentDashboard({ periodId }: PaymentDashboardProps) {
 
      </div>
    );
- }
+ });

@@ -1,15 +1,15 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { PaymentDashboard } from '@/components/monthly-payments/PaymentDashboard';
-import { PendingPaymentsDashboard } from '@/components/monthly-payments/PendingPaymentsDashboard';
+import { useState, useEffect, useRef } from 'react';
+import { PaymentDashboard, PaymentDashboardRef } from '@/components/monthly-payments/PaymentDashboard';
+import { PendingPaymentsDashboard, PendingPaymentsDashboardRef } from '@/components/monthly-payments/PendingPaymentsDashboard';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Plus, Settings, Calendar, DollarSign, Eye, FileText, Users, CheckCircle, Clock } from 'lucide-react';
+import { Plus, Settings, Calendar, DollarSign, FileText, Users, CheckCircle, Clock } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import Link from 'next/link';
 
@@ -39,6 +39,10 @@ export function MonthlyPaymentsDashboard() {
   const [error, setError] = useState<string | null>(null);
   const [generatingPayments, setGeneratingPayments] = useState(false);
   const [pendingStats, setPendingStats] = useState<any>(null);
+
+  // Referencias para actualizar los componentes hijos
+  const pendingPaymentsRef = useRef<PendingPaymentsDashboardRef>(null);
+  const paymentDashboardRef = useRef<PaymentDashboardRef>(null);
 
   // Formulario de nueva mensualidad
   const [newFeeAmount, setNewFeeAmount] = useState('');
@@ -184,11 +188,33 @@ export function MonthlyPaymentsDashboard() {
       }
 
       const result = await response.json();
-      alert(`✅ ${result.message}`);
+      
+      // Mostrar mensaje más detallado
+      let message = `✅ ${result.message}`;
+      if (result.created > 0 || result.updated > 0) {
+        message = `✅ Proceso completado:\n`;
+        if (result.created > 0) {
+          message += `• ${result.created} pagos creados\n`;
+        }
+        if (result.updated > 0) {
+          message += `• ${result.updated} pagos actualizados\n`;
+        }
+        message += `\nLos mensajes de WhatsApp se pueden enviar desde el panel de administración.`;
+      }
+      
+      alert(message);
       
       // Recargar estadísticas
       if (selectedPeriod) {
         await loadPendingStats(selectedPeriod);
+      }
+
+      // Actualizar los componentes de gestión de pagos
+      if (pendingPaymentsRef.current) {
+        pendingPaymentsRef.current.refresh();
+      }
+      if (paymentDashboardRef.current) {
+        paymentDashboardRef.current.refresh();
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al generar pagos pendientes');
@@ -398,7 +424,7 @@ export function MonthlyPaymentsDashboard() {
                 size="sm"
               >
                 <FileText className="h-4 w-4 mr-2" />
-                {generatingPayments ? 'Generando...' : 'Generar Pagos Pendientes'}
+                {generatingPayments ? 'Procesando...' : 'Generar/Actualizar Pagos'}
               </Button>
 
               <Dialog>
@@ -474,12 +500,18 @@ export function MonthlyPaymentsDashboard() {
 
       {/* Pagos pendientes */}
       {selectedPeriod && (
-        <PendingPaymentsDashboard periodId={selectedPeriod} />
+        <PendingPaymentsDashboard 
+          ref={pendingPaymentsRef}
+          periodId={selectedPeriod} 
+        />
       )}
 
       {/* Dashboard de pagos */}
       {selectedPeriod && (
-        <PaymentDashboard periodId={selectedPeriod} />
+        <PaymentDashboard 
+          ref={paymentDashboardRef}
+          periodId={selectedPeriod} 
+        />
       )}
 
       {periods.length === 0 && (

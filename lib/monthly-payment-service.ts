@@ -97,8 +97,9 @@ export class MonthlyPaymentService {
 
   /**
    * Genera pagos mensuales para todos los estudiantes activos
+   * Actualiza pagos existentes si cambió el valor de la mensualidad
    */
-  async generateMonthlyPayments(periodId: number) {
+  async generateMonthlyPayments(periodId: number, regenerate: boolean = false) {
     const period = await prisma.paymentPeriod.findUnique({
       where: { id: periodId },
     });
@@ -126,6 +127,7 @@ export class MonthlyPaymentService {
     });
 
     const monthlyPayments = [] as any[];
+    const updatedPayments = [] as any[];
 
     for (const student of activeStudents) {
       // Verificar si ya existe un pago para este estudiante y período
@@ -136,9 +138,10 @@ export class MonthlyPaymentService {
         },
       });
 
-      if (!existingPayment) {
-        const { amount, feeConfigId } = await this.resolveStudentFeeAndConfig(student);
+      const { amount, feeConfigId } = await this.resolveStudentFeeAndConfig(student);
 
+      if (!existingPayment) {
+        // Crear nuevo pago si no existe
         const monthlyPayment = await prisma.monthlyPayment.create({
           data: {
             studentId: student.id,
@@ -150,10 +153,32 @@ export class MonthlyPaymentService {
         });
 
         monthlyPayments.push(monthlyPayment);
+      } else if (regenerate || existingPayment.expectedAmount !== amount || existingPayment.feeConfigId !== feeConfigId) {
+        // Actualizar pago existente si:
+        // 1. Se solicita regeneración explícita (regenerate = true)
+        // 2. El monto esperado cambió
+        // 3. La configuración de tarifa cambió
+        const updatedPayment = await prisma.monthlyPayment.update({
+          where: { id: existingPayment.id },
+          data: {
+            expectedAmount: amount,
+            feeConfigId: feeConfigId,
+            // Solo cambiar estado a PENDING si el pago no ha sido pagado
+            status: existingPayment.status === "PAID" || existingPayment.status === "PARTIAL_PAID" 
+              ? existingPayment.status 
+              : "PENDING",
+          },
+        });
+
+        updatedPayments.push(updatedPayment);
       }
     }
 
-    return monthlyPayments;
+    return {
+      created: monthlyPayments,
+      updated: updatedPayments,
+      total: monthlyPayments.length + updatedPayments.length
+    };
   }
 
   /**

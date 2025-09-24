@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -65,7 +65,12 @@ interface PendingPaymentsDashboardProps {
   readonly periodId: number;
 }
 
-export function PendingPaymentsDashboard({ periodId }: PendingPaymentsDashboardProps) {
+export interface PendingPaymentsDashboardRef {
+  refresh: () => void;
+}
+
+export const PendingPaymentsDashboard = forwardRef<PendingPaymentsDashboardRef, PendingPaymentsDashboardProps>(
+  ({ periodId }, ref) => {
   const [payments, setPayments] = useState<PendingPayment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -84,6 +89,13 @@ export function PendingPaymentsDashboard({ periodId }: PendingPaymentsDashboardP
   });
   const [selectedPayment, setSelectedPayment] = useState<PendingPayment | null>(null);
   const [sendingWhatsApp, setSendingWhatsApp] = useState<number | null>(null);
+
+  // Exponer método refresh al componente padre
+  useImperativeHandle(ref, () => ({
+    refresh: () => {
+      loadPayments();
+    }
+  }));
 
   // Cargar pagos
   useEffect(() => {
@@ -491,4 +503,4 @@ export function PendingPaymentsDashboard({ periodId }: PendingPaymentsDashboardP
       </Dialog>
     </Card>
   );
-}
+});

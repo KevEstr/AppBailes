@@ -20,12 +20,14 @@ export async function POST(
     const regenerate = searchParams.get('regenerate') === 'true';
 
     // Generar pagos mensuales si no existen
-    const monthlyPayments = await monthlyPaymentService.generateMonthlyPayments(periodId);
+    const result = await monthlyPaymentService.generateMonthlyPayments(periodId, regenerate);
 
     return NextResponse.json({
-      message: 'Pagos pendientes generados exitosamente',
-      monthlyPaymentsCreated: monthlyPayments.length,
-      message: `Se generaron ${monthlyPayments.length} pagos pendientes. Los mensajes de WhatsApp se pueden enviar desde el panel de administración.`
+      success: true,
+      created: result.created.length,
+      updated: result.updated.length,
+      total: result.total,
+      message: `Proceso completado: ${result.created.length} pagos creados, ${result.updated.length} pagos actualizados. Los mensajes de WhatsApp se pueden enviar desde el panel de administración.`
     });
   } catch (error) {
     console.error('Error al generar formularios:', error);
