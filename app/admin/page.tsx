@@ -9,12 +9,8 @@ import {
   Users, 
   GraduationCap, 
   Clock, 
-  Receipt, 
-  MessageSquare, 
   BarChart3, 
-  AlertTriangle, 
   CreditCard,
-  Settings,
   LogOut,
   UserPlus,
   UserCheck,
@@ -87,22 +83,6 @@ function AdminContent() {
       description: "Control visual de asistencias",
       color: "from-purple-500 to-pink-600",
     },
-    // {
-    //   id: "receipts",
-    //   href: "/receipts",
-    //   label: "Recibos",
-    //   icon: Receipt,
-    //   description: "Recibos digitales automáticos",
-    //   color: "from-emerald-500 to-teal-600",
-    // },
-    // {
-    //   id: "messages",
-    //   href: "/messages",
-    //   label: "Notificaciones",
-    //   icon: MessageSquare,
-    //   description: "Comunicación con estudiantes",
-    //   color: "from-blue-500 to-indigo-600",
-    // },
     {
       id: "history",
       href: "/history",
@@ -111,14 +91,6 @@ function AdminContent() {
       description: "Reportes de asistencia",
       color: "from-orange-500 to-red-600",
     },
-    // {
-    //   id: "debts", 
-    //   href: "/debts",
-    //   label: "Control Pagos",
-    //   icon: AlertTriangle,
-    //   description: "Seguimiento de mensualidades",
-    //   color: "from-red-500 to-pink-600",
-    // },
     {
       id: "monthly-payments",
       href: "/admin/monthly-payments",
@@ -224,7 +196,7 @@ function AdminContent() {
                         <item.icon className="h-8 w-8 text-white" />
                       </div>
                       <div className="flex flex-col items-end space-y-2">
-                        <div className="h-10 w-10 rounded-full bg-gradient-to-r from-purple-400 to-pink-400 flex items-center justify-center shadow-lg group-hover:shadow-xl transition-shadow duration-300 border border-purple-500">
+                        <div className="h-10 w-10 rounded-full bg-gradient-to-r from-gray-600 to-gray-700 flex items-center justify-center shadow-lg group-hover:shadow-xl transition-shadow duration-300 border border-gray-500">
                           <span className="text-sm font-bold text-white">{index + 1}</span>
                         </div>
                         {item.id === "debts" && pendingDebts > 0 && (
@@ -247,25 +219,6 @@ function AdminContent() {
               </Link>
             ))}
           </div>
-
-          {/* Información del Sistema */}
-          <Card className="border-0 bg-gradient-to-r from-gray-800/90 via-slate-800/90 to-gray-700/90 shadow-xl rounded-2xl border-2 border-gray-600">
-            <CardContent className="p-8">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="flex items-center space-x-4 mb-4">
-                    <div className="h-4 w-4 rounded-full bg-gradient-to-r from-purple-600 to-purple-700 animate-pulse shadow-lg shadow-purple-500/50"></div>
-                    <span className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">Sistema de Administración Activo</span>
-                  </div>
-                  <p className="text-gray-400 text-lg">Control total sobre Paradise Dance Academy</p>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Settings className="h-8 w-8 text-purple-400" />
-                  <span className="text-purple-400 font-semibold">Admin Panel</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
         </div>
       </div>
     </div>

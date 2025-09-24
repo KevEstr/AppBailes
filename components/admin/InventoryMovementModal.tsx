@@ -335,7 +335,6 @@ export function InventoryMovementModal({
                   {items.map((item, index) => (
                     <div key={`item-${item.productId}-${index}`} className="flex items-center justify-between p-3 bg-gray-700/50 border border-gray-600 rounded-lg">
                       <div className="flex items-center gap-3 flex-1 min-w-0">
-                        <Package className="h-4 w-4 text-blue-400 flex-shrink-0" />
                         <div className="flex-1 min-w-0">
                           <div className="font-medium text-white truncate">{item.productName}</div>
                           <div className="text-sm text-gray-400">Stock: {item.currentStock} unidades</div>

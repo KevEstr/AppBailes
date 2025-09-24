@@ -22,7 +22,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { User, MapPin, Heart, Phone, DollarSign, Camera, Trophy } from "lucide-react";
+import { User, MapPin, Heart, Phone, Camera, Trophy } from "lucide-react";
 import { InteractiveMap } from "./interactive-map";
 import { ProfilePhotoModal } from "@/components/profile/ProfilePhotoModal";
 
@@ -52,7 +52,6 @@ interface Student {
   guardianName?: string
   guardianRelation?: string
   guardianPhone?: string
-  monthlyFee: number
   jerseyNumber?: number
   isActive?: boolean // <-- Añadido para manejar el estado activo/inactivo
   // Relación con User
@@ -209,7 +208,6 @@ export default function EditStudentModal({
               guardianName: fullStudent.guardianName || fullStudent.enrollmentData?.guardianName || '',
               guardianRelation: fullStudent.guardianRelation || fullStudent.enrollmentData?.guardianRelation || '',
               guardianPhone: fullStudent.guardianPhone || fullStudent.enrollmentData?.guardianPhone || '',
-              monthlyFee: fullStudent.enrollmentData?.monthlyFee || 0,
               jerseyNumber: fullStudent.enrollmentData?.jerseyNumber || undefined,
               isActive: fullStudent.isActive ?? true
             }
@@ -243,7 +241,6 @@ export default function EditStudentModal({
               guardianName: student.guardianName || '',
               guardianRelation: student.guardianRelation || '',
               guardianPhone: student.guardianPhone || '',
-              monthlyFee: student.enrollmentData?.monthlyFee || 0,
               jerseyNumber: student.jerseyNumber || undefined,
               isActive: student.isActive ?? true
             }
@@ -279,7 +276,6 @@ export default function EditStudentModal({
               guardianName: student.guardianName || '',
               guardianRelation: student.guardianRelation || '',
               guardianPhone: student.guardianPhone || '',
-              monthlyFee: student.enrollmentData?.monthlyFee || 0,
               jerseyNumber: student.jerseyNumber || undefined,
               isActive: student.isActive ?? true
           }
@@ -297,7 +293,7 @@ export default function EditStudentModal({
     if (!formData) return;
     
     // Validar campos sensibles
-    if ((field === 'monthlyFee' || field === 'isActive') && !isAdmin) {
+    if (field === 'isActive' && !isAdmin) {
       console.warn(`Campo ${field} no puede ser modificado por usuarios no administradores`);
       return;
     }
@@ -319,7 +315,7 @@ export default function EditStudentModal({
     try {
       // Separar los datos planos y los de inscripción
       const {
-        name, phone, documentType, birthDate, address, addressLatitude, addressLongitude, neighborhood, city, hasSisben, eps, bloodType, hasRestrictions, restrictionsDescription, medicalConditions, isAdult, monthlyFee, email, user, documentNumber, isActive,
+        name, phone, documentType, birthDate, address, addressLatitude, addressLongitude, neighborhood, city, hasSisben, eps, bloodType, hasRestrictions, restrictionsDescription, medicalConditions, isAdult, email, user, documentNumber, isActive,
         emergencyContactName, emergencyContactRelation, emergencyContactPhone,
         guardianName, guardianRelation, guardianPhone,  
         ...rest
@@ -357,11 +353,6 @@ export default function EditStudentModal({
         enrollmentData,
       };
 
-      // Solo incluir monthlyFee en enrollmentData si es admin
-      if (isAdmin) {
-        requestBody.enrollmentData.monthlyFee = monthlyFee;
-        console.log("🔍 Modal: Admin updating monthlyFee to:", monthlyFee);
-      }
       
       // Incluir jerseyNumber si es admin o teacher
       if (canEditJerseyNumber) {
@@ -892,47 +883,17 @@ export default function EditStudentModal({
               </Card>
             )}
 
-            {/* Información Financiera */}
+            {/* Estado del Estudiante */}
             <Card className="bg-gray-700/50 border-gray-600 backdrop-blur-sm">
               <CardHeader className="pb-3 sm:pb-6">
                 <CardTitle className="flex items-center gap-2 text-base sm:text-lg text-white">
                   <div className="rounded-lg bg-gradient-to-r from-emerald-500 to-teal-500 p-1.5">
-                    <DollarSign className="h-4 w-4 text-white" />
+                    <User className="h-4 w-4 text-white" />
                   </div>
-                  Información Financiera
+                  Estado del Estudiante
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="max-w-sm">
-                  <Label htmlFor="monthlyFee">
-                    Mensualidad {!isAdmin ? '(Solo administradores)' : '*'}
-                  </Label>
-                  <Input
-                    id="monthlyFee"
-                    type="number"
-                    min="0"
-                    step="1000"
-                    value={formData.monthlyFee || 0}
-                    onChange={(e) =>
-                      handleInputChange(
-                        "monthlyFee",
-                        parseInt(e.target.value) || 0
-                      )
-                    }
-                    required
-                    disabled={!isAdmin}
-                    className={`bg-gray-800 border-gray-600 text-white ${
-                      !isAdmin ? 'cursor-not-allowed opacity-50' : ''
-                    }`}
-                  />
-                  {!isAdmin && (
-                    <p className="text-xs text-gray-400 mt-1">
-                      La mensualidad solo puede ser modificada por administradores
-                    </p>
-                  )}
-                </div>
-                
-                {/* Estado del estudiante */}
                 <div className="flex items-center space-x-2">
                   <Checkbox
                     id="isActive"
@@ -958,10 +919,12 @@ export default function EditStudentModal({
             </Card>
 
             {/* Información Deportiva */}
-            <Card className="bg-gray-800 border-gray-600">
-              <CardHeader className="pb-4">
-                <CardTitle className="text-yellow-400 flex items-center gap-2 text-lg">
-                  <Trophy className="h-5 w-5" />
+            <Card className="bg-gray-700/50 border-gray-600 backdrop-blur-sm">
+              <CardHeader className="pb-3 sm:pb-6">
+                <CardTitle className="flex items-center gap-2 text-base sm:text-lg text-white">
+                  <div className="rounded-lg bg-gradient-to-r from-yellow-500 to-orange-500 p-1.5">
+                    <Trophy className="h-4 w-4 text-white" />
+                  </div>
                   Información Deportiva
                 </CardTitle>
               </CardHeader>
