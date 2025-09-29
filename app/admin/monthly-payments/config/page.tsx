@@ -6,7 +6,7 @@ import { MonthlyFeeConfig } from "@/components/monthly-payments/MonthlyFeeConfig
 export const dynamic = 'force-dynamic'
 
 export const metadata: Metadata = {
-  title: "Configuración de Mensualidades - Paradise Dance Academy",
+  title: "Configuración de Mensualidades - Paradise",
   description: "Configurar valores y parámetros del sistema de mensualidades",
 }
 

@@ -145,7 +145,7 @@ function AdminContent() {
                 <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-gray-700 shadow-2xl border-4 border-purple-500 relative overflow-hidden">
                   <Image
                     src="/logo.jpg"
-                    alt="Paradise Dance Academy Logo"
+                    alt="Paradise Logo"
                     width={60}
                     height={60}
                     className="object-contain"

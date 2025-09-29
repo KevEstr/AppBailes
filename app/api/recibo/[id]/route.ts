@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { toZonedTime } from 'date-fns-tz';
 
 export async function GET(
   request: NextRequest,
@@ -22,6 +23,7 @@ export async function GET(
       include: {
         student: {
           include: {
+            enrollmentData: true,
             classEnrollments: {
               include: {
                 danceClass: {
@@ -41,11 +43,13 @@ export async function GET(
       );
     }
 
-    // Función para formatear fechas de manera consistente
+    // Función para formatear fechas en zona horaria de Colombia
+    const TZ = 'America/Bogota';
     const formatDate = (date: Date): string => {
-      const day = date.getDate().toString().padStart(2, '0');
-      const month = (date.getMonth() + 1).toString().padStart(2, '0');
-      const year = date.getFullYear();
+      const zoned = toZonedTime(date, TZ);
+      const day = zoned.getDate().toString().padStart(2, '0');
+      const month = (zoned.getMonth() + 1).toString().padStart(2, '0');
+      const year = zoned.getFullYear();
       return `${day}/${month}/${year}`;
     };
 
@@ -59,15 +63,22 @@ export async function GET(
 
     const sport = pickPrimarySport(receipt.student);
 
-    // Calcular próximo pago (añadir 1 mes)
-    const nextPaymentDate = new Date(receipt.createdAt);
+    // Calcular próximo pago (añadir 1 mes) en zona horaria de Colombia
+    const createdAtZoned = toZonedTime(new Date(receipt.createdAt), TZ);
+    const nextPaymentDate = new Date(createdAtZoned);
     nextPaymentDate.setMonth(nextPaymentDate.getMonth() + 1);
+
+    // Determinar a nombre de quién va el recibo según mayoría de edad
+    const isMinor = receipt.student.enrollmentData?.isAdult === false;
+    const displayName = isMinor && receipt.student.enrollmentData?.emergencyContactName
+      ? receipt.student.enrollmentData.emergencyContactName
+      : receipt.student.name;
 
     // Formatear datos para el componente
     const receiptData = {
       id: receipt.id,
       receiptNumber: receipt.id.toString().padStart(4, '0'),
-      studentName: receipt.student.name,
+      studentName: displayName,
       amount: receipt.amount,
       concept: receipt.concept,
       paymentDate: formatDate(new Date(receipt.createdAt)),

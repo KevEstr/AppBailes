@@ -51,18 +51,17 @@ const isValidEmailFormat = (value: string): boolean => {
 }
 
 const validateAndFormatFullName = (value: string): string => {
-  // Permitir solo letras A-Z y espacios (sin acentos ni caracteres especiales)
-  // Quitar números y caracteres especiales y colapsar espacios múltiples
+  // Permitir letras A-Z, ñ/Ñ y espacios. Quitar números y caracteres especiales, y colapsar espacios múltiples
   return value
-    .replace(/[^A-Za-z ]/g, '')
+    .replace(/[^A-Za-zñÑ ]/g, '')
     .replace(/\s+/g, ' ')
     .trimStart()
 }
 
 const isValidFullName = (value: string): boolean => {
   if (!value) return false
-  // Al menos dos letras, solo letras y espacios, sin caracteres especiales ni números
-  return /^[A-Za-z ]{10,}$/.test(value.trim())
+  // Al menos dos letras, solo letras (incluyendo ñ/Ñ) y espacios, sin caracteres especiales ni números
+  return /^[A-Za-zñÑ ]{10,}$/.test(value.trim())
 }
 
 const isValidBirthDate = (value: string): boolean => {
@@ -113,11 +112,6 @@ interface EnrollmentFormData {
   emergencyContactName: string
   emergencyContactRelation: string
   emergencyContactPhone: string
-  
-  // Acudiente (si es menor)
-  guardianName?: string
-  guardianRelation?: string
-  guardianPhone?: string
   
   
   // Términos
@@ -349,6 +343,9 @@ export function EnrollmentForm() {
     }
   }, [formData.classId, availableClasses])
 
+  // Unificado a un solo contacto con etiqueta dinámica (sin sincronización con acudiente)
+  // Nota: UI muestra un solo bloque y se valida siempre el mismo conjunto de campos
+
   const updateFormData = (field: keyof EnrollmentFormData, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }))
   }
@@ -478,18 +475,11 @@ export function EnrollmentForm() {
         )
       case 4:
         return !!(
-          formData.emergencyContactName && 
+          formData.emergencyContactName &&
           isValidFullName(formData.emergencyContactName) &&
-          formData.emergencyContactRelation && 
-                    formData.emergencyContactPhone &&
-          isValidPhoneFormat(formData.emergencyContactPhone) &&
-          (formData.isAdult || (
-            formData.guardianName && 
-            isValidFullName(formData.guardianName) &&
-            formData.guardianRelation && 
-            formData.guardianPhone &&
-            isValidPhoneFormat(formData.guardianPhone || '')
-          ))
+          formData.emergencyContactRelation &&
+          formData.emergencyContactPhone &&
+          isValidPhoneFormat(formData.emergencyContactPhone)
         )
       case 5:
         return formData.acceptsTerms
@@ -1010,15 +1000,15 @@ export function EnrollmentForm() {
       case 4:
         return (
           <div className="space-y-6">
-            {/* Contacto de Emergencia */}
+            {/* Único contacto con etiqueta dinámica */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 bg-gray-800/50 p-4 rounded-lg border border-gray-600">
               <div className="col-span-full flex items-center gap-2 mb-2">
                 <AlertCircle className="h-5 w-5 text-orange-400" />
-                <h3 className="text-lg font-semibold text-white">Contacto de Emergencia del Participante</h3>
+                <h3 className="text-lg font-semibold text-white">{formData.isAdult ? 'Contacto de Emergencia del Participante' : 'Acudiente del Participante'}</h3>
             </div>
 
                     <div>
-                  <Label className="text-white mb-1">Nombres y apellidos del contacto de emergencia *</Label>
+                  <Label className="text-white mb-1">Nombres y apellidos {formData.isAdult ? 'del contacto de emergencia' : 'del acudiente'} *</Label>
                       <Input
                         placeholder="Nombre del contacto de emergencia"
                         value={formData.emergencyContactName}
@@ -1050,7 +1040,7 @@ export function EnrollmentForm() {
                   </div>
 
               <div>
-                <Label className="text-white mb-1">Celular del contacto de emergencia *</Label>
+                <Label className="text-white mb-1">Celular {formData.isAdult ? 'del contacto de emergencia' : 'del acudiente'} *</Label>
                 <div className="relative">
                   <Input
                     placeholder="Número de teléfono del contacto de emergencia"
@@ -1079,82 +1069,8 @@ export function EnrollmentForm() {
                     El teléfono debe tener exactamente 10 dígitos
                   </p>
                 )}
-              </div>
                 </div>
-
-            {/* Información del Acudiente */}
-            {!formData.isAdult && (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 bg-gray-800/50 p-4 rounded-lg border border-gray-600">
-                <div className="col-span-full flex items-center gap-2 mb-2">
-                  <MapPin className="h-5 w-5 text-blue-400" />
-                  <h3 className="text-lg font-semibold text-white">Información del Acudiente</h3>
                 </div>
-
-                    <div>
-                  <Label className="text-white mb-1">Nombres y apellidos del Acudiente *</Label>
-                      <Input
-                        placeholder="Nombre del acudiente"
-                        value={formData.guardianName || ''}
-                        onChange={(e) => updateFormData('guardianName', validateAndFormatFullName(e.target.value))}
-                        className={`bg-gray-800 border-gray-600 text-white ${formData.guardianName && !isValidFullName(formData.guardianName) ? 'border-red-500 focus:border-red-500' : ''}`}
-                      />
-                      {formData.guardianName && !isValidFullName(formData.guardianName) && (
-                        <p className="text-red-400 text-xs mt-1">
-                          Solo letras y espacios, mínimo 10 caracteres
-                        </p>
-                      )}
-                    </div>
-
-                    <div>
-                  <Label className="text-white mb-1">Parentesco *</Label>
-                  <Select 
-                    value={formData.guardianRelation || ''}
-                    onValueChange={(value) => updateFormData('guardianRelation', value)}
-                  >
-                        <SelectTrigger className="bg-gray-800 border-gray-600 text-white">
-                          <SelectValue placeholder="Selecciona parentesco" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {RELATIONS.map(relation => (
-                            <SelectItem key={relation.value} value={relation.value}>{relation.label}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                <div>
-                  <Label className="text-white mb-1">Celular del Acudiente *</Label>
-                  <div className="relative">
-                    <Input
-                      placeholder="Número de teléfono del acudiente"
-                      value={formData.guardianPhone || ''}
-                      onChange={(e) => updateFormData('guardianPhone', validateAndFormatPhone(e.target.value))}
-                      className={`bg-gray-800 border-gray-600 text-white pr-10 ${
-                        formData.guardianPhone && !isValidPhoneFormat(formData.guardianPhone) 
-                          ? 'border-red-500 focus:border-red-500' 
-                          : formData.guardianPhone && isValidPhoneFormat(formData.guardianPhone)
-                          ? 'border-green-500 focus:border-green-500'
-                          : ''
-                      }`}
-                    />
-                    {formData.guardianPhone && (
-                      <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                        {isValidPhoneFormat(formData.guardianPhone) ? (
-                          <CheckCircle className="h-4 w-4 text-green-500" />
-                        ) : (
-                          <AlertCircle className="h-4 w-4 text-red-500" />
-                        )}
-                      </div>
-                    )}
-                  </div>
-                  {formData.guardianPhone && !isValidPhoneFormat(formData.guardianPhone) && (
-                    <p className="text-red-400 text-xs mt-1">
-                      El teléfono debe tener exactamente 10 dígitos
-                    </p>
-                  )}
-                </div>
-                  </div>
-            )}
           </div>
         )
 

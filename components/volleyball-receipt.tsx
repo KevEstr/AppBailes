@@ -4,7 +4,7 @@ import { useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Download, Share2 } from 'lucide-react';
 import { toast } from 'sonner';
-import Image from 'next/image';
+// Usar <img> para que html2canvas respete tamaño renderizado
 
 interface ReceiptData {
   id: number;
@@ -31,17 +31,40 @@ export function VolleyballReceipt({ data, isPreview = false }: VolleyballReceipt
       if (typeof window === 'undefined' || !receiptRef.current) return;
 
       const html2canvas = (await import('html2canvas')).default;
+      // Esperar fuentes para que no cambien los tamaños al rasterizar
+      if (typeof (document as any).fonts?.ready === 'object') {
+        await (document as any).fonts.ready;
+      }
+      const rect = receiptRef.current.getBoundingClientRect();
+      // Asegurar carga de imágenes
+      const imgs = Array.from(receiptRef.current.querySelectorAll('img')) as HTMLImageElement[];
+      await Promise.all(
+        imgs.map((img) =>
+          (img as any).decode?.()
+            .catch(() => {})
+            .then(() => {}) ||
+          (img.complete
+            ? Promise.resolve()
+            : new Promise<void>((resolve) => {
+                img.onload = () => resolve();
+                img.onerror = () => resolve();
+              }))
+        )
+      );
       
       // Configuración específica para calidad
       const canvas = await html2canvas(receiptRef.current, {
-        scale: 3, // Alta calidad
+        scale: 2,
         useCORS: true,
         allowTaint: true,
         backgroundColor: '#ffffff',
-        windowWidth: 800,
-        windowHeight: 500,
-        width: 800,
-        height: 500,
+        width: Math.round(rect.width),
+        height: Math.round(rect.height),
+        windowWidth: Math.round(rect.width),
+        windowHeight: Math.round(rect.height),
+        scrollX: 0,
+        scrollY: 0,
+        imageTimeout: 0,
       });
 
       const link = document.createElement('a');
@@ -129,15 +152,20 @@ export function VolleyballReceipt({ data, isPreview = false }: VolleyballReceipt
               {/* Logo y datos de la academia */}
               <div className="flex items-start space-x-8">
                 <div className="w-[110px] h-[110px] flex items-center justify-center">
-                  <Image
+                  <img
                     src="/volleyball.png"
                     alt="Paradise Volleyball"
-                    width={110}
-                    height={110}
-                    className="rounded-full shadow-[0_0_25px_rgba(30,64,175,0.5)]"
+                    width={100}
+                    height={100}
+                    crossOrigin="anonymous"
                     style={{
+                      display: 'block',
+                      width: '100px',
+                      height: '100px',
+                      objectFit: 'contain',
                       border: '4px solid #1e40af',
-                      objectFit: 'contain'
+                      borderRadius: '9999px',
+                      boxShadow: '0 0 25px rgba(30,64,175,0.5)'
                     }}
                   />
                 </div>
@@ -159,10 +187,7 @@ export function VolleyballReceipt({ data, isPreview = false }: VolleyballReceipt
                   background: 'linear-gradient(135deg, #1e40af 0%, #3b82f6 100%)',
                   boxShadow: '0 8px 25px rgba(30, 64, 175, 0.3)'
                 }}>
-                  <div className="text-white font-bold text-sm mb-1">RECIBO DIGITAL</div>
-                  <div className="text-white font-black text-2xl" style={{ textShadow: '2px 2px 4px rgba(0,0,0,0.5)' }}>
-                    #{data.receiptNumber}
-                  </div>
+                  <div className="text-white font-bold text-sm mb-1">RECIBO #{data.receiptNumber}</div>
                 </div>
               </div>
             </div>
@@ -170,7 +195,7 @@ export function VolleyballReceipt({ data, isPreview = false }: VolleyballReceipt
             {/* Información del pago - Estructura como en la imagen */}
             <div className="text-center space-y-6">
               {/* Texto principal del recibo */}
-              <div className="space-y-4">
+              <div className="space-y-2">
                 <p className="text-2xl font-bold" style={{ color: '#1e40af' }}>
                   EL SOCIO {data.studentName}
                 </p>

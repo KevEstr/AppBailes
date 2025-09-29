@@ -32,7 +32,7 @@ export async function generateMetadata({ params }: ReceiptPageProps): Promise<Me
   
   if (!receiptData) {
     return {
-      title: 'Recibo no encontrado - Paradise Dance Academy',
+        title: 'Recibo no encontrado - Paradise',
     };
   }
 

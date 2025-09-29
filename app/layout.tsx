@@ -18,14 +18,14 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: {
-    default: "Paradise Dance Academy - Sistema de Gestión",
-    template: "%s | Paradise Dance Academy"
+    default: "Paradise - Sistema de Gestión",
+    template: "%s | Paradise"
   },
   description: "Sistema completo de gestión para academias de baile. Controla asistencias, pagos, recibos, comunicaciones y análisis de estudiantes.",
-  keywords: ["academia de baile", "gestión", "asistencias", "pagos", "recibos", "Paradise Dance Academy"],
-  authors: [{ name: "Paradise Dance Academy" }],
-  creator: "Paradise Dance Academy",
-  publisher: "Paradise Dance Academy",
+  keywords: ["academia de baile", "gestión", "asistencias", "pagos", "recibos", "Paradise"],
+  authors: [{ name: "Paradise" }],
+  creator: "Paradise",
+  publisher: "Paradise",
   formatDetection: {
     email: false,
     address: false,
@@ -33,7 +33,7 @@ export const metadata: Metadata = {
   },
   metadataBase: new URL(process.env.NEXTAUTH_URL || 'http://localhost:3000'),
   openGraph: {
-    title: "Paradise Dance Academy - Sistema de Gestión",
+    title: "Paradise - Sistema de Gestión",
     description: "Sistema completo de gestión para academias de baile",
     type: "website",
     locale: "es_ES",

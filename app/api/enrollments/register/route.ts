@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import bcrypt from 'bcryptjs'
 import { EnrollmentPaymentService } from '@/lib/enrollment-payment-service'
-import { WhatsAppService } from '@/lib/whatsapp-service'
 import { formatPhoneForStorage } from '@/lib/phone-utils'
 
 // Función para capitalizar nombres (primera letra de cada palabra en mayúscula)
@@ -61,9 +60,9 @@ export async function POST(request: NextRequest) {
       }, { status: 400 })
     }
 
-    // Validar nombre completo (solo letras y espacios, mínimo 2 caracteres)
+    // Validar nombre completo (solo letras A-Z, ñ/Ñ y espacios, mínimo 2 caracteres)
     const fullName = String(data.studentName || '').trim()
-    if (!/^[A-Za-z ]{2,}$/.test(fullName)) {
+    if (!/^[A-Za-zñÑ ]{2,}$/.test(fullName)) {
       return NextResponse.json({
         success: false,
         error: 'El nombre solo puede contener letras y espacios'
@@ -97,54 +96,40 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Validar contacto de emergencia
+    // Preparar variables para guardar contacto (dinámico: emergencia o acudiente)
     let capitalizedEmergencyName = null
-    if (data.emergencyContactName) {
-      const emergencyName = String(data.emergencyContactName).trim()
-      if (!/^[A-Za-z ]{2,}$/.test(emergencyName)) {
-        return NextResponse.json({
-          success: false,
-          error: 'El nombre del contacto de emergencia solo puede contener letras y espacios'
-        }, { status: 400 })
-      }
-      capitalizedEmergencyName = capitalizeName(emergencyName)
-    }
+    let emergencyContactRelationToSave: string | null = null
+    let emergencyContactPhoneToSave: string | null = null
 
-    // Validar teléfono de emergencia
-    if (data.emergencyContactPhone) {
-      const emergencyPhone = data.emergencyContactPhone.replace(/\D/g, '')
-      if (emergencyPhone.length !== 10) {
-        return NextResponse.json({
-          success: false,
-          error: 'El teléfono del contacto de emergencia debe tener exactamente 10 dígitos'
-        }, { status: 400 })
-      }
+    // Validación de único contacto (texto dinámico según mayoría de edad)
+    const contactLabel = data.isAdult ? 'contacto de emergencia' : 'acudiente'
+    const contactName = String(data.emergencyContactName || '').trim()
+    if (!/^[A-Za-zñÑ ]{2,}$/.test(contactName)) {
+      return NextResponse.json({
+        success: false,
+        error: `El nombre del ${contactLabel} solo puede contener letras y espacios`
+      }, { status: 400 })
     }
+    capitalizedEmergencyName = capitalizeName(contactName)
 
-    // Validar acudiente (si es menor de edad)
-    let capitalizedGuardianName = null
-    if (!data.isAdult) {
-      if (data.guardianName) {
-        const guardianName = String(data.guardianName).trim()
-        if (!/^[A-Za-z ]{2,}$/.test(guardianName)) {
-          return NextResponse.json({
-            success: false,
-            error: 'El nombre del acudiente solo puede contener letras y espacios'
-          }, { status: 400 })
-        }
-        capitalizedGuardianName = capitalizeName(guardianName)
-      }
-
-      if (data.guardianPhone) {
-        const guardianPhone = data.guardianPhone.replace(/\D/g, '')
-        if (guardianPhone.length !== 10) {
-          return NextResponse.json({
-            success: false,
-            error: 'El teléfono del acudiente debe tener exactamente 10 dígitos'
-          }, { status: 400 })
-        }
-      }
+    const contactRelation = String(data.emergencyContactRelation || '').trim()
+    if (!contactRelation) {
+      return NextResponse.json({
+        success: false,
+        error: `El parentesco del ${contactLabel} es requerido`
+      }, { status: 400 })
     }
+    emergencyContactRelationToSave = contactRelation
+
+    const contactPhoneRaw = String(data.emergencyContactPhone || '')
+    const contactPhoneDigits = contactPhoneRaw.replace(/\D/g, '')
+    if (contactPhoneDigits.length !== 10) {
+      return NextResponse.json({
+        success: false,
+        error: `El teléfono del ${contactLabel} debe tener exactamente 10 dígitos`
+      }, { status: 400 })
+    }
+    emergencyContactPhoneToSave = formatPhoneForStorage(contactPhoneRaw)
 
     console.log('🔍 Buscando estudiante con ID:', documentNumberStr)
 
@@ -225,11 +210,8 @@ export async function POST(request: NextRequest) {
             medicalConditions: data.medicalConditions || null,
             isAdult: data.isAdult !== undefined ? data.isAdult : true,
             emergencyContactName: capitalizedEmergencyName,
-            emergencyContactRelation: data.emergencyContactRelation || null,
-            emergencyContactPhone: data.emergencyContactPhone ? formatPhoneForStorage(data.emergencyContactPhone) : null,
-            guardianName: capitalizedGuardianName,
-            guardianRelation: data.guardianRelation || null,
-            guardianPhone: data.guardianPhone ? formatPhoneForStorage(data.guardianPhone) : null,
+            emergencyContactRelation: emergencyContactRelationToSave,
+            emergencyContactPhone: emergencyContactPhoneToSave,
             monthlyFee: null, // Se definirá por la administración
             jerseyNumber: data.jerseyNumber || null
           }
@@ -243,7 +225,7 @@ export async function POST(request: NextRequest) {
         if (createError && typeof createError === 'object' && 'code' in createError && createError.code === 'P2002') {
           return NextResponse.json({
             success: false,
-            error: 'Ya existe un estudiante con este número de documento, email o teléfono'
+            error: 'Ya existe un estudiante con este número de documento'
           }, { status: 400 });
         }
         throw createError;

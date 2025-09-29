@@ -6,7 +6,7 @@ import { ReceiptSystem } from "@/components/receipt-system"
 export const dynamic = 'force-dynamic'
 
 export const metadata: Metadata = {
-  title: "Recibos - Paradise Dance Academy",
+  title: "Recibos - Paradise",
   description: "Sistema de recibos digitales automáticos para pagos de mensualidades y clases de baile",
 }
 

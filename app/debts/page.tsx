@@ -6,7 +6,7 @@ import { DebtNotifications } from "@/components/debt-notifications"
 export const dynamic = 'force-dynamic'
 
 export const metadata: Metadata = {
-  title: "Control de Pagos - Paradise Dance Academy",
+  title: "Control de Pagos - Paradise",
   description: "Seguimiento de mensualidades, control de deudas y gestión de pagos de estudiantes",
 }
 

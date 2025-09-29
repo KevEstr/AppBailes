@@ -49,9 +49,6 @@ interface Student {
   emergencyContactName?: string
   emergencyContactRelation?: string
   emergencyContactPhone?: string
-  guardianName?: string
-  guardianRelation?: string
-  guardianPhone?: string
   jerseyNumber?: number
   isActive?: boolean // <-- Añadido para manejar el estado activo/inactivo
   // Relación con User
@@ -80,9 +77,6 @@ interface Student {
     emergencyContactName?: string
     emergencyContactRelation?: string
     emergencyContactPhone?: string
-    guardianName?: string
-    guardianRelation?: string
-    guardianPhone?: string
   }
   // Legacy fields for compatibility
   age?: number;
@@ -205,9 +199,6 @@ export default function EditStudentModal({
               emergencyContactName: fullStudent.emergencyContactName || fullStudent.enrollmentData?.emergencyContactName || '',
               emergencyContactRelation: fullStudent.emergencyContactRelation || fullStudent.enrollmentData?.emergencyContactRelation || '',
               emergencyContactPhone: fullStudent.emergencyContactPhone || fullStudent.enrollmentData?.emergencyContactPhone || '',
-              guardianName: fullStudent.guardianName || fullStudent.enrollmentData?.guardianName || '',
-              guardianRelation: fullStudent.guardianRelation || fullStudent.enrollmentData?.guardianRelation || '',
-              guardianPhone: fullStudent.guardianPhone || fullStudent.enrollmentData?.guardianPhone || '',
               jerseyNumber: fullStudent.enrollmentData?.jerseyNumber || undefined,
               isActive: fullStudent.isActive ?? true
             }
@@ -238,9 +229,6 @@ export default function EditStudentModal({
               emergencyContactName: student.emergencyContactName || '',
               emergencyContactRelation: student.emergencyContactRelation || '',
               emergencyContactPhone: student.emergencyContactPhone || '',
-              guardianName: student.guardianName || '',
-              guardianRelation: student.guardianRelation || '',
-              guardianPhone: student.guardianPhone || '',
               jerseyNumber: student.jerseyNumber || undefined,
               isActive: student.isActive ?? true
             }
@@ -272,10 +260,7 @@ export default function EditStudentModal({
             isAdult: student.isAdult ?? true,
             emergencyContactName: student.emergencyContactName || '',
             emergencyContactRelation: student.emergencyContactRelation || '',
-            emergencyContactPhone: student.emergencyContactPhone || '',
-              guardianName: student.guardianName || '',
-              guardianRelation: student.guardianRelation || '',
-              guardianPhone: student.guardianPhone || '',
+              emergencyContactPhone: student.emergencyContactPhone || '',
               jerseyNumber: student.jerseyNumber || undefined,
               isActive: student.isActive ?? true
           }
@@ -317,7 +302,6 @@ export default function EditStudentModal({
       const {
         name, phone, documentType, birthDate, address, addressLatitude, addressLongitude, neighborhood, city, hasSisben, eps, bloodType, hasRestrictions, restrictionsDescription, medicalConditions, isAdult, email, user, documentNumber, isActive,
         emergencyContactName, emergencyContactRelation, emergencyContactPhone,
-        guardianName, guardianRelation, guardianPhone,  
         ...rest
       } = formData;
 
@@ -338,10 +322,7 @@ export default function EditStudentModal({
         medicalConditions,
         emergencyContactName,
         emergencyContactRelation,
-        emergencyContactPhone,
-        guardianName,
-        guardianRelation,
-        guardianPhone
+        emergencyContactPhone
       };
 
       // Enviar datos planos, enrollmentData y email en una sola petición
@@ -736,14 +717,14 @@ export default function EditStudentModal({
               </CardContent>
             </Card>
 
-            {/* Contacto de Emergencia */}
+            {/* Contacto responsable (dinámico por edad) */}
             <Card className="bg-gray-700/50 border-gray-600 backdrop-blur-sm">
               <CardHeader className="pb-3 sm:pb-6">
                 <CardTitle className="flex items-center gap-2 text-base sm:text-lg text-white">
                   <div className="rounded-lg bg-gradient-to-r from-orange-500 to-amber-500 p-1.5">
                     <Phone className="h-4 w-4 text-white" />
                   </div>
-                  Contacto de Emergencia
+                  {formData.isAdult ? 'Contacto de Emergencia' : 'Acudiente'}
                 </CardTitle>
               </CardHeader>
               <CardContent className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
@@ -818,70 +799,7 @@ export default function EditStudentModal({
               </CardContent>
             </Card>
 
-            {/* Información del Acudiente (solo si es menor de edad) */}
-            {!formData.isAdult && (
-              <Card className="bg-gray-700/50 border-gray-600 backdrop-blur-sm">
-                <CardHeader className="pb-3 sm:pb-6">
-                  <CardTitle className="flex items-center gap-2 text-base sm:text-lg text-white">
-                    <div className="rounded-lg bg-gradient-to-r from-purple-500 to-violet-500 p-1.5">
-                      <MapPin className="h-4 w-4 text-white" />
-                    </div>
-                    Información del Acudiente
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-                  <div>
-                    <Label htmlFor="guardianName">Nombre del Acudiente</Label>
-                    <Input
-                      id="guardianName"
-                      value={formData.guardianName || ""}
-                      onChange={(e) =>
-                        handleInputChange("guardianName", e.target.value)
-                      }
-                      className="bg-gray-800 border-gray-600 text-white"
-                    />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="guardianRelation">Relación</Label>
-                    <Select
-                      value={formData.guardianRelation || ""}
-                      onValueChange={(value) =>
-                        handleInputChange("guardianRelation", value)
-                      }
-                    >
-                      <SelectTrigger className="bg-gray-800 border-gray-600 text-white">
-                        <SelectValue placeholder="Seleccionar relación" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {relationshipOptions.map((relation) => (
-                          <SelectItem
-                            key={relation.value}
-                            value={relation.value}
-                          >
-                            {relation.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div>
-                    <Label htmlFor="guardianPhone">
-                      Teléfono del Acudiente
-                    </Label>
-                    <Input
-                      id="guardianPhone"
-                      value={formData.guardianPhone || ""}
-                      onChange={(e) =>
-                        handleInputChange("guardianPhone", e.target.value)
-                      }
-                      className="bg-gray-800 border-gray-600 text-white"
-                    />
-                  </div>
-                </CardContent>
-              </Card>
-            )}
+            {/* Información del Acudiente eliminada: se usa un único contacto */}
 
             {/* Estado del Estudiante */}
             <Card className="bg-gray-700/50 border-gray-600 backdrop-blur-sm">

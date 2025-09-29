@@ -6,7 +6,7 @@ import { ClassManagementNew } from "@/components/class-management-new"
 export const dynamic = 'force-dynamic'
 
 export const metadata: Metadata = {
-  title: "Gestión de Clases - Paradise Dance Academy",
+  title: "Gestión de Clases - Paradise",
   description: "Organiza horarios, grupos de baile y administra inscripciones de estudiantes",
 }
 

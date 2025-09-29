@@ -41,9 +41,7 @@ interface StudentEnrollmentData {
   emergencyContactName?: string;
   emergencyContactRelation?: string;
   emergencyContactPhone?: string;
-  guardianName?: string;
-  guardianRelation?: string;
-  guardianPhone?: string;
+  // guardian fields removed
   monthlyFee?: number;
   jerseyNumber?: number;
   // Legacy fields for compatibility
@@ -530,14 +528,14 @@ export function StudentDetailModal({ enrollment }: StudentDetailModalProps) {
                   </Badge>
                 </div>
 
-                {/* Contacto de emergencia */}
+                {/* Contacto responsable (dinámico por edad) */}
                 {(detailData.student.enrollmentData.emergencyContactName ||
                   detailData.student.enrollmentData.emergencyContact) && (
                   <>
                     <Separator className="bg-slate-700" />
                     <div className="space-y-2 pt-1">
                       <div className="text-orange-400 font-medium text-xs uppercase tracking-wide">
-                        Contacto de Emergencia
+                        {detailData.student.enrollmentData.isAdult !== false ? 'Contacto de Emergencia' : 'Acudiente'}
                       </div>
                       <div className="space-y-2">
                         <div className="flex justify-between items-center">
@@ -582,49 +580,7 @@ export function StudentDetailModal({ enrollment }: StudentDetailModalProps) {
                   </>
                 )}
 
-                {/* Información del acudiente */}
-                {detailData.student.enrollmentData.isAdult === false &&
-                  detailData.student.enrollmentData.guardianName && (
-                    <>
-                      <Separator className="bg-slate-700" />
-                      <div className="space-y-2 pt-1">
-                        <div className="text-purple-400 font-medium text-xs uppercase tracking-wide">
-                          Información del Acudiente
-                        </div>
-                        <div className="space-y-2">
-                          <div className="flex justify-between items-center">
-                            <span className="text-slate-300">Nombre:</span>
-                            <span className="font-medium text-white text-right max-w-40 truncate" title={detailData.student.enrollmentData.guardianName}>
-                              {detailData.student.enrollmentData.guardianName}
-                            </span>
-                          </div>
-                          {detailData.student.enrollmentData
-                            .guardianRelation && (
-                            <div className="flex justify-between items-center">
-                              <span className="text-slate-300">Relación:</span>
-                              <span className="font-medium text-white capitalize">
-                                {
-                                  detailData.student.enrollmentData
-                                    .guardianRelation
-                                }
-                              </span>
-                            </div>
-                          )}
-                          {detailData.student.enrollmentData.guardianPhone && (
-                            <div className="flex justify-between items-center">
-                              <span className="text-slate-300">Teléfono:</span>
-                              <span className="font-medium text-white">
-                                {
-                                  detailData.student.enrollmentData
-                                    .guardianPhone
-                                }
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </>
-                  )}
+                {/* Información del acudiente eliminada: ahora se muestra un solo contacto */}
               </>
             ) : (
               <div className="text-center py-6">

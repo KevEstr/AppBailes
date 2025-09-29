@@ -62,6 +62,13 @@ export function EventRegistrationModal({
   useEffect(() => {
     if (isOpen) {
       loadAllClasses();
+      // Establecer la fecha del evento por defecto a la fecha actual (local)
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, "0");
+      const day = String(now.getDate()).padStart(2, "0");
+      const todayString = `${year}-${month}-${day}`;
+      setEventDate(todayString);
     }
   }, [isOpen]);
 
@@ -174,14 +181,14 @@ export function EventRegistrationModal({
     setIsLoading(true);
 
     try {
-      const response = await fetch("/api/events", {
+      const response = await fetch("/api/matches", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
           classId: parseInt(selectedClassId),
-          eventDate: selectedDate.toISOString(),
+          matchDate: selectedDate.toISOString(),
           notes: notes.trim() || null,
           studentAttendances: studentAttendances,
         }),
@@ -524,8 +531,8 @@ export function EventRegistrationModal({
                   id="event-date"
                   type="date"
                   value={eventDate}
-                  onChange={(e) => setEventDate(e.target.value)}
-                  disabled={isLoading}
+                  readOnly
+                  disabled
                   className="bg-gray-700 border-gray-600 text-white"
                 />
                 <CalendarIcon className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />

@@ -8,7 +8,7 @@ import { AuthGuard } from "@/components/auth-guard"
 export const dynamic = 'force-dynamic'
 
 export const metadata: Metadata = {
-  title: "Asistencia - Paradise Dance Academy",
+  title: "Asistencia - Paradise", 
   description: "Control visual de asistencias y registro de estudiantes en clases de baile",
 }
 

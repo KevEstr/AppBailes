@@ -6,7 +6,7 @@ import { AttendanceHistory } from "@/components/attendance-history"
 export const dynamic = 'force-dynamic'
 
 export const metadata: Metadata = {
-  title: "Análisis - Paradise Dance Academy",
+  title: "Análisis - Paradise",
   description: "Reportes de asistencia, estadísticas de clases y análisis histórico de estudiantes",
 }
 

@@ -6,7 +6,7 @@ import PaymentPeriodsManager from "@/components/monthly-payments/PaymentPeriodsM
 export const dynamic = 'force-dynamic'
 
 export const metadata: Metadata = {
-  title: "Gestión de Períodos - Paradise Dance Academy",
+  title: "Gestión de Períodos - Paradise",
   description: "Administrar períodos mensuales de pago",
 }
 

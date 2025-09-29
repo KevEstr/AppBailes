@@ -6,7 +6,7 @@ import { FinancialDashboard } from "@/components/admin/FinancialDashboard"
 export const dynamic = 'force-dynamic'
 
 export const metadata: Metadata = {
-  title: "Consolidado Financiero - Paradise Dance Academy",
+  title: "Consolidado Financiero - Paradise",
   description: "Reportes y análisis financiero completo",
 }
 

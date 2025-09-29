@@ -4,12 +4,13 @@ import { useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Download, Share2 } from 'lucide-react';
 import { toast } from 'sonner';
-import Image from 'next/image';
+// Usar <img> para que html2canvas respete tamaño renderizado sin interferencia de next/image
 
 interface ReceiptData {
   id: number;
   receiptNumber: string;
   studentName: string;
+  // studentName ya viene ajustado según mayoría de edad desde el API
   amount: number;
   concept: string;
   paymentDate: string;
@@ -31,17 +32,40 @@ export function DigitalReceipt({ data, isPreview = false }: DigitalReceiptProps)
       if (typeof window === 'undefined' || !receiptRef.current) return;
 
       const html2canvas = (await import('html2canvas')).default;
+      // Asegurar que las fuentes estén cargadas para tamaños consistentes
+      if (typeof (document as any).fonts?.ready === 'object') {
+        await (document as any).fonts.ready;
+      }
+      const rect = receiptRef.current.getBoundingClientRect();
+      // Asegurar que las imágenes estén cargadas (especialmente el logo)
+      const imgs = Array.from(receiptRef.current.querySelectorAll('img')) as HTMLImageElement[];
+      await Promise.all(
+        imgs.map((img) =>
+          (img as any).decode?.()
+            .catch(() => {})
+            .then(() => {}) ||
+          (img.complete
+            ? Promise.resolve()
+            : new Promise<void>((resolve) => {
+                img.onload = () => resolve();
+                img.onerror = () => resolve();
+              }))
+        )
+      );
       
       // Configuración específica para calidad
       const canvas = await html2canvas(receiptRef.current, {
-        scale: 3, // Alta calidad
+        scale: 2, // calidad alta sin distorsionar tipografías
         useCORS: true,
         allowTaint: true,
         backgroundColor: '#000000',
-        windowWidth: 800,
-        windowHeight: 500,
-        width: 800,
-        height: 500,
+        width: Math.round(rect.width),
+        height: Math.round(rect.height),
+        windowWidth: Math.round(rect.width),
+        windowHeight: Math.round(rect.height),
+        scrollX: 0,
+        scrollY: 0,
+        imageTimeout: 0,
       });
 
       const link = document.createElement('a');
@@ -129,15 +153,20 @@ export function DigitalReceipt({ data, isPreview = false }: DigitalReceiptProps)
               {/* Logo y datos de la academia */}
               <div className="flex items-start space-x-8">
                 <div className="w-[110px] h-[110px] flex items-center justify-center">
-                  <Image
+                  <img
                     src="/logo.jpg"
                     alt="Paradise Dance Academy"
-                    width={110}
-                    height={110}
-                    className="rounded-full shadow-[0_0_25px_rgba(0,212,255,0.5)]"
+                    width={100}
+                    height={100}
+                    crossOrigin="anonymous"
                     style={{
+                      display: 'block',
+                      width: '100px',
+                      height: '100px',
+                      objectFit: 'contain',
                       border: '4px solid #00d4ff',
-                      objectFit: 'contain'
+                      borderRadius: '9999px',
+                      boxShadow: '0 0 25px rgba(0,212,255,0.5)'
                     }}
                   />
                 </div>
@@ -159,23 +188,20 @@ export function DigitalReceipt({ data, isPreview = false }: DigitalReceiptProps)
                   background: 'linear-gradient(135deg, #00d4ff 0%, #0099cc 100%)',
                   boxShadow: '0 8px 25px rgba(0, 212, 255, 0.3)'
                 }}>
-                  <div className="text-white font-bold text-sm mb-1">RECIBO DIGITAL</div>
-                  <div className="text-white font-black text-2xl" style={{ textShadow: '2px 2px 4px rgba(0,0,0,0.5)' }}>
-                    #{data.receiptNumber}
-                  </div>
+                  <div className="text-white font-bold text-sm mb-1">RECIBO #{data.receiptNumber}</div>
                 </div>
               </div>
             </div>
 
             {/* Información del pago - Estructura como en la imagen */}
-            <div className="text-center space-y-6">
+            <div className="text-center space-y-4">
               {/* Texto principal del recibo */}
-              <div className="space-y-4">
+              <div className="space-y-2">
                 <p className="text-2xl font-bold" style={{ color: '#00d4ff' }}>
                   EL SOCIO {data.studentName}
                 </p>
                 <p className="text-2xl font-bold" style={{ color: '#00d4ff' }}>
-                  HA SATISFECHO LA CANTIDAD DE $ ${data.amount.toLocaleString()}
+                  HA SATISFECHO LA CANTIDAD DE ${data.amount.toLocaleString()}
                 </p>
                 <p className="text-2xl font-bold" style={{ color: '#00d4ff' }}>
                   CORRESPONDIENTE A LA FECHA DE {data.paymentDate}

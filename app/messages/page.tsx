@@ -6,7 +6,7 @@ import { MassiveMessages } from "@/components/massive-messages"
 export const dynamic = 'force-dynamic'
 
 export const metadata: Metadata = {
-  title: "Notificaciones - Paradise Dance Academy",
+  title: "Notificaciones - Paradise",
   description: "Sistema de comunicación masiva con estudiantes, notificaciones y mensajes automáticos",
 }
 

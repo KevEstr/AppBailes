@@ -6,7 +6,7 @@ import { PaymentSchedulerDashboard } from "@/components/monthly-payments/Payment
 export const dynamic = 'force-dynamic'
 
 export const metadata: Metadata = {
-  title: "Scheduler Automático - Paradise Dance Academy",
+  title: "Scheduler Automático - Paradise",
   description: "Sistema de envío automático de enlaces de pago por WhatsApp",
 }
 

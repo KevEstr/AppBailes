@@ -6,7 +6,7 @@ import { PaymentProofReview } from '@/components/monthly-payments/PaymentProofRe
 export const dynamic = 'force-dynamic'
 
 export const metadata: Metadata = {
-  title: "Revisión de Comprobantes - Paradise Dance Academy",
+  title: "Revisión de Comprobantes - Paradise", 
   description: "Revisar comprobantes de pago de estudiantes",
 }
 

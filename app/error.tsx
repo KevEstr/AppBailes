@@ -28,7 +28,7 @@ export default function GlbError({
               </div>
               <h2 className="text-2xl font-bold text-white mb-4">¡Oops! Algo salió mal</h2>
               <p className="text-gray-300 mb-6">
-                Ocurrió un error inesperado en Paradise Dance Academy. 
+                Ocurrió un error inesperado en Paradise. 
                 No te preocupes, estamos trabajando para solucionarlo.
               </p>
               

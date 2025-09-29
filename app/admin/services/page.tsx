@@ -6,7 +6,7 @@ import { ServicesManager } from "@/components/admin/ServicesManager"
 export const dynamic = 'force-dynamic'
 
 export const metadata: Metadata = {
-  title: "Gestión de Servicios - Paradise Dance Academy", 
+  title: "Gestión de Servicios - Paradise", 
   description: "Servicios adicionales y tarifas diferenciadas",
 }
 
