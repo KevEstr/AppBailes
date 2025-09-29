@@ -37,9 +37,7 @@ interface StudentData {
     emergencyContactName?: string
     emergencyContactRelation?: string
     emergencyContactPhone?: string
-    guardianName?: string
-    guardianRelation?: string
-    guardianPhone?: string
+    // Guardian fields removed - using emergency contact instead
     monthlyFee?: number
     jerseyNumber?: number
   }
@@ -486,30 +484,30 @@ function StudentContent() {
               </Card>
             )}
 
-            {/* Información del Acudiente */}
-            {!student.enrollmentData?.isAdult && student.enrollmentData?.guardianName && (
+            {/* Información del Acudiente/Contacto de Emergencia */}
+            {student.enrollmentData?.emergencyContactName && (
               <Card className="bg-slate-800 border-slate-700 hover:bg-slate-800/80 transition-colors">
                 <CardHeader className="pb-4">
                   <CardTitle className="text-orange-400 flex items-center gap-2 text-lg">
                     <UserCheck className="h-5 w-5" />
-                    Información del Acudiente
+                    {!student.enrollmentData?.isAdult ? 'Información del Acudiente' : 'Contacto de Emergencia'}
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
                   <div>
                     <span className="text-slate-400">Nombre:</span>
-                    <p className="text-white font-medium">{student.enrollmentData.guardianName}</p>
+                    <p className="text-white font-medium">{student.enrollmentData.emergencyContactName}</p>
                   </div>
-                  {student.enrollmentData.guardianRelation && (
+                  {student.enrollmentData.emergencyContactRelation && (
                     <div>
                       <span className="text-slate-400">Relación:</span>
-                      <p className="text-white font-medium">{student.enrollmentData.guardianRelation}</p>
+                      <p className="text-white font-medium">{student.enrollmentData.emergencyContactRelation}</p>
                     </div>
                   )}
-                  {student.enrollmentData.guardianPhone && (
+                  {student.enrollmentData.emergencyContactPhone && (
                     <div>
                       <span className="text-slate-400">Teléfono:</span>
-                      <p className="text-white font-medium">{student.enrollmentData.guardianPhone}</p>
+                      <p className="text-white font-medium">{student.enrollmentData.emergencyContactPhone}</p>
                     </div>
                   )}
                 </CardContent>
@@ -684,10 +682,7 @@ function StudentContent() {
               emergencyContactName: student.enrollmentData?.emergencyContactName || '',
               emergencyContactRelation: student.enrollmentData?.emergencyContactRelation || '',
               emergencyContactPhone: student.enrollmentData?.emergencyContactPhone || '',
-              guardianName: student.enrollmentData?.guardianName || '',
-              guardianRelation: student.enrollmentData?.guardianRelation || '',
-              guardianPhone: student.enrollmentData?.guardianPhone || '',
-              monthlyFee: student.enrollmentData?.monthlyFee || 0,
+              // Guardian fields removed - using emergency contact instead
               jerseyNumber: student.enrollmentData?.jerseyNumber || undefined
             }}
             onStudentUpdated={handleStudentUpdated}

@@ -147,9 +147,8 @@ export async function GET(request: NextRequest) {
         'Contacto Emergencia': student.enrollmentData?.emergencyContactName || 'Sin contacto',
         'Relación Emergencia': student.enrollmentData?.emergencyContactRelation || 'Sin relación',
         'Teléfono Emergencia': student.enrollmentData?.emergencyContactPhone || 'Sin teléfono',
-        'Nombre Acudiente': student.enrollmentData?.guardianName || 'Sin acudiente',
-        'Relación Acudiente': student.enrollmentData?.guardianRelation || 'Sin relación',
-        'Teléfono Acudiente': student.enrollmentData?.guardianPhone || 'Sin teléfono'
+        // Guardian fields removed - using emergency contact instead
+        'Teléfono Contacto': student.enrollmentData?.emergencyContactPhone || 'Sin teléfono'
       }
 
       // Información de clases

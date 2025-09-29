@@ -40,6 +40,7 @@ export async function POST(request: NextRequest) {
       include: {
         student: {
           include: {
+            enrollmentData: true,
             classEnrollments: {
               where: { isActive: true },
               include: {
@@ -89,7 +90,16 @@ export async function POST(request: NextRequest) {
       const payment = paymentsWithPhone[i];
       
       try {
-        const dueDate = new Date(payment.period.dueDate).toLocaleDateString('es-ES');
+        // Calcular fecha de corte personalizada: 15 o 30, respetando si ya pasó
+        const TZ = 'America/Bogota';
+        const periodDue = new Date(payment.period.dueDate);
+        const cutoff = payment.student.enrollmentData?.paymentCutoffDay ?? 30;
+        const due = new Date(periodDue);
+        if (periodDue.getDate() > cutoff) {
+          due.setMonth(due.getMonth() + 1);
+        }
+        due.setDate(cutoff);
+        const dueDate = due.toLocaleDateString('es-ES');
         
         // Determinar el deporte del estudiante
         const sports = payment.student.classEnrollments?.map(enrollment => enrollment.danceClass.sport) || [];

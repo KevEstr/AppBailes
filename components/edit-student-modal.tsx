@@ -25,6 +25,7 @@ import { useToast } from "@/hooks/use-toast";
 import { User, MapPin, Heart, Phone, Camera, Trophy } from "lucide-react";
 import { InteractiveMap } from "./interactive-map";
 import { ProfilePhotoModal } from "@/components/profile/ProfilePhotoModal";
+import { Clock } from "lucide-react";
 
 interface Student {
   id: string
@@ -77,6 +78,7 @@ interface Student {
     emergencyContactName?: string
     emergencyContactRelation?: string
     emergencyContactPhone?: string
+    paymentCutoffDay?: number
   }
   // Legacy fields for compatibility
   age?: number;
@@ -200,7 +202,10 @@ export default function EditStudentModal({
               emergencyContactRelation: fullStudent.emergencyContactRelation || fullStudent.enrollmentData?.emergencyContactRelation || '',
               emergencyContactPhone: fullStudent.emergencyContactPhone || fullStudent.enrollmentData?.emergencyContactPhone || '',
               jerseyNumber: fullStudent.enrollmentData?.jerseyNumber || undefined,
-              isActive: fullStudent.isActive ?? true
+              isActive: fullStudent.isActive ?? true,
+              enrollmentData: {
+                paymentCutoffDay: fullStudent.enrollmentData?.paymentCutoffDay
+              }
             }
             setFormData(initialData)
           } else {
@@ -230,7 +235,10 @@ export default function EditStudentModal({
               emergencyContactRelation: student.emergencyContactRelation || '',
               emergencyContactPhone: student.emergencyContactPhone || '',
               jerseyNumber: student.jerseyNumber || undefined,
-              isActive: student.isActive ?? true
+              isActive: student.isActive ?? true,
+              enrollmentData: {
+                paymentCutoffDay: student.enrollmentData?.paymentCutoffDay
+              }
             }
             setFormData(initialData)
           }
@@ -262,7 +270,10 @@ export default function EditStudentModal({
             emergencyContactRelation: student.emergencyContactRelation || '',
               emergencyContactPhone: student.emergencyContactPhone || '',
               jerseyNumber: student.jerseyNumber || undefined,
-              isActive: student.isActive ?? true
+              isActive: student.isActive ?? true,
+              enrollmentData: {
+                paymentCutoffDay: student.enrollmentData?.paymentCutoffDay
+              }
           }
           setFormData(initialData)
         }
@@ -322,7 +333,8 @@ export default function EditStudentModal({
         medicalConditions,
         emergencyContactName,
         emergencyContactRelation,
-        emergencyContactPhone
+        emergencyContactPhone,
+        paymentCutoffDay: formData.enrollmentData?.paymentCutoffDay
       };
 
       // Enviar datos planos, enrollmentData y email en una sola petición
@@ -771,6 +783,43 @@ export default function EditStudentModal({
                     }
                     className="bg-gray-800 border-gray-600 text-white"
                   />
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Configuración de Pagos */}
+            <Card className="bg-gray-700/50 border-gray-600 backdrop-blur-sm">
+              <CardHeader className="pb-3 sm:pb-6">
+                <CardTitle className="flex items-center gap-2 text-base sm:text-lg text-white">
+                  <div className="rounded-lg bg-gradient-to-r from-yellow-500 to-orange-500 p-1.5">
+                    <Clock className="h-4 w-4 text-white" />
+                  </div>
+                  Configuración de Pagos
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                <div>
+                  <Label htmlFor="paymentCutoffDay">Corte de pago</Label>
+                  <Select
+                    value={(formData.enrollmentData?.paymentCutoffDay ?? 30).toString()}
+                    onValueChange={(value) =>
+                      setFormData(prev => prev ? {
+                        ...prev,
+                        enrollmentData: {
+                          ...prev.enrollmentData,
+                          paymentCutoffDay: parseInt(value)
+                        }
+                      } : prev)
+                    }
+                  >
+                    <SelectTrigger className="bg-gray-800 border-gray-600 text-white">
+                      <SelectValue placeholder="Seleccionar día de corte" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="15">15 de cada mes</SelectItem>
+                      <SelectItem value="30">30 de cada mes</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </CardContent>
             </Card>

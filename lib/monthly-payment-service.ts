@@ -1354,8 +1354,9 @@ export class MonthlyPaymentService {
       const isPartialPayment = receivedAmount < payment.expectedAmount;
       const remainingAmount = payment.expectedAmount - receivedAmount;
 
-      // Calcular fecha del próximo pago
-      const nextPaymentDate = await this.calculateNextPaymentDate(period);
+      // Calcular fecha del próximo pago con día de corte del estudiante (15 o 30)
+      const cutoffDay = student.enrollmentData?.paymentCutoffDay ?? 30;
+      const nextPaymentDate = await this.calculateNextPaymentDate(period, cutoffDay);
 
       // Generar URL del recibo
       const receiptUrl = `${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/recibo/${receiptData.id}`;
@@ -1384,7 +1385,7 @@ export class MonthlyPaymentService {
   /**
    * Calcula la fecha del próximo pago basado en el período actual
    */
-  private async calculateNextPaymentDate(currentPeriod: any): Promise<string> {
+  private async calculateNextPaymentDate(currentPeriod: any, cutoffDay: number): Promise<string> {
     try {
       // Calcular el próximo mes
       const currentDate = new Date(currentPeriod.year, currentPeriod.month - 1, 1);
@@ -1401,16 +1402,16 @@ export class MonthlyPaymentService {
       });
 
       if (nextPeriod) {
-        // Si existe período, usar el día 15 del mes del período
-        const nextPaymentDate = new Date(nextPeriod.year, nextPeriod.month - 1, 15);
+        // Si existe período, usar el día de corte del mes del período
+        const nextPaymentDate = new Date(nextPeriod.year, nextPeriod.month - 1, cutoffDay);
         return nextPaymentDate.toLocaleDateString('es-CO', {
           year: 'numeric',
           month: 'long',
           day: 'numeric'
         });
       } else {
-        // Si no existe período, calcular día 15 del mes siguiente
-        const nextPaymentDate = new Date(nextMonth.getFullYear(), nextMonth.getMonth(), 15);
+        // Si no existe período, calcular día de corte del mes siguiente
+        const nextPaymentDate = new Date(nextMonth.getFullYear(), nextMonth.getMonth(), cutoffDay);
         
         return nextPaymentDate.toLocaleDateString('es-CO', {
           year: 'numeric',

@@ -47,7 +47,7 @@ export async function GET(
       enrollmentData: student.enrollmentData ? {
         ...student.enrollmentData,
         emergencyContactPhone: formatPhoneForDisplay(student.enrollmentData.emergencyContactPhone),
-        guardianPhone: formatPhoneForDisplay(student.enrollmentData.guardianPhone)
+        // Guardian fields removed - using emergency contact instead
       } : null
     }
 
@@ -132,9 +132,7 @@ export async function PUT(
         emergencyContactName: data.emergencyContactName || null,
         emergencyContactRelation: data.emergencyContactRelation || null,
         emergencyContactPhone: data.emergencyContactPhone ? formatPhoneForStorage(data.emergencyContactPhone) : null,
-        guardianName: data.guardianName || null,
-        guardianRelation: data.guardianRelation || null,
-        guardianPhone: data.guardianPhone ? formatPhoneForStorage(data.guardianPhone) : null,
+        // Guardian fields removed - using emergency contact instead
         monthlyFee: data.monthlyFee || null
       },
       create: {
@@ -156,9 +154,7 @@ export async function PUT(
         emergencyContactName: data.emergencyContactName || null,
         emergencyContactRelation: data.emergencyContactRelation || null,
         emergencyContactPhone: data.emergencyContactPhone ? formatPhoneForStorage(data.emergencyContactPhone) : null,
-        guardianName: data.guardianName || null,
-        guardianRelation: data.guardianRelation || null,
-        guardianPhone: data.guardianPhone ? formatPhoneForStorage(data.guardianPhone) : null,
+        // Guardian fields removed - using emergency contact instead
         monthlyFee: data.monthlyFee || null
       }
     })

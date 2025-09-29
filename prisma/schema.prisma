@@ -74,6 +74,9 @@ model StudentEnrollmentData {
   emergencyContactRelation String?
   emergencyContactPhone    String?
   
+  // Configuración de pagos
+  paymentCutoffDay   Int?    @default(30) // Día de corte: 15 o 30
+  
   // Información de Pago
   monthlyFee        Float?
   

@@ -6,9 +6,9 @@ const prisma = new PrismaClient();
 
 export class PaymentSchedulerService {
   private static instance: PaymentSchedulerService;
-  private activeTimeouts: Map<number, NodeJS.Timeout> = new Map();
+  private readonly activeTimeouts: Map<number, NodeJS.Timeout> = new Map();
   private isRunning = false;
-  private loadedSchedulers: Set<number> = new Set();
+  private readonly loadedSchedulers: Set<number> = new Set();
 
   private constructor() {}
 
@@ -271,6 +271,7 @@ export class PaymentSchedulerService {
         include: {
           student: {
             include: {
+              enrollmentData: true,
               classEnrollments: {
                 where: { isActive: true },
                 include: {
@@ -323,15 +324,31 @@ export class PaymentSchedulerService {
         console.log(`⚠️  No hay destinatarios específicos configurados, usando todos los pagos`);
       }
 
-      // Filtrar solo estudiantes activos con teléfono
-      const paymentsWithPhone = paymentsToSend.filter((payment: any) =>
-        payment.student.isActive && 
-        payment.student.phone && 
-        payment.student.phone.trim() !== ''
-      );
+      // Aplicar filtro por grupo de corte si fue configurado en customFilter
+      try {
+        const custom = scheduler.customFilter ? JSON.parse(scheduler.customFilter) : null;
+        if (custom?.cutoffGroup === '15' || custom?.cutoffGroup === '30') {
+          const wanted = parseInt(custom.cutoffGroup, 10);
+          paymentsToSend = paymentsToSend.filter((payment: any) => {
+            const cutoff = payment.student.enrollmentData?.paymentCutoffDay;
+            return cutoff === wanted;
+          });
+          console.log(`🔎 Aplicando filtro de corte ${wanted}: ${paymentsToSend.length} pagos`);
+        }
+      } catch (e) {
+        console.warn('⚠️ No se pudo parsear customFilter para cutoffGroup:', e);
+      }
+
+      // Filtrar solo estudiantes activos con teléfono disponible según mayoría de edad
+      const paymentsWithPhone = paymentsToSend.filter((payment: any) => {
+        const isMinor = payment.student.enrollmentData?.isAdult === false;
+        const candidatePhone = isMinor
+          ? (payment.student.enrollmentData?.emergencyContactPhone || '')
+          : (payment.student.phone || '');
+        return payment.student.isActive && candidatePhone.trim() !== '';
+      });
 
       console.log(`📱 ${paymentsWithPhone.length} estudiantes con teléfono disponible para envío`);
-
       if (paymentsWithPhone.length === 0) {
         throw new Error('No hay estudiantes activos con teléfono configurado para enviar mensajes');
       }
@@ -348,27 +365,44 @@ export class PaymentSchedulerService {
         const payment = paymentsWithPhone[i];
         
         try {
-          const dueDate = new Date(payment.period.dueDate).toLocaleDateString('es-ES');
+          // Calcular fecha de corte (15 o 30) para el mensaje
+          const now = new Date();
+          const cutoffDay = payment.student.enrollmentData?.paymentCutoffDay ?? 30;
+          const due = new Date(now);
+          // Si hoy ya pasó el corte de este mes, apuntar al próximo mes
+          if (now.getDate() > cutoffDay) {
+            due.setMonth(due.getMonth() + 1);
+          }
+          due.setDate(cutoffDay);
+          const dueDate = due.toLocaleDateString('es-ES');
           
           // Determinar el deporte del estudiante (priorizar DANCE sobre VOLLEYBALL)
           const sports = payment.student.classEnrollments?.map((enrollment: any) => enrollment.danceClass.sport) || [];
           const primarySport = sports.includes('DANCE') ? 'DANCE' : (sports[0] || 'DANCE');
           
+          const isMinor = payment.student.enrollmentData?.isAdult === false;
+          const targetPhone = isMinor
+            ? (payment.student.enrollmentData?.emergencyContactPhone || payment.student.phone)
+            : payment.student.phone;
+
           const whatsappData = {
             studentName: payment.student.name,
-            parentPhone: payment.student.phone,
+            parentPhone: targetPhone,
+            paymentLink: '',
             amount: payment.expectedAmount,
             period: payment.period.name,
             dueDate: dueDate,
             sport: primarySport,
-            paymentId: payment.id // Para referencia del pago pendiente
+            paymentId: payment.id, // Para referencia del pago pendiente
+            cutoffDay
           };
 
           console.log(`📱 [${i + 1}/${paymentsWithPhone.length}] Enviando a ${payment.student.name} (${payment.student.phone})`);
           
-          // Enviar mensaje con timeout (nuevo método sin link)
+          // Enviar template personalizado aprobado por Meta (usa cutoffDay)
+          const formattedPhone = whatsappService.formatPhoneNumber(targetPhone);
           await Promise.race([
-            whatsappService.sendPendingPaymentMessage(whatsappData),
+            whatsappService.sendCustomPaymentTemplate(whatsappData, formattedPhone),
             new Promise((_, reject) => 
               setTimeout(() => reject(new Error('Timeout WhatsApp')), 30000)
             )

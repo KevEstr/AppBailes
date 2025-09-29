@@ -712,6 +712,7 @@ export function FinancialDashboard() {
                         <SelectItem value="MONTHLY_PAYMENT">Mensualidades</SelectItem>
                         <SelectItem value="ENROLLMENT_PAYMENT">Inscripciones</SelectItem>
                         <SelectItem value="SERVICE_PAYMENT">Servicios</SelectItem>
+                        <SelectItem value="PRODUCT_SALE">Ventas de productos</SelectItem>
                         <SelectItem value="DEBT">Deudas</SelectItem>
                         <SelectItem value="PAYMENT_PROOF">Comprobantes</SelectItem>
                         <SelectItem value="EQUIPMENT">Equipos</SelectItem>

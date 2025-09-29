@@ -100,20 +100,24 @@ export class WhatsAppService {
    * Template personalizado profesional para pagos (APROBADO POR META)
    */
   async sendCustomPaymentTemplate(data: WhatsAppMessage, formattedPhone: string): Promise<WhatsAppResponse> {
+    this.initialize(); // Ensure baseUrl, token and phoneNumberId are set
     console.log('🎯 sendCustomPaymentTemplate llamado con:');
     console.log('   📱 Teléfono formateado recibido:', formattedPhone);
     console.log('   📊 Datos:', data);
+    console.log('   🔗 URL destino:', this.baseUrl);
     
-    // Utilidades para formatear período y próximo pago al día 15
-    const buildPeriodWithDay15 = (periodLabel: string): string => {
-      // Si ya contiene un día, lo respetamos; de lo contrario anteponemos "15 de "
+    // Utilidades para formatear período y próximo pago al día de corte (15 o 30)
+    const buildPeriodWithCutoff = (periodLabel: string, cutoffDay: number): string => {
+      // Si ya contiene un día, lo respetamos; de lo contrario anteponemos "<cutoffDay> de "
       const hasDay = /\b\d{1,2}\b/.test(periodLabel);
-      return hasDay ? periodLabel : `15 de ${periodLabel}`;
+      return hasDay ? periodLabel : `${cutoffDay} de ${periodLabel}`;
     };
 
-    const periodWith15 = buildPeriodWithDay15(data.period);
+    const cutoffDay = typeof (data as any).cutoffDay === 'number' ? (data as any).cutoffDay : 15;
+    const periodWithDay = buildPeriodWithCutoff(data.period, cutoffDay);
     // Seleccionar template según el deporte
     console.log('🏃 Deporte detectado:', data.sport);
+    console.log('📆 Día de corte utilizado:', cutoffDay);
     const templateName = data.sport === 'VOLLEYBALL' 
       ? 'payment_reminder_paradise_volley' 
       : 'payment_reminder_paradise';
@@ -143,7 +147,7 @@ export class WhatsAppService {
               },
               {
                 type: 'text',
-                text: periodWith15 // {{3}} - Período con día 15 (ej: "15 de Enero 2025")
+                text: periodWithDay // {{3}} - Período con día de corte (ej: "15 de Enero 2025" o "30 de Enero 2025")
               }
             ]
           }
@@ -693,17 +697,7 @@ ${data.paymentLink}
   /**
    * Método estático para formatear números de teléfono
    */
-  static formatPhoneNumber(phone: string): string {
-    // Remover espacios, guiones y caracteres especiales
-    let cleaned = phone.replace(/\D/g, '');
-    
-    // Si no empieza con código de país, agregar Colombia (57)
-    if (!cleaned.startsWith('57') && cleaned.length === 10) {
-      cleaned = '57' + cleaned;
-    }
-    
-    return cleaned;
-  }
+  // Eliminado por duplicación; usar la versión de instancia `formatPhoneNumber`
 
   /**
    * Método de debug para probar formateo de números
@@ -1408,9 +1402,7 @@ ${data.rejectionReason}
 let _whatsappService: WhatsAppService | undefined;
 
 export function getWhatsAppService(): WhatsAppService {
-  if (!_whatsappService) {
-    _whatsappService = new WhatsAppService();
-  }
+  _whatsappService ??= new WhatsAppService();
   return _whatsappService;
 }
 

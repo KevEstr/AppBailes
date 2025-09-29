@@ -57,6 +57,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Construir customFilter con cutoffGroup si viene
+    let customFilter = body.customFilter;
+    if (body.cutoffGroup && ['ALL','15','30'].includes(body.cutoffGroup)) {
+      try {
+        const base = typeof customFilter === 'string' && customFilter?.trim() ? JSON.parse(customFilter) : {};
+        customFilter = JSON.stringify({ ...base, cutoffGroup: body.cutoffGroup });
+      } catch {
+        customFilter = JSON.stringify({ cutoffGroup: body.cutoffGroup });
+      }
+    }
+
     const scheduler = await paymentSchedulerService.createScheduler({
       name: body.name,
       description: body.description,
@@ -65,7 +76,7 @@ export async function POST(request: NextRequest) {
       minute: body.minute || 0,
       schedulerType: body.schedulerType || 'MONTHLY_PAYMENT',
       targetFilter: body.targetFilter || 'ALL_ACTIVE',
-      customFilter: body.customFilter,
+      customFilter,
       createdBy: 'admin' // TODO: obtener del usuario autenticado
     });
 

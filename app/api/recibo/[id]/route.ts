@@ -63,10 +63,14 @@ export async function GET(
 
     const sport = pickPrimarySport(receipt.student);
 
-    // Calcular próximo pago (añadir 1 mes) en zona horaria de Colombia
-    const createdAtZoned = toZonedTime(new Date(receipt.createdAt), TZ);
-    const nextPaymentDate = new Date(createdAtZoned);
+    // Calcular próximo pago: mes siguiente al pago con día de corte del estudiante
+    const paymentDate = toZonedTime(new Date(receipt.createdAt), TZ);
+    const cutoff = receipt.student.enrollmentData?.paymentCutoffDay ?? 30;
+    
+    // Calcular el mes siguiente al pago
+    const nextPaymentDate = new Date(paymentDate);
     nextPaymentDate.setMonth(nextPaymentDate.getMonth() + 1);
+    nextPaymentDate.setDate(cutoff);
 
     // Determinar a nombre de quién va el recibo según mayoría de edad
     const isMinor = receipt.student.enrollmentData?.isAdult === false;

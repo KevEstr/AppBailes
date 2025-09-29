@@ -142,7 +142,7 @@ export async function GET(request: NextRequest) {
       enrollmentData: student.enrollmentData ? {
         ...student.enrollmentData,
         emergencyContactPhone: formatPhoneForDisplay(student.enrollmentData.emergencyContactPhone),
-        guardianPhone: formatPhoneForDisplay(student.enrollmentData.guardianPhone)
+        // Guardian fields removed - using emergency contact instead
       } : null
     }
     return NextResponse.json({
@@ -278,9 +278,7 @@ export async function PUT(request: NextRequest) {
         emergencyContactName: body.enrollmentData.emergencyContactName,
         emergencyContactRelation: body.enrollmentData.emergencyContactRelation,
         emergencyContactPhone: body.enrollmentData.emergencyContactPhone ? formatPhoneForStorage(body.enrollmentData.emergencyContactPhone) : null,
-        guardianName: body.enrollmentData.guardianName,
-        guardianRelation: body.enrollmentData.guardianRelation,
-        guardianPhone: body.enrollmentData.guardianPhone ? formatPhoneForStorage(body.enrollmentData.guardianPhone) : null,
+        paymentCutoffDay: body.enrollmentData.paymentCutoffDay,
         jerseyNumber: body.enrollmentData.jerseyNumber,
       }
 
