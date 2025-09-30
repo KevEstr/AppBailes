@@ -1,0 +1,21 @@
+# Dockerfile para el servicio de cron job
+FROM node:18-alpine
+
+# Instalar curl para las peticiones HTTP
+RUN apk add --no-cache curl
+
+# Establecer directorio de trabajo
+WORKDIR /
+
+# Copiar archivos necesarios
+COPY package*.json ./
+COPY scripts/generate-sessions-cron.js ./scripts/
+
+# Instalar dependencias
+RUN npm ci --only=production
+
+# Hacer el script ejecutable
+RUN chmod +x scripts/generate-sessions-cron.js
+
+# Comando por defecto
+CMD ["node", "scripts/generate-sessions-cron.js"]

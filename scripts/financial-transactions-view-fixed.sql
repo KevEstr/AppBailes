@@ -195,7 +195,7 @@ SELECT
     'PRODUCT_SALE' as source_table,
     ps.id::text as transaction_id,
     ps."totalAmount" as amount,
-    CONCAT('Venta de producto - Usuario: ', u.email) as description,
+    CONCAT('Venta de ', COALESCE(p.name, 'Producto desconocido'), ' - ', u.email) as description,
     'INCOME' as transaction_type,
     'PRODUCT_SALE' as category,
     ps."soldAt" as transaction_date,
@@ -213,4 +213,5 @@ SELECT
     ps."updatedAt" as updated_at
 FROM product_sales ps
 LEFT JOIN users u ON ps."processedBy" = u.id
+LEFT JOIN products p ON ps."productId" = p.id
 WHERE ps."createdAt" IS NOT NULL;

@@ -18,7 +18,7 @@ interface GenerateSessionsParams {
 }
 
 export class ClassSessionService {
-  constructor(private prisma: PrismaClient) {}
+  constructor(private readonly prisma: PrismaClient) {}
 
   async generateSessionsForClass({
     classId,
@@ -29,8 +29,31 @@ export class ClassSessionService {
     try {
       console.log(`🚀 Generando sesiones para clase ID: ${classId}`);
 
+      // Verificar si ya hay sesiones futuras para esta clase
+      const existingFutureSessions = await this.prisma.classSession.count({
+        where: {
+          classId: classId,
+          date: {
+            gte: startDate
+          }
+        }
+      });
+
+      // Si ya hay suficientes sesiones futuras, no generar más
+      const sessionsPerWeek = schedules.filter(s => s.isActive !== false).length;
+      const existingWeeks = Math.ceil(existingFutureSessions / sessionsPerWeek);
+      
+      if (existingWeeks >= weeksToGenerate) {
+        console.log(`✅ Clase ${classId} ya tiene ${existingWeeks} semanas de sesiones futuras, saltando generación`);
+        return { success: true, totalSessions: 0, message: 'Ya tiene suficientes sesiones futuras' };
+      }
+
+      // Ajustar las semanas a generar si ya hay algunas sesiones
+      const weeksToGenerateAdjusted = Math.max(1, weeksToGenerate - existingWeeks);
+      console.log(`📅 Generando ${weeksToGenerateAdjusted} semanas adicionales (ya tiene ${existingWeeks} semanas)`);
+
       const endDate = new Date(startDate);
-      endDate.setDate(startDate.getDate() + weeksToGenerate * 7);
+      endDate.setDate(startDate.getDate() + weeksToGenerateAdjusted * 7);
 
       let totalSessions = 0;
 

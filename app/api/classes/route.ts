@@ -291,17 +291,17 @@ export async function POST(request: NextRequest) {
       }
     })
 
-    // ✨ GENERAR SESIONES AUTOMÁTICAMENTE
+    // ✨ GENERAR SESIONES AUTOMÁTICAMENTE (solo 2 semanas iniciales)
     try {
       const sessionService = new ClassSessionService(prisma)
       const sessionResult = await sessionService.generateSessionsForClass({
         classId: newClass.id,
         schedules: validatedData.schedules.map(sch => ({ ...sch, isActive: true })),
         startDate: new Date(),
-        weeksToGenerate: 8 // Generar sesiones para las próximas 8 semanas
+        weeksToGenerate: 2 // Generar solo 2 semanas iniciales, el cron job se encargará del resto
       })
       
-      console.log(`✅ Sesiones generadas automáticamente: ${sessionResult.totalSessions}`)
+      console.log(`✅ Sesiones iniciales generadas: ${sessionResult.totalSessions}`)
     } catch (sessionError) {
       console.error('⚠️  Error generando sesiones (la clase se creó exitosamente):', sessionError)
       // No fallar la creación de la clase si falla la generación de sesiones
@@ -469,13 +469,13 @@ export async function PUT(request: NextRequest) {
           }
         })
 
-        // Luego generar nuevas sesiones
+        // Luego generar nuevas sesiones (solo 2 semanas)
         const sessionService = new ClassSessionService(prisma)
         const sessionResult = await sessionService.generateSessionsForClass({
           classId: classId,
           schedules: validatedData.schedules.map(sch => ({ ...sch, isActive: true })),
           startDate: today,
-          weeksToGenerate: 8
+          weeksToGenerate: 2 // Solo 2 semanas, el cron job mantendrá el buffer
         })
         
         console.log(`✅ Sesiones regeneradas automáticamente: ${sessionResult.totalSessions}`)
