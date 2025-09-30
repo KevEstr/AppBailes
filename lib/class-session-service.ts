@@ -24,7 +24,7 @@ export class ClassSessionService {
     classId,
     schedules,
     startDate = new Date(),
-    weeksToGenerate = 8,
+    weeksToGenerate = 16,
   }: GenerateSessionsParams) {
     try {
       console.log(`🚀 Generando sesiones para clase ID: ${classId}`);

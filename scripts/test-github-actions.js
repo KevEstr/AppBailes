@@ -67,6 +67,8 @@ async function testGitHubActions() {
     };
     
     console.log('📡 Enviando petición...');
+    console.log(`🔗 URL completa: ${url}`);
+    
     const response = await makeRequest(url, options);
     
     console.log(`📊 Status: ${response.status}`);
@@ -85,6 +87,17 @@ async function testGitHubActions() {
     
   } catch (error) {
     console.error('💥 Error en la prueba:', error.message);
+    
+    if (error.message.includes('ECONNREFUSED')) {
+      console.error('❌ No se puede conectar al servidor');
+      console.error('💡 Asegúrate de que tu aplicación esté ejecutándose:');
+      console.error('   npm run dev');
+    } else if (error.message.includes('ENOTFOUND')) {
+      console.error('❌ No se puede resolver el dominio');
+      console.error('💡 Verifica que la URL sea correcta');
+    } else {
+      console.error('💡 Error desconocido:', error.message);
+    }
   } finally {
     const endTime = new Date();
     const duration = endTime.getTime() - startTime.getTime();

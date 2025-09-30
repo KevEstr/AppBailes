@@ -122,7 +122,6 @@ export async function GET(request: NextRequest) {
     const classesWithStats = await prisma.danceClass.findMany({
       where: {
         isActive: true,
-        deletedAt: null
       },
       include: {
         schedules: {
