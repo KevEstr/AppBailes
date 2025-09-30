@@ -5,7 +5,7 @@ FROM node:18-alpine
 RUN apk add --no-cache curl
 
 # Establecer directorio de trabajo
-WORKDIR /
+WORKDIR /app
 
 # Copiar archivos necesarios
 COPY package*.json ./
