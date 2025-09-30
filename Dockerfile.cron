@@ -1,21 +1,25 @@
 # Dockerfile para el servicio de cron job
 FROM node:18-alpine
 
-# Instalar curl para las peticiones HTTP
-RUN apk add --no-cache curl
-
 # Establecer directorio de trabajo
 WORKDIR /app
 
 # Copiar archivos necesarios
 COPY package*.json ./
-COPY scripts/generate-sessions-cron.js ./scripts/
+COPY scripts/generate-sessions-simple.js ./scripts/
+COPY prisma ./prisma/
 
 # Instalar dependencias
 RUN npm ci --only=production
 
+# Instalar Prisma CLI
+RUN npm install prisma @prisma/client
+
+# Generar Prisma Client
+RUN npx prisma generate
+
 # Hacer el script ejecutable
-RUN chmod +x scripts/generate-sessions-cron.js
+RUN chmod +x scripts/generate-sessions-simple.js
 
 # Comando por defecto
-CMD ["node", "scripts/generate-sessions-cron.js"]
+CMD ["node", "scripts/generate-sessions-simple.js"]
