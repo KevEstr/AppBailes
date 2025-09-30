@@ -123,9 +123,9 @@ export async function POST(request: NextRequest) {
         )
       }
 
-      if (quantity <= 0) {
+      if (quantity === 0) {
         return NextResponse.json(
-          { error: "La cantidad debe ser mayor a 0 para todos los movimientos" },
+          { error: "La cantidad debe ser diferente de 0 para todos los movimientos" },
           { status: 400 }
         )
       }

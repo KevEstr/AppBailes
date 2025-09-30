@@ -130,6 +130,18 @@ export function InventoryHistory() {
     return labels[type] || type
   }
 
+  const getReasonLabel = (reason: string) => {
+    const reasonLabels: Record<string, string> = {
+      PURCHASE: "Compra",
+      ADJUSTMENT: "Ajuste de Inventario",
+      WASTE: "Pérdida/Desperdicio",
+      TRANSFER: "Transferencia",
+      RETURN: "Devolución",
+      SALE: "Venta"
+    }
+    return reasonLabels[reason] || reason
+  }
+
   const getMovementTypeColor = (type: string) => {
     const colors: Record<string, string> = {
       PURCHASE: "bg-green-900/30 text-green-300 border border-green-600/30",
@@ -298,7 +310,7 @@ export function InventoryHistory() {
                           </Badge>
                         </div>
                         {movement.reason && (
-                          <p className="text-sm text-gray-300 mt-1">Motivo: {movement.reason}</p>
+                          <p className="text-sm text-gray-300 mt-1">Motivo: {getReasonLabel(movement.reason)}</p>
                         )}
                         {movement.reference && (
                           <p className="text-sm text-gray-400">Ref: {movement.reference}</p>

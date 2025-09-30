@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea"
 import { Card } from "@/components/ui/card"
 import { toast } from "@/hooks/use-toast"
-import { Package, Plus, TrendingUp, TrendingDown, Trash2 } from "lucide-react"
+import { Plus, TrendingUp, TrendingDown, Trash2 } from "lucide-react"
 import { ProductSearchSelect } from "./ProductSearchSelect"
 
 interface InventoryItem {
@@ -29,10 +29,10 @@ interface InventoryMovement {
 }
 
 interface InventoryMovementModalProps {
-  isOpen: boolean
-  movementType: "ENTRY" | "EXIT"
-  onClose: () => void
-  onSuccess?: () => void // Callback opcional para cuando se complete exitosamente
+  readonly isOpen: boolean
+  readonly movementType: "ENTRY" | "EXIT"
+  readonly onClose: () => void
+  readonly onSuccess?: () => void // Callback opcional para cuando se complete exitosamente
 }
 
 export function InventoryMovementModal({ 
@@ -50,7 +50,6 @@ export function InventoryMovementModal({
   const [currentPrice, setCurrentPrice] = useState<string>("")
   
   const [availableProducts, setAvailableProducts] = useState<any[]>([])
-  const [, setIsLoading] = useState(false)
 
   const isEntry = movementType === "ENTRY"
   
@@ -80,7 +79,6 @@ export function InventoryMovementModal({
 
   const loadAvailableProducts = async () => {
     try {
-      setIsLoading(true)
       const response = await fetch("/api/admin/products?limit=1000")
       const data = await response.json()
       
@@ -94,8 +92,6 @@ export function InventoryMovementModal({
         description: "Error al cargar productos disponibles",
         variant: "destructive"
       })
-    } finally {
-      setIsLoading(false)
     }
   }
 
@@ -265,7 +261,7 @@ export function InventoryMovementModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
+      <DialogContent className="max-w-5xl max-h-[95vh] h-[80vh] flex flex-col">
         <DialogHeader className="flex-shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <IconComponent className="h-5 w-5" />
@@ -273,7 +269,7 @@ export function InventoryMovementModal({
           </DialogTitle>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto space-y-6 pr-2">
+        <div className="flex-1 overflow-y-auto space-y-6 pr-2 min-h-0">
           {/* Formulario para agregar productos */}
           <Card className="p-4">
             <h3 className="text-lg font-semibold mb-4">Agregar Productos</h3>
@@ -330,7 +326,7 @@ export function InventoryMovementModal({
           {items.length > 0 && (
             <Card className="p-4">
               <h3 className="text-lg font-semibold mb-4">Productos en la Factura</h3>
-              <div className="max-h-60 overflow-y-auto">
+              <div className="max-h-80 overflow-y-auto">
                 <div className="space-y-3">
                   {items.map((item, index) => (
                     <div key={`item-${item.productId}-${index}`} className="flex items-center justify-between p-3 bg-gray-700/50 border border-gray-600 rounded-lg">
@@ -368,7 +364,7 @@ export function InventoryMovementModal({
           {items.length > 0 && (
             <Card className="p-4">
               <h3 className="text-lg font-semibold mb-4">Datos de la Factura</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                 <div>
                   <Label>Motivo</Label>
                   <Select value={reason} onValueChange={setReason}>
@@ -419,6 +415,7 @@ export function InventoryMovementModal({
                     onChange={(e) => setNotes(e.target.value)}
                     placeholder="Notas adicionales..."
                     rows={2}
+                    className="min-h-[25px]"
                   />
                 </div>
               </div>
