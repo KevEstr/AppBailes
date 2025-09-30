@@ -1,0 +1,35 @@
+name: Generate Sessions
+
+on:
+  schedule:
+    # Ejecutar todos los domingos a las 2:00 AM UTC
+    - cron: '0 2 * * 0'
+  workflow_dispatch: # Permitir ejecución manual
+
+jobs:
+  generate-sessions:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Generate Sessions
+        run: |
+          echo "🚀 Iniciando generación automática de sesiones..."
+          echo "📡 URL: ${{ secrets.RAILWAY_PUBLIC_DOMAIN }}/api/cron/sessions"
+          
+          response=$(curl -s -w "\n%{http_code}" -X GET "${{ secrets.RAILWAY_PUBLIC_DOMAIN }}/api/cron/sessions" \
+            -H "Content-Type: application/json")
+          
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | head -n -1)
+          
+          echo "📊 Status Code: $http_code"
+          echo "📄 Response: $body"
+          
+          if [ "$http_code" -eq 200 ]; then
+            echo "✅ Generación de sesiones completada exitosamente"
+            echo "$body" | jq '.'
+          else
+            echo "❌ Error en la generación de sesiones"
+            echo "$body"
+            exit 1
+          fi
