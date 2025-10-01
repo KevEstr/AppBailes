@@ -124,6 +124,8 @@ export async function GET(request: NextRequest) {
     const userId = searchParams.get("userId");
     const classId = searchParams.get("classId");
     const date = searchParams.get("date");
+    const startDateParam = searchParams.get("startDate");
+    const endDateParam = searchParams.get("endDate");
     const search = searchParams.get("search");
     const page = parseInt(searchParams.get("page") || "1");
     const limit = parseInt(searchParams.get("limit") || "25");
@@ -141,17 +143,22 @@ export async function GET(request: NextRequest) {
       whereClause.classId = parseInt(classId);
     }
 
-    // Si se especifica una fecha, filtrar por esa fecha
-    if (date) {
-      const startDate = new Date(date);
-      startDate.setHours(0, 0, 0, 0);
-      const endDate = new Date(date);
-      endDate.setHours(23, 59, 59, 999);
-      
-      whereClause.date = {
-        gte: startDate,
-        lte: endDate,
-      };
+    // Filtro por rango de fechas (preferente si viene startDate/endDate)
+    if (startDateParam || endDateParam) {
+      whereClause.date = {}
+      if (startDateParam) {
+        whereClause.date.gte = new Date(startDateParam + 'T00:00:00-05:00')
+      }
+      if (endDateParam) {
+        whereClause.date.lte = new Date(endDateParam + 'T23:59:59-05:00')
+      }
+    } else if (date) {
+      // Compatibilidad con un solo día
+      const startDate = new Date(date)
+      startDate.setHours(0, 0, 0, 0)
+      const endDate = new Date(date)
+      endDate.setHours(23, 59, 59, 999)
+      whereClause.date = { gte: startDate, lte: endDate }
     }
 
     // Búsqueda por texto

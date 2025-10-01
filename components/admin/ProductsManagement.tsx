@@ -24,7 +24,8 @@ import {
   Image as ImageIcon,
   ArrowUp,
   ArrowDown,
-  History
+  History,
+  Download
 } from "lucide-react"
 
 interface Ingredient {
@@ -113,6 +114,7 @@ export function ProductsManagement() {
 	const [stockFilter, setStockFilter] = useState("all")
   const [currentPage, setCurrentPage] = useState(1)
   const [limit, setLimit] = useState(10)
+  const [isDownloading, setIsDownloading] = useState(false)
 
   useEffect(() => {
     loadProducts()
@@ -177,6 +179,42 @@ export function ProductsManagement() {
       }
     } catch (error) {
       console.error("Error loading stats:", error)
+    }
+  }
+
+  const handleExportProductsExcel = async () => {
+    try {
+      setIsDownloading(true)
+      const response = await fetch(`/api/admin/products/export-excel`, {
+        method: "GET",
+        headers: { "Content-Type": "application/json" }
+      })
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Error al exportar productos")
+      }
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement("a")
+      link.href = url
+      const contentDisposition = response.headers.get("content-disposition")
+      let filename = "productos.xlsx"
+      if (contentDisposition) {
+        const filenameRegex = /filename=\"(.+)\"/
+        const match = filenameRegex.exec(contentDisposition)
+        if (match) filename = match[1]
+      }
+      link.download = filename
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+      toast({ title: "✅ Archivo descargado", description: `Archivo ${filename} descargado exitosamente` })
+    } catch (err) {
+      console.error("Error downloading products Excel file:", err)
+      toast({ title: "❌ Error", description: err instanceof Error ? err.message : "Error al descargar archivo Excel", variant: "destructive" })
+    } finally {
+      setIsDownloading(false)
     }
   }
 
@@ -472,7 +510,8 @@ export function ProductsManagement() {
               </SelectContent>
             </Select>
 
-				{/* Filtro de Stock */}
+			{/* Filtro de Stock + Exportar */}
+			<div className="flex gap-2">
 				<Select value={stockFilter} onValueChange={setStockFilter}>
 					<SelectTrigger className="w-full sm:w-[180px] bg-gray-700 border-gray-600 text-white">
 						<SelectValue placeholder="Stock" />
@@ -483,6 +522,25 @@ export function ProductsManagement() {
 						<SelectItem value="out">Sin stock</SelectItem>
 					</SelectContent>
 				</Select>
+				<Button
+					onClick={handleExportProductsExcel}
+					variant="outline"
+					className="border-green-600 text-green-400"
+					disabled={isDownloading}
+					title="Exportar todos los productos"
+				>
+					{isDownloading ? (
+						<>
+							<div className="w-4 h-4 border-2 border-green-400 border-t-transparent rounded-full animate-spin mr-2" />
+							Descargando...
+						</>
+					) : (
+						<>
+							<Download className="h-4 w-4 mr-2" /> Exportar Excel
+						</>
+					)}
+				</Button>
+			</div>
           </div>
         </CardContent>
       </Card>

@@ -29,6 +29,9 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { AdvancedPagination } from "@/components/ui/advanced-pagination";
+import { Download } from "lucide-react";
+import { DateRangePicker } from "@/components/ui/date-range-picker"
+import { DateRange } from "react-day-picker"
 
 interface TrainerAttendance {
   id: number;
@@ -87,13 +90,14 @@ export default function TrainerAttendanceHistory() {
   const [selectedTrainer, setSelectedTrainer] = useState<string>("all");
   const [selectedDate, setSelectedDate] = useState<string>("");
   const [selectedStatus, setSelectedStatus] = useState<string>("all");
-  const [selectedPeriod, setSelectedPeriod] = useState("month");
+  const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [attendanceData, setAttendanceData] = useState<AttendanceData[]>([]);
   const [userStats, setUserStats] = useState<UserStats[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageLimit, setPageLimit] = useState(25);
   const [searchTerm, setSearchTerm] = useState("");
   const [pagination, setPagination] = useState({ page: 1, limit: 25, total: 0, totalPages: 0, hasNext: false, hasPrev: false });
+  const [isDownloading, setIsDownloading] = useState(false);
 
   // Cargar trainers
   const loadTrainers = async () => {
@@ -125,8 +129,18 @@ export default function TrainerAttendanceHistory() {
           params.append("userId", selectedTrainerData.userId.toString());
         }
       }
-      if (selectedDate) {
-        params.append("date", selectedDate);
+      // fecha exacta eliminada: solo rango
+      if (dateRange?.from) {
+        const y = dateRange.from.getFullYear();
+        const m = (dateRange.from.getMonth() + 1).toString().padStart(2, '0');
+        const d = dateRange.from.getDate().toString().padStart(2, '0');
+        params.append("startDate", `${y}-${m}-${d}`);
+      }
+      if (dateRange?.to) {
+        const y = dateRange.to.getFullYear();
+        const m = (dateRange.to.getMonth() + 1).toString().padStart(2, '0');
+        const d = dateRange.to.getDate().toString().padStart(2, '0');
+        params.append("endDate", `${y}-${m}-${d}`);
       }
       if (searchTerm.trim()) {
         params.set('search', searchTerm.trim());
@@ -251,7 +265,7 @@ export default function TrainerAttendanceHistory() {
 
   useEffect(() => {
     loadAttendances();
-  }, [selectedTrainer, selectedDate, selectedStatus, selectedPeriod, currentPage, pageLimit]);
+  }, [selectedTrainer, selectedStatus, dateRange, currentPage, pageLimit]);
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -312,11 +326,97 @@ export default function TrainerAttendanceHistory() {
 
   const clearFilters = () => {
     setSelectedTrainer("all");
-    setSelectedDate("");
     setSelectedStatus("all");
-    setSelectedPeriod("month");
+    setDateRange(undefined);
     setSearchTerm("");
     setCurrentPage(1);
+  };
+
+  const handleExportExcel = async () => {
+    try {
+      // Validar al menos un filtro: fecha, usuario o búsqueda
+      const hasDateFilter = !!(dateRange?.from || dateRange?.to);
+      const hasTrainerFilter = selectedTrainer && selectedTrainer !== "all";
+      const hasSearchFilter = searchTerm && searchTerm.trim() !== "";
+
+      if (!hasDateFilter && !hasTrainerFilter && !hasSearchFilter) {
+        toast({
+          title: "⚠️ Filtro requerido",
+          description: "Debe seleccionar al menos un filtro (fecha, usuario o búsqueda) para exportar",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      setIsDownloading(true);
+      const params = new URLSearchParams();
+
+      // sin fecha exacta; usar startDate/endDate
+      if (dateRange?.from) {
+        const y = dateRange.from.getFullYear();
+        const m = (dateRange.from.getMonth() + 1).toString().padStart(2, '0');
+        const d = dateRange.from.getDate().toString().padStart(2, '0');
+        params.set("startDate", `${y}-${m}-${d}`);
+      }
+      if (dateRange?.to) {
+        const y = dateRange.to.getFullYear();
+        const m = (dateRange.to.getMonth() + 1).toString().padStart(2, '0');
+        const d = dateRange.to.getDate().toString().padStart(2, '0');
+        params.set("endDate", `${y}-${m}-${d}`);
+      }
+      if (hasTrainerFilter) {
+        const selectedTrainerData = trainers.find(t => t.id.toString() === selectedTrainer);
+        if (selectedTrainerData?.userId) {
+          params.set("userId", selectedTrainerData.userId.toString());
+        }
+      }
+      if (hasSearchFilter) params.set("search", searchTerm.trim());
+
+      const response = await fetch(`/api/trainer-attendance/export-excel?${params.toString()}`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Error al exportar asistencia de entrenadores');
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+
+      const contentDisposition = response.headers.get('content-disposition');
+      let filename = 'asistencia_entrenadores.xlsx';
+      if (contentDisposition) {
+        const filenameRegex = /filename=\"(.+)\"/;
+        const filenameMatch = filenameRegex.exec(contentDisposition);
+        if (filenameMatch) {
+          filename = filenameMatch[1];
+        }
+      }
+
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      toast({
+        title: "✅ Archivo descargado",
+        description: `Archivo ${filename} descargado exitosamente`
+      });
+    } catch (error) {
+      console.error('Error downloading trainer attendance Excel file:', error);
+      toast({
+        title: "❌ Error",
+        description: error instanceof Error ? error.message : 'Error al descargar archivo Excel',
+        variant: "destructive",
+      });
+    } finally {
+      setIsDownloading(false);
+    }
   };
 
   const getPercentageColor = (percentage: number) => {
@@ -344,34 +444,20 @@ export default function TrainerAttendanceHistory() {
       {/* Filtros */}
       <Card className="border-0 shadow-2xl mb-4 rounded-xl bg-gray-800/90 border border-gray-600 backdrop-blur-sm">
         <CardContent className="p-4">
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-        <div>
-              <h2 className="text-lg font-bold text-gray-200 mb-1">Período</h2>
-              <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
-                <SelectTrigger className="bg-gray-800 border-gray-600 text-white py-2">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="bg-gray-700 border-gray-600">
-                  <SelectItem value="week" className="text-white hover:bg-blue-600">
-                    📅 Última semana
-                  </SelectItem>
-                  <SelectItem value="month" className="text-white hover:bg-blue-600">
-                    📅 Último mes
-                  </SelectItem>
-                  <SelectItem value="quarter" className="text-white hover:bg-blue-600">
-                    📅 Último trimestre
-                  </SelectItem>
-                  <SelectItem value="year" className="text-white hover:bg-blue-600">
-                    📅 Último año
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-      </div>
+          <div className="flex flex-col md:flex-row md:flex-wrap items-center md:items-end gap-4">
+            <div className="w-full md:flex-1 min-w-[240px]">
+              <h2 className="text-lg font-bold text-gray-200 mb-1">Rango de Fechas</h2>
+              <DateRangePicker
+                dateRange={dateRange as any}
+                onDateRangeChange={setDateRange as any}
+                placeholder="Seleccionar rango de fechas"
+              />
+            </div>
 
-            <div>
+            <div className="w-full md:flex-1 min-w-[220px]">
               <h2 className="text-lg font-bold text-gray-200 mb-1">Usuario</h2>
               <Select value={selectedTrainer} onValueChange={setSelectedTrainer}>
-                <SelectTrigger className="bg-gray-800 border-gray-600 text-white py-2">
+                <SelectTrigger className="w-full bg-gray-800 border-gray-600 text-white py-2">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="bg-gray-700 border-gray-600">
@@ -389,10 +475,10 @@ export default function TrainerAttendanceHistory() {
               </Select>
             </div>
 
-            <div>
+            <div className="w-full md:w-[220px] min-w-[200px]">
               <h2 className="text-lg font-bold text-gray-200 mb-1">Estado</h2>
               <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-                <SelectTrigger className="bg-gray-800 border-gray-600 text-white py-2">
+                <SelectTrigger className="w-full bg-gray-800 border-gray-600 text-white py-2">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="bg-gray-700 border-gray-600">
@@ -415,38 +501,24 @@ export default function TrainerAttendanceHistory() {
               </Select>
             </div>
 
-            <div>
-              <h2 className="text-lg font-bold text-gray-200 mb-1">Fecha</h2>
-              <Input
-                type="date"
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
-                className="bg-gray-800 border-gray-600 text-white"
-              />
-            </div>
-
-            <div className="md:col-span-2 lg:col-span-1">
-              <h2 className="text-lg font-bold text-gray-200 mb-1">Buscar</h2>
-              <div className="relative flex gap-2">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <Input
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === 'Enter') { setCurrentPage(1); loadAttendances(); } }}
-                    placeholder="Buscar por email o clase"
-                    className="pl-9 bg-gray-700 border-gray-600 text-white placeholder:text-gray-400"
-                  />
-                </div>
-                <Button onClick={() => { setCurrentPage(1); loadAttendances(); }} className="bg-blue-600 hover:bg-blue-700">
-                  <Search className="w-4 h-4 mr-2" /> Buscar
-                </Button>
-              </div>
-            </div>
-
-            <div className="flex items-end">
-              <Button onClick={clearFilters} variant="outline" className="w-full bg-gray-700 border-gray-600 text-white hover:bg-gray-600">
-                🗑️ Limpiar Filtros
+            <div className="flex items-end gap-2 w-full md:w-auto md:ml-auto">
+              <Button
+                onClick={handleExportExcel}
+                disabled={isDownloading || (!dateRange?.from && !dateRange?.to && selectedTrainer === 'all')}
+                variant="outline"
+                className="border-green-600 text-green-400"
+                title={(!dateRange?.from && !dateRange?.to && selectedTrainer === 'all') ? "Seleccione al menos un filtro para exportar" : "Exportar asistencia filtrada"}
+              >
+                {isDownloading ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-green-400 border-t-transparent rounded-full animate-spin mr-2" />
+                    Descargando...
+                  </>
+                ) : (
+                  <>
+                    <Download className="h-4 w-4 mr-2" /> Exportar Excel
+                  </>
+                )}
               </Button>
             </div>
           </div>

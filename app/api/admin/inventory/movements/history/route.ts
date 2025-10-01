@@ -45,10 +45,12 @@ export async function GET(request: NextRequest) {
     if (dateFrom || dateTo) {
       where.createdAt = {}
       if (dateFrom) {
-        where.createdAt.gte = new Date(dateFrom)
+        // Colombia (UTC-5) start of day to match local expectations
+        where.createdAt.gte = new Date(dateFrom + "T00:00:00-05:00")
       }
       if (dateTo) {
-        where.createdAt.lte = new Date(dateTo + "T23:59:59.999Z")
+        // Colombia (UTC-5) end of day to include the full day
+        where.createdAt.lte = new Date(dateTo + "T23:59:59-05:00")
       }
     }
 

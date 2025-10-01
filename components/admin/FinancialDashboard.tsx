@@ -125,9 +125,9 @@ export function FinancialDashboard() {
   const [filterCategory, setFilterCategory] = useState("ALL");
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [loadingConsolidated, setLoadingConsolidated] = useState(false);
-  const [showReportModal, setShowReportModal] = useState(false);
-  const [reportName, setReportName] = useState("");
+  // Eliminado flujo de generar reporte; solo exportar Excel del consolidado
   const [exportFormat, setExportFormat] = useState("csv");
+  const [isExporting, setIsExporting] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -194,60 +194,6 @@ export function FinancialDashboard() {
     if (response.ok) {
       const data = await response.json();
       setReports(data);
-    }
-  };
-
-  const generateFilteredReport = async () => {
-    try {
-      setGenerating(true);
-      
-      // Preparar filtros actuales
-      const filters = {
-        search: searchTerm || undefined,
-        type: filterType !== "ALL" ? filterType : undefined,
-        category: filterCategory !== "ALL" ? filterCategory : undefined,
-        startDate: dateRange?.from ? 
-          `${dateRange.from.getFullYear()}-${(dateRange.from.getMonth() + 1).toString().padStart(2, '0')}-${dateRange.from.getDate().toString().padStart(2, '0')}` : 
-          undefined,
-        endDate: dateRange?.to ? 
-          `${dateRange.to.getFullYear()}-${(dateRange.to.getMonth() + 1).toString().padStart(2, '0')}-${dateRange.to.getDate().toString().padStart(2, '0')}` : 
-          undefined
-      };
-
-      const response = await fetch("/api/admin/financial-reports/generate-filtered", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          reportType: "FILTERED",
-          reportName: reportName || `Reporte Filtrado - ${new Date().toLocaleDateString()}`,
-          filters,
-          format: exportFormat
-        }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        
-        // Exportar según el formato seleccionado
-        if (exportFormat === "csv") {
-          exportToCSV(data.transactions, `${data.summary.reportName}.csv`);
-        } else if (exportFormat === "xlsx") {
-          exportToExcel(data.transactions, data.summary, `${data.summary.reportName}.xlsx`);
-        }
-        
-        await loadReports();
-        setShowReportModal(false);
-        setReportName("");
-        toast.success("Reporte generado y exportado exitosamente");
-      } else {
-        const error = await response.json();
-        toast.error(error.message || "Error al generar reporte");
-      }
-    } catch (error) {
-      console.error(error);
-      toast.error("Error al generar reporte");
-    } finally {
-      setGenerating(false);
     }
   };
 
@@ -529,6 +475,70 @@ export function FinancialDashboard() {
     setCurrentPage(1);
   };
 
+  const handleExportConsolidatedExcel = () => {
+    try {
+      // Validar al menos un filtro aplicado (rango, tipo, categoría o búsqueda)
+      const hasDate = !!(dateRange?.from || dateRange?.to);
+      const hasType = filterType !== "ALL";
+      const hasCategory = filterCategory !== "ALL";
+      const hasSearch = !!searchTerm;
+      if (!hasDate && !hasType && !hasCategory && !hasSearch) {
+        toast.error("Seleccione al menos un filtro (fecha, tipo, categoría o búsqueda) para exportar");
+        return;
+      }
+
+      const params = new URLSearchParams();
+      if (hasSearch) params.set('search', searchTerm);
+      if (hasType) params.set('type', filterType);
+      if (hasCategory) params.set('category', filterCategory);
+      if (dateRange?.from) {
+        const y = dateRange.from.getFullYear();
+        const m = (dateRange.from.getMonth()+1).toString().padStart(2,'0');
+        const d = dateRange.from.getDate().toString().padStart(2,'0');
+        params.set('startDate', `${y}-${m}-${d}`);
+      }
+      if (dateRange?.to) {
+        const y = dateRange.to.getFullYear();
+        const m = (dateRange.to.getMonth()+1).toString().padStart(2,'0');
+        const d = dateRange.to.getDate().toString().padStart(2,'0');
+        params.set('endDate', `${y}-${m}-${d}`);
+      }
+
+      setIsExporting(true);
+      fetch(`/api/admin/financial-reports/export-excel?${params.toString()}`)
+        .then(async (response) => {
+          if (!response.ok) {
+            const err = await response.json();
+            throw new Error(err.error || 'Error al exportar a Excel');
+          }
+          const blob = await response.blob();
+          const url = window.URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          const cd = response.headers.get('content-disposition');
+          let filename = 'consolidado-financiero.xlsx';
+          if (cd) {
+            const m = /filename=\"(.+)\"/.exec(cd);
+            if (m) filename = m[1];
+          }
+          link.download = filename;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          window.URL.revokeObjectURL(url);
+          toast.success('Archivo exportado exitosamente');
+        })
+        .catch((e) => {
+          console.error(e);
+          toast.error(e.message || 'Error al exportar a Excel');
+        })
+        .finally(() => setIsExporting(false));
+    } catch (error) {
+      console.error(error);
+      toast.error("Error al exportar a Excel");
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -539,31 +549,7 @@ export function FinancialDashboard() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-3">
-          <BarChart3 className="h-8 w-8 text-purple-400" />
-          <h1 className="text-3xl font-bold text-white">
-            Consolidado Financiero
-          </h1>
-        </div>
-      </div>
-
-      <Tabs
-        value={activeTab}
-        onValueChange={setActiveTab}
-        className="space-y-4"
-      >
-        <TabsList className="bg-gray-800 border-gray-600">
-          <TabsTrigger value="consolidated" className="text-white">
-            Consolidado
-          </TabsTrigger>
-          <TabsTrigger value="reports" className="text-white">
-            Reportes
-          </TabsTrigger>
-        </TabsList>
-
-
-
+      <Tabs value="consolidated" className="space-y-4">
         <TabsContent value="consolidated" className="space-y-6">
           <Card className="bg-gray-800/90 border-gray-600">
             <CardHeader>
@@ -786,13 +772,36 @@ export function FinancialDashboard() {
 
                 <div className="flex items-center gap-2">
                   <AddExpenseModal onExpenseAdded={loadConsolidatedData} />
-                  <Button
-                    onClick={() => setShowReportModal(true)}
-                    className="bg-purple-600 hover:bg-purple-700 text-white"
-                  >
-                    <FileText className="h-4 w-4 mr-2" />
-                    Generar Reporte
-                  </Button>
+                  {(() => {
+                    const hasDate = !!(dateRange?.from || dateRange?.to);
+                    const hasType = filterType !== "ALL";
+                    const hasCategory = filterCategory !== "ALL";
+                    const hasSearch = !!searchTerm;
+                    const disabled = isExporting || (!hasDate && !hasType && !hasCategory && !hasSearch);
+                    const title = (!hasDate && !hasType && !hasCategory && !hasSearch)
+                      ? "Seleccione al menos un filtro para exportar"
+                      : "Exportar consolidado filtrado";
+                    return (
+                      <Button
+                        onClick={handleExportConsolidatedExcel}
+                        disabled={disabled}
+                        variant="outline"
+                        className="border-green-600 text-green-400"
+                        title={title}
+                      >
+                        {isExporting ? (
+                          <>
+                            <div className="w-4 h-4 border-2 border-green-400 border-t-transparent rounded-full animate-spin mr-2" />
+                            Descargando...
+                          </>
+                        ) : (
+                          <>
+                            <Download className="h-4 w-4 mr-2" /> Exportar Excel
+                          </>
+                        )}
+                      </Button>
+                    );
+                  })()}
                   <Button
                     onClick={clearFilters}
                     variant="outline"
@@ -899,274 +908,13 @@ export function FinancialDashboard() {
                 />
               )}
 
-              {/* Botón exportar */}
-              {consolidatedData && consolidatedData.transactions.length > 0 && (
-                <div className="flex justify-end mt-4">
-                  <Button
-                    onClick={() => exportToCSV(
-                      consolidatedData.transactions,
-                      `consolidado-financiero-${new Date().toISOString().split('T')[0]}.csv`
-                    )}
-                    className="bg-purple-600 hover:bg-purple-700 text-white"
-                  >
-                    <Download className="h-4 w-4 mr-2" />
-                    Exportar Consolidado
-                  </Button>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="reports" className="space-y-6">
-          {/* Lista de reportes */}
-          <Card className="bg-gray-800/90 border-gray-600">
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="text-white flex items-center space-x-2">
-                <FileText className="h-5 w-5" />
-                <span>Historial de Reportes</span>
-              </CardTitle>
-              <Badge className="bg-purple-600 text-white">
-                {reports.length} reportes
-              </Badge>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {reports.length === 0 ? (
-                  <div className="text-center py-12">
-                    <div className="h-20 w-20 rounded-full bg-gray-700/50 flex items-center justify-center mx-auto mb-6">
-                      <FileText className="h-10 w-10 text-gray-400" />
-                    </div>
-                    <h3 className="text-lg font-semibold text-white mb-2">No hay reportes generados</h3>
-                    <p className="text-gray-400 mb-6 max-w-md mx-auto">
-                      Los reportes generados aparecerán aquí. Puedes crear reportes desde la pestaña "Consolidado" aplicando filtros.
-                    </p>
-                    <Button
-                      onClick={generateReport}
-                      className="bg-purple-600 hover:bg-purple-700"
-                      disabled={generating}
-                    >
-                      {generating ? "Generando..." : "Generar Reporte Mensual"}
-                    </Button>
-                  </div>
-                ) : (
-                  reports.map((report) => (
-                    <div
-                      key={report.id}
-                      className="p-6 bg-gray-700/50 rounded-lg border border-gray-600 hover:bg-gray-700/70 transition-colors"
-                    >
-                      <div className="flex items-center justify-between mb-6">
-                        <div className="flex-1">
-                          <div className="flex items-center space-x-3 mb-2">
-                            <div className="h-10 w-10 rounded-full bg-purple-600/20 flex items-center justify-center">
-                              <FileText className="h-5 w-5 text-purple-400" />
-                            </div>
-                            <div>
-                              <h3 className="text-white font-semibold text-lg">
-                                {report.reportType === "FILTERED" 
-                                  ? "Reporte Filtrado" 
-                                  : `Reporte ${report.reportType} - ${report.period?.month}/${report.period?.year}`
-                                }
-                              </h3>
-                              <p className="text-gray-400 text-sm">
-                                Generado el {formatDateWithoutTimezone(report.generatedAt)}
-                                {report.generatedBy && ` por ${report.generatedBy}`}
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex flex-col items-end space-y-2">
-                          <Badge className={`text-white ${
-                            report.netProfit >= 0 ? 'bg-green-600' : 'bg-red-600'
-                          }`}>
-                            {formatCurrency(report.netProfit)}
-                          </Badge>
-                          {report.summary?.transactionCount && (
-                            <Badge variant="outline" className="border-gray-500 text-gray-300 text-xs">
-                              {report.summary.transactionCount} transacciones
-                            </Badge>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                        <div className="text-center p-3 bg-green-950/50 rounded-lg border border-green-600/30">
-                          <div className="flex items-center justify-center space-x-1 mb-1">
-                            <ArrowUpRight className="h-4 w-4 text-green-400" />
-                            <span className="text-sm text-green-300 font-medium">
-                              Ingresos
-                            </span>
-                          </div>
-                          <div className="text-lg font-bold text-green-400">
-                            {formatCurrency(report.totalIncome)}
-                          </div>
-                        </div>
-
-                        <div className="text-center p-3 bg-red-950/50 rounded-lg border border-red-600/30">
-                          <div className="flex items-center justify-center space-x-1 mb-1">
-                            <ArrowDownRight className="h-4 w-4 text-red-400" />
-                            <span className="text-sm text-red-300 font-medium">Gastos</span>
-                          </div>
-                          <div className="text-lg font-bold text-red-400">
-                            {formatCurrency(report.totalExpenses)}
-                          </div>
-                        </div>
-
-                        <div className="text-center p-3 bg-yellow-950/50 rounded-lg border border-yellow-600/30">
-                          <div className="flex items-center justify-center space-x-1 mb-1">
-                            <Receipt className="h-4 w-4 text-yellow-400" />
-                            <span className="text-sm text-yellow-300 font-medium">
-                              Pasivos Pendientes
-                            </span>
-                          </div>
-                          <div className="text-lg font-bold text-yellow-400">
-                            {formatCurrency(report.summary?.totals?.total_pending_liability || 0)}
-                          </div>
-                        </div>
-
-                        <div className="text-center p-3 bg-blue-950/50 rounded-lg border border-blue-600/30">
-                          <div className="flex items-center justify-center space-x-1 mb-1">
-                            <TrendingUp className="h-4 w-4 text-blue-400" />
-                            <span className="text-sm text-blue-300 font-medium">
-                              Balance Neto
-                            </span>
-                          </div>
-                          <div className={`text-lg font-bold ${
-                            report.netProfit >= 0 ? 'text-green-400' : 'text-red-400'
-                          }`}>
-                            {formatCurrency(report.netProfit)}
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="mt-6 flex justify-between items-center pt-4 border-t border-gray-600">
-                        <div className="flex items-center space-x-4 text-sm text-gray-400">
-                          {report.summary?.filters && (
-                            <div className="flex items-center space-x-2">
-                              <Filter className="h-4 w-4" />
-                              <span>Filtros aplicados</span>
-                            </div>
-                          )}
-                          {report.reportType === "FILTERED" && (
-                            <div className="flex items-center space-x-2">
-                              <BarChart3 className="h-4 w-4" />
-                              <span>Reporte personalizado</span>
-                            </div>
-                          )}
-                        </div>
-                        <div className="flex space-x-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => downloadReport(report.id, "csv")}
-                          className="border-gray-600 text-gray-300"
-                        >
-                          <Download className="h-4 w-4 mr-2" />
-                          CSV
-                        </Button>
-                                                <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => downloadReport(report.id, "xlsx")}
-                          className="border-gray-600 text-gray-300"
-                        >
-                          <Download className="h-4 w-4 mr-2" />
-                          Excel
-                        </Button>
-                        </div>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
+              {/* Botón exportar se movió a la barra superior con validación */}
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
 
-      {/* Modal para generar reporte con filtros */}
-      {showReportModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-gray-800 border border-gray-600 rounded-lg p-6 w-full max-w-md">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-white">Generar Reporte con Filtros</h3>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowReportModal(false)}
-                className="text-gray-400 hover:text-white"
-              >
-                ✕
-              </Button>
-            </div>
-
-                          <div className="space-y-4">
-                <div className="text-sm text-gray-300 bg-gray-700/50 p-3 rounded-lg">
-                  <p>Este reporte incluirá todas las transacciones que coincidan con los filtros aplicados en la pestaña "Consolidado".</p>
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Nombre del Reporte
-                  </label>
-                <Input
-                  value={reportName}
-                  onChange={(e) => setReportName(e.target.value)}
-                  placeholder="Ej: Reporte Enero 2024"
-                  className="bg-gray-700 border-gray-600 text-white"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Formato de Exportación
-                </label>
-                <Select value={exportFormat} onValueChange={setExportFormat}>
-                  <SelectTrigger className="bg-gray-700 border-gray-600 text-white">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="csv">CSV</SelectItem>
-                    <SelectItem value="xlsx">Excel (XLSX)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Resumen de filtros aplicados */}
-              <div className="bg-gray-700/50 rounded-lg p-3">
-                <h4 className="text-sm font-medium text-gray-300 mb-2">Filtros Aplicados:</h4>
-                <div className="text-xs text-gray-400 space-y-1">
-                  <p>Búsqueda: {searchTerm || "Ninguna"}</p>
-                  <p>Tipo: {filterType !== "ALL" ? getTransactionTypeLabel(filterType) : "Todos"}</p>
-                  <p>Categoría: {filterCategory !== "ALL" ? getSourceTableLabel(filterCategory) : "Todas"}</p>
-                  <p>Rango de fechas: {
-                    dateRange?.from && dateRange?.to 
-                      ? `${dateRange.from.toLocaleDateString()} - ${dateRange.to.toLocaleDateString()}`
-                      : "Sin límite"
-                  }</p>
-                </div>
-              </div>
-
-              <div className="flex justify-end space-x-3 pt-4">
-                <Button
-                  variant="outline"
-                  onClick={() => setShowReportModal(false)}
-                  className="border-gray-600 text-gray-300"
-                >
-                  Cancelar
-                </Button>
-                <Button
-                  onClick={generateFilteredReport}
-                  disabled={generating}
-                  className="bg-purple-600 hover:bg-purple-700 text-white"
-                >
-                  {generating ? "Generando..." : "Generar Reporte y Descargar"}
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Modal de reporte eliminado: solo exportación directa a Excel */}
     </div>
   );
 }

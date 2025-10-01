@@ -86,7 +86,7 @@ function AdminContent() {
     {
       id: "history",
       href: "/history",
-      label: "Análisis",
+      label: "Análisis Asistencia",
       icon: BarChart3,
       description: "Reportes de asistencia",
       color: "from-orange-500 to-red-600",

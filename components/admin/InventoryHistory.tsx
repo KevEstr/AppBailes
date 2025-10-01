@@ -15,8 +15,10 @@ import {
   TrendingUp, 
   TrendingDown,
   RotateCcw,
-  Trash2
+  Trash2,
+  Download
 } from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
 
 interface InventoryMovement {
   id: number
@@ -70,6 +72,8 @@ export function InventoryHistory() {
   const [dateTo, setDateTo] = useState("")
   const [currentPage, setCurrentPage] = useState(1)
   const [limit, setLimit] = useState(20)
+  const [isDownloading, setIsDownloading] = useState(false)
+  const { toast } = useToast()
 
   useEffect(() => {
     loadMovements()
@@ -202,6 +206,73 @@ export function InventoryHistory() {
     setCurrentPage(1)
   }
 
+  const handleExportExcel = async () => {
+    try {
+      const hasDateFilter = !!(dateFrom || dateTo)
+      const hasMovementType = movementTypeFilter && movementTypeFilter !== 'all'
+      const hasProduct = productFilter && productFilter !== 'all'
+      const hasSearch = searchTerm && searchTerm.trim() !== ''
+
+      if (!hasDateFilter && !hasMovementType && !hasProduct && !hasSearch) {
+        toast({
+          title: "⚠️ Filtro requerido",
+          description: "Seleccione al menos un filtro (fecha, tipo, producto o búsqueda) para exportar",
+          variant: "destructive"
+        })
+        return
+      }
+
+      setIsDownloading(true)
+      const params = new URLSearchParams()
+
+      if (dateFrom) params.set('dateFrom', dateFrom)
+      if (dateTo) params.set('dateTo', dateTo)
+      if (hasMovementType) params.set('movementType', movementTypeFilter)
+      if (hasProduct) params.set('productId', productFilter)
+      if (hasSearch) params.set('search', searchTerm.trim())
+
+      const response = await fetch(`/api/admin/inventory/movements/export-excel?${params.toString()}`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' }
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Error al exportar movimientos')
+      }
+
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+
+      const contentDisposition = response.headers.get('content-disposition')
+      let filename = 'inventario_movimientos.xlsx'
+      if (contentDisposition) {
+        const filenameRegex = /filename="(.+)"/
+        const match = filenameRegex.exec(contentDisposition)
+        if (match) filename = match[1]
+      }
+
+      link.download = filename
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+
+      toast({ title: "✅ Archivo descargado", description: `Archivo ${filename} descargado exitosamente` })
+    } catch (err) {
+      console.error('Error downloading inventory Excel file:', err)
+      toast({
+        title: "❌ Error",
+        description: err instanceof Error ? err.message : 'Error al descargar archivo Excel',
+        variant: "destructive"
+      })
+    } finally {
+      setIsDownloading(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -209,13 +280,33 @@ export function InventoryHistory() {
           <h2 className="text-2xl font-bold text-white">Historial de Movimientos</h2>
           <p className="text-gray-300 mt-1">Registro de todas las entradas y salidas de inventario</p>
         </div>
-        <Button
-          onClick={clearFilters}
-          variant="outline"
-          className="border-gray-600 text-gray-200"
-        >
-          Limpiar Filtros
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            onClick={clearFilters}
+            variant="outline"
+            className="border-gray-600 text-gray-200"
+          >
+            Limpiar Filtros
+          </Button>
+          <Button
+            onClick={handleExportExcel}
+            disabled={isDownloading || (!dateFrom && !dateTo && movementTypeFilter === 'all' && productFilter === 'all' && (!searchTerm || searchTerm.trim() === ''))}
+            variant="outline"
+            className="border-green-600 text-green-400"
+            title={(!dateFrom && !dateTo && movementTypeFilter === 'all' && productFilter === 'all' && (!searchTerm || searchTerm.trim() === '')) ? 'Seleccione al menos un filtro para exportar' : 'Exportar movimientos filtrados'}
+          >
+            {isDownloading ? (
+              <>
+                <div className="w-4 h-4 border-2 border-green-400 border-t-transparent rounded-full animate-spin mr-2" />
+                Descargando...
+              </>
+            ) : (
+              <>
+                <Download className="h-4 w-4 mr-2" /> Exportar Excel
+              </>
+            )}
+          </Button>
+        </div>
       </div>
 
       {error && (
