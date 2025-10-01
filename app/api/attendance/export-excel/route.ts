@@ -105,6 +105,13 @@ export async function GET(request: NextRequest) {
     })
 
     // Función helper para obtener nombre del deporte
+    const formatBogota = (value: Date | string, withTime: boolean) => {
+      const date = typeof value === 'string' ? new Date(value) : value
+      const options: Intl.DateTimeFormatOptions = withTime
+        ? { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }
+        : { year: 'numeric', month: '2-digit', day: '2-digit' }
+      return new Intl.DateTimeFormat('es-CO', { timeZone: 'America/Bogota', ...options }).format(date)
+    }
     const getSportDisplayName = (sport: string) => {
       return sport === "DANCE" ? "Baile" : "Voleibol"
     }

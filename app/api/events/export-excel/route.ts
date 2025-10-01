@@ -137,15 +137,21 @@ export async function GET(request: NextRequest) {
     }
 
     // Preparar datos para Excel
+    const formatBogota = (value: Date | string, withTime: boolean) => {
+      const date = typeof value === 'string' ? new Date(value) : value
+      const options: Intl.DateTimeFormatOptions = withTime
+        ? { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }
+        : { year: 'numeric', month: '2-digit', day: '2-digit' }
+      return new Intl.DateTimeFormat('es-CO', { timeZone: 'America/Bogota', ...options }).format(date)
+    }
+
     const excelData = matches.flatMap((match, matchIndex) => {
       return match.attendances.map((attendance, attendanceIndex) => {
         return {
           'N°': matchIndex + 1,
           'N° Asistencia': attendanceIndex + 1,
           'ID Evento': match.id,
-          'Fecha Evento': new Date(match.matchDate).toLocaleDateString('es-ES', {
-            year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit'
-          }),
+          'Fecha Evento': formatBogota(match.matchDate as any, true),
           'Estado Evento': getMatchStatusDisplayName(match.status),
           'Notas Evento': match.notes || 'Sin notas',
           
@@ -169,9 +175,7 @@ export async function GET(request: NextRequest) {
           'ID Asistencia': attendance.id,
           'Estado Asistencia': getAttendanceStatusDisplayName(attendance.status),
           'Notas Asistencia': attendance.notes || 'Sin notas',
-          'Fecha Registro Asistencia': new Date(attendance.createdAt).toLocaleDateString('es-ES', {
-            year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit'
-          }),
+          'Fecha Registro Asistencia': formatBogota(attendance.createdAt as any, true),
           
           // Información del estudiante
           'ID Estudiante': attendance.student.id,

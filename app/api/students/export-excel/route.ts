@@ -99,6 +99,13 @@ export async function GET(request: NextRequest) {
 
 
     // Preparar datos para Excel
+    const formatBogota = (value: Date | string, withTime: boolean) => {
+      const date = typeof value === 'string' ? new Date(value) : value
+      const options: Intl.DateTimeFormatOptions = withTime
+        ? { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }
+        : { year: 'numeric', month: '2-digit', day: '2-digit' }
+      return new Intl.DateTimeFormat('es-CO', { timeZone: 'America/Bogota', ...options }).format(date)
+    }
     const excelData = students.map((student, index) => {
       // Información básica del estudiante
       const basicInfo = {
@@ -108,9 +115,7 @@ export async function GET(request: NextRequest) {
         'Teléfono': student.phone,
         'Estado': student.isActive ? 'Activo' : 'Inactivo',
         'Tiene Deuda': student.hasDebt ? 'Sí' : 'No',
-        'Fecha Registro': new Date(student.createdAt).toLocaleDateString('es-ES', {
-          year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit'
-        })
+        'Fecha Registro': formatBogota(student.createdAt as any, true)
       }
 
       // Información del usuario
@@ -118,10 +123,7 @@ export async function GET(request: NextRequest) {
         'Email Usuario': student.user?.email || 'Sin email',
         'Rol Usuario': student.user ? getRoleDisplayName(student.user.role) : 'Sin usuario',
         'Usuario Activo': student.user?.isActive ? 'Sí' : 'No',
-        'Fecha Creación Usuario': student.user?.createdAt ? 
-          new Date(student.user.createdAt).toLocaleDateString('es-ES', {
-            year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit'
-          }) : 'Sin fecha'
+        'Fecha Creación Usuario': student.user?.createdAt ? formatBogota(student.user.createdAt as any, true) : 'Sin fecha'
       }
 
       // Información de inscripción

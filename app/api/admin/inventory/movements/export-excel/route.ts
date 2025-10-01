@@ -111,10 +111,18 @@ export async function GET(request: NextRequest) {
       return labels[category] || category
     }
 
+    const formatBogota = (value: Date | string, withTime: boolean) => {
+      const date = typeof value === 'string' ? new Date(value) : value
+      const options: Intl.DateTimeFormatOptions = withTime
+        ? { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }
+        : { year: 'numeric', month: '2-digit', day: '2-digit' }
+      return new Intl.DateTimeFormat('es-CO', { timeZone: 'America/Bogota', ...options }).format(date)
+    }
+
     const excelData = movements.map((m, index) => ({
       'N°': index + 1,
       'ID Movimiento': m.id,
-      'Fecha': new Date(m.createdAt).toLocaleString('es-CO', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }),
+      'Fecha': formatBogota(m.createdAt as any, true),
       'Tipo': typeLabel[m.movementType] || m.movementType,
       'Cantidad': m.quantity,
       'Motivo': m.reason ? (reasonLabel[m.reason] || m.reason) : 'N/A',

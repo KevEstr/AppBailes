@@ -27,6 +27,13 @@ export async function GET(_request: NextRequest) {
     }
 
     // Preparar datos para Excel
+    const formatBogota = (value: Date | string, withTime: boolean) => {
+      const date = typeof value === 'string' ? new Date(value) : value
+      const options: Intl.DateTimeFormatOptions = withTime
+        ? { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }
+        : { year: 'numeric', month: '2-digit', day: '2-digit' }
+      return new Intl.DateTimeFormat('es-CO', { timeZone: 'America/Bogota', ...options }).format(date)
+    }
     const excelData = products.map((p: any, index: number) => ({
       'N°': index + 1,
       'ID': p.id,
@@ -37,8 +44,8 @@ export async function GET(_request: NextRequest) {
       'Stock': p.stock ?? 0,
       'Tipo': p.productType === 'COMPOSITE' ? 'Compuesto' : 'Simple',
       'Activo': p.isActive ? 'Sí' : 'No',
-      'Creado': new Date(p.createdAt).toLocaleString('es-CO', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }),
-      'Actualizado': new Date(p.updatedAt).toLocaleString('es-CO', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
+      'Creado': formatBogota(p.createdAt as any, true),
+      'Actualizado': formatBogota(p.updatedAt as any, true)
     }))
 
     const workbook = XLSX.utils.book_new()

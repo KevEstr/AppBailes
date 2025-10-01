@@ -68,10 +68,18 @@ export async function GET(request: NextRequest) {
       CHANGE_REQUEST: 'Cambio'
     }
 
+    const formatBogota = (value: Date | string, withTime: boolean) => {
+      const date = typeof value === 'string' ? new Date(value) : value
+      const options: Intl.DateTimeFormatOptions = withTime
+        ? { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }
+        : { year: 'numeric', month: '2-digit', day: '2-digit' }
+      return new Intl.DateTimeFormat('es-CO', { timeZone: 'America/Bogota', ...options }).format(date)
+    }
+
     const excelData = attendances.map((att, index) => ({
       'N°': index + 1,
-      'Fecha': new Date(att.date).toLocaleString('es-CO', { year: 'numeric', month: '2-digit', day: '2-digit' }),
-      'Registrado': new Date(att.createdAt).toLocaleString('es-CO', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }),
+      'Fecha': formatBogota(att.date, false),
+      'Registrado': formatBogota(att.createdAt as any, true),
       'Estado': statusLabel[att.status] || att.status,
       'Notas': att.notes || 'N/A',
       'Usuario ID': att.user?.id ?? 'N/A',
