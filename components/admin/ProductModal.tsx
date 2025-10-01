@@ -63,6 +63,22 @@ export function ProductModal({ isOpen, product, isLoading, onSave, onClose }: Pr
 
   useEffect(() => {
     if (product) {
+      // Preparar ingredientes para productos compuestos si vienen como compositeIngredients
+      let initialIngredients: Ingredient[] = Array.isArray(product.ingredients) ? product.ingredients : []
+      if ((!initialIngredients || initialIngredients.length === 0) && product.productType === "COMPOSITE") {
+        const composite = (product as any).compositeIngredients as any[] | undefined
+        if (Array.isArray(composite) && composite.length > 0) {
+          initialIngredients = composite.map((ci: any) => ({
+            id: ci.id,
+            ingredientId: ci.ingredient?.id,
+            ingredientName: ci.ingredient?.name,
+            quantity: ci.quantity,
+            unit: ci.unit,
+            currentStock: ci.ingredient?.stock
+          }))
+        }
+      }
+
       setFormData({
         id: product.id,
         name: product.name,
@@ -72,13 +88,36 @@ export function ProductModal({ isOpen, product, isLoading, onSave, onClose }: Pr
         imageUrl: product.imageUrl || "",
         category: product.category,
         productType: product.productType ?? "SIMPLE",
-        allowNegativeStock: product.allowNegativeStock !== undefined ? product.allowNegativeStock : true,
+        allowNegativeStock: product.allowNegativeStock ?? true,
         isActive: product.isActive,
-        ingredients: product.ingredients || []
+        ingredients: initialIngredients || []
       })
       setImagePreviewUrl(product.imageUrl || null)
       setImageFile(null)
       setStockInput(product.stock?.toString() || "0")
+      // Si es compuesto y aún no hay ingredientes, intentar obtenerlos del API de detalle
+      if (product.productType === "COMPOSITE" && (!initialIngredients || initialIngredients.length === 0) && product.id) {
+        ;(async () => {
+          try {
+            const res = await fetch(`/api/admin/products/${product.id}`)
+            const data = await res.json()
+            const composite = data?.product?.compositeIngredients
+            if (Array.isArray(composite) && composite.length > 0) {
+              const mapped: Ingredient[] = composite.map((ci: any) => ({
+                id: ci.id,
+                ingredientId: ci.ingredient?.id,
+                ingredientName: ci.ingredient?.name,
+                quantity: ci.quantity,
+                unit: ci.unit,
+                currentStock: ci.ingredient?.stock
+              }))
+              setFormData(prev => ({ ...prev, ingredients: mapped }))
+            }
+          } catch (e) {
+            console.error("Error fetching product ingredients", e)
+          }
+        })()
+      }
     } else {
       setFormData({
         name: "",
@@ -164,7 +203,9 @@ export function ProductModal({ isOpen, product, isLoading, onSave, onClose }: Pr
       // Para productos compuestos, no enviar stock
       const productData = { ...formData, imageUrl: imageUrlToUse }
       if (formData.productType === "COMPOSITE") {
-        delete productData.stock
+        const { stock: _omit, ...withoutStock } = productData as any
+        onSave(withoutStock)
+        return
       }
       onSave(productData)
     } finally {
@@ -325,6 +366,7 @@ export function ProductModal({ isOpen, product, isLoading, onSave, onClose }: Pr
                       handleInputChange("stock", isNaN(numValue) ? 0 : numValue)
                     }
                   }}
+                  disabled={!!product}
                   placeholder="0.00"
                   className={`bg-gray-700 border-gray-600 text-white placeholder:text-gray-400 ${errors.stock ? "border-red-500" : ""}`}
                 />

@@ -199,8 +199,24 @@ export function ProductIngredientsModal({
                       type="number"
                       step="0.01"
                       min="0"
-                      value={quantityInputs[index] || ""}
-                      onChange={(e) => updateIngredient(index, "quantity", e.target.value)}
+                    inputMode="decimal"
+                    lang="en"
+                    pattern="^\\d*(?:[.,]\\d*)?$"
+                    value={quantityInputs[index] || ""}
+                    onChange={(e) => {
+                      const raw = e.target.value
+                      // Normalizar coma a punto y filtrar caracteres inválidos
+                      let normalized = raw.replace(/,/g, ".").replace(/[^0-9.]/g, "")
+                      // Permitir solo un punto decimal
+                      normalized = normalized.replace(/(\..*)\./g, "$1")
+                      updateIngredient(index, "quantity", normalized)
+                    }}
+                    onKeyDown={(evt) => {
+                      // Bloquear signos y notación exponencial
+                      if (["e", "E", "+", "-"].includes(evt.key)) {
+                        evt.preventDefault()
+                      }
+                    }}
                       placeholder="0.50"
                     />
                   </div>
