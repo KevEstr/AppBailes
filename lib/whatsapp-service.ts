@@ -18,6 +18,17 @@ interface PendingPaymentMessage {
   paymentId: number; // ID del pago pendiente
 }
 
+interface EventMessage {
+  studentName: string;
+  parentPhone: string;
+  eventName: string;
+  eventDate: string;
+  eventTime: string;
+  eventLocation: string;
+  eventDescription?: string;
+  additionalInfo?: string;
+}
+
 interface WhatsAppResponse {
   messaging_product: string;
   contacts: Array<{
@@ -119,8 +130,8 @@ export class WhatsAppService {
     console.log('🏃 Deporte detectado:', data.sport);
     console.log('📆 Día de corte utilizado:', cutoffDay);
     const templateName = data.sport === 'VOLLEYBALL' 
-      ? 'payment_reminder_paradise_volley' 
-      : 'payment_reminder_paradise';
+      ? 'utility_payment_reminder_paradise_volley' 
+      : 'utility_payment_reminder_paradise';
     
     console.log('📋 Template seleccionado:', templateName);
 
@@ -588,6 +599,106 @@ Puedes pagar en efectivo, transferencia bancaria o tarjeta. Una vez realizado el
   }
 
   /**
+   * Envía un mensaje de evento usando template personalizado
+   */
+  async sendEventMessage(data: EventMessage): Promise<WhatsAppResponse> {
+    this.initialize(); // Lazy initialization
+    try {
+      // Formatear el número de teléfono (debe incluir código de país sin +)
+      const formattedPhone = this.formatPhoneNumber(data.parentPhone);
+      
+      console.log('📤 Preparando envío de WhatsApp (EVENTO):');
+      console.log('   👤 Estudiante:', data.studentName);
+      console.log('   📱 Teléfono original:', data.parentPhone);
+      console.log('   📱 Teléfono formateado:', formattedPhone);
+      console.log('   🎉 Evento:', data.eventName);
+      console.log('   📅 Fecha:', data.eventDate);
+      console.log('   🕐 Hora:', data.eventTime);
+      console.log('   📍 Lugar:', data.eventLocation);
+      console.log('   🔗 URL destino:', this.baseUrl);
+      
+      // Formatear fecha para el template
+      const eventDate = new Date(data.eventDate);
+      const formattedDate = eventDate.toLocaleDateString("es-ES", {
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric"
+      });
+
+      const requestBody = {
+        messaging_product: 'whatsapp',
+        to: formattedPhone,
+        type: 'template',
+        template: {
+          name: 'utility_proof_approved_paradise', // CAMBIAR POR LA REAL
+          language: {
+            code: 'es_CO'
+          },
+          components: [
+            {
+              type: 'body',
+              parameters: [
+                {
+                  type: 'text',
+                  text: data.eventName // {{1}} - Nombre del evento
+                },
+                {
+                  type: 'text',
+                  text: formattedDate // {{2}} - Fecha formateada
+                },
+                {
+                  type: 'text',
+                  text: data.eventTime // {{3}} - Hora del evento
+                },
+                {
+                  type: 'text',
+                  text: data.eventLocation // {{4}} - Lugar del evento
+                },
+                {
+                  type: 'text',
+                  text: data.eventDescription || 'Sin descripción' // {{5}} - Descripción
+                },
+                {
+                  type: 'text',
+                  text: data.additionalInfo || 'Sin información adicional' // {{6}} - Información adicional
+                }
+              ]
+            }
+          ]
+        }
+      };
+      
+      console.log('📋 Template de evento:', JSON.stringify(requestBody, null, 2));
+      
+      const response = await fetch(this.baseUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody)
+      });
+
+      console.log('📨 Response Status:', response.status);
+      console.log('📨 Response Headers:', Object.fromEntries(response.headers.entries()));
+      
+      const responseData = await response.json();
+      console.log('📨 Response Body (Event Template):', JSON.stringify(responseData, null, 2));
+
+      if (!response.ok) {
+        throw new Error(`Event template error: ${JSON.stringify(responseData)}`);
+      }
+
+      console.log('✅ Template de evento enviado exitosamente');
+      return responseData;
+    } catch (error) {
+      console.error('💥 Error en sistema de WhatsApp para eventos:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Envía un recordatorio de pago
    */
   async sendPaymentReminder(data: WhatsAppMessage): Promise<WhatsAppResponse> {
@@ -827,7 +938,7 @@ ${data.paymentLink}
     // Usar template diferente según si es pago parcial o completo
     const templateName = data.isPartialPayment 
       ? 'proof_approved_partial_paradise'
-      : 'proof_approved_paradise';
+      : 'utility_proof_approved_paradise';
 
     const requestBody = {
       messaging_product: 'whatsapp',

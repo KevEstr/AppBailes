@@ -55,9 +55,10 @@ export async function POST(request: NextRequest) {
       }
     });
 
+    console.log('📋 Pagos encontrados:', payments);
+
     // Filtrar solo estudiantes con teléfono
     const paymentsWithPhone = payments.filter(payment =>
-      payment.student.isActive && 
       payment.student.phone && 
       payment.student.phone.trim() !== ''
     );
@@ -119,7 +120,7 @@ export async function POST(request: NextRequest) {
         console.log('📤 Enviando WhatsApp a:', payment.student.name, 'Teléfono original:', payment.student.phone);
         
         // Formatear el teléfono antes de enviarlo
-        const formattedPhone = WhatsAppService.formatPhoneNumber(payment.student.phone);
+        const formattedPhone = whatsappService.formatPhoneNumber(payment.student.phone);
         console.log('📱 Teléfono formateado:', formattedPhone);
         
         const result = await whatsappService.sendCustomPaymentTemplate(whatsappData, formattedPhone);

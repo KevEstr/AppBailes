@@ -49,6 +49,9 @@ import {
   History,
   Filter,
   Download,
+  CalendarDays,
+  MessageSquare,
+  Eye,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { 
@@ -379,6 +382,19 @@ export function ClassManagementNew() {
   const [transfersSearch, setTransfersSearch] = useState("");
   const [transfersDateRange, setTransfersDateRange] = useState<DateRange | undefined>();
 
+  // ✅ NUEVO: Estados para la gestión de eventos
+  const [eventData, setEventData] = useState({
+    name: "",
+    date: "",
+    time: "",
+    location: "",
+    description: "",
+    additionalInfo: ""
+  });
+  const [selectedClasses, setSelectedClasses] = useState<string[]>([]);
+  const [allClasses, setAllClasses] = useState<DanceClass[]>([]);
+  const [allClassesLoading, setAllClassesLoading] = useState(false);
+
   // ✅ NUEVO: Estados para modales de confirmación
   const [showDeleteClassDialog, setShowDeleteClassDialog] = useState(false);
   const [classToDelete, setClassToDelete] = useState<DanceClass | null>(null);
@@ -565,12 +581,36 @@ export function ClassManagementNew() {
     }
   }, [currentPage, pageSize, filterSport, filterTrainer, filterLocation, filterLevel, debouncedSearchQuery, loading]);
 
+  // ✅ NUEVO: Cargar todas las clases para el selector de eventos
+  const loadAllClasses = useCallback(async () => {
+    setAllClassesLoading(true);
+    try {
+      const res = await fetch("/api/classes?active=true&pageSize=1000"); // Cargar hasta 1000 clases
+      const data = await res.json();
+      if (data.success) {
+        setAllClasses(data.classes);
+        console.log("📚 Todas las clases cargadas para eventos:", data.classes.length, "clases");
+      }
+    } catch (error) {
+      console.error("Error loading all classes:", error);
+    } finally {
+      setAllClassesLoading(false);
+    }
+  }, []);
+
   // ✅ NUEVO: Efecto para cargar transferencias cuando cambian los filtros
   useEffect(() => {
     if (activeTab === "transfers") {
       loadTransfers();
     }
   }, [activeTab, transfersPagination.page, transfersPagination.limit, transfersSearch, transfersDateRange, loadTransfers]);
+
+  // ✅ NUEVO: Efecto para cargar todas las clases cuando se activa la pestaña de eventos
+  useEffect(() => {
+    if (activeTab === "events" && allClasses.length === 0) {
+      loadAllClasses();
+    }
+  }, [activeTab, allClasses.length, loadAllClasses]);
 
   // ✅ OPTIMIZADO: Resetear página al cambiar filtros (sin searchQuery) - sin recargar todo
   useEffect(() => {
@@ -1181,6 +1221,176 @@ export function ClassManagementNew() {
     return user.student?.name || user.trainer?.name || user.email;
   };
 
+  // ✅ NUEVO: Función para manejar la selección de clases
+  const handleClassSelection = (classId: string, isSelected: boolean) => {
+    if (isSelected) {
+      setSelectedClasses(prev => [...prev, classId]);
+    } else {
+      setSelectedClasses(prev => prev.filter(id => id !== classId));
+    }
+  };
+
+  // ✅ NUEVO: Función para seleccionar/deseleccionar todas las clases
+  const handleSelectAllClasses = () => {
+    if (selectedClasses.length === allClasses.length) {
+      setSelectedClasses([]);
+    } else {
+      setSelectedClasses(allClasses.map(cls => cls.id.toString()));
+    }
+  };
+
+  // ✅ NUEVO: Función para seleccionar todas las clases de baile
+  const handleSelectDanceClasses = () => {
+    const danceClassIds = allClasses
+      .filter(cls => cls.sport === "DANCE")
+      .map(cls => cls.id.toString());
+    
+    // Si ya están todas las de baile seleccionadas, las deselecciona
+    const allDanceSelected = danceClassIds.every(id => selectedClasses.includes(id));
+    
+    if (allDanceSelected) {
+      setSelectedClasses(prev => prev.filter(id => !danceClassIds.includes(id)));
+    } else {
+      setSelectedClasses(prev => {
+        const newSelection = [...prev];
+        danceClassIds.forEach(id => {
+          if (!newSelection.includes(id)) {
+            newSelection.push(id);
+          }
+        });
+        return newSelection;
+      });
+    }
+  };
+
+  // ✅ NUEVO: Función para seleccionar todas las clases de voleibol
+  const handleSelectVolleyballClasses = () => {
+    const volleyballClassIds = allClasses
+      .filter(cls => cls.sport === "VOLLEYBALL")
+      .map(cls => cls.id.toString());
+    
+    // Si ya están todas las de voleibol seleccionadas, las deselecciona
+    const allVolleyballSelected = volleyballClassIds.every(id => selectedClasses.includes(id));
+    
+    if (allVolleyballSelected) {
+      setSelectedClasses(prev => prev.filter(id => !volleyballClassIds.includes(id)));
+    } else {
+      setSelectedClasses(prev => {
+        const newSelection = [...prev];
+        volleyballClassIds.forEach(id => {
+          if (!newSelection.includes(id)) {
+            newSelection.push(id);
+          }
+        });
+        return newSelection;
+      });
+    }
+  };
+
+  // ✅ NUEVO: Función para enviar mensaje del evento
+  const [isSendingEvent, setIsSendingEvent] = useState(false);
+  
+  const sendEventMessage = useCallback(async () => {
+    if (!eventData.name || !eventData.date || !eventData.time || !eventData.location || selectedClasses.length === 0) {
+      toast({
+        title: "❌ Error",
+        description: "Complete todos los campos requeridos y seleccione al menos una clase",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSendingEvent(true);
+    try {
+      const response = await fetch('/api/events/send-message', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          eventName: eventData.name,
+          eventDate: eventData.date,
+          eventTime: eventData.time,
+          eventLocation: eventData.location,
+          eventDescription: eventData.description,
+          additionalInfo: eventData.additionalInfo,
+          classIds: selectedClasses.map(id => parseInt(id))
+        })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        toast({
+          title: "✅ Mensajes enviados",
+          description: `${data.summary.successCount} mensajes enviados exitosamente a ${data.summary.totalStudents} estudiantes${data.summary.errorCount > 0 ? ` (${data.summary.errorCount} errores)` : ''}`,
+          duration: 5000,
+        });
+        
+        // Limpiar formulario después del envío exitoso
+        setEventData({
+          name: "",
+          date: "",
+          time: "",
+          location: "",
+          description: "",
+          additionalInfo: ""
+        });
+        setSelectedClasses([]);
+      } else {
+        toast({
+          title: "❌ Error",
+          description: data.error || "No se pudieron enviar los mensajes",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Error sending event message:', error);
+      toast({
+        title: "❌ Error",
+        description: "Error al enviar los mensajes del evento",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSendingEvent(false);
+    }
+  }, [eventData, selectedClasses, toast]);
+
+  // ✅ NUEVO: Función para generar el mensaje del evento
+  const generateEventMessage = () => {
+    const { name, date, time, location, description, additionalInfo } = eventData;
+    
+    if (!name || !date || !time || !location) {
+      return "Complete los campos requeridos para ver la vista previa del mensaje";
+    }
+
+    const eventDate = new Date(date);
+    const formattedDate = eventDate.toLocaleDateString("es-ES", {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric"
+    });
+
+    let message = `🎉 *${name}*\n\n`;
+    message += `📅 *Fecha:* ${formattedDate}\n`;
+    message += `🕐 *Hora:* ${time}\n`;
+    message += `📍 *Lugar:* ${location}\n\n`;
+    
+    if (description) {
+      message += `📝 *Descripción:*\n${description}\n\n`;
+    }
+    
+    if (additionalInfo) {
+      message += `ℹ️ *Información adicional:*\n${additionalInfo}\n\n`;
+    }
+    
+    message += `¡Esperamos verte en este evento! 🎊\n\n`;
+    message += `_Enviado por el equipo de gestión de clases_`;
+
+    return message;
+  };
+
 
   // Helper function to render transfers content
   const renderTransfersContent = () => {
@@ -1420,7 +1630,7 @@ export function ClassManagementNew() {
     <div className="w-full mx-auto px-2 sm:px-4 md:px-6">
       {/* Pestañas principales */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-2 mb-6 bg-gray-800 border border-gray-600">
+        <TabsList className="grid w-full grid-cols-3 mb-6 bg-gray-800 border border-gray-600">
           <TabsTrigger 
             value="classes" 
             className="data-[state=active]:bg-blue-600 data-[state=active]:text-white text-gray-300"
@@ -1434,6 +1644,13 @@ export function ClassManagementNew() {
           >
             <History className="h-4 w-4 mr-2" />
             Transferencias
+          </TabsTrigger>
+          <TabsTrigger 
+            value="events" 
+            className="data-[state=active]:bg-blue-600 data-[state=active]:text-white text-gray-300"
+          >
+            <CalendarDays className="h-4 w-4 mr-2" />
+            Gestión de Eventos
           </TabsTrigger>
         </TabsList>
 
@@ -2175,6 +2392,315 @@ export function ClassManagementNew() {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Pestaña de Gestión de Eventos */}
+        <TabsContent value="events" className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Formulario de Evento */}
+            <Card className="border-0 bg-gray-800/90 text-white shadow-2xl rounded-3xl border border-gray-600">
+              <CardContent className="p-6">
+                <div className="flex items-center gap-3 mb-6">
+                  <CalendarDays className="h-6 w-6 text-blue-400" />
+                  <h3 className="text-xl font-semibold text-white">Crear Evento</h3>
+                </div>
+
+                <div className="space-y-4">
+                  {/* Nombre del evento */}
+                  <div>
+                    <Label className="text-gray-300 font-medium">
+                      Nombre del Evento * (máx. 60 caracteres)
+                    </Label>
+                    <Input
+                      value={eventData.name}
+                      onChange={(e) => setEventData({ ...eventData, name: e.target.value })}
+                      placeholder="Ej: Competencia de Baile 2024"
+                      maxLength={60}
+                      className="bg-gray-700 border-gray-600 text-white placeholder:text-gray-400 mt-1"
+                    />
+                    <p className="text-xs text-gray-400 mt-1">
+                      {eventData.name.length}/60 caracteres
+                    </p>
+                  </div>
+
+                  {/* Fecha y hora */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-gray-300 font-medium">
+                        Fecha del Evento *
+                      </Label>
+                      <Input
+                        type="date"
+                        value={eventData.date}
+                        onChange={(e) => setEventData({ ...eventData, date: e.target.value })}
+                        className="bg-gray-700 border-gray-600 text-white mt-1"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-gray-300 font-medium">
+                        Hora del Evento *
+                      </Label>
+                      <Input
+                        type="time"
+                        value={eventData.time}
+                        onChange={(e) => setEventData({ ...eventData, time: e.target.value })}
+                        className="bg-gray-700 border-gray-600 text-white mt-1"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Ubicación */}
+                  <div>
+                    <Label className="text-gray-300 font-medium">
+                      Lugar del Evento * (máx. 60 caracteres)
+                    </Label>
+                    <Input
+                      value={eventData.location}
+                      onChange={(e) => setEventData({ ...eventData, location: e.target.value })}
+                      placeholder="Ej: Centro Deportivo Municipal"
+                      maxLength={60}
+                      className="bg-gray-700 border-gray-600 text-white placeholder:text-gray-400 mt-1"
+                    />
+                    <p className="text-xs text-gray-400 mt-1">
+                      {eventData.location.length}/60 caracteres
+                    </p>
+                  </div>
+
+                  {/* Descripción */}
+                  <div>
+                    <Label className="text-gray-300 font-medium">
+                      Descripción del Evento (máx. 100 caracteres)
+                    </Label>
+                    <Textarea
+                      value={eventData.description}
+                      onChange={(e) => setEventData({ ...eventData, description: e.target.value })}
+                      placeholder="Describe los detalles del evento, qué incluye, requisitos, etc."
+                      maxLength={100}
+                      className="bg-gray-700 border-gray-600 text-white placeholder:text-gray-400 mt-1"
+                      rows={3}
+                    />
+                    <p className="text-xs text-gray-400 mt-1">
+                      {eventData.description.length}/100 caracteres
+                    </p>
+                  </div>
+
+                  {/* Información adicional */}
+                  <div>
+                    <Label className="text-gray-300 font-medium">
+                      Información Adicional (máx. 100 caracteres)
+                    </Label>
+                    <Textarea
+                      value={eventData.additionalInfo}
+                      onChange={(e) => setEventData({ ...eventData, additionalInfo: e.target.value })}
+                      placeholder="Información extra como costo, requisitos de vestimenta, etc."
+                      maxLength={100}
+                      className="bg-gray-700 border-gray-600 text-white placeholder:text-gray-400 mt-1"
+                      rows={2}
+                    />
+                    <p className="text-xs text-gray-400 mt-1">
+                      {eventData.additionalInfo.length}/100 caracteres
+                    </p>
+                  </div>
+
+                  {/* Selección de clases */}
+                  <div>
+                    <div className="flex items-center justify-between mb-3">
+                      <Label className="text-gray-300 font-medium">
+                        Clases Destinatarias *
+                      </Label>
+                      <div className="flex gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={handleSelectDanceClasses}
+                          className="border-purple-600 text-purple-300 hover:bg-purple-900/50 text-xs"
+                        >
+                          💃 Baile
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={handleSelectVolleyballClasses}
+                          className="border-blue-600 text-blue-300 hover:bg-blue-900/50 text-xs"
+                        >
+                          🏐 Voleibol
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={handleSelectAllClasses}
+                          className="border-gray-600 text-gray-300 hover:bg-gray-700 text-xs"
+                        >
+                          {selectedClasses.length === allClasses.length ? "Deseleccionar Todas" : "Seleccionar Todas"}
+                        </Button>
+                      </div>
+                    </div>
+                    
+                    <div className="max-h-48 overflow-y-auto border border-gray-600 rounded-lg bg-gray-700 p-3">
+                      {allClassesLoading ? (
+                        <div className="flex justify-center items-center py-4">
+                          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
+                          <span className="ml-2 text-gray-400 text-sm">Cargando clases...</span>
+                        </div>
+                      ) : allClasses.length === 0 ? (
+                        <p className="text-gray-400 text-sm text-center py-4">
+                          No hay clases disponibles
+                        </p>
+                      ) : (
+                        <div className="space-y-2">
+                          {allClasses.map((danceClass) => (
+                            <div
+                              key={danceClass.id}
+                              className="flex items-center space-x-3 p-2 rounded-lg hover:bg-gray-600/50 transition-colors"
+                            >
+                              <input
+                                type="checkbox"
+                                id={`class-${danceClass.id}`}
+                                checked={selectedClasses.includes(danceClass.id.toString())}
+                                onChange={(e) => handleClassSelection(danceClass.id.toString(), e.target.checked)}
+                                className="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500 focus:ring-2"
+                              />
+                              <label
+                                htmlFor={`class-${danceClass.id}`}
+                                className="flex-1 cursor-pointer text-sm text-white"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <Badge
+                                    className={`${getSportBadgeClass(danceClass.sport)} text-xs`}
+                                  >
+                                    {getSportLabel(danceClass.sport)}
+                                  </Badge>
+                                  <span className="font-medium">{danceClass.name}</span>
+                                </div>
+                                <div className="text-xs text-gray-400 mt-1">
+                                  {danceClass.trainer.name} • {danceClass._count.enrollments} estudiantes
+                                </div>
+                              </label>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <div className="mt-2 space-y-1">
+                      <p className="text-xs text-gray-400">
+                        {selectedClasses.length} de {allClasses.length} clases seleccionadas
+                      </p>
+                      {selectedClasses.length > 0 && (
+                        <div className="flex gap-4 text-xs">
+                          <span className="text-purple-300">
+                            💃 Baile: {selectedClasses.filter(id => {
+                              const cls = allClasses.find(c => c.id.toString() === id);
+                              return cls?.sport === "DANCE";
+                            }).length}
+                          </span>
+                          <span className="text-blue-300">
+                            🏐 Voleibol: {selectedClasses.filter(id => {
+                              const cls = allClasses.find(c => c.id.toString() === id);
+                              return cls?.sport === "VOLLEYBALL";
+                            }).length}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Botones de acción */}
+                  <div className="flex gap-3 pt-4">
+                    <Button
+                      onClick={() => {
+                        setEventData({
+                          name: "",
+                          date: "",
+                          time: "",
+                          location: "",
+                          description: "",
+                          additionalInfo: ""
+                        });
+                        setSelectedClasses([]);
+                      }}
+                      variant="outline"
+                      className="border-gray-600 text-gray-300 hover:bg-gray-700 flex-1"
+                    >
+                      Limpiar Formulario
+                    </Button>
+                    <Button
+                      onClick={sendEventMessage}
+                      disabled={!eventData.name || !eventData.date || !eventData.time || !eventData.location || selectedClasses.length === 0 || isSendingEvent}
+                      className="bg-blue-600 hover:bg-blue-700 text-white flex-1"
+                    >
+                      {isSendingEvent ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                          Enviando...
+                        </>
+                      ) : (
+                        <>
+                          <MessageSquare className="h-4 w-4 mr-2" />
+                          Enviar Mensaje
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Vista Previa del Mensaje */}
+            <Card className="border-0 bg-gray-800/90 text-white shadow-2xl rounded-3xl border border-gray-600">
+              <CardContent className="p-6">
+                <div className="flex items-center gap-3 mb-6">
+                  <Eye className="h-6 w-6 text-green-400" />
+                  <h3 className="text-xl font-semibold text-white">Vista Previa del Mensaje</h3>
+                </div>
+
+                <div className="bg-gray-900/50 rounded-2xl p-4 border border-gray-600">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
+                      <MessageSquare className="h-4 w-4 text-white" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-white">WhatsApp</p>
+                      <p className="text-xs text-gray-400">Ahora</p>
+                    </div>
+                  </div>
+                  
+                  <div className="bg-gray-800 rounded-xl p-4 border border-gray-600">
+                    <div className="whitespace-pre-wrap text-sm text-gray-200 font-mono">
+                      {generateEventMessage()}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Información adicional */}
+                <div className="mt-4 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                  <p className="text-xs text-blue-300">
+                    💡 <strong>Destinatarios:</strong> El mensaje se enviará a los estudiantes de {selectedClasses.length} clase{selectedClasses.length !== 1 ? 's' : ''} seleccionada{selectedClasses.length !== 1 ? 's' : ''}.
+                  </p>
+                  {selectedClasses.length > 0 && (
+                    <div className="mt-2">
+                      <p className="text-xs text-blue-300 font-medium">Clases seleccionadas:</p>
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {selectedClasses.map(classId => {
+                          const danceClass = allClasses.find(cls => cls.id.toString() === classId);
+                          return danceClass ? (
+                            <Badge
+                              key={classId}
+                              className={`${getSportBadgeClass(danceClass.sport)} text-xs`}
+                            >
+                              {danceClass.name}
+                            </Badge>
+                          ) : null;
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
       </Tabs>
     </div>
