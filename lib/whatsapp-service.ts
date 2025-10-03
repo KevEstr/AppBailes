@@ -631,7 +631,7 @@ Puedes pagar en efectivo, transferencia bancaria o tarjeta. Una vez realizado el
         to: formattedPhone,
         type: 'template',
         template: {
-          name: 'utility_proof_approved_paradise', // CAMBIAR POR LA REAL
+          name: 'utility_event_reminder', // CAMBIAR POR LA REAL
           language: {
             code: 'es_CO'
           },

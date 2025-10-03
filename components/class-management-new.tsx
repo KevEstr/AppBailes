@@ -1372,10 +1372,11 @@ export function ClassManagementNew() {
       day: "numeric"
     });
 
-    let message = `🎉 *${name}*\n\n`;
-    message += `📅 *Fecha:* ${formattedDate}\n`;
-    message += `🕐 *Hora:* ${time}\n`;
-    message += `📍 *Lugar:* ${location}\n\n`;
+    let message = `Hola✨\n\n`;
+    message += `Te recordamos que te estaremos esperando en ${name}\n\n`;
+    message += `*Fecha:* ${formattedDate}\n`;
+    message += `*Hora:* ${time}\n`;
+    message += `*Lugar:* ${location}\n\n`;
     
     if (description) {
       message += `📝 *Descripción:*\n${description}\n\n`;
@@ -1385,8 +1386,7 @@ export function ClassManagementNew() {
       message += `ℹ️ *Información adicional:*\n${additionalInfo}\n\n`;
     }
     
-    message += `¡Esperamos verte en este evento! 🎊\n\n`;
-    message += `_Enviado por el equipo de gestión de clases_`;
+    message += `¡Esperamos nos puedas acompañar!😍 🎊\n\n`;
 
     return message;
   };

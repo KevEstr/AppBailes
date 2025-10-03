@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -17,8 +17,11 @@ import {
   Settings, 
   Trash2,
   Activity,
-  Users
+  Users,
+  Calendar
 } from 'lucide-react';
+import { SchedulerHistoryModal } from './SchedulerHistoryModal';
+import { GeneralHistorySection } from './GeneralHistorySection';
 
 interface PaymentPeriod {
   id: number;
@@ -104,6 +107,13 @@ export function PaymentSchedulerDashboard() {
   });
 
   const [cutoffGroup, setCutoffGroup] = useState<string>('');
+  
+  // Estados para el modal de historial
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [selectedScheduler, setSelectedScheduler] = useState<{ id: number; name: string } | null>(null);
+  
+  // Estado para mostrar historial general
+  const [showGeneralHistory, setShowGeneralHistory] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -250,6 +260,11 @@ export function PaymentSchedulerDashboard() {
     return 'bg-red-500';
   };
 
+  const openHistoryModal = (scheduler: PaymentScheduler) => {
+    setSelectedScheduler({ id: scheduler.id, name: scheduler.name });
+    setShowHistoryModal(true);
+  };
+
 
   if (loading) {
     return (
@@ -322,7 +337,17 @@ export function PaymentSchedulerDashboard() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <h2 className="text-xl md:text-2xl font-bold text-white">Schedulers de Pago</h2>
         
-        <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+        <div className="flex flex-col sm:flex-row gap-3">
+          <Button 
+            onClick={() => setShowGeneralHistory(!showGeneralHistory)}
+            variant="outline"
+            className="border-gray-600 text-gray-300 hover:bg-gray-700 w-full sm:w-auto"
+          >
+            <Calendar className="h-4 w-4 mr-2" />
+            {showGeneralHistory ? 'Ocultar Historial' : 'Ver Historial General'}
+          </Button>
+          
+          <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
           <DialogTrigger asChild>
             <Button className="bg-blue-600 hover:bg-blue-700 w-full sm:w-auto">
               <Plus className="h-4 w-4 mr-2" />
@@ -589,17 +614,26 @@ export function PaymentSchedulerDashboard() {
                   </div>
                 </div>
 
-                {/* Estadísticas Mejoradas */}
+                {/* Estadísticas Mejoradas - Clickeables */}
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-4">
                   <div className="text-center bg-gray-700/20 p-3 rounded">
                     <p className="text-lg md:text-2xl font-bold text-white">{scheduler.totalExecutions}</p>
                     <p className="text-xs md:text-sm text-gray-400">Ejecuciones</p>
                   </div>
-                  <div className="text-center bg-gray-700/20 p-3 rounded">
+                  <div 
+                    className="text-center bg-gray-700/20 p-3 rounded cursor-pointer hover:bg-gray-700/40 transition-colors"
+                    onClick={() => openHistoryModal(scheduler)}
+                    title="Ver historial detallado"
+                  >
                     <p className="text-lg md:text-2xl font-bold text-green-400">{scheduler.totalSent}</p>
                     <p className="text-xs md:text-sm text-gray-400">Enviados</p>
+                    <p className="text-xs text-green-300 mt-1">Click para ver detalles</p>
                   </div>
-                  <div className="text-center bg-gray-700/20 p-3 rounded">
+                  <div 
+                    className="text-center bg-gray-700/20 p-3 rounded cursor-pointer hover:bg-gray-700/40 transition-colors"
+                    onClick={() => openHistoryModal(scheduler)}
+                    title="Ver historial detallado"
+                  >
                     <p className="text-lg md:text-2xl font-bold text-red-400">{scheduler.totalFailed}</p>
                     <p className="text-xs md:text-sm text-gray-400">Fallidos</p>
                     {scheduler.totalFailed > 0 && (
@@ -607,6 +641,7 @@ export function PaymentSchedulerDashboard() {
                         {scheduler.totalFailed} mensajes no entregados
                       </p>
                     )}
+                    <p className="text-xs text-red-300 mt-1">Click para ver detalles</p>
                   </div>
                   <div className="text-center bg-gray-700/20 p-3 rounded">
                     <p className="text-lg md:text-2xl font-bold text-blue-400">
@@ -699,6 +734,28 @@ export function PaymentSchedulerDashboard() {
           ))
         )}
       </div>
+
+      {/* Sección de Historial General */}
+      {showGeneralHistory && (
+        <div className="mt-8">
+          <GeneralHistorySection 
+            schedulers={schedulers.map(s => ({ id: s.id, name: s.name }))}
+          />
+        </div>
+      )}
+
+      {/* Modal de Historial */}
+      {selectedScheduler && (
+        <SchedulerHistoryModal
+          isOpen={showHistoryModal}
+          onClose={() => {
+            setShowHistoryModal(false);
+            setSelectedScheduler(null);
+          }}
+          schedulerId={selectedScheduler.id}
+          schedulerName={selectedScheduler.name}
+        />
+      )}
     </div>
   );
 }
