@@ -51,17 +51,17 @@ const isValidEmailFormat = (value: string): boolean => {
 }
 
 const validateAndFormatFullName = (value: string): string => {
-  // Permitir letras A-Z, ñ/Ñ y espacios. Quitar números y caracteres especiales, y colapsar espacios múltiples
+  // Permitir letras A-Z, ñ/Ñ, tildes y espacios. Quitar números y caracteres especiales, y colapsar espacios múltiples
   return value
-    .replace(/[^A-Za-zñÑ ]/g, '')
+    .replace(/[^A-Za-záéíóúÁÉÍÓÚñÑ ]/g, '')
     .replace(/\s+/g, ' ')
     .trimStart()
 }
 
 const isValidFullName = (value: string): boolean => {
   if (!value) return false
-  // Al menos dos letras, solo letras (incluyendo ñ/Ñ) y espacios, sin caracteres especiales ni números
-  return /^[A-Za-zñÑ ]{10,}$/.test(value.trim())
+  // Al menos dos letras, solo letras (incluyendo ñ/Ñ, tildes) y espacios, sin caracteres especiales ni números
+  return /^[A-Za-záéíóúÁÉÍÓÚñÑ ]{10,}$/.test(value.trim())
 }
 
 const isValidBirthDate = (value: string): boolean => {

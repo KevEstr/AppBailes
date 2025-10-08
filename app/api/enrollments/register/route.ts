@@ -5,6 +5,7 @@ import { EnrollmentPaymentService } from '@/lib/enrollment-payment-service'
 import { formatPhoneForStorage } from '@/lib/phone-utils'
 
 // Función para capitalizar nombres (primera letra de cada palabra en mayúscula)
+// Maneja correctamente tildes y acentos
 function capitalizeName(name: string): string {
   if (!name || typeof name !== 'string') return ''
   
@@ -13,7 +14,17 @@ function capitalizeName(name: string): string {
     .trim()
     .split(' ')
     .filter(word => word.length > 0) // Filtrar espacios vacíos
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .map(word => {
+      if (word.length === 0) return word
+      // Obtener el primer carácter y el resto
+      const firstChar = word.charAt(0)
+      const rest = word.slice(1)
+      
+      // Capitalizar el primer carácter manteniendo tildes
+      const capitalizedFirst = firstChar.toUpperCase()
+      
+      return capitalizedFirst + rest
+    })
     .join(' ')
 }
 
@@ -60,9 +71,9 @@ export async function POST(request: NextRequest) {
       }, { status: 400 })
     }
 
-    // Validar nombre completo (solo letras A-Z, ñ/Ñ y espacios, mínimo 2 caracteres)
+    // Validar nombre completo (solo letras A-Z, ñ/Ñ, tildes y espacios, mínimo 2 caracteres)
     const fullName = String(data.studentName || '').trim()
-    if (!/^[A-Za-zñÑ ]{2,}$/.test(fullName)) {
+    if (!/^[A-Za-záéíóúÁÉÍÓÚñÑ ]{2,}$/.test(fullName)) {
       return NextResponse.json({
         success: false,
         error: 'El nombre solo puede contener letras y espacios'
@@ -104,7 +115,7 @@ export async function POST(request: NextRequest) {
     // Validación de único contacto (texto dinámico según mayoría de edad)
     const contactLabel = data.isAdult ? 'contacto de emergencia' : 'acudiente'
     const contactName = String(data.emergencyContactName || '').trim()
-    if (!/^[A-Za-zñÑ ]{2,}$/.test(contactName)) {
+    if (!/^[A-Za-záéíóúÁÉÍÓÚñÑ ]{2,}$/.test(contactName)) {
       return NextResponse.json({
         success: false,
         error: `El nombre del ${contactLabel} solo puede contener letras y espacios`

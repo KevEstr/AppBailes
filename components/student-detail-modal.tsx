@@ -155,6 +155,15 @@ export function StudentDetailModal({ enrollment }: StudentDetailModalProps) {
         const data = await response.json();
 
         if (data.success && data.student) {
+          // Debug: Log the API response
+          console.log('🔍 Modal: API response data:', {
+            studentId: data.student.id,
+            debts: data.student.debts,
+            receipts: data.student.receipts,
+            debtsLength: data.student.debts?.length || 0,
+            receiptsLength: data.student.receipts?.length || 0
+          });
+          
           // Create detail data structure from API response
           const detailData: EnrollmentDetail = {
             id: enrollment.id,
@@ -178,8 +187,8 @@ export function StudentDetailModal({ enrollment }: StudentDetailModalProps) {
                 medicalRestrictions: data.student.enrollmentData.restrictionsDescription || data.student.enrollmentData.medicalConditions,
                 jerseyNumber: data.student.enrollmentData.jerseyNumber
               } : undefined,
-              debts: [],
-              receipts: [],
+              debts: data.student.debts || [],
+              receipts: data.student.receipts || [],
               attendances: [],
             },
             danceClass: {
@@ -201,6 +210,24 @@ export function StudentDetailModal({ enrollment }: StudentDetailModalProps) {
               schedules: [],
             },
           };
+          
+          // Debug: Log the final detail data
+          console.log('🔍 Modal: Final detail data:', {
+            studentId: detailData.student.id,
+            debts: detailData.student.debts,
+            receipts: detailData.student.receipts,
+            debtsLength: detailData.student.debts?.length || 0,
+            receiptsLength: detailData.student.receipts?.length || 0
+          });
+          
+          // Debug: Log individual debt and receipt data
+          if (detailData.student.debts && detailData.student.debts.length > 0) {
+            console.log('🔍 Modal: First debt:', detailData.student.debts[0]);
+          }
+          if (detailData.student.receipts && detailData.student.receipts.length > 0) {
+            console.log('🔍 Modal: First receipt:', detailData.student.receipts[0]);
+          }
+          
           setDetailData(detailData);
         } else {
           // Fallback to basic data
@@ -220,8 +247,8 @@ export function StudentDetailModal({ enrollment }: StudentDetailModalProps) {
               user: enrollment.student.user,
               avatar: data.student.avatar || '',
               enrollmentData: undefined,
-              debts: [],
-              receipts: [],
+              debts: data.student?.debts || [],
+              receipts: data.student?.receipts || [],
               attendances: [],
             },
             danceClass: {
@@ -294,14 +321,18 @@ export function StudentDetailModal({ enrollment }: StudentDetailModalProps) {
     fetchDetailData();
   }, [enrollment]);
 
-  const formatDate = (dateString: string) => {
-    return formatDateLongWithoutTimezone(dateString);
+  const formatDate = (dateString: string | Date) => {
+    // Convertir Date a string si es necesario
+    const dateStr = typeof dateString === 'string' ? dateString : dateString.toISOString();
+    return formatDateLongWithoutTimezone(dateStr);
   };
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("es-CO", {
       style: "currency",
       currency: "COP",
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
     }).format(amount);
   };
 
@@ -905,11 +936,16 @@ export function StudentDetailModal({ enrollment }: StudentDetailModalProps) {
                 <DollarSign className="w-4 h-4" />
               </div>
               Deudas Pendientes
+              {detailData.student.debts && detailData.student.debts.length > 0 && (
+                <span className="text-xs bg-red-600 text-white px-2 py-1 rounded-full ml-2">
+                  {detailData.student.debts.length}
+                </span>
+              )}
             </CardTitle>
           </CardHeader>
           <CardContent>
             {detailData.student.debts && detailData.student.debts.length > 0 ? (
-              <div className="space-y-2">
+              <div className="space-y-2 max-h-64 overflow-y-auto relative">
                 {detailData.student.debts.map((debt) => (
                   <div
                     key={debt.id}
@@ -930,6 +966,8 @@ export function StudentDetailModal({ enrollment }: StudentDetailModalProps) {
                     </div>
                   </div>
                 ))}
+                {/* Indicador de scroll */}
+                <div className="sticky bottom-0 left-0 right-0 h-4 bg-gradient-to-t from-slate-800 to-transparent pointer-events-none"></div>
               </div>
             ) : (
               <div className="flex flex-col items-center justify-center py-6">
@@ -950,12 +988,17 @@ export function StudentDetailModal({ enrollment }: StudentDetailModalProps) {
                 <DollarSign className="w-4 h-4" />
               </div>
               Últimos Pagos
+              {detailData.student.receipts && detailData.student.receipts.length > 0 && (
+                <span className="text-xs bg-green-600 text-white px-2 py-1 rounded-full ml-2">
+                  {detailData.student.receipts.length}
+                </span>
+              )}
             </CardTitle>
           </CardHeader>
           <CardContent>
             {detailData.student.receipts &&
             detailData.student.receipts.length > 0 ? (
-              <div className="space-y-2">
+              <div className="space-y-2 max-h-64 overflow-y-auto relative">
                 {detailData.student.receipts.map((receipt) => (
                   <div
                     key={receipt.id}
@@ -976,6 +1019,8 @@ export function StudentDetailModal({ enrollment }: StudentDetailModalProps) {
                     </div>
                   </div>
                 ))}
+                {/* Indicador de scroll */}
+                <div className="sticky bottom-0 left-0 right-0 h-4 bg-gradient-to-t from-slate-800 to-transparent pointer-events-none"></div>
               </div>
             ) : (
               <div className="flex flex-col items-center justify-center py-6">

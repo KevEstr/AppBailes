@@ -23,12 +23,22 @@ export async function GET(
         user: true,
         enrollmentData: true,
         debts: {
-          where: { isPaid: false },
+          where: { 
+            isPaid: false,
+            dueDate: {
+              gte: new Date(new Date().setFullYear(new Date().getFullYear() - 1))
+            }
+          },
           orderBy: { dueDate: 'asc' }
         },
         receipts: {
+          where: {
+            createdAt: {
+              gte: new Date(new Date().setFullYear(new Date().getFullYear() - 1))
+            }
+          },
           orderBy: { createdAt: 'desc' },
-          take: 5
+          take: 10
         }
       }
     })
@@ -50,10 +60,26 @@ export async function GET(
         // Guardian fields removed - using emergency contact instead
       } : null
     }
+    
+    // Debug: Log the student data
+    console.log('🔍 API: Student data with debts and receipts:', {
+      studentId: formattedStudent.id,
+      debts: formattedStudent.debts,
+      receipts: formattedStudent.receipts,
+      debtsLength: formattedStudent.debts?.length || 0,
+      receiptsLength: formattedStudent.receipts?.length || 0
+    });
 
     return NextResponse.json({
       success: true,
       student: formattedStudent
+    }, {
+      headers: {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      }
     })
   } catch (error) {
     console.error('Error fetching student:', error)

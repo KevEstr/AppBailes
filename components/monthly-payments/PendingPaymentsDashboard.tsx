@@ -89,6 +89,7 @@ export const PendingPaymentsDashboard = forwardRef<PendingPaymentsDashboardRef, 
   });
   const [selectedPayment, setSelectedPayment] = useState<PendingPayment | null>(null);
   const [sendingWhatsApp, setSendingWhatsApp] = useState<number | null>(null);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   // Exponer método refresh al componente padre
   useImperativeHandle(ref, () => ({
@@ -99,8 +100,9 @@ export const PendingPaymentsDashboard = forwardRef<PendingPaymentsDashboardRef, 
 
   // Cargar pagos
   useEffect(() => {
+    console.log('useEffect ejecutado - refreshTrigger:', refreshTrigger);
     loadPayments();
-  }, [periodId, currentPage, limit, searchDebounced, statusFilter]);
+  }, [periodId, currentPage, limit, searchDebounced, statusFilter, refreshTrigger]);
 
   // Debounce para búsqueda
   useEffect(() => {
@@ -114,6 +116,7 @@ export const PendingPaymentsDashboard = forwardRef<PendingPaymentsDashboardRef, 
 
   const loadPayments = async () => {
     try {
+      console.log('🔄 loadPayments ejecutado');
       setLoading(true);
       const params = new URLSearchParams({
         page: currentPage.toString(),
@@ -130,16 +133,33 @@ export const PendingPaymentsDashboard = forwardRef<PendingPaymentsDashboardRef, 
         params.append('status', statusFilter);
       }
 
-      const response = await fetch(`/api/admin/monthly-payments/all?periodId=${periodId}&${params}`);
+      // Agregar timestamp para evitar cache
+      const timestamp = Date.now();
+      const url = `/api/admin/monthly-payments/all?periodId=${periodId}&${params}&_t=${timestamp}`;
+      console.log('🌐 Haciendo petición a:', url);
+      
+      const response = await fetch(url, {
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        }
+      });
+      
+      console.log('📡 Respuesta recibida:', response.status);
       
       if (!response.ok) {
         throw new Error('Error al cargar pagos');
       }
 
       const data: PendingPaymentsResponse = await response.json();
+      console.log('📊 Datos recibidos de la API:', data.payments);
+      console.log('✅ Pagos PAID encontrados:', data.payments.filter(p => p.status === 'PAID').length);
+      console.log('⏳ Pagos PENDING encontrados:', data.payments.filter(p => p.status === 'PENDING').length);
       setPayments(data.payments);
       setPagination(data.pagination);
     } catch (err) {
+      console.error('❌ Error en loadPayments:', err);
       setError(err instanceof Error ? err.message : 'Error desconocido');
     } finally {
       setLoading(false);
@@ -166,9 +186,18 @@ export const PendingPaymentsDashboard = forwardRef<PendingPaymentsDashboardRef, 
     setCurrentPage(1);
   };
 
-  const handleMarkAsReceived = async (paymentId: number) => {
+  const handleMarkAsReceived = async () => {
     try {
-      await loadPayments();
+      console.log('handleMarkAsReceived ejecutado');
+      
+      // Pequeño delay para asegurar que la transacción se complete
+      
+      // Forzar refresh del useEffect
+      setRefreshTrigger(prev => {
+        console.log('refreshTrigger cambiando de', prev, 'a', prev + 1);
+        return prev + 1;
+      });
+      
       toast({
         title: "Pago marcado como recibido",
         description: "El pago ha sido procesado exitosamente y se ha enviado la notificación.",
@@ -494,8 +523,8 @@ export const PendingPaymentsDashboard = forwardRef<PendingPaymentsDashboardRef, 
             isOpen={!!selectedPayment}
             onClose={() => setSelectedPayment(null)}
             payment={selectedPayment}
-            onSuccess={() => {
-              handleMarkAsReceived(selectedPayment.id);
+            onSuccess={async () => {
+              await handleMarkAsReceived();
               setSelectedPayment(null);
             }}
           />

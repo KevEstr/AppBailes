@@ -299,6 +299,18 @@ export class MonthlyPaymentService {
     const discountAmount = data.discount || 0;
     const effectiveExpectedAmount = Math.max(0, baseAmount - discountAmount);
     
+    // CRÍTICO: Si hay descuento, actualizar el expectedAmount en la DB ANTES de las comparaciones
+    // Esto asegura que el resto de la lógica funcione correctamente
+    if (discountAmount > 0) {
+      await prisma.monthlyPayment.update({
+        where: { id: paymentId },
+        data: { expectedAmount: effectiveExpectedAmount }
+      });
+      payment.expectedAmount = effectiveExpectedAmount;
+      console.log("payment: ", payment);
+      console.log(`💰 Descuento aplicado: $${discountAmount.toLocaleString()}. Nuevo monto esperado: $${effectiveExpectedAmount.toLocaleString()}`);
+    }
+    
     const receivedAmount = data.receivedAmount || effectiveExpectedAmount;
     const isPartialPayment = receivedAmount < effectiveExpectedAmount;
     const newStatus: "PAID" | "PARTIAL_PAID" = isPartialPayment ? "PARTIAL_PAID" : "PAID";
@@ -316,23 +328,40 @@ export class MonthlyPaymentService {
         });
 
     // Actualizar estado de deuda del estudiante
+    console.log("🔄 Actualizando estado de deuda del estudiante...");
     await this.updateStudentDebtStatus(payment.studentId);
+    console.log("✅ Estado de deuda actualizado");
 
     // Crear nuevo pago pendiente para el saldo restante si es pago parcial
     if (isPartialPayment) {
+      console.log("🔄 Creando pago pendiente para saldo restante...");
       await this.createRemainingPayment(payment.student, payment.period, effectiveExpectedAmount - receivedAmount, data.markedBy);
+      console.log("✅ Pago pendiente creado");
     }
 
     // Crear deuda adicional SOLO si es pago parcial y se especificó manualmente
     if (isPartialPayment && data.additionalDebt && data.additionalDebt > 0) {
+      console.log("🔄 Creando deuda adicional...");
       await this.createAdditionalDebt(payment.student, payment.period, data.additionalDebt, data.notes);
+      console.log("✅ Deuda adicional creada");
     }
 
-    // Generar recibo digital
-    const receiptData = await this.generateDigitalReceipt(paymentId, receivedAmount, data.paymentMethod, data.markedBy);
+    // Generar recibo digital (con manejo de errores)
+    let receiptData = null;
+    try {
+      receiptData = await this.generateDigitalReceipt(paymentId, receivedAmount, data.paymentMethod, data.markedBy);
+    } catch (receiptError) {
+      console.error("❌ Error generando recibo digital (continuando):", receiptError);
+      // No lanzar error, continuar sin recibo
+    }
 
-    // Enviar notificación de WhatsApp con el recibo
-    await this.sendPaymentReceivedNotification(payment, receivedAmount, data.paymentMethod, receiptData);
+    // Enviar notificación de WhatsApp con el recibo (con manejo de errores)
+    try {
+      await this.sendPaymentReceivedNotification(payment, receivedAmount, data.paymentMethod, receiptData);
+    } catch (whatsappError) {
+      console.error("❌ Error enviando notificación WhatsApp (continuando):", whatsappError);
+      // No lanzar error, continuar sin notificación
+    }
 
     console.log(`✅ Pago marcado como recibido: ${payment.student.name} - $${receivedAmount.toLocaleString()}`);
 
@@ -1153,6 +1182,16 @@ export class MonthlyPaymentService {
     // Usar el monto esperado efectivo (con descuento si aplica) desde el formulario
     const expectedAmountEffective = proof.paymentForm.amount ?? monthlyPayment.expectedAmount;
 
+    // CRÍTICO: Si el formulario tiene un monto diferente al esperado (descuento aplicado),
+    // actualizar el expectedAmount en la DB ANTES de las comparaciones
+    if (expectedAmountEffective !== monthlyPayment.expectedAmount) {
+      await prisma.monthlyPayment.update({
+        where: { id: monthlyPayment.id },
+        data: { expectedAmount: expectedAmountEffective }
+      });
+      console.log(`💰 Descuento aplicado desde formulario: Nuevo monto esperado: $${expectedAmountEffective.toLocaleString()}`);
+    }
+
     // Validar monto contra el esperado efectivo
     if (paidAmount > expectedAmountEffective) {
       throw new Error("El monto pagado no puede ser mayor al monto esperado");
@@ -1351,6 +1390,9 @@ export class MonthlyPaymentService {
         OTHER: "Otro",
       };
 
+      // El expectedAmount ya fue actualizado en la DB con el descuento aplicado
+      console.log("💰 Expected amount:", payment.expectedAmount);
+      console.log("💰 Received amount:", receivedAmount);
       const isPartialPayment = receivedAmount < payment.expectedAmount;
       const remainingAmount = payment.expectedAmount - receivedAmount;
 
