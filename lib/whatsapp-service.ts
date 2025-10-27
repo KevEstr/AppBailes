@@ -966,8 +966,9 @@ ${data.paymentLink}
               { type: 'text', text: data.period },                                        // {{2}} Período
               { type: 'text', text: `$${data.amount.toLocaleString()}` },                // {{3}} Monto
               { type: 'text', text: data.paymentMethod },                                // {{4}} Método
-              { type: 'text', text: data.receiptUrl || 'Sin recibo disponible' },        // {{5}} URL recibo
-              { type: 'text', text: data.nextPaymentDate || 'Fecha por confirmar' }      // {{6}} Próximo pago
+              { type: 'text', text: data.nextPaymentDate || 'Fecha por confirmar' },      // {{5}} Próximo pago
+              { type: 'text', text: data.receiptUrl || 'Sin recibo disponible' },        // {{6}} URL recibo
+              
             ]
           }
         ]
