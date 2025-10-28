@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { whatsappService } from '@/lib/whatsapp-service';
 import { monthlyPaymentService } from '@/lib/monthly-payment-service';
+import { calculatePaymentPeriodForConcept } from '@/lib/period-calculator';
+import { prisma } from '@/lib/prisma';
 
 // POST /api/admin/send-payment-whatsapp - Enviar enlaces de pago por WhatsApp
 export async function POST(request: NextRequest) {
@@ -55,7 +57,33 @@ export async function POST(request: NextRequest) {
     for (const form of formsWithPhone) {
       try {
         const paymentLink = `${baseUrl}/payment/${form.id}`;
-        const dueDate = new Date(form.period.dueDate).toLocaleDateString('es-ES');
+        
+        // Obtener el día de corte de la clase específica del formulario
+        let cutoffDay = 30; // Default
+        if (form.monthlyPayment?.classId) {
+          const enrollment = await prisma.classEnrollment.findFirst({
+            where: {
+              studentId: form.studentId,
+              classId: form.monthlyPayment.classId,
+              isActive: true
+            },
+            select: { paymentCutoffDay: true }
+          });
+          cutoffDay = enrollment?.paymentCutoffDay || 30;
+        }
+        
+        // Calcular el período correcto para el concepto basado en el día de corte
+        const periodInfo = calculatePaymentPeriodForConcept(
+          cutoffDay, 
+          form.period.year, 
+          form.period.month
+        );
+        
+        console.log(`🔍 Debug para formulario ${form.id}:`);
+        console.log(`   - StudentId: ${form.studentId}`);
+        console.log(`   - ClassId: ${form.monthlyPayment?.classId}`);
+        console.log(`   - CutoffDay calculado: ${cutoffDay}`);
+        console.log(`   - PeriodInfo calculado:`, periodInfo);
 
         // Determinar el deporte del estudiante (priorizar DANCE sobre VOLLEYBALL)
         const sports = form.student.classEnrollments?.map((enrollment: any) => enrollment.danceClass.sport) || [];
@@ -66,9 +94,10 @@ export async function POST(request: NextRequest) {
           parentPhone: form.student.phone,
           paymentLink: paymentLink,
           amount: form.amount,
-          period: form.period.name,
-          dueDate: dueDate,
-          sport: primarySport
+          period: periodInfo.periodName,
+          dueDate: periodInfo.dueDate,
+          sport: primarySport,
+          cutoffDay: cutoffDay
         };
 
         // Intentar enviar mensaje

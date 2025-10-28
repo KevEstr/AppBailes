@@ -8,16 +8,16 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    const receiptId = parseInt(id);
+    const receiptId = Number.parseInt(id);
     
-    if (isNaN(receiptId)) {
+    if (Number.isNaN(receiptId)) {
       return NextResponse.json(
         { error: 'ID de recibo inválido' },
         { status: 400 }
       );
     }
 
-    // Buscar el recibo con información del estudiante
+    // Buscar el recibo con información del estudiante y el pago mensual
     const receipt = await prisma.receipt.findUnique({
       where: { id: receiptId },
       include: {
@@ -32,6 +32,9 @@ export async function GET(
               }
             }
           }
+        },
+        monthlyPayment: {
+          select: { classId: true }
         }
       }
     });
@@ -63,14 +66,67 @@ export async function GET(
 
     const sport = pickPrimarySport(receipt.student);
 
-    // Calcular próximo pago: mes siguiente al pago con día de corte del estudiante
-    const paymentDate = toZonedTime(new Date(receipt.createdAt), TZ);
-    const cutoff = receipt.student.enrollmentData?.paymentCutoffDay ?? 30;
+    // Obtener el día de corte de la clase específica
+    let cutoff = 30; // Default
+    if (receipt.monthlyPayment?.classId) {
+      const enrollment = await prisma.classEnrollment.findFirst({
+        where: {
+          studentId: receipt.studentId,
+          classId: receipt.monthlyPayment.classId,
+          isActive: true
+        },
+        select: { paymentCutoffDay: true }
+      });
+      cutoff = enrollment?.paymentCutoffDay || 30;
+    }
     
-    // Calcular el mes siguiente al pago
-    const nextPaymentDate = new Date(paymentDate);
-    nextPaymentDate.setMonth(nextPaymentDate.getMonth() + 1);
-    nextPaymentDate.setDate(cutoff);
+    console.log(`🔍 Debug para recibo ${receiptId}:`);
+    console.log(`   - StudentId: ${receipt.studentId}`);
+    console.log(`   - ClassId: ${receipt.monthlyPayment?.classId}`);
+    console.log(`   - CutoffDay calculado: ${cutoff}`);
+    
+    // Calcular próximo pago basado en el período del pago mensual
+    let nextPaymentDate: Date;
+    
+    if (receipt.monthlyPayment) {
+      // Si es un pago mensual, obtener el período y calcular el siguiente
+      const monthlyPayment = await prisma.monthlyPayment.findFirst({
+        where: { 
+          studentId: receipt.studentId,
+          classId: receipt.monthlyPayment.classId
+        },
+        include: { period: true },
+        orderBy: { createdAt: 'desc' }
+      });
+      
+      if (monthlyPayment?.period) {
+        // Calcular el mes siguiente al período del pago
+        const currentPeriodDate = new Date(monthlyPayment.period.year, monthlyPayment.period.month - 1, 1);
+        const nextPeriodDate = new Date(currentPeriodDate);
+        nextPeriodDate.setMonth(nextPeriodDate.getMonth() + 1);
+        nextPaymentDate = new Date(nextPeriodDate.getFullYear(), nextPeriodDate.getMonth(), cutoff);
+        
+        console.log(`   - Period year: ${monthlyPayment.period.year}`);
+        console.log(`   - Period month: ${monthlyPayment.period.month}`);
+        console.log(`   - Current period date: ${currentPeriodDate.toISOString()}`);
+        console.log(`   - Next period date: ${nextPeriodDate.toISOString()}`);
+      } else {
+        // Fallback: usar fecha de creación del recibo + 1 mes
+        const paymentDate = toZonedTime(new Date(receipt.createdAt), TZ);
+        nextPaymentDate = new Date(paymentDate);
+        nextPaymentDate.setMonth(nextPaymentDate.getMonth() + 1);
+        nextPaymentDate.setDate(cutoff);
+      }
+    } else {
+      // Si no es un pago mensual, usar fecha de creación del recibo + 1 mes
+      const paymentDate = toZonedTime(new Date(receipt.createdAt), TZ);
+      nextPaymentDate = new Date(paymentDate);
+      nextPaymentDate.setMonth(nextPaymentDate.getMonth() + 1);
+      nextPaymentDate.setDate(cutoff);
+    }
+    
+    console.log(`   - Next payment date: ${nextPaymentDate.toISOString()}`);
+    console.log(`   - Next payment date formatted: ${formatDate(nextPaymentDate)}`);
 
     // Determinar a nombre de quién va el recibo según mayoría de edad
     const isMinor = receipt.student.enrollmentData?.isAdult === false;

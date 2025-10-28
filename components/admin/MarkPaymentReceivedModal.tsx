@@ -33,7 +33,7 @@ interface MarkPaymentReceivedModalProps {
     };
     expectedAmount: number;
     period: string;
-    dueDate: string;
+    dueDate: string | null;
   } | null;
   readonly onSuccess: () => void;
 }

@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma';
+import { calculatePaymentPeriodForConcept } from '@/lib/period-calculator';
 
 export interface ReceiptData {
   id: number;
@@ -50,24 +51,60 @@ export class DigitalReceiptService {
       // Determinar el deporte del estudiante
       const sport = this.pickPrimarySport(monthlyPayment.student);
 
+      // Obtener el día de corte de la clase específica
+      let cutoffDay = 30; // Default
+      if (monthlyPayment.classId) {
+        const enrollment = await prisma.classEnrollment.findFirst({
+          where: {
+            studentId: monthlyPayment.studentId,
+            classId: monthlyPayment.classId,
+            isActive: true
+          },
+          select: { paymentCutoffDay: true }
+        });
+        cutoffDay = enrollment?.paymentCutoffDay || 30;
+      }
+      
+      console.log(`🔍 Debug para recibo digital pago ${monthlyPayment.id}:`);
+      console.log(`   - StudentId: ${monthlyPayment.studentId}`);
+      console.log(`   - ClassId: ${monthlyPayment.classId}`);
+      console.log(`   - CutoffDay calculado: ${cutoffDay}`);
+      
+      // Calcular el período correcto para el concepto basado en el día de corte
+      const periodInfo = calculatePaymentPeriodForConcept(
+        cutoffDay, 
+        monthlyPayment.period.year, 
+        monthlyPayment.period.month
+      );
+      console.log(`   - Payment period reference: ${monthlyPayment.period.year}-${monthlyPayment.period.month}`);
+      console.log(`   - Period info calculated: ${periodInfo.periodName}`);
+
       // Crear recibo en la base de datos
       const receipt = await prisma.receipt.create({
         data: {
           studentId: monthlyPayment.studentId,
           monthlyPaymentId: monthlyPaymentId,
           amount: approvedAmount,
-          concept: `Mensualidad ${monthlyPayment.period.name}`,
+          concept: `Mensualidad ${periodInfo.periodName}`,
           paymentMethod: this.mapPaymentMethod(paymentMethod),
           notes: `Pago aprobado por ${reviewedBy}`,
           whatsappSent: false, // Se enviará por separado
         }
       });
-
-      // Calcular fecha del próximo pago (15 del mes siguiente)
+      
+      // Calcular fecha del próximo pago basada en el día de corte de la clase
       const currentDate = new Date(monthlyPayment.period.year, monthlyPayment.period.month - 1, 1);
       const nextMonth = new Date(currentDate);
       nextMonth.setMonth(nextMonth.getMonth() + 1);
-      const nextPaymentDate = new Date(nextMonth.getFullYear(), nextMonth.getMonth(), 15);
+      const nextPaymentDate = new Date(nextMonth.getFullYear(), nextMonth.getMonth(), cutoffDay);
+      
+      console.log(`🔍 Debug cálculo de fecha próximo pago:`);
+      console.log(`   - Period year: ${monthlyPayment.period.year}`);
+      console.log(`   - Period month: ${monthlyPayment.period.month}`);
+      console.log(`   - Current date: ${currentDate.toISOString()}`);
+      console.log(`   - Next month: ${nextMonth.toISOString()}`);
+      console.log(`   - Next payment date: ${nextPaymentDate.toISOString()}`);
+      console.log(`   - Next payment date formatted: ${nextPaymentDate.toLocaleDateString('es-ES')}`);
 
       // Formatear datos del recibo
       const receiptData: ReceiptData = {
@@ -75,7 +112,7 @@ export class DigitalReceiptService {
         receiptNumber: receipt.id.toString().padStart(4, '0'),
         studentName: monthlyPayment.student.name,
         amount: approvedAmount,
-        concept: `Aporte mensual`,
+        concept: `Mensualidad ${periodInfo.periodName}`,
         paymentDate: new Date().toLocaleDateString('es-ES', { 
           day: '2-digit', 
           month: '2-digit', 
@@ -152,7 +189,7 @@ export class DigitalReceiptService {
         concept,
         paymentDate: new Date().toLocaleDateString('es-ES'),
         nextPaymentDate: concept.toLowerCase().includes('mensualidad') 
-          ? new Date(new Date().getTime() + (30 * 24 * 60 * 60 * 1000)).toLocaleDateString('es-ES')
+          ? new Date(Date.now() + (30 * 24 * 60 * 60 * 1000)).toLocaleDateString('es-ES')
           : undefined,
         paymentMethod: this.getPaymentMethodLabel(paymentMethod),
         receivedBy: 'Sebastian Vasquez Correa',

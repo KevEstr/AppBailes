@@ -39,11 +39,16 @@ interface PendingPayment {
     name: string;
     phone: string;
   };
+  class: {
+    id: number;
+    name: string;
+    sport: string;
+  } | null;
   expectedAmount: number;
   paidAmount?: number | null;
   status: 'PENDING' | 'OVERDUE' | 'PAID' | 'PARTIAL_PAID';
   period: string;
-  dueDate: string;
+  dueDate: string | null;
   isOverdue: boolean;
   createdAt: string;
   paymentDate?: string | null;
@@ -422,6 +427,7 @@ export const PendingPaymentsDashboard = forwardRef<PendingPaymentsDashboardRef, 
             <TableHeader>
               <TableRow className="border-gray-600">
                 <TableHead className="text-gray-300">Estudiante</TableHead>
+                <TableHead className="text-gray-300">Clase</TableHead>
                 <TableHead className="text-gray-300">Teléfono</TableHead>
                 <TableHead className="text-gray-300">Monto</TableHead>
                 <TableHead className="text-gray-300">Estado</TableHead>
@@ -436,6 +442,16 @@ export const PendingPaymentsDashboard = forwardRef<PendingPaymentsDashboardRef, 
                     {payment.student.name}
                   </TableCell>
                   <TableCell className="text-gray-300">
+                    {payment.class ? (
+                      <div className="flex flex-col">
+                        <span className="font-medium">{payment.class.name}</span>
+                        <span className="text-xs text-gray-400">{payment.class.sport}</span>
+                      </div>
+                    ) : (
+                      <span className="text-gray-500 italic">Sin clase asignada</span>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-gray-300">
                     {payment.student.phone}
                   </TableCell>
                   <TableCell className="text-white font-semibold">
@@ -445,7 +461,7 @@ export const PendingPaymentsDashboard = forwardRef<PendingPaymentsDashboardRef, 
                     {getStatusBadge(payment)}
                   </TableCell>
                   <TableCell className="text-gray-300">
-                    {new Date(payment.dueDate).toLocaleDateString('es-CO')}
+                    {payment.dueDate ? new Date(payment.dueDate).toLocaleDateString('es-CO') : 'Calculando...'}
                   </TableCell>
                   <TableCell>
                     <div className="flex gap-2">

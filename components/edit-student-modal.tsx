@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { User, MapPin, Heart, Phone, Camera, Trophy } from "lucide-react";
 import { InteractiveMap } from "./interactive-map";
@@ -88,6 +89,27 @@ interface Student {
   relationship?: string;
   hasMedicalRestrictions?: boolean;
   medicalRestrictions?: string;
+  // Nuevas propiedades para manejar clases
+  classEnrollments?: ClassEnrollment[]
+}
+
+interface ClassEnrollment {
+  id: number
+  classId: number
+  isActive: boolean
+  paymentCutoffDay?: number
+  monthlyFee?: number
+  danceClass: {
+    id: number
+    name: string
+    sport: string
+    trainer: {
+      name: string
+    }
+    location?: {
+      name: string
+    }
+  }
 }
 
 interface EditStudentModalProps {
@@ -205,7 +227,8 @@ export default function EditStudentModal({
               isActive: fullStudent.isActive ?? true,
               enrollmentData: {
                 paymentCutoffDay: fullStudent.enrollmentData?.paymentCutoffDay
-              }
+              },
+              classEnrollments: fullStudent.classEnrollments || []
             }
             setFormData(initialData)
           } else {
@@ -238,7 +261,8 @@ export default function EditStudentModal({
               isActive: student.isActive ?? true,
               enrollmentData: {
                 paymentCutoffDay: student.enrollmentData?.paymentCutoffDay
-              }
+              },
+              classEnrollments: student.classEnrollments || []
             }
             setFormData(initialData)
           }
@@ -273,7 +297,8 @@ export default function EditStudentModal({
               isActive: student.isActive ?? true,
               enrollmentData: {
                 paymentCutoffDay: student.enrollmentData?.paymentCutoffDay
-              }
+              },
+              classEnrollments: student.classEnrollments || []
           }
           setFormData(initialData)
         }
@@ -376,6 +401,36 @@ export default function EditStudentModal({
 
       const responseData = await studentRes.json();
       console.log("✅ Modal: Update successful:", responseData);
+
+      // Actualizar cortes de pago por clase si existen
+      if (formData.classEnrollments && formData.classEnrollments.length > 0) {
+        try {
+          console.log("🔄 Modal: Updating class payment cutoffs...");
+          
+          for (const enrollment of formData.classEnrollments) {
+            const classUpdateResponse = await fetch('/api/enrollments/update-payment-config', {
+              method: 'PUT',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                enrollmentId: enrollment.id,
+                paymentCutoffDay: enrollment.paymentCutoffDay,
+                monthlyFee: enrollment.monthlyFee
+              })
+            });
+
+            if (!classUpdateResponse.ok) {
+              console.error(`❌ Error updating class ${enrollment.id}:`, await classUpdateResponse.text());
+            } else {
+              console.log(`✅ Class ${enrollment.id} updated successfully`);
+            }
+          }
+        } catch (error) {
+          console.error("❌ Error updating class payment configs:", error);
+          // No lanzar error aquí para no interrumpir el flujo principal
+        }
+      }
 
       toast({
         title: "Éxito",
@@ -787,40 +842,86 @@ export default function EditStudentModal({
               </CardContent>
             </Card>
 
-            {/* Configuración de Pagos */}
+            {/* Configuración de Pagos por Clase */}
             <Card className="bg-gray-700/50 border-gray-600 backdrop-blur-sm">
               <CardHeader className="pb-3 sm:pb-6">
                 <CardTitle className="flex items-center gap-2 text-base sm:text-lg text-white">
                   <div className="rounded-lg bg-gradient-to-r from-yellow-500 to-orange-500 p-1.5">
                     <Clock className="h-4 w-4 text-white" />
                   </div>
-                  Configuración de Pagos
+                  Configuración de Pagos por Clase
                 </CardTitle>
               </CardHeader>
-              <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                <div>
-                  <Label htmlFor="paymentCutoffDay">Corte de pago</Label>
-                  <Select
-                    value={(formData.enrollmentData?.paymentCutoffDay ?? 30).toString()}
-                    onValueChange={(value) =>
-                      setFormData(prev => prev ? {
-                        ...prev,
-                        enrollmentData: {
-                          ...prev.enrollmentData,
-                          paymentCutoffDay: parseInt(value)
-                        }
-                      } : prev)
-                    }
-                  >
-                    <SelectTrigger className="bg-gray-800 border-gray-600 text-white">
-                      <SelectValue placeholder="Seleccionar día de corte" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="15">15 de cada mes</SelectItem>
-                      <SelectItem value="30">30 de cada mes</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+              <CardContent className="space-y-4">
+                {formData.classEnrollments && formData.classEnrollments.length > 0 ? (
+                  formData.classEnrollments.map((enrollment) => (
+                    <div key={enrollment.id} className="bg-gray-800/50 rounded-lg p-4 border border-gray-600">
+                      <div className="flex items-center justify-between mb-3">
+                        <div>
+                          <h4 className="text-white font-medium">{enrollment.danceClass.name}</h4>
+                          <p className="text-gray-400 text-sm">
+                            {enrollment.danceClass.sport} - {enrollment.danceClass.trainer.name}
+                          </p>
+                        </div>
+                        <Badge variant={enrollment.isActive ? "default" : "secondary"}>
+                          {enrollment.isActive ? "Activo" : "Inactivo"}
+                        </Badge>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <Label htmlFor={`paymentCutoffDay-${enrollment.id}`}>Corte de pago</Label>
+                          <Select
+                            value={(enrollment.paymentCutoffDay ?? 30).toString()}
+                            onValueChange={(value) => {
+                              setFormData(prev => prev ? {
+                                ...prev,
+                                classEnrollments: prev.classEnrollments?.map(ce => 
+                                  ce.id === enrollment.id 
+                                    ? { ...ce, paymentCutoffDay: parseInt(value) }
+                                    : ce
+                                )
+                              } : prev)
+                            }}
+                          >
+                            <SelectTrigger className="bg-gray-800 border-gray-600 text-white">
+                              <SelectValue placeholder="Seleccionar día de corte" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="15">15 de cada mes</SelectItem>
+                              <SelectItem value="30">30 de cada mes</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        
+                        <div>
+                          <Label htmlFor={`monthlyFee-${enrollment.id}`}>Mensualidad específica (opcional)</Label>
+                          <Input
+                            id={`monthlyFee-${enrollment.id}`}
+                            type="number"
+                            placeholder="Dejar vacío para usar tarifa general"
+                            value={enrollment.monthlyFee || ''}
+                            onChange={(e) => {
+                              setFormData(prev => prev ? {
+                                ...prev,
+                                classEnrollments: prev.classEnrollments?.map(ce => 
+                                  ce.id === enrollment.id 
+                                    ? { ...ce, monthlyFee: e.target.value ? parseFloat(e.target.value) : undefined }
+                                    : ce
+                                )
+                              } : prev)
+                            }}
+                            className="bg-gray-800 border-gray-600 text-white"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center text-gray-400 py-4">
+                    <p>No hay clases inscritas para este estudiante</p>
+                  </div>
+                )}
               </CardContent>
             </Card>
 

@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { whatsappService } from "@/lib/whatsapp-service";
 import { DigitalReceiptService } from "@/lib/digital-receipt-service";
+import { calculatePaymentPeriodForConcept } from '@/lib/period-calculator';
 
 export class MonthlyPaymentService {
   // ========== CONFIGURACIÓN DE MENSUALIDADES ==========
@@ -97,6 +98,7 @@ export class MonthlyPaymentService {
 
   /**
    * Genera pagos mensuales para todos los estudiantes activos
+   * Ahora genera un pago por cada clase inscrita del estudiante
    * Actualiza pagos existentes si cambió el valor de la mensualidad
    */
   async generateMonthlyPayments(periodId: number, regenerate: boolean = false) {
@@ -108,8 +110,6 @@ export class MonthlyPaymentService {
       throw new Error("Período no encontrado");
     }
 
-    // Las tarifas ahora son por deporte; se resuelve por estudiante
-
     // Obtener estudiantes activos con sus datos de inscripción y clases
     const activeStudents = await prisma.student.findMany({
       where: { isActive: true },
@@ -119,7 +119,11 @@ export class MonthlyPaymentService {
           where: { isActive: true },
           include: {
             danceClass: {
-              select: { sport: true }
+              select: { 
+                id: true,
+                name: true,
+                sport: true 
+              }
             }
           }
         }
@@ -130,47 +134,69 @@ export class MonthlyPaymentService {
     const updatedPayments = [] as any[];
 
     for (const student of activeStudents) {
-      // Verificar si ya existe un pago para este estudiante y período
-      const existingPayment = await prisma.monthlyPayment.findFirst({
-        where: {
-          studentId: student.id,
-          periodId: period.id,
-        },
-      });
-
-      const { amount, feeConfigId } = await this.resolveStudentFeeAndConfig(student);
-
-      if (!existingPayment) {
-        // Crear nuevo pago si no existe
-        const monthlyPayment = await prisma.monthlyPayment.create({
-          data: {
+      // Procesar cada clase inscrita del estudiante
+      for (const enrollment of student.classEnrollments) {
+        // Verificar si ya existe un pago para este estudiante, clase y período
+        const existingPayment = await prisma.monthlyPayment.findFirst({
+          where: {
             studentId: student.id,
+            classId: enrollment.danceClass.id,
             periodId: period.id,
-            feeConfigId: feeConfigId,
-            expectedAmount: amount,
-            status: "PENDING",
           },
         });
 
-        monthlyPayments.push(monthlyPayment);
-      } else if (regenerate || existingPayment.expectedAmount !== amount || existingPayment.feeConfigId !== feeConfigId) {
-        // Actualizar pago existente si:
-        // 1. Se solicita regeneración explícita (regenerate = true)
-        // 2. El monto esperado cambió
-        // 3. La configuración de tarifa cambió
-        const updatedPayment = await prisma.monthlyPayment.update({
-          where: { id: existingPayment.id },
-          data: {
-            expectedAmount: amount,
-            feeConfigId: feeConfigId,
-            // Solo cambiar estado a PENDING si el pago no ha sido pagado
-            status: existingPayment.status === "PAID" || existingPayment.status === "PARTIAL_PAID" 
-              ? existingPayment.status 
-              : "PENDING",
-          },
-        });
+        // Resolver la tarifa para esta clase específica
+        const { amount, feeConfigId } = await this.resolveClassFeeAndConfig(student, enrollment);
 
-        updatedPayments.push(updatedPayment);
+        if (!existingPayment) {
+          // Calcular fecha de vencimiento basada en el día de corte de la clase
+          const dueDate = this.calculateDueDate(
+            enrollment.paymentCutoffDay || 30, 
+            { year: period.year, month: period.month }
+          );
+
+          // Crear nuevo pago si no existe
+          const monthlyPayment = await prisma.monthlyPayment.create({
+            data: {
+              studentId: student.id,
+              classId: enrollment.danceClass.id,
+              periodId: period.id,
+              feeConfigId: feeConfigId,
+              expectedAmount: amount,
+              status: "PENDING",
+              dueDate: dueDate,
+              notes: `Mensualidad ${period.name} - ${enrollment.danceClass.name} (Corte día ${enrollment.paymentCutoffDay || 30})`,
+            },
+          });
+
+          monthlyPayments.push(monthlyPayment);
+        } else if (regenerate || existingPayment.expectedAmount !== amount || existingPayment.feeConfigId !== feeConfigId) {
+          // Calcular nueva fecha de vencimiento basada en el día de corte de la clase
+          const dueDate = this.calculateDueDate(
+            enrollment.paymentCutoffDay || 30, 
+            { year: period.year, month: period.month }
+          );
+
+          // Actualizar pago existente si:
+          // 1. Se solicita regeneración explícita (regenerate = true)
+          // 2. El monto esperado cambió
+          // 3. La configuración de tarifa cambió
+          const updatedPayment = await prisma.monthlyPayment.update({
+            where: { id: existingPayment.id },
+            data: {
+              expectedAmount: amount,
+              feeConfigId: feeConfigId,
+              dueDate: dueDate,
+              notes: `Mensualidad ${period.name} - ${enrollment.danceClass.name} (Corte día ${enrollment.paymentCutoffDay || 30})`,
+              // Solo cambiar estado a PENDING si el pago no ha sido pagado
+              status: existingPayment.status === "PAID" || existingPayment.status === "PARTIAL_PAID" 
+                ? existingPayment.status 
+                : "PENDING",
+            },
+          });
+
+          updatedPayments.push(updatedPayment);
+        }
       }
     }
 
@@ -230,7 +256,169 @@ export class MonthlyPaymentService {
   }
 
   /**
+   * Resuelve la tarifa y configuración para una clase específica
+   * Prioridad: 1) Mensualidad específica de la clase, 2) Mensualidad individual del estudiante, 3) Por deporte, 4) Configuración global
+   */
+  async resolveClassFeeAndConfig(student: any, enrollment: any): Promise<{ amount: number; feeConfigId: number }> {
+    // 1. Si la clase tiene mensualidad específica configurada, usarla
+    if (enrollment.monthlyFee && enrollment.monthlyFee > 0) {
+      console.log(`💰 Estudiante ${student.name} - Clase ${enrollment.danceClass.name}: Usando mensualidad específica de clase $${enrollment.monthlyFee.toLocaleString()}`);
+      
+      // Buscar o crear configuración para esta clase específica
+      let feeConfig = await prisma.monthlyFeeConfig.findFirst({
+        where: {
+          sport: enrollment.danceClass.sport as any,
+          isActive: true,
+          validFrom: { lte: new Date() },
+          OR: [
+            { validUntil: null },
+            { validUntil: { gte: new Date() } }
+          ]
+        },
+        orderBy: { validFrom: 'desc' }
+      });
+
+      if (!feeConfig) {
+        // Crear configuración temporal para esta clase
+        feeConfig = await prisma.monthlyFeeConfig.create({
+          data: {
+            amount: enrollment.monthlyFee,
+            description: `Configuración específica para ${enrollment.danceClass.name}`,
+            sport: enrollment.danceClass.sport as any,
+            isActive: true,
+            validFrom: new Date(),
+            createdBy: 'system'
+          }
+        });
+      }
+
+      return { amount: enrollment.monthlyFee, feeConfigId: feeConfig.id };
+    }
+
+    // 2. Si el estudiante tiene mensualidad individual configurada, usarla
+    if (student.enrollmentData?.monthlyFee && student.enrollmentData.monthlyFee > 0) {
+      console.log(`💰 Estudiante ${student.name} - Clase ${enrollment.danceClass.name}: Usando mensualidad individual $${student.enrollmentData.monthlyFee.toLocaleString()}`);
+      
+      const feeConfig = await this.getOrCreateFeeConfig(enrollment.danceClass.sport as any, student.enrollmentData.monthlyFee);
+      return { amount: student.enrollmentData.monthlyFee, feeConfigId: feeConfig.id };
+    }
+
+    // 3. Determinar mensualidad por deporte usando la tabla monthly_fee_configs
+    const feeConfig = await prisma.monthlyFeeConfig.findFirst({
+      where: {
+        sport: enrollment.danceClass.sport as any,
+        isActive: true,
+        validFrom: { lte: new Date() },
+        OR: [
+          { validUntil: null },
+          { validUntil: { gte: new Date() } }
+        ]
+      },
+      orderBy: { validFrom: 'desc' }
+    });
+
+    if (feeConfig) {
+      console.log(`💰 Estudiante ${student.name} - Clase ${enrollment.danceClass.name}: Usando mensualidad por deporte ${enrollment.danceClass.sport} $${feeConfig.amount.toLocaleString()}`);
+      return { amount: feeConfig.amount, feeConfigId: feeConfig.id };
+    }
+
+    // 4. Usar configuración global como fallback
+    const globalFeeConfig = await prisma.monthlyFeeConfig.findFirst({
+      where: {
+        sport: null, // Configuración global
+        isActive: true,
+        validFrom: { lte: new Date() },
+        OR: [
+          { validUntil: null },
+          { validUntil: { gte: new Date() } }
+        ]
+      },
+      orderBy: { validFrom: 'desc' }
+    });
+
+    if (globalFeeConfig) {
+      console.log(`💰 Estudiante ${student.name} - Clase ${enrollment.danceClass.name}: Usando mensualidad global $${globalFeeConfig.amount.toLocaleString()}`);
+      return { amount: globalFeeConfig.amount, feeConfigId: globalFeeConfig.id };
+    }
+
+    throw new Error(`No se pudo determinar la mensualidad para el estudiante ${student.name} en la clase ${enrollment.danceClass.name}. Configure las tarifas en la configuración de mensualidades.`);
+  }
+
+  /**
+   * Calcula la fecha de vencimiento basada en el día de corte de la clase
+   * @param cutoffDay Día de corte (15 o 30)
+   * @param period Año y mes del período
+   * @returns Fecha de vencimiento calculada
+   */
+  private calculateDueDate(cutoffDay: number, period: { year: number; month: number }): Date {
+    const { year, month } = period;
+    
+    // Calcular el mes de vencimiento
+    let dueMonth = month;
+    let dueYear = year;
+    
+    if (cutoffDay === 15) {
+      // Para corte del 15, vence el 20 del mismo mes
+      dueMonth = month;
+      dueYear = year;
+    } else if (cutoffDay === 30) {
+      // Para corte del 30, vence el 5 del mes siguiente
+      dueMonth = month + 1;
+      if (dueMonth > 12) {
+        dueMonth = 1;
+        dueYear = year + 1;
+      }
+    } else {
+      // Fallback: vence 5 días después del corte
+      dueMonth = month;
+      dueYear = year;
+    }
+    
+    // Crear la fecha de vencimiento
+    const dueDay = cutoffDay === 15 ? 20 : 5;
+    const dueDate = new Date(dueYear, dueMonth - 1, dueDay, 23, 59, 59);
+    
+    console.log(`📅 Calculando fecha de vencimiento: Corte ${cutoffDay} del ${month}/${year} → Vence ${dueDay}/${dueMonth}/${dueYear}`);
+    
+    return dueDate;
+  }
+
+  /**
+   * Obtiene o crea una configuración de tarifa para un deporte específico
+   */
+  private async getOrCreateFeeConfig(sport: any, amount: number): Promise<any> {
+    let feeConfig = await prisma.monthlyFeeConfig.findFirst({
+      where: {
+        sport: sport,
+        isActive: true,
+        validFrom: { lte: new Date() },
+        OR: [
+          { validUntil: null },
+          { validUntil: { gte: new Date() } }
+        ]
+      },
+      orderBy: { validFrom: 'desc' }
+    });
+
+    if (!feeConfig) {
+      feeConfig = await prisma.monthlyFeeConfig.create({
+        data: {
+          amount: amount,
+          description: `Configuración automática para ${sport}`,
+          sport: sport,
+          isActive: true,
+          validFrom: new Date(),
+          createdBy: 'system'
+        }
+      });
+    }
+
+    return feeConfig;
+  }
+
+  /**
    * Resuelve el monto y feeConfigId por estudiante considerando override individual y deporte
+   * @deprecated Usar resolveClassFeeAndConfig para pagos por clase
    */
   private async resolveStudentFeeAndConfig(student: any): Promise<{ amount: number; feeConfigId: number }> {
     // override individual
@@ -283,7 +471,14 @@ export class MonthlyPaymentService {
   ) {
     const payment = await prisma.monthlyPayment.findUnique({
       where: { id: paymentId },
-      include: { student: true, period: true, feeConfig: true },
+      include: { 
+        student: true, 
+        period: true, 
+        feeConfig: true,
+        danceClass: {
+          select: { id: true, name: true, sport: true }
+        }
+      },
     });
 
     if (!payment) {
@@ -333,9 +528,9 @@ export class MonthlyPaymentService {
     console.log("✅ Estado de deuda actualizado");
 
     // Crear nuevo pago pendiente para el saldo restante si es pago parcial
-    if (isPartialPayment) {
+    if (isPartialPayment && payment.danceClass) {
       console.log("🔄 Creando pago pendiente para saldo restante...");
-      await this.createRemainingPayment(payment.student, payment.period, effectiveExpectedAmount - receivedAmount, data.markedBy);
+      await this.createRemainingPayment(payment.student, payment.period, payment.danceClass, effectiveExpectedAmount - receivedAmount, data.markedBy);
       console.log("✅ Pago pendiente creado");
     }
 
@@ -472,6 +667,9 @@ export class MonthlyPaymentService {
           student: true,
           period: true,
           feeConfig: true,
+          danceClass: {
+            select: { id: true, name: true, sport: true }
+          }
         },
         skip: offset,
         take: limit,
@@ -482,23 +680,67 @@ export class MonthlyPaymentService {
 
     const totalPages = Math.ceil(total / limit);
 
+    // Obtener días de corte para pagos que no tienen dueDate
+    const paymentsWithoutDueDate = payments.filter(p => !p.dueDate);
+    const cutoffDaysMap = new Map<number, number>();
+    
+    if (paymentsWithoutDueDate.length > 0) {
+      const classIds = [...new Set(paymentsWithoutDueDate.map(p => p.classId).filter((id): id is number => id !== null))];
+      
+      if (classIds.length > 0) {
+        const enrollments = await prisma.classEnrollment.findMany({
+          where: {
+            classId: { in: classIds },
+            isActive: true
+          },
+          select: { 
+            classId: true, 
+            paymentCutoffDay: true 
+          }
+        });
+        
+        enrollments.forEach(enrollment => {
+          cutoffDaysMap.set(enrollment.classId, enrollment.paymentCutoffDay || 30);
+        });
+      }
+    }
+
     return {
-      payments: payments.map(payment => ({
-        id: payment.id,
-        student: {
-          id: payment.student.id,
-          name: payment.student.name,
-          phone: payment.student.phone
-        },
-        expectedAmount: payment.expectedAmount,
-        paidAmount: payment.paidAmount,
-        status: payment.status,
-        period: payment.period.name,
-        dueDate: payment.period.dueDate,
-        isOverdue: new Date() > payment.period.dueDate && (payment.status === 'PENDING' || payment.status === 'OVERDUE'),
-        createdAt: payment.createdAt,
-        paymentDate: payment.paymentDate,
-      })),
+      payments: payments.map(payment => {
+        // Calcular fecha de vencimiento si no existe
+        let dueDate = payment.dueDate;
+        if (!dueDate) {
+          const cutoffDay = cutoffDaysMap.get(payment.classId || 0) || 30;
+          
+          // Calcular fecha de vencimiento basada en el período
+          dueDate = this.calculateDueDate(cutoffDay, {
+            year: payment.period.year,
+            month: payment.period.month
+          });
+        }
+        
+        return {
+          id: payment.id,
+          student: {
+            id: payment.student.id,
+            name: payment.student.name,
+            phone: payment.student.phone
+          },
+          class: payment.danceClass ? {
+            id: payment.danceClass.id,
+            name: payment.danceClass.name,
+            sport: payment.danceClass.sport
+          } : null,
+          expectedAmount: payment.expectedAmount,
+          paidAmount: payment.paidAmount,
+          status: payment.status,
+          period: payment.period.name,
+          dueDate: dueDate,
+          isOverdue: new Date() > dueDate && (payment.status === 'PENDING' || payment.status === 'OVERDUE'),
+          createdAt: payment.createdAt,
+          paymentDate: payment.paymentDate,
+        };
+      }),
       pagination: {
         page,
         limit,
@@ -575,8 +817,8 @@ export class MonthlyPaymentService {
         expectedAmount: payment.expectedAmount,
         status: payment.status,
         period: payment.period.name,
-        dueDate: payment.period.dueDate,
-        isOverdue: new Date() > payment.period.dueDate && (payment.status === 'PENDING' || payment.status === 'OVERDUE'),
+        dueDate: payment.dueDate,
+        isOverdue: payment.dueDate ? new Date() > payment.dueDate && (payment.status === 'PENDING' || payment.status === 'OVERDUE') : false,
         createdAt: payment.createdAt,
       })),
       pagination: {
@@ -1279,32 +1521,52 @@ export class MonthlyPaymentService {
   /**
    * Crea un nuevo pago pendiente para el saldo restante de un pago parcial
    */
-  private async createRemainingPayment(student: any, period: any, remainingAmount: number, createdBy: string) {
+  private async createRemainingPayment(student: any, period: any, danceClass: any, remainingAmount: number, createdBy: string) {
     try {
       console.log("📋 Creando nuevo pago pendiente para saldo restante...");
 
-      // Obtener la configuración de tarifa más reciente
+      // Obtener la configuración de tarifa más reciente para el deporte de la clase
       const feeConfig = await prisma.monthlyFeeConfig.findFirst({
-        where: { isActive: true },
+        where: { 
+          isActive: true,
+          sport: danceClass.sport
+        },
         orderBy: { id: 'desc' },
       });
 
       if (!feeConfig) {
-        throw new Error('No hay configuración de mensualidad activa');
+        throw new Error(`No hay configuración de mensualidad activa para ${danceClass.sport}`);
       }
+
+      // Obtener el día de corte de la clase (necesitamos buscar la inscripción)
+      const enrollment = await prisma.classEnrollment.findFirst({
+        where: {
+          studentId: student.id,
+          classId: danceClass.id,
+          isActive: true
+        }
+      });
+
+      // Calcular fecha de vencimiento basada en el día de corte de la clase
+      const dueDate = this.calculateDueDate(
+        enrollment?.paymentCutoffDay || 30, 
+        { year: period.year, month: period.month }
+      );
 
       const newPayment = await prisma.monthlyPayment.create({
         data: {
           studentId: student.id,
+          classId: danceClass.id,
           periodId: period.id,
           feeConfigId: feeConfig.id,
           expectedAmount: remainingAmount,
           status: "PENDING",
-          notes: `Saldo restante de pago parcial - ${period.name}`,
+          dueDate: dueDate,
+          notes: `Saldo restante de pago parcial - ${period.name} - ${danceClass.name} (Corte día ${enrollment?.paymentCutoffDay || 30})`,
         },
       });
 
-      console.log(`✅ Nuevo pago pendiente creado: ID ${newPayment.id} por $${remainingAmount.toLocaleString()}`);
+      console.log(`✅ Nuevo pago pendiente creado: ID ${newPayment.id} por $${remainingAmount.toLocaleString()} para clase ${danceClass.name}`);
     } catch (error) {
       console.error("❌ Error creando nuevo pago pendiente:", error);
       throw new Error("Error al crear nuevo pago pendiente");
@@ -1396,17 +1658,49 @@ export class MonthlyPaymentService {
       const isPartialPayment = receivedAmount < payment.expectedAmount;
       const remainingAmount = payment.expectedAmount - receivedAmount;
 
-      // Calcular fecha del próximo pago con día de corte del estudiante (15 o 30)
-      const cutoffDay = student.enrollmentData?.paymentCutoffDay ?? 30;
+      // Calcular fecha del próximo pago con día de corte de la clase específica (15 o 30)
+      let cutoffDay = 30; // Default
+      if (payment.classId) {
+        const enrollment = await prisma.classEnrollment.findFirst({
+          where: {
+            studentId: student.id,
+            classId: payment.classId,
+            isActive: true
+          },
+          select: { paymentCutoffDay: true }
+        });
+        cutoffDay = enrollment?.paymentCutoffDay || 30;
+      }
+      
+      console.log(`🔍 Debug para notificación de pago recibido:`);
+      console.log(`   - StudentId: ${student.id}`);
+      console.log(`   - ClassId: ${payment.classId}`);
+      console.log(`   - CutoffDay calculado: ${cutoffDay}`);
+      
       const nextPaymentDate = await this.calculateNextPaymentDate(period, cutoffDay);
 
       // Generar URL del recibo
       const receiptUrl = `${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/recibo/${receiptData.id}`;
 
+      // Calcular el período correcto para el concepto basado en el día de corte
+      const periodInfo = calculatePaymentPeriodForConcept(
+        cutoffDay, 
+        period.year, 
+        period.month
+      );
+      
+      console.log(`🔍 Debug período en notificación de pago recibido:`);
+      console.log(`   - CutoffDay: ${cutoffDay}`);
+      console.log(`   - Period year: ${period.year}`);
+      console.log(`   - Period month: ${period.month}`);
+      console.log(`   - PeriodInfo calculado:`, periodInfo);
+      console.log(`   - Period name original: ${period.name}`);
+      console.log(`   - Period name corregido: ${periodInfo.periodName}`);
+
       const notificationData = {
         studentName: student.name,
         parentPhone: student.phone,
-        period: period.name,
+        period: periodInfo.periodName,
         amount: receivedAmount,
         paymentMethod: paymentMethodLabels[paymentMethod as keyof typeof paymentMethodLabels] || paymentMethod,
         receiptUrl,
@@ -1537,10 +1831,59 @@ export class MonthlyPaymentService {
       console.log("⚠️ No se pudo buscar recibo digital para el mensaje");
     }
 
+    // Calcular la fecha del próximo pago y el período correcto para el concepto
+    let nextPaymentDate: string | undefined = undefined;
+    let correctPeriodName: string = period.name; // Fallback al período original
+    
+    try {
+      // Obtener el día de corte de la clase
+      let cutoffDay = 30; // Default
+      if (monthlyPayment.classId) {
+        const enrollment = await prisma.classEnrollment.findFirst({
+          where: {
+            studentId: monthlyPayment.studentId,
+            classId: monthlyPayment.classId,
+            isActive: true
+          },
+          select: { paymentCutoffDay: true }
+        });
+        cutoffDay = enrollment?.paymentCutoffDay || 30;
+      }
+      
+      // Calcular el período correcto para el concepto basado en el día de corte
+      const periodInfo = calculatePaymentPeriodForConcept(
+        cutoffDay, 
+        period.year, 
+        period.month
+      );
+      correctPeriodName = periodInfo.periodName;
+      console.log(`🔍 CorrectPeriodName asignado: ${correctPeriodName}`);
+      
+      console.log(`🔍 Debug período en notificación WhatsApp:`);
+      console.log(`   - CutoffDay: ${cutoffDay}`);
+      console.log(`   - Period year: ${period.year}`);
+      console.log(`   - Period month: ${period.month}`);
+      console.log(`   - PeriodInfo calculado:`, periodInfo);
+      console.log(`   - CorrectPeriodName después de asignación: ${correctPeriodName}`);
+      
+      // Calcular el próximo pago: mes siguiente al período actual con el día de corte
+      const currentPeriodDate = new Date(period.year, period.month - 1, 1);
+      const nextPeriodDate = new Date(currentPeriodDate);
+      nextPeriodDate.setMonth(nextPeriodDate.getMonth() + 1);
+      const nextPaymentDateObj = new Date(nextPeriodDate.getFullYear(), nextPeriodDate.getMonth(), cutoffDay);
+      nextPaymentDate = nextPaymentDateObj.toLocaleDateString('es-ES', { 
+        day: '2-digit', 
+        month: '2-digit', 
+        year: 'numeric' 
+      });
+    } catch (error) {
+      console.error("❌ Error calculando próxima fecha de pago:", error);
+    }
+
     const notificationData = {
       studentName: student.name,
       parentPhone: student.phone,
-      period: period.name,
+      period: correctPeriodName,
       amount: paidAmount,
       paymentMethod: paymentMethodLabels[proof.paymentMethod] || proof.paymentMethod,
       receiptUrl,
@@ -1548,7 +1891,12 @@ export class MonthlyPaymentService {
       expectedAmount: monthlyPayment.expectedAmount,
       remainingAmount: isPartialPayment ? remainingAmount : 0,
       paymentStatus: isPartialPayment ? "PARTIAL" : "COMPLETE",
+      nextPaymentDate,
     };
+
+    console.log(`🔍 Debug notificationData antes de enviar WhatsApp:`);
+    console.log(`   - Period en notificationData: ${notificationData.period}`);
+    console.log(`   - CorrectPeriodName: ${correctPeriodName}`);
 
     await whatsappService.sendProofApprovedNotification(notificationData);
     console.log("✅ Notificación de aprobación enviada exitosamente");

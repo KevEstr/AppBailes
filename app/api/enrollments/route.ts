@@ -20,8 +20,9 @@ export async function GET(request: NextRequest) {
     page = parseInt(searchParams.get('page') || '1')
     limit = parseInt(searchParams.get('limit') || '10')
     search = searchParams.get('search')
+    const groupByStudent = searchParams.get('groupByStudent') === 'true'
 
-    console.log('📊 Parámetros recibidos:', { status, page, limit, search })
+    console.log('📊 Parámetros recibidos:', { status, page, limit, search, groupByStudent })
 
     // Validar y ajustar parámetros de paginación
     validPage = Math.max(1, page)
@@ -30,7 +31,126 @@ export async function GET(request: NextRequest) {
     
     console.log('✅ Parámetros validados:', { validPage, validLimit, skip })
 
-    // Construir consulta base
+    if (groupByStudent) {
+      // Lógica para agrupar por estudiante
+      const studentQuery: any = {}
+      
+      // Agregar filtros de estado del estudiante
+      if (status === 'active') {
+        studentQuery.isActive = true
+      } else if (status === 'inactive') {
+        studentQuery.isActive = false
+      }
+
+      // Agregar condiciones de búsqueda si existe un término
+      if (search) {
+        studentQuery.OR = [
+          { name: { contains: search, mode: 'insensitive' } },
+          { phone: { contains: search, mode: 'insensitive' } },
+          { id: { contains: search, mode: 'insensitive' } }
+        ]
+      }
+
+      console.log('🗄️ Ejecutando consulta agrupada por estudiante...')
+      
+      // Obtener estudiantes con sus clases
+      const [students, totalStudents, stats] = await Promise.all([
+        prisma.student.findMany({
+          where: studentQuery,
+          include: {
+            user: { select: { email: true } },
+            classEnrollments: {
+              where: { isActive: true },
+              include: {
+                danceClass: {
+                  include: {
+                    trainer: { select: { name: true } },
+                    location: { select: { name: true, address: true } }
+                  }
+                }
+              }
+            }
+          },
+          orderBy: [
+            { isActive: 'desc' },
+            { name: 'asc' }
+          ],
+          skip,
+          take: validLimit
+        }),
+        prisma.student.count({ where: studentQuery }),
+        // Obtener estadísticas generales
+        Promise.all([
+          prisma.student.count({ where: { isActive: true } }),
+          prisma.student.count({ where: { isActive: false } }),
+          prisma.student.count({ where: { hasDebt: true } })
+        ])
+      ])
+
+      // Transformar datos para el frontend
+      const studentsWithClasses = students.map(student => ({
+        student: {
+          id: student.id,
+          name: student.name,
+          phone: student.phone,
+          hasDebt: student.hasDebt,
+          isActive: student.isActive,
+          avatar: student.avatar,
+          user: student.user
+        },
+        classEnrollments: student.classEnrollments.map(enrollment => ({
+          id: enrollment.id,
+          studentId: enrollment.studentId,
+          classId: enrollment.classId,
+          isActive: enrollment.isActive,
+          createdAt: enrollment.createdAt.toISOString(),
+          paymentCutoffDay: enrollment.paymentCutoffDay,
+          monthlyFee: enrollment.monthlyFee,
+          student: {
+            id: student.id,
+            name: student.name,
+            phone: student.phone,
+            hasDebt: student.hasDebt,
+            isActive: student.isActive,
+            avatar: student.avatar,
+            user: student.user
+          },
+          danceClass: {
+            id: enrollment.danceClass.id,
+            name: enrollment.danceClass.name,
+            sport: enrollment.danceClass.sport,
+            trainer: enrollment.danceClass.trainer,
+            location: enrollment.danceClass.location
+          }
+        })),
+        totalClasses: student.classEnrollments.length,
+        activeClasses: student.classEnrollments.filter(ce => ce.isActive).length
+      }))
+
+      const totalPages = Math.ceil(totalStudents / validLimit)
+      const hasNextPage = validPage < totalPages
+      const hasPrevPage = validPage > 1
+
+      return NextResponse.json({
+        success: true,
+        students: studentsWithClasses,
+        pagination: {
+          total: totalStudents,
+          page: validPage,
+          limit: validLimit,
+          totalPages,
+          hasNextPage,
+          hasPrevPage
+        },
+        stats: {
+          activeStudents: stats[0],
+          inactiveStudents: stats[1],
+          studentsWithDebt: stats[2]
+        }
+      })
+    }
+
+    // Lógica original para enrollments individuales
     const baseQuery: any = {
       isActive: status === 'active' ? true : status === 'inactive' ? false : undefined
     }

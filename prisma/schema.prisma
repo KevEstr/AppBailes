@@ -119,6 +119,7 @@ model DanceClass {
   studentTransfersTo StudentTransfer[] @relation("TransferTo")
   trainerAttendances TrainerAttendance[]
   matches Match[]
+  monthlyPayments MonthlyPayment[] // Nueva relación con pagos mensuales
 
   @@map("classes")
 }
@@ -173,6 +174,9 @@ model ClassEnrollment {
   classId    Int
   enrolledAt DateTime   @default(now()) @db.Timestamptz
   isActive   Boolean    @default(true)
+  // Configuración de pagos por clase
+  paymentCutoffDay   Int?    @default(30) // Día de corte: 15 o 30
+  monthlyFee         Float?  // Mensualidad específica para esta clase (opcional)
   createdAt  DateTime   @default(now()) @db.Timestamptz
   updatedAt  DateTime   @updatedAt @db.Timestamptz
   danceClass DanceClass @relation(fields: [classId], references: [id], onDelete: Cascade)
@@ -183,6 +187,7 @@ model ClassEnrollment {
   @@index([createdAt])
   @@index([studentId])
   @@index([classId])
+  @@index([paymentCutoffDay])
   @@map("class_enrollments")
 }
 
@@ -337,6 +342,7 @@ model PaymentPeriod {
 model MonthlyPayment {
   id             Int                  @id @default(autoincrement())
   studentId      String
+  classId        Int?                 // Temporalmente nullable para migración
   periodId       Int
   feeConfigId    Int
   expectedAmount Float
@@ -349,14 +355,22 @@ model MonthlyPayment {
   paymentMethod  PaymentMethod?       // Método de pago cuando se marca como recibido
   receivedAt     DateTime?            @db.Timestamptz // Fecha cuando se recibió el pago
   markedAsPaidBy String?              // Usuario que marcó el pago como recibido
+  // Fecha de vencimiento individual basada en el día de corte de la clase
+  dueDate        DateTime?            @db.Timestamptz
   createdAt      DateTime             @default(now()) @db.Timestamptz
   updatedAt      DateTime             @updatedAt @db.Timestamptz
   feeConfig      MonthlyFeeConfig     @relation(fields: [feeConfigId], references: [id])
   period         PaymentPeriod        @relation(fields: [periodId], references: [id], onDelete: Cascade)
   student        Student              @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  danceClass     DanceClass?          @relation(fields: [classId], references: [id], onDelete: Cascade)
   paymentForms   PaymentForm[]
   receipts       Receipt[]
 
+  @@index([studentId])
+  @@index([classId])
+  @@index([periodId])
+  @@index([status])
+  @@index([dueDate])
   @@map("monthly_payments")
 }
 

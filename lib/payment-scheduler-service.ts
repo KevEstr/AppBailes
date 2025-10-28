@@ -329,10 +329,27 @@ export class PaymentSchedulerService {
         const custom = scheduler.customFilter ? JSON.parse(scheduler.customFilter) : null;
         if (custom?.cutoffGroup === '15' || custom?.cutoffGroup === '30') {
           const wanted = parseInt(custom.cutoffGroup, 10);
-          paymentsToSend = paymentsToSend.filter((payment: any) => {
-            const cutoff = payment.student.enrollmentData?.paymentCutoffDay;
-            return cutoff === wanted;
-          });
+          // Filtrar por día de corte de la clase específica
+          const filteredPayments = [];
+          for (const payment of paymentsToSend) {
+            let cutoffDay = 30; // Default
+            if (payment.classId) {
+              const enrollment = await prisma.classEnrollment.findFirst({
+                where: {
+                  studentId: payment.studentId,
+                  classId: payment.classId,
+                  isActive: true
+                },
+                select: { paymentCutoffDay: true }
+              });
+              cutoffDay = enrollment?.paymentCutoffDay || 30;
+            }
+            
+            if (cutoffDay === wanted) {
+              filteredPayments.push(payment);
+            }
+          }
+          paymentsToSend = filteredPayments;
           console.log(`🔎 Aplicando filtro de corte ${wanted}: ${paymentsToSend.length} pagos`);
         }
       } catch (e) {
@@ -365,9 +382,27 @@ export class PaymentSchedulerService {
         const payment = paymentsWithPhone[i];
         
         try {
+          // Obtener el día de corte de la clase específica
+          let cutoffDay = 30; // Default
+          if (payment.classId) {
+            const enrollment = await prisma.classEnrollment.findFirst({
+              where: {
+                studentId: payment.studentId,
+                classId: payment.classId,
+                isActive: true
+              },
+              select: { paymentCutoffDay: true }
+            });
+            cutoffDay = enrollment?.paymentCutoffDay || 30;
+          }
+          
+          console.log(`🔍 Debug para scheduler pago ${payment.id}:`);
+          console.log(`   - StudentId: ${payment.studentId}`);
+          console.log(`   - ClassId: ${payment.classId}`);
+          console.log(`   - CutoffDay calculado: ${cutoffDay}`);
+          
           // Calcular fecha de corte (15 o 30) para el mensaje
           const now = new Date();
-          const cutoffDay = payment.student.enrollmentData?.paymentCutoffDay ?? 30;
           const due = new Date(now);
           // Si hoy ya pasó el corte de este mes, apuntar al próximo mes
           if (now.getDate() > cutoffDay) {

@@ -6,6 +6,7 @@ interface WhatsAppMessage {
   period: string;
   dueDate: string;
   sport?: 'DANCE' | 'VOLLEYBALL'; // Campo opcional para seleccionar template
+  cutoffDay?: number; // Día de corte de la clase
 }
 
 interface PendingPaymentMessage {
@@ -117,15 +118,11 @@ export class WhatsAppService {
     console.log('   📊 Datos:', data);
     console.log('   🔗 URL destino:', this.baseUrl);
     
-    // Utilidades para formatear período y próximo pago al día de corte (15 o 30)
-    const buildPeriodWithCutoff = (periodLabel: string, cutoffDay: number): string => {
-      // Si ya contiene un día, lo respetamos; de lo contrario anteponemos "<cutoffDay> de "
-      const hasDay = /\b\d{1,2}\b/.test(periodLabel);
-      return hasDay ? periodLabel : `${cutoffDay} de ${periodLabel}`;
-    };
-
-    const cutoffDay = typeof (data as any).cutoffDay === 'number' ? (data as any).cutoffDay : 15;
-    const periodWithDay = buildPeriodWithCutoff(data.period, cutoffDay);
+    // Obtener el día de corte de los datos o usar 30 por defecto
+    const cutoffDay = data.cutoffDay || 30;
+    
+    // El período ya viene formateado correctamente desde el endpoint
+    const periodWithDay = data.period;
     // Seleccionar template según el deporte
     console.log('🏃 Deporte detectado:', data.sport);
     console.log('📆 Día de corte utilizado:', cutoffDay);
@@ -859,6 +856,8 @@ ${data.paymentLink}
       console.log('   📱 Teléfono:', formattedPhone);
       console.log('   💰 Monto:', data.amount);
       console.log('   💸 Pago parcial:', data.isPartialPayment ? 'SÍ' : 'NO');
+      console.log('   📅 Período recibido:', data.period);
+      console.log('   📅 Próximo pago:', data.nextPaymentDate);
       
       // PRIORIDAD 1: Intentar template personalizado
       try {

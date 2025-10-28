@@ -72,6 +72,8 @@ interface ClassEnrollment {
   classId: number;
   isActive: boolean;
   createdAt: string;
+  paymentCutoffDay?: number;
+  monthlyFee?: number;
   student: Student;
   danceClass: {
     id: number;
@@ -87,6 +89,13 @@ interface ClassEnrollment {
   };
 }
 
+interface StudentWithClasses {
+  student: Student;
+  classEnrollments: ClassEnrollment[];
+  totalClasses: number;
+  activeClasses: number;
+}
+
 interface Pagination {
   total: number;
   page: number;
@@ -95,7 +104,7 @@ interface Pagination {
 }
 
 export function StudentsManagement() {
-  const [enrollments, setEnrollments] = useState<ClassEnrollment[]>([]);
+  const [students, setStudents] = useState<StudentWithClasses[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -112,25 +121,25 @@ export function StudentsManagement() {
     studentsWithDebt: 0
   });
   const [selectedStudent, setSelectedStudent] =
-    useState<ClassEnrollment | null>(null);
+    useState<StudentWithClasses | null>(null);
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
 
   const { toast } = useToast();
 
-  // Función helper para convertir Student local a Student del modal
-  const convertStudentForModal = (localStudent: Student) => ({
-    id: localStudent.id.toString(),
-    name: localStudent.name,
-    email: localStudent.user?.email || '',
-    phone: localStudent.phone,
-    documentNumber: localStudent.id.toString(),
+  // Función helper para convertir StudentWithClasses a Student del modal
+  const convertStudentForModal = (studentWithClasses: StudentWithClasses) => ({
+    id: studentWithClasses.student.id.toString(),
+    name: studentWithClasses.student.name,
+    email: studentWithClasses.student.user?.email || '',
+    phone: studentWithClasses.student.phone,
+    documentNumber: studentWithClasses.student.id.toString(),
     documentType: 'CC', // Valor por defecto
     birthDate: '',
     address: '',
-            addressLatitude: undefined,
-        addressLongitude: undefined,
+    addressLatitude: undefined,
+    addressLongitude: undefined,
     neighborhood: '',
     city: "Itagüí",
     hasSisben: false,
@@ -144,8 +153,9 @@ export function StudentsManagement() {
     emergencyContactRelation: '',
     emergencyContactPhone: '',
     monthlyFee: 0,
-    avatar: localStudent.avatar || '',
-    isActive: localStudent.isActive,
+    avatar: studentWithClasses.student.avatar || '',
+    isActive: studentWithClasses.student.isActive,
+    classEnrollments: studentWithClasses.classEnrollments, // Incluir las clases
     // Campos legacy para compatibilidad
     age: undefined,
     maritalStatus: '',
@@ -168,6 +178,7 @@ export function StudentsManagement() {
         page: page.toString(),
         limit: limit.toString(),
         status: status,
+        groupByStudent: "true", // Nueva opción para agrupar por estudiante
       });
 
       if (search.trim()) {
@@ -178,7 +189,7 @@ export function StudentsManagement() {
       const data = await response.json();
 
       if (data.success) {
-        setEnrollments(data.enrollments);
+        setStudents(data.students || data.enrollments); // Compatibilidad con ambos formatos
         setPagination(data.pagination);
         // Guardar las estadísticas generales
         if (data.stats) {
@@ -221,18 +232,18 @@ export function StudentsManagement() {
     loadEnrollments(1, searchTerm, statusFilter, newLimit)
   }
 
-  const handleToggleStatus = async (enrollment: ClassEnrollment) => {
+  const handleToggleStatus = async (studentWithClasses: StudentWithClasses) => {
     try {
-      // Actualizar el estado del estudiante en lugar del estado de la inscripción
+      // Actualizar el estado del estudiante
       const response = await fetch("/api/students/profile", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          studentId: enrollment.student.id.toString(),
-          name: enrollment.student.name,
-          phone: enrollment.student.phone,
-          email: enrollment.student.user?.email || '',
-          isActive: !enrollment.student.isActive
+          studentId: studentWithClasses.student.id.toString(),
+          name: studentWithClasses.student.name,
+          phone: studentWithClasses.student.phone,
+          email: studentWithClasses.student.user?.email || '',
+          isActive: !studentWithClasses.student.isActive
         }),
       });
 
@@ -242,7 +253,7 @@ export function StudentsManagement() {
         toast({
           title: "Éxito",
           description: `Estudiante ${
-            !enrollment.student.isActive ? "activado" : "desactivado"
+            !studentWithClasses.student.isActive ? "activado" : "desactivado"
           } correctamente`,
         });
         loadEnrollments(currentPage, searchTerm, statusFilter);
@@ -556,7 +567,7 @@ export function StudentsManagement() {
                             </TableCell>
                           </TableRow>
                         );
-                      } else if (enrollments.length === 0) {
+                      } else if (students.length === 0) {
                         return (
                           <TableRow>
                             <TableCell
@@ -568,24 +579,24 @@ export function StudentsManagement() {
                           </TableRow>
                         );
                       } else {
-                        return enrollments.map((enrollment) => (
+                        return students.map((studentWithClasses) => (
                           <TableRow
-                            key={enrollment.id}
+                            key={studentWithClasses.student.id}
                             className="border-gray-600"
                           >
                             <TableCell>
                               <div className="flex items-center gap-3">
                                 {/* Avatar */}
                                 <div className="flex-shrink-0">
-                                  {enrollment.student?.avatar ? (
+                                  {studentWithClasses.student?.avatar ? (
                                     <img
-                                      src={enrollment.student.avatar}
-                                      alt={`Foto de ${enrollment.student.name}`}
+                                      src={studentWithClasses.student.avatar}
+                                      alt={`Foto de ${studentWithClasses.student.name}`}
                                       className="w-10 h-10 rounded-full object-cover border-2 border-gray-600"
                                     />
                                   ) : (
                                     <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-sm">
-                                      {enrollment.student.name
+                                      {studentWithClasses.student.name
                                         .split(" ")
                                         .map((n) => n[0])
                                         .join("")
@@ -597,13 +608,13 @@ export function StudentsManagement() {
                                 {/* Información del estudiante */}
                                 <div className="space-y-1 flex-1 min-w-0">
                                   <p className="text-white font-medium truncate">
-                                    {enrollment.student.name}
+                                    {studentWithClasses.student.name}
                                   </p>
                                   <div className="flex items-center gap-2 text-sm text-gray-400">
                                     <IdCard className="w-3 h-3" />
-                                    ID: {enrollment.student.id}
+                                    ID: {studentWithClasses.student.id}
                                   </div>
-                                  {enrollment.student.hasDebt && (
+                                  {studentWithClasses.student.hasDebt && (
                                     <Badge
                                       variant="destructive"
                                       className="text-xs"
@@ -615,18 +626,38 @@ export function StudentsManagement() {
                               </div>
                             </TableCell>
                             <TableCell>
-                              <div className="space-y-1 flex justify-center">
-                                {getClassTypeBadge(enrollment.danceClass.sport)}
+                              <div className="space-y-1">
+                                <div className="text-sm text-white font-medium">
+                                  {studentWithClasses.activeClasses} clase{studentWithClasses.activeClasses !== 1 ? 's' : ''} activa{studentWithClasses.activeClasses !== 1 ? 's' : ''}
+                                </div>
+                                <div className="space-y-1">
+                                  {studentWithClasses.classEnrollments.slice(0, 2).map((enrollment) => (
+                                    <div key={enrollment.id} className="flex items-center gap-2">
+                                      {getClassTypeBadge(enrollment.danceClass.sport)}
+                                      <span className="text-xs text-gray-400">
+                                        {enrollment.danceClass.name}
+                                      </span>
+                                    </div>
+                                  ))}
+                                  {studentWithClasses.classEnrollments.length > 2 && (
+                                    <div className="text-xs text-gray-500">
+                                      +{studentWithClasses.classEnrollments.length - 2} más
+                                    </div>
+                                  )}
+                                </div>
                               </div>
                             </TableCell>
                             <TableCell>
                               <div className="space-y-1 text-sm">
-                                <p className="text-white" title={enrollment.danceClass.trainer.name}>
-                                  {truncateText(enrollment.danceClass.trainer.name)}
-                                </p>
-                                {enrollment.danceClass.location && (
-                                  <div className="flex items-center gap-1 text-gray-400" title={enrollment.danceClass.location.name}>
-                                    {truncateText(enrollment.danceClass.location.name)}
+                                <div className="text-white">
+                                  {studentWithClasses.classEnrollments.length > 0 && 
+                                    truncateText(studentWithClasses.classEnrollments[0].danceClass.trainer.name)
+                                  }
+                                </div>
+                                {studentWithClasses.classEnrollments.length > 0 && 
+                                 studentWithClasses.classEnrollments[0].danceClass.location && (
+                                  <div className="flex items-center gap-1 text-gray-400">
+                                    {truncateText(studentWithClasses.classEnrollments[0].danceClass.location.name)}
                                   </div>
                                 )}
                               </div>
@@ -635,12 +666,12 @@ export function StudentsManagement() {
                               <div className="space-y-1 text-sm">
                                 <div className="flex items-center gap-1 text-gray-300">
                                   <Phone className="w-3 h-3" />
-                                  {formatPhoneForDisplay(enrollment.student.phone)}
+                                  {formatPhoneForDisplay(studentWithClasses.student.phone)}
                                 </div>
-                                {enrollment.student.user?.email && (
+                                {studentWithClasses.student.user?.email && (
                                   <div className="flex items-center gap-1 text-gray-400">
                                     <Mail className="w-3 h-3" />
-                                    {enrollment.student.user.email}
+                                    {studentWithClasses.student.user.email}
                                   </div>
                                 )}
                               </div>
@@ -649,17 +680,17 @@ export function StudentsManagement() {
                               <div className="space-y-2">
                                 <Badge
                                   variant={
-                                    enrollment.student.isActive ? "default" : "secondary"
+                                    studentWithClasses.student.isActive ? "default" : "secondary"
                                   }
                                   className={
-                                    enrollment.student.isActive
+                                    studentWithClasses.student.isActive
                                       ? "bg-green-600"
                                       : "bg-gray-600"
                                   }
                                 >
-                                  {enrollment.student.isActive ? "Activo" : "Inactivo"}
+                                  {studentWithClasses.student.isActive ? "Activo" : "Inactivo"}
                                 </Badge>
-                                {enrollment.student.hasDebt && (
+                                {studentWithClasses.student.hasDebt && (
                                   <div className="flex items-center gap-1 text-orange-400 text-xs">
                                     <AlertTriangle className="w-3 h-3" />
                                     Con deuda
@@ -671,9 +702,9 @@ export function StudentsManagement() {
                               <div className="text-sm text-gray-400">
                                 <div className="flex items-center gap-1">
                                   <Calendar className="w-3 h-3" />
-                                  {new Date(
-                                    enrollment.createdAt
-                                  ).toLocaleDateString()}
+                                  {studentWithClasses.classEnrollments.length > 0 && 
+                                    new Date(studentWithClasses.classEnrollments[0].createdAt).toLocaleDateString()
+                                  }
                                 </div>
                               </div>
                             </TableCell>
@@ -683,7 +714,7 @@ export function StudentsManagement() {
                                   size="sm"
                                   variant="ghost"
                                   onClick={() => {
-                                    setSelectedStudent(enrollment);
+                                    setSelectedStudent(studentWithClasses);
                                     setDetailModalOpen(true);
                                   }}
                                   className="text-blue-400 hover:text-blue-300 hover:bg-blue-400/10"
@@ -695,7 +726,7 @@ export function StudentsManagement() {
                                   size="sm"
                                   variant="ghost"
                                   onClick={() => {
-                                    setSelectedStudent(enrollment);
+                                    setSelectedStudent(studentWithClasses);
                                     setEditModalOpen(true);
                                   }}
                                   className="text-orange-400 hover:text-orange-300 hover:bg-orange-400/10"
@@ -706,32 +737,21 @@ export function StudentsManagement() {
                                 <Button
                                   size="sm"
                                   variant="ghost"
-                                  onClick={() => handleToggleStatus(enrollment)}
+                                  onClick={() => handleToggleStatus(studentWithClasses)}
                                   className={
-                                    enrollment.student.isActive
+                                    studentWithClasses.student.isActive
                                       ? "text-red-400 hover:text-red-300 hover:bg-red-400/10"
                                       : "text-green-400 hover:text-green-300 hover:bg-green-400/10"
                                   }
                                   title={
-                                    enrollment.student.isActive ? "Desactivar" : "Activar"
+                                    studentWithClasses.student.isActive ? "Desactivar" : "Activar"
                                   }
                                 >
-                                  {enrollment.student.isActive ? (
+                                  {studentWithClasses.student.isActive ? (
                                     <PowerOff className="w-4 h-4" />
                                   ) : (
                                     <Power className="w-4 h-4" />
                                   )}
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  onClick={() =>
-                                    handleDeleteEnrollment(enrollment.id)
-                                  }
-                                  className="text-red-400 hover:text-red-300 hover:bg-red-400/10"
-                                  title="Eliminar inscripción"
-                                >
-                                  <Trash2 className="w-4 h-4" />
                                 </Button>
                               </div>
                             </TableCell>
@@ -770,7 +790,7 @@ export function StudentsManagement() {
                     Detalles Completos del Estudiante
                   </DialogTitle>
                 </DialogHeader>
-                <StudentDetailModal enrollment={selectedStudent} />
+                <StudentDetailModal enrollment={selectedStudent?.classEnrollments[0] || null} />
                 <div className="flex justify-end mt-6 pt-4 border-t border-gray-700">
                   <Button
                     onClick={() => setDetailModalOpen(false)}
@@ -788,24 +808,24 @@ export function StudentsManagement() {
             <EditStudentModal
               isOpen={editModalOpen}
               onClose={() => setEditModalOpen(false)}
-              student={convertStudentForModal(selectedStudent.student)}
+              student={convertStudentForModal(selectedStudent)}
               onStudentUpdated={async () => {
                 // Recargar los datos para actualizar contadores y lista
                 await loadEnrollments(currentPage, searchTerm, statusFilter);
                 
                 // También actualizar el estado local del estudiante seleccionado
                 // Buscar el estudiante actualizado en la nueva lista
-                const updatedEnrollments = enrollments.map(enrollment => {
-                  if (enrollment.student.id.toString() === selectedStudent.student.id.toString()) {
+                const updatedStudents = students.map(studentWithClasses => {
+                  if (studentWithClasses.student.id.toString() === selectedStudent.student.id.toString()) {
                     // Cargar los datos actualizados del estudiante desde el API
-                    return fetch(`/api/students/profile?studentId=${enrollment.student.id}`)
+                    return fetch(`/api/students/profile?studentId=${studentWithClasses.student.id}`)
                       .then(res => res.json())
                       .then(data => {
                         if (data.success && data.student) {
                           return {
-                            ...enrollment,
+                            ...studentWithClasses,
                             student: {
-                              ...enrollment.student,
+                              ...studentWithClasses.student,
                               name: data.student.name,
                               phone: data.student.phone,
                               isActive: data.student.isActive,
@@ -815,19 +835,20 @@ export function StudentsManagement() {
                                 neighborhood: data.student.enrollmentData.neighborhood,
                                 city: data.student.enrollmentData.city,
                               })
-                            }
+                            },
+                            classEnrollments: data.student.classEnrollments || studentWithClasses.classEnrollments
                           };
                         }
-                        return enrollment;
+                        return studentWithClasses;
                       })
-                      .catch(() => enrollment);
+                      .catch(() => studentWithClasses);
                   }
-                  return enrollment;
+                  return studentWithClasses;
                 });
                 
-                // Actualizar el estado con los enrollments actualizados
-                Promise.all(updatedEnrollments).then(updated => {
-                  setEnrollments(updated);
+                // Actualizar el estado con los estudiantes actualizados
+                Promise.all(updatedStudents).then(updated => {
+                  setStudents(updated);
                 });
                 
                 setSelectedStudent(null);

@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { whatsappService, WhatsAppService } from '@/lib/whatsapp-service';
+import { whatsappService } from '@/lib/whatsapp-service';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/nextauth';
+import { calculatePaymentPeriodForConcept } from '@/lib/period-calculator';
 
 export async function POST(request: NextRequest) {
   try {
@@ -51,7 +52,10 @@ export async function POST(request: NextRequest) {
             }
           }
         },
-        period: true
+        period: true,
+        danceClass: {
+          select: { id: true, name: true, sport: true }
+        }
       }
     });
 
@@ -91,29 +95,44 @@ export async function POST(request: NextRequest) {
       const payment = paymentsWithPhone[i];
       
       try {
-        // Calcular fecha de corte personalizada: 15 o 30, respetando si ya pasó
-        const TZ = 'America/Bogota';
-        const periodDue = new Date(payment.period.dueDate);
-        const cutoff = payment.student.enrollmentData?.paymentCutoffDay ?? 30;
-        const due = new Date(periodDue);
-        if (periodDue.getDate() > cutoff) {
-          due.setMonth(due.getMonth() + 1);
+        // Obtener el día de corte de la clase específica
+        let enrollment = null;
+        if (payment.classId !== null) {
+          enrollment = await prisma.classEnrollment.findFirst({
+            where: {
+              studentId: payment.studentId,
+              classId: payment.classId as number,
+              isActive: true
+            }
+          });
         }
-        due.setDate(cutoff);
-        const dueDate = due.toLocaleDateString('es-ES');
+
+        const cutoffDay = enrollment?.paymentCutoffDay || 30;
         
-        // Determinar el deporte del estudiante
-        const sports = payment.student.classEnrollments?.map(enrollment => enrollment.danceClass.sport) || [];
-        const primarySport = sports.includes('DANCE') ? 'DANCE' : (sports[0] || 'DANCE');
+        console.log(`🔍 Debug para pago ${payment.id}:`);
+        console.log(`   - StudentId: ${payment.studentId}`);
+        console.log(`   - ClassId: ${payment.classId}`);
+        console.log(`   - Enrollment encontrado:`, enrollment);
+        console.log(`   - CutoffDay calculado: ${cutoffDay}`);
+        
+        // Calcular el período correcto para el concepto basado en el día de corte
+        const periodInfo = calculatePaymentPeriodForConcept(
+          cutoffDay, 
+          payment.period.year, 
+          payment.period.month
+        );
+        
+        console.log(`   - PeriodInfo calculado:`, periodInfo);
         
         const whatsappData = {
           studentName: payment.student.name,
           parentPhone: payment.student.phone,
           amount: payment.expectedAmount,
-          period: payment.period.name,
-          dueDate: dueDate,
-          sport: primarySport,
+          period: periodInfo.periodName,
+          dueDate: periodInfo.dueDate,
+          sport: payment.danceClass?.sport || 'DANCE',
           paymentId: payment.id,
+          cutoffDay: cutoffDay, // Agregar el día de corte para el template
           paymentLink: '' // No usamos links de pago en el nuevo sistema
         };
 
