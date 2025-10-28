@@ -59,7 +59,7 @@ COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
 COPY --from=builder --chown=nextjs:nodejs /app/scripts/start-production.sh ./start-production.sh
 
 # Install prisma CLI in production
-RUN npm install prisma @prisma/client
+RUN npm install prisma @prisma/client --legacy-peer-deps
 
 # Generate Prisma Client with correct permissions
 RUN npx prisma generate
