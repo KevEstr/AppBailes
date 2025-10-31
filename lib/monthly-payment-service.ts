@@ -2302,7 +2302,7 @@ export class MonthlyPaymentService {
               expectedAmount: additionalPayment.amount,
               status: "PAID",
               paidAt: new Date(),
-              paymentMethod: additionalPayment.paymentMethod as PaymentMethod || null
+              paymentMethod: additionalPayment.paymentMethod || null
             }
           });
           console.log(`✅ Nuevo pago de inscripción creado: ID ${enrollmentPayment.id}`);
