@@ -90,32 +90,35 @@ export async function GET(
     
     if (receipt.monthlyPayment) {
       // Si es un pago mensual, obtener el período y calcular el siguiente
-      const monthlyPayment = await prisma.monthlyPayment.findFirst({
-        where: { 
-          studentId: receipt.studentId,
-          classId: receipt.monthlyPayment.classId
+      const monthlyPayment = await prisma.monthlyPayment.findUnique({
+        where: {
+          id: receipt.monthlyPaymentId as number
         },
-        include: { period: true },
-        orderBy: { createdAt: 'desc' }
+        include: { period: true }
       });
-      
+
+      console.log(`   - Monthly payment: ${JSON.stringify(monthlyPayment)}`);
       if (monthlyPayment?.period) {
-        // Calcular el mes siguiente al período del pago
-        const currentPeriodDate = new Date(monthlyPayment.period.year, monthlyPayment.period.month - 1, 1);
-        const nextPeriodDate = new Date(currentPeriodDate);
-        nextPeriodDate.setMonth(nextPeriodDate.getMonth() + 1);
-        nextPaymentDate = new Date(nextPeriodDate.getFullYear(), nextPeriodDate.getMonth(), cutoff);
-        
-        console.log(`   - Period year: ${monthlyPayment.period.year}`);
-        console.log(`   - Period month: ${monthlyPayment.period.month}`);
-        console.log(`   - Current period date: ${currentPeriodDate.toISOString()}`);
-        console.log(`   - Next period date: ${nextPeriodDate.toISOString()}`);
+        // Calcular el mes siguiente al período del pago usando componentes (sin conversiones de zona horaria)
+        const curYear = monthlyPayment.period.year;
+        const curMonth = monthlyPayment.period.month; // 1-12
+        const nextMonthNum = curMonth === 12 ? 1 : curMonth + 1;
+        const nextYear = curMonth === 12 ? curYear + 1 : curYear;
+        // Construir directamente con año/mes/día
+        nextPaymentDate = new Date(nextYear, nextMonthNum - 1, cutoff);
+
+        console.log(`   - Period year: ${curYear}`);
+        console.log(`   - Period month: ${curMonth}`);
+        console.log(`   - Next year: ${nextYear}`);
+        console.log(`   - Next month: ${nextMonthNum}`);
       } else {
-        // Fallback: usar fecha de creación del recibo + 1 mes
-        const paymentDate = toZonedTime(new Date(receipt.createdAt), TZ);
-        nextPaymentDate = new Date(paymentDate);
-        nextPaymentDate.setMonth(nextPaymentDate.getMonth() + 1);
-        nextPaymentDate.setDate(cutoff);
+        // Fallback: usar fecha de creación del recibo + 1 mes (sin conversiones)
+        const created = new Date(receipt.createdAt);
+        const curYear = created.getFullYear();
+        const curMonth = created.getMonth() + 1; // 1-12
+        const nextMonthNum = curMonth === 12 ? 1 : curMonth + 1;
+        const nextYear = curMonth === 12 ? curYear + 1 : curYear;
+        nextPaymentDate = new Date(nextYear, nextMonthNum - 1, cutoff);
       }
     } else {
       // Si no es un pago mensual, usar fecha de creación del recibo + 1 mes
