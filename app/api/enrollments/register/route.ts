@@ -277,62 +277,8 @@ export async function POST(request: NextRequest) {
       console.log('⚠️ No se proporcionó classId, no se crea inscripción a clase')
     }
 
-    // ===== CREAR PAGO DE INSCRIPCIÓN AUTOMÁTICAMENTE =====
-    console.log('💰 Creando pago de inscripción automáticamente...');
-    let enrollmentPayment = null;
-    let paymentForm = null;
-    
-    try {
-      // Crear el pago de inscripción
-      enrollmentPayment = await enrollmentPaymentService.createEnrollmentPayment(
-        student.id, 
-        data.sport as 'DANCE' | 'VOLLEYBALL'
-      );
-      
-      console.log('✅ Pago de inscripción creado:', enrollmentPayment.id);
-      
-      // Crear formulario de pago
-      paymentForm = await enrollmentPaymentService.generateEnrollmentPaymentForm(student.id);
-      
-      console.log('✅ Formulario de pago creado:', paymentForm.id);
-      
-      // ===== ENVIAR WHATSAPP AUTOMÁTICAMENTE =====
-      // TEMPORALMENTE DESHABILITADO - Para reactivar, descomenta las líneas siguientes
-      /*
-      console.log('📱 Enviando WhatsApp automático...');
-      
-      const whatsappService = new WhatsAppService();
-      const paymentUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}${paymentForm.url}`;
-      
-      // Determinar número de contacto según deporte
-      const contactPhone = data.sport === 'VOLLEYBALL' ? '3128984535' : '3205656520';
-      
-      const whatsappData = {
-        parentPhone: student.phone,
-        studentName: capitalizedStudentName,
-        sport: data.sport === 'DANCE' ? 'Baile' : 'Voleibol',
-        concept: `Inscripción ${data.sport === 'DANCE' ? 'Baile' : 'Voleibol'}`,
-        amount: enrollmentPayment.expectedAmount,
-        paymentUrl: paymentUrl,
-        contactPhone: contactPhone
-      };
-      
-      const whatsappResult = await whatsappService.sendEnrollmentTemplate(whatsappData);
-      
-      if (whatsappResult.success) {
-        console.log('✅ WhatsApp enviado exitosamente');
-      } else {
-        console.log('⚠️ Error enviando WhatsApp:', whatsappResult.error);
-      }
-      */
-      
-      // Mensaje temporal mientras WhatsApp está deshabilitado
-      console.log('📱 WhatsApp temporalmente deshabilitado');
-      
-    } catch (error) {
-      console.error('❌ Error en proceso de pago/WhatsApp:', error);
-      // No fallamos la inscripción si hay error en el pago
-    }
+    // Nota: No se crea pago de inscripción automáticamente.
+    // La inscripción se cobra desde el modal de "Marcar pago como recibido" como pago adicional.
     
     console.log('🎉 Proceso completado exitosamente')
     
