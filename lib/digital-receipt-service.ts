@@ -1,6 +1,5 @@
 import { prisma } from '@/lib/prisma';
 import { calculatePaymentPeriodForConcept } from '@/lib/period-calculator';
-import { toZonedTime } from 'date-fns-tz';
 
 export interface ReceiptData {
   id: number;
@@ -92,34 +91,26 @@ export class DigitalReceiptService {
       console.log(`   - Period info calculated: ${periodInfo.periodName}`);
 
       // Calcular fecha del próximo pago basada en el día de corte de la clase
-      // Usar zona horaria de Colombia para evitar problemas de desfase
-      const TZ = 'America/Bogota';
+      // Calcular directamente sin conversiones de zona horaria para evitar desfases
       const currentDate = new Date(monthlyPayment.period.year, monthlyPayment.period.month - 1, 1);
       const nextMonth = new Date(currentDate);
       nextMonth.setMonth(nextMonth.getMonth() + 1);
       
-      // Calcular año, mes y día del próximo pago
+      // Obtener año y mes del próximo mes
       const nextYear = nextMonth.getFullYear();
       const nextMonthNum = nextMonth.getMonth() + 1;
       
-      // Crear la fecha directamente usando los componentes para evitar problemas de zona horaria
-      // Usamos las 17:00 UTC (12:00 Colombia) para asegurar que siempre estemos en el día correcto
-      // Colombia está en UTC-5, entonces 17:00 UTC = 12:00 Colombia
-      const nextPaymentDateUTC = new Date(Date.UTC(nextYear, nextMonthNum - 1, cutoffDay, 17, 0, 0));
-      
-      // Convertir a zona horaria de Colombia para formatear correctamente
-      const nextPaymentDateZoned = toZonedTime(nextPaymentDateUTC, TZ);
-      const day = nextPaymentDateZoned.getDate().toString().padStart(2, '0');
-      const month = (nextPaymentDateZoned.getMonth() + 1).toString().padStart(2, '0');
-      const year = nextPaymentDateZoned.getFullYear();
+      // Formatear directamente usando los componentes calculados
+      // Esto evita problemas de zona horaria ya que solo usamos año, mes y día
+      const day = cutoffDay.toString().padStart(2, '0');
+      const month = nextMonthNum.toString().padStart(2, '0');
+      const year = nextYear.toString();
       const nextPaymentDateFormatted = `${day}/${month}/${year}`;
       
       console.log(`🔍 Debug cálculo de fecha próximo pago:`);
       console.log(`   - Period year: ${monthlyPayment.period.year}`);
       console.log(`   - Period month: ${monthlyPayment.period.month}`);
       console.log(`   - Next year: ${nextYear}, Next month: ${nextMonthNum}, Cutoff day: ${cutoffDay}`);
-      console.log(`   - Next payment date (UTC): ${nextPaymentDateUTC.toISOString()}`);
-      console.log(`   - Next payment date (zoned): ${nextPaymentDateZoned.toISOString()}`);
       console.log(`   - Next payment date (formatted): ${nextPaymentDateFormatted}`);
 
       // Calcular monto total (mensualidad + adicional, sin detalles)
