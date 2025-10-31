@@ -206,7 +206,7 @@ export function VolleyballReceipt({ data, isPreview = false }: VolleyballReceipt
                   CORRESPONDIENTE A LA FECHA DE {data.paymentDate}
                 </p>
                 <p className="text-2xl font-bold" style={{ color: '#1e40af' }}>
-                  POR CONCEPTO DE {data.concept}
+                  POR CONCEPTO DE MENSUALIDAD
                 </p>
               </div>
 

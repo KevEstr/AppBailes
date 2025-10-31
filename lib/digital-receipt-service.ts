@@ -12,6 +12,12 @@ export interface ReceiptData {
   paymentMethod: string;
   receivedBy: string;
   sport?: 'DANCE' | 'VOLLEYBALL'; // Campo para determinar el tipo de recibo
+  additionalPayments?: {
+    type: string;
+    amount: number;
+    concept: string;
+    sport?: string;
+  }[];
 }
 
 export class DigitalReceiptService {
@@ -22,7 +28,12 @@ export class DigitalReceiptService {
     monthlyPaymentId: number,
     approvedAmount: number,
     paymentMethod: string,
-    reviewedBy: string
+    reviewedBy: string,
+    additionalPayments?: {
+      type: string;
+      amount: number;
+      paymentMethod?: string;
+    }[]
   ): Promise<ReceiptData> {
     try {
       // Obtener información del pago mensual
@@ -79,19 +90,6 @@ export class DigitalReceiptService {
       console.log(`   - Payment period reference: ${monthlyPayment.period.year}-${monthlyPayment.period.month}`);
       console.log(`   - Period info calculated: ${periodInfo.periodName}`);
 
-      // Crear recibo en la base de datos
-      const receipt = await prisma.receipt.create({
-        data: {
-          studentId: monthlyPayment.studentId,
-          monthlyPaymentId: monthlyPaymentId,
-          amount: approvedAmount,
-          concept: `Mensualidad ${periodInfo.periodName}`,
-          paymentMethod: this.mapPaymentMethod(paymentMethod),
-          notes: `Pago aprobado por ${reviewedBy}`,
-          whatsappSent: false, // Se enviará por separado
-        }
-      });
-      
       // Calcular fecha del próximo pago basada en el día de corte de la clase
       const currentDate = new Date(monthlyPayment.period.year, monthlyPayment.period.month - 1, 1);
       const nextMonth = new Date(currentDate);
@@ -106,13 +104,34 @@ export class DigitalReceiptService {
       console.log(`   - Next payment date: ${nextPaymentDate.toISOString()}`);
       console.log(`   - Next payment date formatted: ${nextPaymentDate.toLocaleDateString('es-ES')}`);
 
+      // Calcular monto total (mensualidad + adicional, sin detalles)
+      const additionalTotal = (additionalPayments || []).reduce((sum, payment) => sum + payment.amount, 0);
+      const totalAmount = approvedAmount + additionalTotal;
+
+      // Crear recibo en la base de datos con el total (mensualidad + adicional)
+      const additionalMethodNote = (additionalPayments && additionalPayments[0]?.paymentMethod)
+        ? ` | Inscripción vía ${this.getPaymentMethodLabel(additionalPayments[0].paymentMethod)}`
+        : '';
+
+      const receipt = await prisma.receipt.create({
+        data: {
+          studentId: monthlyPayment.studentId,
+          monthlyPaymentId: monthlyPaymentId,
+          amount: totalAmount,
+          concept: '',
+          paymentMethod: this.mapPaymentMethod(paymentMethod),
+          notes: `Pago aprobado por ${reviewedBy}${additionalMethodNote}`,
+          whatsappSent: false, // Se enviará por separado
+        }
+      });
+
       // Formatear datos del recibo
       const receiptData: ReceiptData = {
         id: receipt.id,
         receiptNumber: receipt.id.toString().padStart(4, '0'),
         studentName: monthlyPayment.student.name,
-        amount: approvedAmount,
-        concept: `Mensualidad ${periodInfo.periodName}`,
+        amount: totalAmount, // Monto total incluyendo pagos adicionales
+        concept: '',
         paymentDate: new Date().toLocaleDateString('es-ES', { 
           day: '2-digit', 
           month: '2-digit', 

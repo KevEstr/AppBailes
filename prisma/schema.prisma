@@ -425,6 +425,7 @@ model EnrollmentPayment {
   expectedAmount  Float
   status          EnrollmentPaymentStatus @default(PENDING)
   paidAt          DateTime?               @db.Timestamptz
+  paymentMethod   PaymentMethod?          // Método de pago cuando se marca como recibido
   createdAt       DateTime                @default(now()) @db.Timestamptz
   updatedAt       DateTime                @updatedAt @db.Timestamptz
   

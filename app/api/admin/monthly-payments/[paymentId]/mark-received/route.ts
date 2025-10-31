@@ -5,7 +5,7 @@ import { authOptions } from '@/lib/nextauth';
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { paymentId: string } }
+  { params }: { params: Promise<{ paymentId: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -17,17 +17,17 @@ export async function POST(
       );
     }
 
-    const { paymentId: paymentIdParam } = params;
-    const paymentId = parseInt(paymentIdParam);
+    const { paymentId: paymentIdParam } = await params;
+    const paymentId = Number.parseInt(paymentIdParam);
     
-    if (isNaN(paymentId)) {
+    if (Number.isNaN(paymentId)) {
       return NextResponse.json(
         { message: 'ID de pago inválido' },
         { status: 400 }
       );
     }
 
-    const { paymentMethod, receivedAmount, additionalDebt, discount, notes } = await request.json();
+    const { paymentMethod, receivedAmount, additionalDebt, discount, additionalPayment } = await request.json();
 
     if (!paymentMethod) {
       return NextResponse.json(
@@ -42,7 +42,7 @@ export async function POST(
       additionalDebt,
       discount,
       markedBy: session.user.id,
-      notes
+      additionalPayment
     });
 
     return NextResponse.json({

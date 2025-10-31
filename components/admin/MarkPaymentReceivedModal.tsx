@@ -48,14 +48,19 @@ export function MarkPaymentReceivedModal({
   const [receivedAmount, setReceivedAmount] = useState<string>(payment?.expectedAmount.toString() || '');
   const [additionalDebt, setAdditionalDebt] = useState<string>('');
   const [discount, setDiscount] = useState<string>('');
-  const [notes, setNotes] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
+  
+  // Estados para pago adicional
+  const [hasAdditionalPayment, setHasAdditionalPayment] = useState<boolean>(false);
+  const [additionalPaymentType, setAdditionalPaymentType] = useState<string>('');
+  const [additionalPaymentAmount, setAdditionalPaymentAmount] = useState<string>('');
+  const [additionalPaymentMethod, setAdditionalPaymentMethod] = useState<string>('');
 
   // Calcular montos y validaciones
   const baseAmount = payment?.expectedAmount || 0;
-  const discountValue = discount ? parseFloat(discount) : 0;
-  const additionalDebtValue = additionalDebt ? parseFloat(additionalDebt) : 0;
-  const receivedValue = receivedAmount ? parseFloat(receivedAmount) : baseAmount;
+  const discountValue = discount ? Number.parseFloat(discount) : 0;
+  const additionalDebtValue = additionalDebt ? Number.parseFloat(additionalDebt) : 0;
+  const receivedValue = receivedAmount ? Number.parseFloat(receivedAmount) : baseAmount;
   
   // Determinar si se pueden usar descuentos o adeudos
   const canUseDiscount = receivedValue < baseAmount;
@@ -67,6 +72,10 @@ export function MarkPaymentReceivedModal({
       setReceivedAmount(payment.expectedAmount.toString());
       setAdditionalDebt('');
       setDiscount('');
+      setHasAdditionalPayment(false);
+      setAdditionalPaymentType('');
+      setAdditionalPaymentAmount('');
+      setAdditionalPaymentMethod('');
     }
   }, [payment]);
 
@@ -99,9 +108,9 @@ export function MarkPaymentReceivedModal({
 
     // Validaciones de montos
     const baseAmount = payment.expectedAmount;
-    const discountValue = discount ? parseFloat(discount) : 0;
-    const additionalDebtValue = additionalDebt ? parseFloat(additionalDebt) : 0;
-    const receivedValue = receivedAmount ? parseFloat(receivedAmount) : baseAmount;
+    const discountValue = discount ? Number.parseFloat(discount) : 0;
+    const additionalDebtValue = additionalDebt ? Number.parseFloat(additionalDebt) : 0;
+    const receivedValue = receivedAmount ? Number.parseFloat(receivedAmount) : baseAmount;
 
     // Validar que el monto recibido no sea negativo
     if (receivedValue < 0) {
@@ -179,6 +188,37 @@ export function MarkPaymentReceivedModal({
       }
     }
 
+    // Validar pago adicional si está habilitado
+    if (hasAdditionalPayment) {
+      if (!additionalPaymentType) {
+        toast({
+          title: 'Error',
+          description: 'Por favor selecciona el tipo de pago adicional',
+          variant: 'destructive'
+        });
+        return;
+      }
+
+      if (!additionalPaymentAmount || Number.parseFloat(additionalPaymentAmount) <= 0) {
+        toast({
+          title: 'Error',
+          description: 'El monto del pago adicional debe ser mayor a 0',
+          variant: 'destructive'
+        });
+        return;
+      }
+
+      if (!additionalPaymentMethod) {
+        toast({
+          title: 'Error',
+          description: 'Selecciona el método de pago para la inscripción',
+          variant: 'destructive'
+        });
+        return;
+      }
+
+    }
+
     setIsLoading(true);
 
     try {
@@ -189,10 +229,14 @@ export function MarkPaymentReceivedModal({
         },
         body: JSON.stringify({
           paymentMethod,
-          receivedAmount: receivedAmount ? parseFloat(receivedAmount) : undefined,
-          additionalDebt: additionalDebt ? parseFloat(additionalDebt) : undefined,
-          discount: discount ? parseFloat(discount) : undefined,
-          notes: notes.trim() || undefined
+          receivedAmount: receivedAmount ? Number.parseFloat(receivedAmount) : undefined,
+          additionalDebt: additionalDebt ? Number.parseFloat(additionalDebt) : undefined,
+          discount: discount ? Number.parseFloat(discount) : undefined,
+          additionalPayment: hasAdditionalPayment ? {
+            type: additionalPaymentType,
+            amount: Number.parseFloat(additionalPaymentAmount),
+            paymentMethod: additionalPaymentMethod
+          } : undefined
         }),
       });
 
@@ -213,7 +257,9 @@ export function MarkPaymentReceivedModal({
       setReceivedAmount('');
       setAdditionalDebt('');
       setDiscount('');
-      setNotes('');
+      setHasAdditionalPayment(false);
+      setAdditionalPaymentType('');
+      setAdditionalPaymentAmount('');
       
       onSuccess();
       onClose();
@@ -235,7 +281,9 @@ export function MarkPaymentReceivedModal({
       setReceivedAmount('');
       setAdditionalDebt('');
       setDiscount('');
-      setNotes('');
+      setHasAdditionalPayment(false);
+      setAdditionalPaymentType('');
+      setAdditionalPaymentAmount('');
       onClose();
     }
   };
@@ -243,7 +291,7 @@ export function MarkPaymentReceivedModal({
   if (!payment) return null;
 
   return (
-    <DialogContent className="sm:max-w-[425px] bg-gray-800 border-gray-600">
+    <DialogContent className="sm:max-w-[800px] bg-gray-800 border-gray-600">
       <DialogHeader>
         <DialogTitle className="flex items-center gap-2 text-white">
           <CheckCircle className="h-5 w-5 text-green-600" />
@@ -264,7 +312,7 @@ export function MarkPaymentReceivedModal({
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-3 gap-4">
             <div className="space-y-2">
               <Label className="text-white">Período</Label>
               <Input
@@ -281,9 +329,6 @@ export function MarkPaymentReceivedModal({
                 className="bg-gray-700 text-gray-300 border-gray-600 font-medium"
               />
             </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="receivedAmount" className="text-white">Monto Recibido</Label>
               <Input
@@ -296,6 +341,9 @@ export function MarkPaymentReceivedModal({
                 className="bg-gray-700 border-gray-600 text-white"
               />
             </div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-4">
             <div className="space-y-2">
               <Label htmlFor="paymentMethod" className="text-white">Método de Pago *</Label>
               <Select value={paymentMethod} onValueChange={setPaymentMethod}>
@@ -309,9 +357,6 @@ export function MarkPaymentReceivedModal({
                 </SelectContent>
               </Select>
             </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="additionalDebt" className="text-white">
                 Adeudo (opcional)
@@ -325,7 +370,7 @@ export function MarkPaymentReceivedModal({
                 min="0"
                 step="100"
                 disabled={!canUseAdditionalDebt}
-                className={`bg-gray-700 border-gray-600 text-white ${!canUseAdditionalDebt ? 'opacity-50 cursor-not-allowed' : ''}`}
+                className={`bg-gray-700 border-gray-600 text-white ${canUseAdditionalDebt ? '' : 'opacity-50 cursor-not-allowed'}`}
               />
               <p className="text-xs text-gray-400">
               Disponible cuando monto recibido es menor al monto esperado
@@ -344,7 +389,7 @@ export function MarkPaymentReceivedModal({
                 min="0"
                 step="100"
                 disabled={!canUseDiscount}
-                className={`bg-gray-700 border-gray-600 text-white ${!canUseDiscount ? 'opacity-50 cursor-not-allowed' : ''}`}
+                className={`bg-gray-700 border-gray-600 text-white ${canUseDiscount ? '' : 'opacity-50 cursor-not-allowed'}`}
               />
               <p className="text-xs text-gray-400">
               Disponible cuando monto recibido es menor al monto esperado
@@ -352,17 +397,72 @@ export function MarkPaymentReceivedModal({
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="notes" className="text-white">Notas (opcional)</Label>
-            <Textarea
-              id="notes"
-              placeholder="Observaciones adicionales..."
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              rows={3}
-              className="bg-gray-700 border-gray-600 text-white placeholder-gray-400"
-            />
+          {/* Sección de Pago Adicional */}
+          <div className="space-y-4 border-t border-gray-600 pt-4">
+            <div className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                id="hasAdditionalPayment"
+                checked={hasAdditionalPayment}
+                onChange={(e) => setHasAdditionalPayment(e.target.checked)}
+                className="rounded border-gray-600 bg-gray-700 text-green-600 focus:ring-green-500"
+              />
+              <Label htmlFor="hasAdditionalPayment" className="text-white font-medium">
+                Incluir pago adicional (ej: inscripción)
+              </Label>
+            </div>
+
+            {hasAdditionalPayment && (
+              <div className="space-y-4 pl-6 border-l-2 border-gray-600">
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="additionalPaymentType" className="text-white">Tipo de Pago</Label>
+                    <Select value={additionalPaymentType} onValueChange={setAdditionalPaymentType}>
+                      <SelectTrigger className="bg-gray-700 border-gray-600 text-white">
+                        <SelectValue placeholder="Selecciona el tipo" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-gray-800 border-gray-600">
+                        <SelectItem value="ENROLLMENT" className="text-white hover:bg-gray-700">Inscripción</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="additionalPaymentAmount" className="text-white">Monto</Label>
+                    <Input
+                      id="additionalPaymentAmount"
+                      type="number"
+                      placeholder="0"
+                      value={additionalPaymentAmount}
+                      onChange={(e) => setAdditionalPaymentAmount(e.target.value)}
+                      min="0"
+                      step="1000"
+                      className="bg-gray-700 border-gray-600 text-white"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="additionalPaymentMethod" className="text-white">Método de Pago (inscripción)</Label>
+                    <Select value={additionalPaymentMethod} onValueChange={setAdditionalPaymentMethod}>
+                      <SelectTrigger className="bg-gray-700 border-gray-600 text-white">
+                        <SelectValue placeholder="Selecciona el método" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-gray-800 border-gray-600">
+                        <SelectItem value="CASH" className="text-white hover:bg-gray-700">Efectivo</SelectItem>
+                        <SelectItem value="TRANSFER" className="text-white hover:bg-gray-700">Transferencia</SelectItem>
+                        <SelectItem value="CARD" className="text-white hover:bg-gray-700">Tarjeta</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="bg-blue-900/20 border border-blue-500/30 rounded-lg p-3">
+                  <p className="text-blue-200 text-sm">
+                    <strong>Nota:</strong> El pago adicional se procesará junto con el pago mensual y se incluirá en el mismo recibo.
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
+
 
           <DialogFooter>
             <Button

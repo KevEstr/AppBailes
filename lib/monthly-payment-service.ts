@@ -466,7 +466,11 @@ export class MonthlyPaymentService {
       additionalDebt?: number;
       discount?: number;
       markedBy: string;
-      notes?: string;
+      additionalPayment?: {
+        type: "ENROLLMENT";
+        amount: number;
+        paymentMethod?: "CASH" | "TRANSFER" | "CARD";
+      };
     }
   ) {
     const payment = await prisma.monthlyPayment.findUnique({
@@ -537,22 +541,32 @@ export class MonthlyPaymentService {
     // Crear deuda adicional SOLO si es pago parcial y se especificó manualmente
     if (isPartialPayment && data.additionalDebt && data.additionalDebt > 0) {
       console.log("🔄 Creando deuda adicional...");
-      await this.createAdditionalDebt(payment.student, payment.period, data.additionalDebt, data.notes);
+      await this.createAdditionalDebt(payment.student, payment.period, data.additionalDebt);
       console.log("✅ Deuda adicional creada");
+    }
+
+    // Procesar pago adicional si se especificó
+    let additionalPayments = undefined;
+    if (data.additionalPayment) {
+      console.log("🔄 Procesando pago adicional...");
+      await this.processAdditionalPayment(payment.student, data.additionalPayment, data.markedBy, payment.classId || 0);
+      additionalPayments = [data.additionalPayment];
+      console.log("✅ Pago adicional procesado");
     }
 
     // Generar recibo digital (con manejo de errores)
     let receiptData = null;
     try {
-      receiptData = await this.generateDigitalReceipt(paymentId, receivedAmount, data.paymentMethod, data.markedBy);
+      receiptData = await this.generateDigitalReceipt(paymentId, receivedAmount, data.paymentMethod, data.markedBy, additionalPayments);
     } catch (receiptError) {
       console.error("❌ Error generando recibo digital (continuando):", receiptError);
       // No lanzar error, continuar sin recibo
     }
 
-    // Enviar notificación de WhatsApp con el recibo (con manejo de errores)
+    // Enviar notificación de WhatsApp con el monto total (mensualidad + adicional)
     try {
-      await this.sendPaymentReceivedNotification(payment, receivedAmount, data.paymentMethod, receiptData);
+      const totalPaidForClient = receivedAmount + ((data.additionalPayment?.amount) || 0);
+      await this.sendPaymentReceivedNotification(payment, totalPaidForClient, data.paymentMethod, receiptData);
     } catch (whatsappError) {
       console.error("❌ Error enviando notificación WhatsApp (continuando):", whatsappError);
       // No lanzar error, continuar sin notificación
@@ -1455,7 +1469,7 @@ export class MonthlyPaymentService {
     // Actualizar estado de deuda del estudiante
     await this.updateStudentDebtStatus(monthlyPayment.studentId);
 
-    // Generar recibo digital
+    // Generar recibo digital (sin pagos adicionales en este caso)
     await this.generateDigitalReceipt(monthlyPayment.id, paidAmount, proof.paymentMethod, data.reviewedBy);
   }
 
@@ -1496,10 +1510,6 @@ export class MonthlyPaymentService {
     isPartialPayment: boolean
   ): string {
     let notes = [];
-    
-    if (data.notes) {
-      notes.push(data.notes);
-    }
     
     if (data.discount && data.discount > 0) {
       notes.push(`Descuento aplicado: $${data.discount.toLocaleString()}`);
@@ -1576,11 +1586,11 @@ export class MonthlyPaymentService {
   /**
    * Crea una deuda adicional manual
    */
-  private async createAdditionalDebt(student: any, period: any, amount: number, notes?: string) {
+  private async createAdditionalDebt(student: any, period: any, amount: number) {
     try {
       console.log("📋 Creando deuda adicional manual...");
 
-      const debtConcept = `Adeudo adicional - ${period.name}${notes ? ` (${notes})` : ''}`;
+      const debtConcept = `Adeudo adicional - ${period.name}`;
       
       const newDebt = await prisma.debt.create({
         data: {
@@ -1606,7 +1616,12 @@ export class MonthlyPaymentService {
     monthlyPaymentId: number,
     paidAmount: number,
     paymentMethod: string,
-    reviewedBy: string
+    reviewedBy: string,
+    additionalPayments?: {
+      type: string;
+      amount: number;
+      paymentMethod?: string;
+    }[]
   ) {
     try {
       console.log("📄 Generando recibo digital...");
@@ -1614,7 +1629,8 @@ export class MonthlyPaymentService {
         monthlyPaymentId,
         paidAmount,
         paymentMethod,
-        reviewedBy
+        reviewedBy,
+        additionalPayments
       );
 
       console.log(`✅ Recibo digital generado: ${receiptData.receiptNumber}`);
@@ -2223,6 +2239,83 @@ export class MonthlyPaymentService {
       }
     };
   }
+
+  /**
+   * Procesa un pago adicional (como inscripción) junto con el pago mensual
+   */
+  private async processAdditionalPayment(
+    student: any,
+    additionalPayment: {
+      type: "ENROLLMENT";
+      amount: number;
+      paymentMethod?: "CASH" | "TRANSFER" | "CARD";
+    },
+    processedBy: string,
+    classId: number
+  ) {
+    try {
+      console.log(`🔄 Procesando pago adicional de tipo ${additionalPayment.type} por $${additionalPayment.amount.toLocaleString()}`);
+
+      if (additionalPayment.type === "ENROLLMENT") {
+        // Obtener el deporte de la clase
+        const danceClass = await prisma.danceClass.findUnique({
+          where: { id: classId },
+          select: { sport: true }
+        });
+
+        if (!danceClass) {
+          throw new Error("Clase no encontrada");
+        }
+
+        const sport = danceClass.sport as "DANCE" | "VOLLEYBALL";
+        console.log(`🏃 Deporte determinado automáticamente: ${sport}`);
+
+        // Verificar si el estudiante ya tiene un pago de inscripción
+        const existingEnrollmentPayment = await prisma.enrollmentPayment.findUnique({
+          where: { studentId: student.id }
+        });
+
+        if (existingEnrollmentPayment) {
+          if (existingEnrollmentPayment.status === "PAID") {
+            console.log(`⚠️ El estudiante ${student.name} ya tiene un pago de inscripción completado`);
+            return;
+          } else {
+            // Actualizar el pago de inscripción existente
+            await prisma.enrollmentPayment.update({
+              where: { id: existingEnrollmentPayment.id },
+              data: {
+                status: "PAID",
+                paidAt: new Date(),
+                expectedAmount: additionalPayment.amount,
+                sport: sport,
+                paymentMethod: additionalPayment.paymentMethod || null
+              }
+            });
+            console.log(`✅ Pago de inscripción existente actualizado: ID ${existingEnrollmentPayment.id}`);
+          }
+        } else {
+          // Crear nuevo pago de inscripción
+          const enrollmentPayment = await prisma.enrollmentPayment.create({
+            data: {
+              studentId: student.id,
+              sport: sport,
+              expectedAmount: additionalPayment.amount,
+              status: "PAID",
+              paidAt: new Date(),
+              paymentMethod: additionalPayment.paymentMethod as PaymentMethod || null
+            }
+          });
+          console.log(`✅ Nuevo pago de inscripción creado: ID ${enrollmentPayment.id}`);
+        }
+
+        // El recibo se generará junto con el pago mensual
+      }
+    } catch (error) {
+      console.error("❌ Error procesando pago adicional:", error);
+      throw new Error("Error al procesar pago adicional");
+    }
+  }
+
 }
 
 export const monthlyPaymentService = new MonthlyPaymentService();

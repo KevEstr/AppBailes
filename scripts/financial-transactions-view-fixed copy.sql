@@ -1,5 +1,30 @@
 -- Vista consolidada de transacciones financieras con manejo correcto de zona horaria
 CREATE OR REPLACE VIEW financial_transactions_view AS
+SELECT 
+    'RECEIPT' as source_table,
+    r.id::text as transaction_id,
+    r.amount,
+    CONCAT(r.concept, ' - Estudiante: ', COALESCE(s.name, r."studentId")) as description,
+    'INCOME' as transaction_type,
+    'RECEIPT' as category,
+    r."createdAt" as transaction_date,
+    CASE 
+      WHEN r."paymentMethod" IS NOT NULL THEN r."paymentMethod"::text 
+      ELSE NULL 
+    END as payment_method,
+    r."studentId" as student_id,
+    NULL::text as period_id,
+    NULL::text as related_id,
+    NULL::text as related_type,
+    NULL::text as user_id,
+    NULL::text as user_name,
+    r."createdAt" as created_at,
+    r."updatedAt" as updated_at
+FROM receipts r
+LEFT JOIN students s ON r."studentId" = s.id
+WHERE r."createdAt" IS NOT NULL
+
+UNION ALL
 
 SELECT 
     'DEBT' as source_table,
@@ -87,7 +112,6 @@ SELECT
     'ENROLLMENT_PAYMENT' as source_table,
     ep.id::text as transaction_id,
     ep."expectedAmount" as amount,
-    
     CONCAT('Pago de inscripción - ', ep.sport::text, ' - Estudiante: ', ep."studentId") as description,
     CASE 
         WHEN ep.status = 'PAID' THEN 'INCOME'
@@ -96,10 +120,7 @@ SELECT
     END as transaction_type,
     'ENROLLMENT_PAYMENT' as category,
     ep."createdAt" as transaction_date,
-    CASE 
-      WHEN ep."paymentMethod" IS NOT NULL THEN ep."paymentMethod"::text 
-      ELSE NULL 
-    END as payment_method,
+    NULL as payment_method,
     ep."studentId" as student_id,
     NULL::text as period_id,
     NULL::text as related_id,
