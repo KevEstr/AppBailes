@@ -51,6 +51,9 @@ export class DigitalReceiptService {
               }
             }
           },
+          danceClass: {
+            select: { sport: true }
+          },
           period: true
         }
       });
@@ -59,8 +62,19 @@ export class DigitalReceiptService {
         throw new Error('Pago mensual no encontrado');
       }
 
-      // Determinar el deporte del estudiante
-      const sport = this.pickPrimarySport(monthlyPayment.student);
+      // Determinar el deporte del recibo:
+      // 1. Si el pago está asociado a una clase específica, usar el deporte de esa clase
+      // 2. Si no, usar el deporte principal del estudiante (prioriza DANCE)
+      let sport: 'DANCE' | 'VOLLEYBALL' | null = null;
+      if (monthlyPayment.classId && monthlyPayment.danceClass) {
+        // Usar el deporte de la clase específica del pago
+        sport = monthlyPayment.danceClass.sport as 'DANCE' | 'VOLLEYBALL';
+        console.log(`📋 Usando deporte de la clase específica del pago: ${sport} (ClassId: ${monthlyPayment.classId})`);
+      } else {
+        // Fallback: usar el deporte principal del estudiante
+        sport = this.pickPrimarySport(monthlyPayment.student);
+        console.log(`📋 Usando deporte principal del estudiante (fallback): ${sport}`);
+      }
 
       // Obtener el día de corte de la clase específica
       let cutoffDay = 30; // Default
@@ -79,6 +93,7 @@ export class DigitalReceiptService {
       console.log(`🔍 Debug para recibo digital pago ${monthlyPayment.id}:`);
       console.log(`   - StudentId: ${monthlyPayment.studentId}`);
       console.log(`   - ClassId: ${monthlyPayment.classId}`);
+      console.log(`   - Deporte del recibo: ${sport || 'No determinado'}`);
       console.log(`   - CutoffDay calculado: ${cutoffDay}`);
       
       // Calcular el período correcto para el concepto basado en el día de corte
@@ -246,6 +261,13 @@ export class DigitalReceiptService {
                 }
               }
             }
+          },
+          monthlyPayment: {
+            include: {
+              danceClass: {
+                select: { sport: true }
+              }
+            }
           }
         }
       });
@@ -254,8 +276,19 @@ export class DigitalReceiptService {
         return null;
       }
 
-      // Determinar el deporte del estudiante
-      const sport = this.pickPrimarySport(receipt.student);
+      // Determinar el deporte del recibo:
+      // 1. Si el recibo está asociado a un pago mensual con clase específica, usar el deporte de esa clase
+      // 2. Si no, usar el deporte principal del estudiante (prioriza DANCE)
+      let sport: 'DANCE' | 'VOLLEYBALL' | null = null;
+      if (receipt.monthlyPayment?.classId && receipt.monthlyPayment?.danceClass) {
+        // Usar el deporte de la clase específica del pago mensual
+        sport = receipt.monthlyPayment.danceClass.sport as 'DANCE' | 'VOLLEYBALL';
+        console.log(`📋 Recibo ${receiptId}: Usando deporte de la clase específica del pago: ${sport} (ClassId: ${receipt.monthlyPayment.classId})`);
+      } else {
+        // Fallback: usar el deporte principal del estudiante
+        sport = this.pickPrimarySport(receipt.student);
+        console.log(`📋 Recibo ${receiptId}: Usando deporte principal del estudiante (fallback): ${sport}`);
+      }
 
       const receiptData: ReceiptData = {
         id: receipt.id,
@@ -327,6 +360,9 @@ export class DigitalReceiptService {
   /**
    * Determina el deporte principal del estudiante
    * Prioriza DANCE sobre VOLLEYBALL si el estudiante está inscrito en ambos
+   * 
+   * NOTA: Este método se usa como fallback cuando no hay una clase específica asociada al pago.
+   * Cuando hay un classId en el pago mensual, se debe usar el deporte de esa clase específica.
    */
   private static pickPrimarySport(student: any): 'DANCE' | 'VOLLEYBALL' | null {
     if (!student.classEnrollments || student.classEnrollments.length === 0) return null;

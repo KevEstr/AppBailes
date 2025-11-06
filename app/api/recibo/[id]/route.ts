@@ -34,7 +34,11 @@ export async function GET(
           }
         },
         monthlyPayment: {
-          select: { classId: true }
+          include: {
+            danceClass: {
+              select: { sport: true }
+            }
+          }
         }
       }
     });
@@ -56,7 +60,9 @@ export async function GET(
       return `${day}/${month}/${year}`;
     };
 
-    // Determinar el deporte del estudiante
+    // Determinar el deporte del recibo:
+    // 1. Si el recibo está asociado a un pago mensual con clase específica, usar el deporte de esa clase
+    // 2. Si no, usar el deporte principal del estudiante (prioriza DANCE)
     const pickPrimarySport = (student: any): 'DANCE' | 'VOLLEYBALL' | null => {
       if (!student.classEnrollments || student.classEnrollments.length === 0) return null;
       const sports = [...new Set(student.classEnrollments.map((enrollment: any) => enrollment.danceClass.sport))];
@@ -64,7 +70,16 @@ export async function GET(
       return (sports.includes('DANCE') ? 'DANCE' : sports[0]) as any;
     };
 
-    const sport = pickPrimarySport(receipt.student);
+    let sport: 'DANCE' | 'VOLLEYBALL' | null = null;
+    if (receipt.monthlyPayment?.classId && receipt.monthlyPayment?.danceClass) {
+      // Usar el deporte de la clase específica del pago mensual
+      sport = receipt.monthlyPayment.danceClass.sport as 'DANCE' | 'VOLLEYBALL';
+      console.log(`📋 Recibo ${receiptId}: Usando deporte de la clase específica del pago: ${sport} (ClassId: ${receipt.monthlyPayment.classId})`);
+    } else {
+      // Fallback: usar el deporte principal del estudiante
+      sport = pickPrimarySport(receipt.student);
+      console.log(`📋 Recibo ${receiptId}: Usando deporte principal del estudiante (fallback): ${sport}`);
+    }
 
     // Obtener el día de corte de la clase específica
     let cutoff = 30; // Default
@@ -83,6 +98,7 @@ export async function GET(
     console.log(`🔍 Debug para recibo ${receiptId}:`);
     console.log(`   - StudentId: ${receipt.studentId}`);
     console.log(`   - ClassId: ${receipt.monthlyPayment?.classId}`);
+    console.log(`   - Deporte del recibo: ${sport || 'No determinado'}`);
     console.log(`   - CutoffDay calculado: ${cutoff}`);
     
     // Calcular próximo pago basado en el período del pago mensual
