@@ -62,37 +62,108 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Crear el registro de asistencia del trainer
-    const trainerAttendance = await prisma.trainerAttendance.create({
-      data: {
-        userId: parseInt(session.user.id), // Usar el ID del usuario que toma la asistencia
-        classId: parseInt(classId),
-        status,
-        notes: notes || `Asistencia registrada para clase ${danceClass.name} - Registrado por: ${session.user.name || session.user.email}`,
-        date: new Date(),
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            email: true,
-            role: true,
-          },
+    const userId = parseInt(session.user.id);
+    const parsedClassId = parseInt(classId);
+    const now = new Date();
+    
+    // Calcular el inicio y fin del día actual (solo fecha, sin hora)
+    const startOfDay = new Date(now);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(now);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    // Verificar si ya existe un registro para este usuario, clase y fecha (solo día)
+    const existingAttendance = await prisma.trainerAttendance.findFirst({
+      where: {
+        userId: userId,
+        classId: parsedClassId,
+        date: {
+          gte: startOfDay,
+          lte: endOfDay,
         },
-        class: {
-          select: {
-            id: true,
-            name: true,
-            trainer: {
-              select: {
-                id: true,
-                name: true,
+      },
+    });
+
+    let trainerAttendance;
+    const attendanceNotes = notes || `Asistencia registrada para clase ${danceClass.name} - Registrado por: ${session.user.name || session.user.email}`;
+
+    if (existingAttendance) {
+      // Si ya existe, actualizar el registro existente
+      console.log("📝 Actualizando registro existente de asistencia:", {
+        id: existingAttendance.id,
+        userId: userId,
+        classId: parsedClassId,
+        date: now.toISOString(),
+      });
+
+      trainerAttendance = await prisma.trainerAttendance.update({
+        where: { id: existingAttendance.id },
+        data: {
+          status,
+          notes: attendanceNotes,
+          date: now, // Actualizar la fecha/hora al momento actual
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              email: true,
+              role: true,
+            },
+          },
+          class: {
+            select: {
+              id: true,
+              name: true,
+              trainer: {
+                select: {
+                  id: true,
+                  name: true,
+                },
               },
             },
           },
         },
-      },
-    });
+      });
+    } else {
+      // Si no existe, crear un nuevo registro
+      console.log("📝 Creando nuevo registro de asistencia:", {
+        userId: userId,
+        classId: parsedClassId,
+        date: now.toISOString(),
+      });
+
+      trainerAttendance = await prisma.trainerAttendance.create({
+        data: {
+          userId: userId,
+          classId: parsedClassId,
+          status,
+          notes: attendanceNotes,
+          date: now,
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              email: true,
+              role: true,
+            },
+          },
+          class: {
+            select: {
+              id: true,
+              name: true,
+              trainer: {
+                select: {
+                  id: true,
+                  name: true,
+                },
+              },
+            },
+          },
+        },
+      });
+    }
 
     return NextResponse.json({
       success: true,

@@ -178,6 +178,9 @@ export default function ClassAttendanceTikTok() {
   const [pendingClassId, setPendingClassId] = useState<number | null>(null);
   const [reasonAlreadyProvided, setReasonAlreadyProvided] = useState(false);
 
+  // Estado para prevenir llamadas duplicadas de asistencia del profesor
+  const [isRegisteringTrainerAttendance, setIsRegisteringTrainerAttendance] = useState(false);
+
   // Separar clases en "Mis Clases" y "Todas las Clases"
   const { myClasses, otherClasses } = useMemo(() => {
     console.log('🔍 DEBUG - Separando clases - INICIO:', {
@@ -929,7 +932,9 @@ export default function ClassAttendanceTikTok() {
       }
 
       // Registrar asistencia del trainer solo si el usuario es TEACHER o ADMIN
-      if (userSession?.user?.role === "TEACHER" || userSession?.user?.role === "ADMIN") {
+      // Prevenir llamadas duplicadas usando el flag de procesamiento
+      if ((userSession?.user?.role === "TEACHER" || userSession?.user?.role === "ADMIN") && !isRegisteringTrainerAttendance) {
+        setIsRegisteringTrainerAttendance(true);
         try {
           // Determinar si es una clase del propio trainer
           const currentTrainerId = userSession?.user?.trainerId ? parseInt(userSession.user.trainerId) : null;
@@ -960,6 +965,8 @@ export default function ClassAttendanceTikTok() {
         } catch (trainerError) {
           console.warn("⚠️ Error al registrar asistencia:", trainerError);
           // No fallar la sesión completa por este error
+        } finally {
+          setIsRegisteringTrainerAttendance(false);
         }
       }
 
@@ -996,7 +1003,9 @@ export default function ClassAttendanceTikTok() {
 
   const finishAttendance = async () => {
     // Si estamos finalizando una modificación de sesión ya completada, registrar asistencia solo si es TEACHER o ADMIN
-    if (currentSession?.status === "COMPLETED" && sessionAlreadyCompleted && (userSession?.user?.role === "TEACHER" || userSession?.user?.role === "ADMIN")) {
+    // Prevenir llamadas duplicadas usando el flag de procesamiento
+    if (currentSession?.status === "COMPLETED" && sessionAlreadyCompleted && (userSession?.user?.role === "TEACHER" || userSession?.user?.role === "ADMIN") && !isRegisteringTrainerAttendance) {
+      setIsRegisteringTrainerAttendance(true);
       try {
         // Determinar si es una clase del propio trainer
         const currentTrainerId = userSession?.user?.trainerId ? parseInt(userSession.user.trainerId) : null;
@@ -1026,6 +1035,8 @@ export default function ClassAttendanceTikTok() {
         }
       } catch (trainerError) {
         console.warn("⚠️ Error al registrar asistencia después de modificación:", trainerError);
+      } finally {
+        setIsRegisteringTrainerAttendance(false);
       }
     }
 

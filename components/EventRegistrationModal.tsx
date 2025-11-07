@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Calendar as CalendarIcon, Trophy as TrophyIcon, Search as SearchIcon, Users as UsersIcon, Check as CheckIcon, X as XIcon, Clock as ClockIcon } from "lucide-react";
+import { Calendar as CalendarIcon, Trophy as TrophyIcon, Search as SearchIcon, Users as UsersIcon, Check as CheckIcon, X as XIcon, Clock as ClockIcon, User as UserIcon } from "lucide-react";
 
 interface EventClass {
   id: number;
@@ -181,20 +181,35 @@ export function EventRegistrationModal({
     setIsLoading(true);
 
     try {
+      const requestBody = {
+        classId: parseInt(selectedClassId),
+        matchDate: selectedDate.toISOString(),
+        notes: notes.trim() || null,
+        studentAttendances: studentAttendances,
+        // No se envía trainerAttendance - se asume automáticamente que el usuario que registra está presente
+      };
+
+      console.log("📤 Enviando registro de evento:", {
+        classId: requestBody.classId,
+        matchDate: requestBody.matchDate,
+        hasStudentAttendances: Object.keys(requestBody.studentAttendances).length > 0,
+      });
+
       const response = await fetch("/api/matches", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          classId: parseInt(selectedClassId),
-          matchDate: selectedDate.toISOString(),
-          notes: notes.trim() || null,
-          studentAttendances: studentAttendances,
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       const data = await response.json();
+
+      console.log("📥 Respuesta del servidor:", {
+        success: data.success,
+        hasTrainerAttendance: !!data.match?.trainerAttendance,
+        trainerAttendanceId: data.match?.trainerAttendance?.id,
+      });
 
       if (data.success) {
         const eventType = selectedClass?.sport === "VOLLEYBALL" ? "partido" : "evento";
@@ -560,6 +575,18 @@ export function EventRegistrationModal({
           </TabsContent>
 
           <TabsContent value="attendance" className="space-y-3 py-3">
+            {/* Información: La asistencia del usuario que registra se asume automáticamente como PRESENTE */}
+            {selectedClass && (
+              <div className="bg-blue-900/20 border border-blue-600/40 rounded-lg p-3">
+                <div className="flex items-center gap-2 text-blue-300">
+                  <CheckIcon className="h-4 w-4" />
+                  <span className="text-sm font-medium">
+                    Tu asistencia se registrará automáticamente como PRESENTE al registrar el evento
+                  </span>
+                </div>
+              </div>
+            )}
+
             <div className="space-y-2">
               <Label className="text-sm font-medium flex items-center gap-2">
                 <UsersIcon className="h-4 w-4" />

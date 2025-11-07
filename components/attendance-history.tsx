@@ -6,8 +6,8 @@ import { formatDateLongWithoutTimezone, formatDateOnlyWithoutTimezone } from "@/
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from "recharts"
-import { TrendingUp, Calendar, CheckCircle, Clock, XCircle, BarChart3, Search, Trophy, Users, Download } from "lucide-react"
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts"
+import { Calendar, CheckCircle, Clock, XCircle, BarChart3, Search, Trophy, Users, Download, Eye } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { useToast } from "@/hooks/use-toast"
@@ -15,6 +15,7 @@ import { AdvancedPagination } from "@/components/ui/advanced-pagination"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { DateRangePicker } from "@/components/ui/date-range-picker"
 import { DateRange } from "react-day-picker"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 
 interface AttendanceData {
   date: string
@@ -32,6 +33,56 @@ interface StudentStats {
   late: number
   absent: number
   percentage: number
+}
+
+interface StudentAttendanceDetail {
+  id: number
+  date: string
+  status: string
+  session: {
+    id: number
+    date: string
+    danceClass: {
+      id: number
+      name: string
+      sport: string
+      trainer: {
+        name: string
+      }
+    }
+  }
+}
+
+interface MatchAttendanceDetail {
+  id: number
+  status: string
+  match: {
+    id: number
+    matchDate: string
+    notes?: string
+    status: string
+    danceClass: {
+      id: number
+      name: string
+      sport: string
+      trainer: {
+        name: string
+      }
+    }
+  }
+}
+
+interface StudentWithConsecutiveAbsences {
+  id: string
+  name: string
+  avatar: string
+  consecutiveAbsences: number
+  lastAbsenceDate: string
+  class?: {
+    id: number
+    name: string
+    sport: string
+  }
 }
 
 interface AvailableClass {
@@ -160,17 +211,37 @@ export function AttendanceHistory() {
   const [isDownloading, setIsDownloading] = useState(false)
   const [isDownloadingEvents, setIsDownloadingEvents] = useState(false)
   
+  // Estado para el modal de detalles del estudiante (clases)
+  const [selectedStudentForDetail, setSelectedStudentForDetail] = useState<StudentStats | null>(null)
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
+  const [studentAttendanceDetails, setStudentAttendanceDetails] = useState<StudentAttendanceDetail[]>([])
+  const [isLoadingDetails, setIsLoadingDetails] = useState(false)
+  
+  // Estado para el modal de detalles del estudiante (eventos)
+  const [selectedMatchStudentForDetail, setSelectedMatchStudentForDetail] = useState<MatchStats | null>(null)
+  const [isMatchDetailModalOpen, setIsMatchDetailModalOpen] = useState(false)
+  const [matchAttendanceDetails, setMatchAttendanceDetails] = useState<MatchAttendanceDetail[]>([])
+  const [isLoadingMatchDetails, setIsLoadingMatchDetails] = useState(false)
+  
+  // Estado para estudiantes con faltas consecutivas
+  const [studentsWithConsecutiveAbsences, setStudentsWithConsecutiveAbsences] = useState<StudentWithConsecutiveAbsences[]>([])
+  const [isLoadingConsecutiveAbsences, setIsLoadingConsecutiveAbsences] = useState(false)
+  const [matchStudentsWithConsecutiveAbsences, setMatchStudentsWithConsecutiveAbsences] = useState<StudentWithConsecutiveAbsences[]>([])
+  const [isLoadingMatchConsecutiveAbsences, setIsLoadingMatchConsecutiveAbsences] = useState(false)
+  
   const { toast } = useToast()
 
   useEffect(() => {
     if (activeTab === "classes") {
       loadAttendanceData()
+      loadConsecutiveAbsences()
     }
   }, [dateRange, selectedStudent, selectedClass, currentPage, pageLimit, activeTab])
 
   useEffect(() => {
     if (activeTab === "matches") {
       loadMatchData()
+      loadMatchConsecutiveAbsences()
     }
   }, [matchDateRange, selectedMatchStudent, selectedMatch, currentMatchPage, matchPageLimit, activeTab])
 
@@ -241,22 +312,6 @@ export function AttendanceHistory() {
     }
   }
 
-  // Datos para gráficos de clases normales
-  const pieData = [
-    { name: "Presentes", value: (attendanceData || []).reduce((sum, day) => sum + day.present, 0), color: "#10B981" },
-    { name: "Tarde", value: (attendanceData || []).reduce((sum, day) => sum + day.late, 0), color: "#F59E0B" },
-    { name: "Ausentes", value: (attendanceData || []).reduce((sum, day) => sum + day.absent, 0), color: "#EF4444" },
-  ].filter(item => item.value > 0);
-
-  // Datos para gráficos de partidos
-  const matchPieData = [
-    { name: "Presentes", value: (matchAttendanceData || []).reduce((sum, day) => sum + day.present, 0), color: "#10B981" },
-    { name: "Tarde", value: (matchAttendanceData || []).reduce((sum, day) => sum + day.late, 0), color: "#F59E0B" },
-    { name: "Ausentes", value: (matchAttendanceData || []).reduce((sum, day) => sum + day.absent, 0), color: "#EF4444" },
-  ].filter(item => item.value > 0);
-
-  const hasAttendanceData = pieData.length > 0;
-  const hasMatchData = matchPieData.length > 0;
 
   const getPercentageColor = (percentage: number) => {
     if (percentage >= 90) return "text-emerald-300"
@@ -268,6 +323,21 @@ export function AttendanceHistory() {
     if (percentage >= 90) return "default"
     if (percentage >= 75) return "secondary"
     return "destructive"
+  }
+
+  const getMatchStatusBadge = (status: string) => {
+    switch (status) {
+      case 'COMPLETED':
+        return '✅ Completado'
+      case 'SCHEDULED':
+        return '📅 Programado'
+      case 'IN_PROGRESS':
+        return '⏳ En curso'
+      case 'CANCELLED':
+        return '❌ Cancelado'
+      default:
+        return status
+    }
   }
 
   const handleExportAttendanceExcel = async () => {
@@ -357,6 +427,138 @@ export function AttendanceHistory() {
       setIsDownloading(false);
     }
   };
+
+  const loadStudentAttendanceDetails = async (student: StudentStats) => {
+    try {
+      setIsLoadingDetails(true)
+      const params = new URLSearchParams({
+        student: student.id.toString(),
+        class: selectedClass,
+      })
+      if (dateRange?.from) {
+        const year = dateRange.from.getFullYear();
+        const month = (dateRange.from.getMonth() + 1).toString().padStart(2, '0');
+        const day = dateRange.from.getDate().toString().padStart(2, '0');
+        params.append("startDate", `${year}-${month}-${day}`);
+      }
+      if (dateRange?.to) {
+        const year = dateRange.to.getFullYear();
+        const month = (dateRange.to.getMonth() + 1).toString().padStart(2, '0');
+        const day = dateRange.to.getDate().toString().padStart(2, '0');
+        params.append("endDate", `${year}-${month}-${day}`);
+      }
+      
+      const response = await fetch(`/api/attendance-history/details?${params}`)
+      if (!response.ok) {
+        throw new Error('Error al cargar detalles')
+      }
+      const data = await response.json()
+      setStudentAttendanceDetails(data.attendances || [])
+    } catch (error) {
+      console.error("Error loading student attendance details:", error)
+      toast({
+        title: "❌ Error",
+        description: "No se pudieron cargar los detalles de asistencia",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoadingDetails(false)
+    }
+  }
+
+  const handleOpenStudentDetail = async (student: StudentStats) => {
+    setSelectedStudentForDetail(student)
+    setIsDetailModalOpen(true)
+    await loadStudentAttendanceDetails(student)
+  }
+
+  const loadMatchAttendanceDetails = async (student: MatchStats) => {
+    try {
+      setIsLoadingMatchDetails(true)
+      const params = new URLSearchParams({
+        student: student.id.toString(),
+        match: selectedMatch,
+      })
+      if (matchDateRange?.from) {
+        const year = matchDateRange.from.getFullYear();
+        const month = (matchDateRange.from.getMonth() + 1).toString().padStart(2, '0');
+        const day = matchDateRange.from.getDate().toString().padStart(2, '0');
+        params.append("startDate", `${year}-${month}-${day}`);
+      }
+      if (matchDateRange?.to) {
+        const year = matchDateRange.to.getFullYear();
+        const month = (matchDateRange.to.getMonth() + 1).toString().padStart(2, '0');
+        const day = matchDateRange.to.getDate().toString().padStart(2, '0');
+        params.append("endDate", `${year}-${month}-${day}`);
+      }
+      
+      const response = await fetch(`/api/match-attendance-history/details?${params}`)
+      if (!response.ok) {
+        throw new Error('Error al cargar detalles')
+      }
+      const data = await response.json()
+      setMatchAttendanceDetails(data.attendances || [])
+    } catch (error) {
+      console.error("Error loading match attendance details:", error)
+      toast({
+        title: "❌ Error",
+        description: "No se pudieron cargar los detalles de asistencia de eventos",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoadingMatchDetails(false)
+    }
+  }
+
+  const handleOpenMatchStudentDetail = async (student: MatchStats) => {
+    setSelectedMatchStudentForDetail(student)
+    setIsMatchDetailModalOpen(true)
+    await loadMatchAttendanceDetails(student)
+  }
+
+  const loadConsecutiveAbsences = async () => {
+    try {
+      setIsLoadingConsecutiveAbsences(true)
+      const params = new URLSearchParams()
+      if (selectedClass && selectedClass !== 'all') {
+        params.set('class', selectedClass)
+      }
+      
+      const response = await fetch(`/api/attendance-history/consecutive-absences?${params}`)
+      if (!response.ok) {
+        throw new Error('Error al cargar faltas consecutivas')
+      }
+      const data = await response.json()
+      setStudentsWithConsecutiveAbsences(data.students || [])
+    } catch (error) {
+      console.error("Error loading consecutive absences:", error)
+      setStudentsWithConsecutiveAbsences([])
+    } finally {
+      setIsLoadingConsecutiveAbsences(false)
+    }
+  }
+
+  const loadMatchConsecutiveAbsences = async () => {
+    try {
+      setIsLoadingMatchConsecutiveAbsences(true)
+      const params = new URLSearchParams()
+      if (selectedMatch && selectedMatch !== 'all') {
+        params.set('match', selectedMatch)
+      }
+      
+      const response = await fetch(`/api/match-attendance-history/consecutive-absences?${params}`)
+      if (!response.ok) {
+        throw new Error('Error al cargar faltas consecutivas de eventos')
+      }
+      const data = await response.json()
+      setMatchStudentsWithConsecutiveAbsences(data.students || [])
+    } catch (error) {
+      console.error("Error loading match consecutive absences:", error)
+      setMatchStudentsWithConsecutiveAbsences([])
+    } finally {
+      setIsLoadingMatchConsecutiveAbsences(false)
+    }
+  }
 
   const handleExportEventsExcel = async () => {
     try {
@@ -641,13 +843,13 @@ export function AttendanceHistory() {
           </CardContent>
         </Card>
 
-        {/* Gráfico circular */}
+        {/* Estudiantes con 3 faltas consecutivas */}
         <Card className="border-0 shadow-2xl rounded-xl bg-gray-800/90 border border-gray-600 backdrop-blur-sm">
           <CardHeader className="pb-4">
             <CardTitle className="flex items-center space-x-3 text-white">
-              <TrendingUp className="w-6 h-6" />
+              <XCircle className="w-6 h-6 text-red-400" />
               <span className="text-2xl font-bold">
-                Distribución General
+                Estudiantes con 3+ Faltas Consecutivas
                 {selectedClassInfo && (
                   <span className="text-lg font-normal text-blue-300 ml-2">
                     - {selectedClassInfo.name}
@@ -657,54 +859,61 @@ export function AttendanceHistory() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {!hasAttendanceData ? (
+            {isLoadingConsecutiveAbsences ? (
+              <div className="flex items-center justify-center h-[300px]">
+                <div className="w-8 h-8 border-4 border-red-500 border-t-transparent rounded-full animate-spin"></div>
+                <span className="ml-3 text-gray-300">Cargando...</span>
+              </div>
+            ) : studentsWithConsecutiveAbsences.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-[300px] text-center">
                 <div className="w-20 h-20 bg-gray-700/50 rounded-full flex items-center justify-center mb-4">
-                  <PieChart className="w-10 h-10 text-gray-400" />
+                  <CheckCircle className="w-10 h-10 text-emerald-400" />
                 </div>
-                <h3 className="text-lg font-semibold text-gray-300 mb-2">Sin datos de asistencia</h3>
+                <h3 className="text-lg font-semibold text-gray-300 mb-2">¡Excelente!</h3>
                 <p className="text-sm text-gray-400 max-w-[250px]">
-                  No hay registros de asistencia para el período seleccionado
+                  No hay estudiantes con 3 o más faltas consecutivas en el último mes
                 </p>
               </div>
             ) : (
-              <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie
-                    data={pieData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={120}
-                    dataKey="value"
-                    labelLine={true}
-                    label={({ name, value, percent }) => `${name}: ${value} (${(percent * 100).toFixed(1)}%)`}
-                    paddingAngle={2}
-                  >
-                    {pieData.map((entry, index) => (
-                      <Cell key={`cell-${entry.name}-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "#1f2937",
-                      border: "1px solid #374151",
-                      borderRadius: "0.75rem",
-                      padding: "0.75rem",
-                      color: "white",
-                      boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1)"
-                    }}
-                    formatter={(value, name) => [`${value} estudiantes`, name]}
-                  />
-                  <Legend
-                    verticalAlign="bottom"
-                    height={36}
-                    formatter={(value, entry) => (
-                      <span style={{ color: "white", marginLeft: "0.5rem" }}>{value}</span>
-                    )}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
+              <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                {studentsWithConsecutiveAbsences.map((student) => (
+                  <Card key={student.id} className="bg-red-900/20 border-red-600/40">
+                    <CardContent className="p-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-3 flex-1">
+                          <Avatar className="w-10 h-10 ring-2 ring-red-500">
+                            <AvatarImage src={student.avatar || "/placeholder.svg"} />
+                            <AvatarFallback className="bg-gradient-to-r from-red-500 to-orange-500 text-white font-bold">
+                              {student.name
+                                .split(" ")
+                                .map((n) => n[0])
+                                .join("")
+                                .slice(0, 2)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm font-medium text-white truncate">{student.name}</div>
+                            <div className="text-xs text-gray-400">
+                              Cédula: {student.id}
+                              {student.class && (
+                                <span> • {student.class.sport === 'DANCE' ? '💃' : '🏐'} {student.class.name}</span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="text-right ml-3">
+                          <Badge variant="destructive" className="text-xs mb-1">
+                            {student.consecutiveAbsences} faltas
+                          </Badge>
+                          <div className="text-xs text-gray-400">
+                            Última: {formatDateOnlyWithoutTimezone(student.lastAbsenceDate)}
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
             )}
           </CardContent>
         </Card>
@@ -815,6 +1024,18 @@ export function AttendanceHistory() {
                         </div>
                             <div className="text-base font-semibold text-red-300">{student.absent}</div>
                       </div>
+                    </div>
+                    
+                    <div className="mt-4">
+                      <Button
+                        onClick={() => handleOpenStudentDetail(student)}
+                        variant="outline"
+                        size="sm"
+                        className="w-full border-blue-500 text-blue-400 hover:bg-blue-900/50"
+                      >
+                        <Eye className="w-4 h-4 mr-2" />
+                        Ver Detalle de Clases
+                      </Button>
                     </div>
                    </CardContent>
                 </Card>
@@ -1023,70 +1244,77 @@ export function AttendanceHistory() {
               </CardContent>
             </Card>
 
-            {/* Gráfico circular para eventos */}
+            {/* Estudiantes con 3 faltas consecutivas en eventos */}
             <Card className="border-0 shadow-2xl rounded-xl bg-gray-800/90 border border-gray-600 backdrop-blur-sm">
               <CardHeader className="pb-4">
                 <CardTitle className="flex items-center space-x-3 text-white">
-                  <TrendingUp className="w-6 h-6" />
+                  <XCircle className="w-6 h-6 text-red-400" />
                   <span className="text-2xl font-bold">
-                    Distribución de Eventos
+                    Estudiantes con 3+ Faltas Consecutivas
                     {selectedMatchInfo && (
                       <span className="text-lg font-normal text-yellow-300 ml-2">
-                        - {selectedMatchInfo.danceClass.name} ({formatDateOnlyWithoutTimezone(selectedMatchInfo.matchDate)})
+                        - {selectedMatchInfo.danceClass.name}
                       </span>
                     )}
                   </span>
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                {!hasMatchData ? (
+                {isLoadingMatchConsecutiveAbsences ? (
+                  <div className="flex items-center justify-center h-[300px]">
+                    <div className="w-8 h-8 border-4 border-red-500 border-t-transparent rounded-full animate-spin"></div>
+                    <span className="ml-3 text-gray-300">Cargando...</span>
+                  </div>
+                ) : matchStudentsWithConsecutiveAbsences.length === 0 ? (
                   <div className="flex flex-col items-center justify-center h-[300px] text-center">
                     <div className="w-20 h-20 bg-gray-700/50 rounded-full flex items-center justify-center mb-4">
-                      <PieChart className="w-10 h-10 text-gray-400" />
+                      <CheckCircle className="w-10 h-10 text-emerald-400" />
                     </div>
-                    <h3 className="text-lg font-semibold text-gray-300 mb-2">Sin datos de eventos</h3>
+                    <h3 className="text-lg font-semibold text-gray-300 mb-2">¡Excelente!</h3>
                     <p className="text-sm text-gray-400 max-w-[250px]">
-                      No hay registros de asistencia para eventos en el período seleccionado
+                      No hay estudiantes con 3 o más faltas consecutivas en eventos en el último mes
                     </p>
                   </div>
                 ) : (
-                  <ResponsiveContainer width="100%" height={300}>
-                    <PieChart>
-                      <Pie
-                        data={matchPieData}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={60}
-                        outerRadius={120}
-                        dataKey="value"
-                        labelLine={true}
-                        label={({ name, value, percent }) => `${name}: ${value} (${(percent * 100).toFixed(1)}%)`}
-                        paddingAngle={2}
-                      >
-                        {matchPieData.map((entry, index) => (
-                          <Cell key={`match-cell-${entry.name}-${index}`} fill={entry.color} />
-                        ))}
-                      </Pie>
-                      <Tooltip
-                        contentStyle={{
-                          backgroundColor: "#1f2937",
-                          border: "1px solid #374151",
-                          borderRadius: "0.75rem",
-                          padding: "0.75rem",
-                          color: "white",
-                          boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1)"
-                        }}
-                        formatter={(value, name) => [`${value} estudiantes`, name]}
-                      />
-                      <Legend
-                        verticalAlign="bottom"
-                        height={36}
-                        formatter={(value, entry) => (
-                          <span style={{ color: "white", marginLeft: "0.5rem" }}>{value}</span>
-                        )}
-                      />
-                    </PieChart>
-                  </ResponsiveContainer>
+                  <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                    {matchStudentsWithConsecutiveAbsences.map((student) => (
+                      <Card key={student.id} className="bg-red-900/20 border-red-600/40">
+                        <CardContent className="p-3">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-3 flex-1">
+                              <Avatar className="w-10 h-10 ring-2 ring-red-500">
+                                <AvatarImage src={student.avatar || "/placeholder.svg"} />
+                                <AvatarFallback className="bg-gradient-to-r from-red-500 to-orange-500 text-white font-bold">
+                                  {student.name
+                                    .split(" ")
+                                    .map((n) => n[0])
+                                    .join("")
+                                    .slice(0, 2)}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div className="flex-1 min-w-0">
+                                <div className="text-sm font-medium text-white truncate">{student.name}</div>
+                                <div className="text-xs text-gray-400">
+                                  Cédula: {student.id}
+                                  {student.class && (
+                                    <span> • {student.class.sport === 'DANCE' ? '💃' : '🏐'} {student.class.name}</span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                            <div className="text-right ml-3">
+                              <Badge variant="destructive" className="text-xs mb-1">
+                                {student.consecutiveAbsences} faltas
+                              </Badge>
+                              <div className="text-xs text-gray-400">
+                                Última: {formatDateOnlyWithoutTimezone(student.lastAbsenceDate)}
+                              </div>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
                 )}
               </CardContent>
             </Card>
@@ -1198,6 +1426,18 @@ export function AttendanceHistory() {
                             <div className="text-base font-semibold text-red-300">{student.absent}</div>
                           </div>
                         </div>
+                        
+                        <div className="mt-4">
+                          <Button
+                            onClick={() => handleOpenMatchStudentDetail(student)}
+                            variant="outline"
+                            size="sm"
+                            className="w-full border-yellow-500 text-yellow-400 hover:bg-yellow-900/50"
+                          >
+                            <Eye className="w-4 h-4 mr-2" />
+                            Ver Detalle de Eventos
+                          </Button>
+                        </div>
                       </CardContent>
                     </Card>
                   ))
@@ -1226,6 +1466,402 @@ export function AttendanceHistory() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Modal de detalles del estudiante */}
+      <Dialog open={isDetailModalOpen} onOpenChange={setIsDetailModalOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-gray-800 border-gray-600">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold text-white flex items-center gap-3">
+              <Avatar className="w-10 h-10 ring-2 ring-blue-500">
+                <AvatarImage src={selectedStudentForDetail?.avatar || "/placeholder.svg"} />
+                <AvatarFallback className="bg-gradient-to-r from-orange-500 to-red-500 text-white font-bold">
+                  {selectedStudentForDetail?.name
+                    .split(" ")
+                    .map((n) => n[0])
+                    .join("")
+                    .slice(0, 2)}
+                </AvatarFallback>
+              </Avatar>
+              <div>
+                <div>{selectedStudentForDetail?.name}</div>
+                <div className="text-sm font-normal text-gray-400">
+                  Cédula: {selectedStudentForDetail?.id} • {selectedStudentForDetail?.totalClasses} clases totales
+                </div>
+              </div>
+            </DialogTitle>
+            <DialogDescription className="text-gray-300">
+              Detalle de asistencia por clase con fecha
+            </DialogDescription>
+          </DialogHeader>
+
+          {isLoadingDetails ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+              <span className="ml-3 text-gray-300">Cargando detalles...</span>
+            </div>
+          ) : studentAttendanceDetails.length === 0 ? (
+            <div className="text-center py-12">
+              <div className="w-20 h-20 mx-auto mb-4 bg-gray-700/50 rounded-full flex items-center justify-center">
+                <Calendar className="w-10 h-10 text-gray-400" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-300 mb-2">Sin registros de asistencia</h3>
+              <p className="text-sm text-gray-400">
+                No hay registros de asistencia para este estudiante en el período seleccionado
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-6 mt-4">
+              {/* Clases Presentes */}
+              {studentAttendanceDetails.some(att => att.status === 'PRESENT') && (
+                <div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <CheckCircle className="w-5 h-5 text-emerald-400" />
+                    <h3 className="text-lg font-semibold text-emerald-400">
+                      Presentes ({studentAttendanceDetails.filter(att => att.status === 'PRESENT').length})
+                    </h3>
+                  </div>
+                  <div className="space-y-2">
+                    {studentAttendanceDetails
+                      .filter(att => att.status === 'PRESENT')
+                      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+                      .map((attendance) => (
+                        <Card key={attendance.id} className="bg-emerald-900/20 border-emerald-600/40">
+                          <CardContent className="p-3">
+                            <div className="flex items-center justify-between">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <span className="text-sm font-medium text-emerald-300">
+                                    {attendance.session.danceClass.name}
+                                  </span>
+                                  <Badge variant="outline" className="text-xs border-emerald-500 text-emerald-300">
+                                    {attendance.session.danceClass.sport === 'DANCE' ? 'Baile' : 'Voleibol'}
+                                  </Badge>
+                                </div>
+                                <div className="text-xs text-gray-400">
+                                  👨‍🏫 {attendance.session.danceClass.trainer.name}
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <div className="text-sm font-semibold text-emerald-300">
+                                  {formatDateLongWithoutTimezone(attendance.date)}
+                                </div>
+                                <div className="text-xs text-gray-400">
+                                  {formatDateOnlyWithoutTimezone(attendance.date)}
+                                </div>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Clases Tarde */}
+              {studentAttendanceDetails.some(att => att.status === 'LATE') && (
+                <div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <Clock className="w-5 h-5 text-amber-400" />
+                    <h3 className="text-lg font-semibold text-amber-400">
+                      Llegó Tarde ({studentAttendanceDetails.filter(att => att.status === 'LATE').length})
+                    </h3>
+                  </div>
+                  <div className="space-y-2">
+                    {studentAttendanceDetails
+                      .filter(att => att.status === 'LATE')
+                      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+                      .map((attendance) => (
+                        <Card key={attendance.id} className="bg-amber-900/20 border-amber-600/40">
+                          <CardContent className="p-3">
+                            <div className="flex items-center justify-between">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <span className="text-sm font-medium text-amber-300">
+                                    {attendance.session.danceClass.name}
+                                  </span>
+                                  <Badge variant="outline" className="text-xs border-amber-500 text-amber-300">
+                                    {attendance.session.danceClass.sport === 'DANCE' ? 'Baile' : 'Voleibol'}
+                                  </Badge>
+                                </div>
+                                <div className="text-xs text-gray-400">
+                                  👨‍🏫 {attendance.session.danceClass.trainer.name}
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <div className="text-sm font-semibold text-amber-300">
+                                  {formatDateLongWithoutTimezone(attendance.date)}
+                                </div>
+                                <div className="text-xs text-gray-400">
+                                  {formatDateOnlyWithoutTimezone(attendance.date)}
+                                </div>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Clases Ausentes */}
+              {studentAttendanceDetails.some(att => att.status === 'ABSENT') && (
+                <div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <XCircle className="w-5 h-5 text-red-400" />
+                    <h3 className="text-lg font-semibold text-red-400">
+                      Ausentes ({studentAttendanceDetails.filter(att => att.status === 'ABSENT').length})
+                    </h3>
+                  </div>
+                  <div className="space-y-2">
+                    {studentAttendanceDetails
+                      .filter(att => att.status === 'ABSENT')
+                      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+                      .map((attendance) => (
+                        <Card key={attendance.id} className="bg-red-900/20 border-red-600/40">
+                          <CardContent className="p-3">
+                            <div className="flex items-center justify-between">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <span className="text-sm font-medium text-red-300">
+                                    {attendance.session.danceClass.name}
+                                  </span>
+                                  <Badge variant="outline" className="text-xs border-red-500 text-red-300">
+                                    {attendance.session.danceClass.sport === 'DANCE' ? 'Baile' : 'Voleibol'}
+                                  </Badge>
+                                </div>
+                                <div className="text-xs text-gray-400">
+                                  👨‍🏫 {attendance.session.danceClass.trainer.name}
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <div className="text-sm font-semibold text-red-300">
+                                  {formatDateLongWithoutTimezone(attendance.date)}
+                                </div>
+                                <div className="text-xs text-gray-400">
+                                  {formatDateOnlyWithoutTimezone(attendance.date)}
+                                </div>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de detalles del estudiante - Eventos */}
+      <Dialog open={isMatchDetailModalOpen} onOpenChange={setIsMatchDetailModalOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-gray-800 border-gray-600">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold text-white flex items-center gap-3">
+              <Avatar className="w-10 h-10 ring-2 ring-yellow-500">
+                <AvatarImage src={selectedMatchStudentForDetail?.avatar || "/placeholder.svg"} />
+                <AvatarFallback className="bg-gradient-to-r from-yellow-500 to-orange-500 text-white font-bold">
+                  {selectedMatchStudentForDetail?.name
+                    .split(" ")
+                    .map((n) => n[0])
+                    .join("")
+                    .slice(0, 2)}
+                </AvatarFallback>
+              </Avatar>
+              <div>
+                <div>{selectedMatchStudentForDetail?.name}</div>
+                <div className="text-sm font-normal text-gray-400">
+                  Cédula: {selectedMatchStudentForDetail?.id} • {selectedMatchStudentForDetail?.totalMatches} eventos totales
+                </div>
+              </div>
+            </DialogTitle>
+            <DialogDescription className="text-gray-300">
+              Detalle de asistencia a eventos con fecha
+            </DialogDescription>
+          </DialogHeader>
+
+          {isLoadingMatchDetails ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="w-8 h-8 border-4 border-yellow-500 border-t-transparent rounded-full animate-spin"></div>
+              <span className="ml-3 text-gray-300">Cargando detalles...</span>
+            </div>
+          ) : matchAttendanceDetails.length === 0 ? (
+            <div className="text-center py-12">
+              <div className="w-20 h-20 mx-auto mb-4 bg-gray-700/50 rounded-full flex items-center justify-center">
+                <Trophy className="w-10 h-10 text-gray-400" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-300 mb-2">Sin registros de eventos</h3>
+              <p className="text-sm text-gray-400">
+                No hay registros de asistencia a eventos para este estudiante en el período seleccionado
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-6 mt-4">
+              {/* Eventos Presentes */}
+              {matchAttendanceDetails.some(att => att.status === 'PRESENT') && (
+                <div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <CheckCircle className="w-5 h-5 text-emerald-400" />
+                    <h3 className="text-lg font-semibold text-emerald-400">
+                      Presentes ({matchAttendanceDetails.filter(att => att.status === 'PRESENT').length})
+                    </h3>
+                  </div>
+                  <div className="space-y-2">
+                    {matchAttendanceDetails
+                      .filter(att => att.status === 'PRESENT')
+                      .sort((a, b) => new Date(a.match.matchDate).getTime() - new Date(b.match.matchDate).getTime())
+                      .map((attendance) => (
+                        <Card key={attendance.id} className="bg-emerald-900/20 border-emerald-600/40">
+                          <CardContent className="p-3">
+                            <div className="flex items-center justify-between">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <span className="text-sm font-medium text-emerald-300">
+                                    {attendance.match.danceClass.name}
+                                  </span>
+                                  <Badge variant="outline" className="text-xs border-emerald-500 text-emerald-300">
+                                    {attendance.match.danceClass.sport === 'DANCE' ? 'Baile' : 'Voleibol'}
+                                  </Badge>
+                                  <Badge variant="outline" className="text-xs border-gray-500 text-gray-300">
+                                    {getMatchStatusBadge(attendance.match.status)}
+                                  </Badge>
+                                </div>
+                                <div className="text-xs text-gray-400">
+                                  👨‍🏫 {attendance.match.danceClass.trainer.name}
+                                </div>
+                                {attendance.match.notes && (
+                                  <div className="text-xs text-gray-400 mt-1">
+                                    📝 {attendance.match.notes}
+                                  </div>
+                                )}
+                              </div>
+                              <div className="text-right">
+                                <div className="text-sm font-semibold text-emerald-300">
+                                  {formatDateLongWithoutTimezone(attendance.match.matchDate)}
+                                </div>
+                                <div className="text-xs text-gray-400">
+                                  {formatDateOnlyWithoutTimezone(attendance.match.matchDate)}
+                                </div>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Eventos Tarde */}
+              {matchAttendanceDetails.some(att => att.status === 'LATE') && (
+                <div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <Clock className="w-5 h-5 text-amber-400" />
+                    <h3 className="text-lg font-semibold text-amber-400">
+                      Llegó Tarde ({matchAttendanceDetails.filter(att => att.status === 'LATE').length})
+                    </h3>
+                  </div>
+                  <div className="space-y-2">
+                    {matchAttendanceDetails
+                      .filter(att => att.status === 'LATE')
+                      .sort((a, b) => new Date(a.match.matchDate).getTime() - new Date(b.match.matchDate).getTime())
+                      .map((attendance) => (
+                        <Card key={attendance.id} className="bg-amber-900/20 border-amber-600/40">
+                          <CardContent className="p-3">
+                            <div className="flex items-center justify-between">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <span className="text-sm font-medium text-amber-300">
+                                    {attendance.match.danceClass.name}
+                                  </span>
+                                  <Badge variant="outline" className="text-xs border-amber-500 text-amber-300">
+                                    {attendance.match.danceClass.sport === 'DANCE' ? 'Baile' : 'Voleibol'}
+                                  </Badge>
+                                  <Badge variant="outline" className="text-xs border-gray-500 text-gray-300">
+                                    {getMatchStatusBadge(attendance.match.status)}
+                                  </Badge>
+                                </div>
+                                <div className="text-xs text-gray-400">
+                                  👨‍🏫 {attendance.match.danceClass.trainer.name}
+                                </div>
+                                {attendance.match.notes && (
+                                  <div className="text-xs text-gray-400 mt-1">
+                                    📝 {attendance.match.notes}
+                                  </div>
+                                )}
+                              </div>
+                              <div className="text-right">
+                                <div className="text-sm font-semibold text-amber-300">
+                                  {formatDateLongWithoutTimezone(attendance.match.matchDate)}
+                                </div>
+                                <div className="text-xs text-gray-400">
+                                  {formatDateOnlyWithoutTimezone(attendance.match.matchDate)}
+                                </div>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Eventos Ausentes */}
+              {matchAttendanceDetails.some(att => att.status === 'ABSENT') && (
+                <div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <XCircle className="w-5 h-5 text-red-400" />
+                    <h3 className="text-lg font-semibold text-red-400">
+                      Ausentes ({matchAttendanceDetails.filter(att => att.status === 'ABSENT').length})
+                    </h3>
+                  </div>
+                  <div className="space-y-2">
+                    {matchAttendanceDetails
+                      .filter(att => att.status === 'ABSENT')
+                      .sort((a, b) => new Date(a.match.matchDate).getTime() - new Date(b.match.matchDate).getTime())
+                      .map((attendance) => (
+                        <Card key={attendance.id} className="bg-red-900/20 border-red-600/40">
+                          <CardContent className="p-3">
+                            <div className="flex items-center justify-between">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <span className="text-sm font-medium text-red-300">
+                                    {attendance.match.danceClass.name}
+                                  </span>
+                                  <Badge variant="outline" className="text-xs border-red-500 text-red-300">
+                                    {attendance.match.danceClass.sport === 'DANCE' ? 'Baile' : 'Voleibol'}
+                                  </Badge>
+                                  <Badge variant="outline" className="text-xs border-gray-500 text-gray-300">
+                                    {getMatchStatusBadge(attendance.match.status)}
+                                  </Badge>
+                                </div>
+                                <div className="text-xs text-gray-400">
+                                  👨‍🏫 {attendance.match.danceClass.trainer.name}
+                                </div>
+                                {attendance.match.notes && (
+                                  <div className="text-xs text-gray-400 mt-1">
+                                    📝 {attendance.match.notes}
+                                  </div>
+                                )}
+                              </div>
+                              <div className="text-right">
+                                <div className="text-sm font-semibold text-red-300">
+                                  {formatDateLongWithoutTimezone(attendance.match.matchDate)}
+                                </div>
+                                <div className="text-xs text-gray-400">
+                                  {formatDateOnlyWithoutTimezone(attendance.match.matchDate)}
+                                </div>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
