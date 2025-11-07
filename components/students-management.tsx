@@ -634,9 +634,6 @@ export function StudentsManagement() {
                                   {studentWithClasses.classEnrollments.slice(0, 2).map((enrollment) => (
                                     <div key={enrollment.id} className="flex items-center gap-2">
                                       {getClassTypeBadge(enrollment.danceClass.sport)}
-                                      <span className="text-xs text-gray-400">
-                                        {enrollment.danceClass.name}
-                                      </span>
                                     </div>
                                   ))}
                                   {studentWithClasses.classEnrollments.length > 2 && (
