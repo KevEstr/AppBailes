@@ -195,13 +195,17 @@ export const PendingPaymentsDashboard = forwardRef<PendingPaymentsDashboardRef, 
     try {
       console.log('handleMarkAsReceived ejecutado');
       
-      // Pequeño delay para asegurar que la transacción se complete
+      // Pequeño delay para asegurar que la transacción se complete en la base de datos
+      await new Promise(resolve => setTimeout(resolve, 500));
       
       // Forzar refresh del useEffect
       setRefreshTrigger(prev => {
         console.log('refreshTrigger cambiando de', prev, 'a', prev + 1);
         return prev + 1;
       });
+      
+      // También forzar refresh directo de los pagos
+      await loadPayments();
       
       toast({
         title: "Pago marcado como recibido",
@@ -455,7 +459,15 @@ export const PendingPaymentsDashboard = forwardRef<PendingPaymentsDashboardRef, 
                     {payment.student.phone}
                   </TableCell>
                   <TableCell className="text-white font-semibold">
-                    {formatCurrency(payment.expectedAmount)}
+                    {payment.status === 'PAID' || payment.status === 'PARTIAL_PAID' ? (
+                      <div className="flex flex-col">
+                        <span className="text-green-400">
+                          {formatCurrency(payment.paidAmount || 0)}
+                        </span>
+                      </div>
+                    ) : (
+                      formatCurrency(payment.expectedAmount)
+                    )}
                   </TableCell>
                   <TableCell>
                     {getStatusBadge(payment)}

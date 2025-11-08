@@ -531,19 +531,27 @@ export class MonthlyPaymentService {
     await this.updateStudentDebtStatus(payment.studentId);
     console.log("✅ Estado de deuda actualizado");
 
+    // Calcular el saldo restante
+    const remainingAmount = effectiveExpectedAmount - receivedAmount;
+    
     // Crear nuevo pago pendiente para el saldo restante si es pago parcial
     if (isPartialPayment && payment.danceClass) {
       console.log("🔄 Creando pago pendiente para saldo restante...");
-      await this.createRemainingPayment(payment.student, payment.period, payment.danceClass, effectiveExpectedAmount - receivedAmount, data.markedBy);
+      console.log(`📊 Monto esperado: $${effectiveExpectedAmount.toLocaleString()}, Monto recibido: $${receivedAmount.toLocaleString()}, Saldo restante: $${remainingAmount.toLocaleString()}`);
+      await this.createRemainingPayment(payment.student, payment.period, payment.danceClass, remainingAmount, data.markedBy);
       console.log("✅ Pago pendiente creado");
     }
 
-    // Crear deuda adicional SOLO si es pago parcial y se especificó manualmente
-    if (isPartialPayment && data.additionalDebt && data.additionalDebt > 0) {
-      console.log("🔄 Creando deuda adicional...");
-      await this.createAdditionalDebt(payment.student, payment.period, data.additionalDebt);
-      console.log("✅ Deuda adicional creada");
-    }
+    // NO crear deuda adicional cuando additionalDebt se usa solo para validar el saldo restante
+    // El campo additionalDebt en el modal se usa para validar que receivedAmount + additionalDebt = expectedAmount
+    // El sistema ya crea automáticamente el pago pendiente con el saldo restante arriba
+    // Solo crear deuda adicional si es un adeudo completamente separado (mayor al saldo restante)
+    // Pero según el modal, esto no debería suceder, así que comentamos esta lógica
+    // if (isPartialPayment && data.additionalDebt && data.additionalDebt > remainingAmount) {
+    //   console.log("🔄 Creando deuda adicional separada...");
+    //   await this.createAdditionalDebt(payment.student, payment.period, data.additionalDebt - remainingAmount);
+    //   console.log("✅ Deuda adicional creada");
+    // }
 
     // Procesar pago adicional si se especificó
     let additionalPayments = undefined;
