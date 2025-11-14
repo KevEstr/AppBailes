@@ -5,17 +5,6 @@ import { PaymentSchedulerService } from '@/lib/payment-scheduler-service';
 // GET /api/cron/execute-payment-schedulers - Endpoint para ejecutar schedulers de pago desde GitHub Actions
 export async function GET(request: NextRequest) {
   try {
-    // Verificar que la llamada sea desde un cron job autorizado
-    const authHeader = request.headers.get('authorization');
-    const cronSecret = process.env.CRON_SECRET;
-    
-    if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-      return NextResponse.json(
-        { message: 'No autorizado' },
-        { status: 401 }
-      );
-    }
-
     console.log('🕐 Ejecutando cron job de Payment Schedulers...');
     const startTime = new Date();
     const currentHour = startTime.getHours();

@@ -21,8 +21,7 @@ jobs:
           echo "🕐 Hora actual: $(date)"
           
           response=$(curl -s -w "\n%{http_code}" -X GET "${{ secrets.RAILWAY_PUBLIC_DOMAIN }}/api/cron/execute-payment-schedulers" \
-            -H "Content-Type: application/json" \
-            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}")
+            -H "Content-Type: application/json")
           
           http_code=$(echo "$response" | tail -n1)
           body=$(echo "$response" | head -n -1)
