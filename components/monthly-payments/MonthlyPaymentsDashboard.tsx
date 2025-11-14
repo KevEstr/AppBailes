@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import { Plus, Settings, Calendar, DollarSign, FileText, Users, CheckCircle, Clock } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import Link from 'next/link';
@@ -39,6 +39,12 @@ export function MonthlyPaymentsDashboard() {
   const [error, setError] = useState<string | null>(null);
   const [generatingPayments, setGeneratingPayments] = useState(false);
   const [pendingStats, setPendingStats] = useState<any>(null);
+  const [showResultModal, setShowResultModal] = useState(false);
+  const [generationResult, setGenerationResult] = useState<{
+    message: string;
+    created: number;
+    updated: number;
+  } | null>(null);
 
   // Referencias para actualizar los componentes hijos
   const pendingPaymentsRef = useRef<PendingPaymentsDashboardRef>(null);
@@ -189,20 +195,13 @@ export function MonthlyPaymentsDashboard() {
 
       const result = await response.json();
       
-      // Mostrar mensaje más detallado
-      let message = `✅ ${result.message}`;
-      if (result.created > 0 || result.updated > 0) {
-        message = `✅ Proceso completado:\n`;
-        if (result.created > 0) {
-          message += `• ${result.created} pagos creados\n`;
-        }
-        if (result.updated > 0) {
-          message += `• ${result.updated} pagos actualizados\n`;
-        }
-        message += `\nLos mensajes de WhatsApp se pueden enviar desde el panel de administración.`;
-      }
-      
-      alert(message);
+      // Guardar resultado y mostrar modal
+      setGenerationResult({
+        message: result.message || 'Proceso completado exitosamente',
+        created: result.created || 0,
+        updated: result.updated || 0
+      });
+      setShowResultModal(true);
       
       // Recargar estadísticas
       if (selectedPeriod) {
@@ -525,6 +524,65 @@ export function MonthlyPaymentsDashboard() {
           </CardContent>
         </Card>
       )}
+
+      {/* Modal de resultado de generación/actualización de pagos */}
+      <Dialog open={showResultModal} onOpenChange={setShowResultModal}>
+        <DialogContent className="bg-gray-800 border-gray-600 text-white max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold text-white flex items-center gap-2">
+              <CheckCircle className="h-5 w-5 text-green-400" />
+              Proceso Completado
+            </DialogTitle>
+            <DialogDescription className="text-gray-300">
+              Resultado de la generación/actualización de pagos
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            {generationResult && (
+              <>
+                {(generationResult.created > 0 || generationResult.updated > 0) && (
+                  <div className="bg-green-900/20 border border-green-500/30 rounded-lg p-4">
+                    <div className="space-y-2">
+                      {generationResult.created > 0 && (
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-gray-300">Pagos creados:</span>
+                          <span className="text-green-400 font-semibold">
+                            {generationResult.created}
+                          </span>
+                        </div>
+                      )}
+                      {generationResult.updated > 0 && (
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-gray-300">Pagos actualizados:</span>
+                          <span className="text-blue-400 font-semibold">
+                            {generationResult.updated}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+                
+                <div className="bg-blue-900/20 border border-blue-500/30 rounded-lg p-3">
+                  <p className="text-blue-300 text-sm">
+                    💡 Los mensajes de WhatsApp se pueden enviar desde el panel de administración.
+                  </p>
+                </div>
+              </>
+            )}
+            
+            <div className="flex justify-end">
+              <Button
+                onClick={() => setShowResultModal(false)}
+                className="bg-green-600 hover:bg-green-700 text-white"
+              >
+                <CheckCircle className="h-4 w-4 mr-2" />
+                Entendido
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 } 

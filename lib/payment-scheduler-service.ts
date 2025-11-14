@@ -88,19 +88,50 @@ export class PaymentSchedulerService {
    * Programa la ejecución específica de un scheduler
    */
   private scheduleSpecificExecution(scheduler: any) {
+    const now = new Date();
+    let nextExecution: Date;
+    
+    // Si no tiene próxima ejecución configurada, calcularla
     if (!scheduler.nextExecution) {
-      console.log(`⚠️  Scheduler ${scheduler.name} no tiene próxima ejecución configurada`);
-      return;
+      nextExecution = this.calculateNextExecution(scheduler);
+      // Actualizar en la base de datos
+      prisma.paymentScheduler.update({
+        where: { id: scheduler.id },
+        data: { nextExecution }
+      }).catch(err => console.error('Error actualizando nextExecution:', err));
+    } else {
+      nextExecution = new Date(scheduler.nextExecution);
     }
 
-    const now = new Date();
-    const nextExecution = new Date(scheduler.nextExecution);
     const timeUntilExecution = nextExecution.getTime() - now.getTime();
 
-    // Si ya pasó la hora, ejecutar inmediatamente
+    // Si ya pasó la hora, calcular la próxima ejecución válida (no ejecutar inmediatamente)
     if (timeUntilExecution <= 0) {
-      console.log(`⚡ Ejecutando scheduler "${scheduler.name}" inmediatamente (hora pasada)`);
-      this.executeScheduler(scheduler);
+      console.log(`⏭️  Scheduler "${scheduler.name}" ya pasó su hora programada, calculando próxima ejecución...`);
+      nextExecution = this.calculateNextExecution(scheduler);
+      
+      // Actualizar en la base de datos
+      prisma.paymentScheduler.update({
+        where: { id: scheduler.id },
+        data: { nextExecution }
+      }).catch(err => console.error('Error actualizando nextExecution:', err));
+      
+      // Recalcular tiempo hasta la nueva ejecución
+      const newTimeUntilExecution = nextExecution.getTime() - now.getTime();
+      
+      if (newTimeUntilExecution <= 0) {
+        console.log(`⚠️  Scheduler "${scheduler.name}" - próxima ejecución aún en el pasado, omitiendo`);
+        return;
+      }
+      
+      // Continuar con la programación de la nueva fecha
+      const timeout = setTimeout(() => {
+        console.log(`⏰ Ejecutando scheduler "${scheduler.name}" programado`);
+        this.executeScheduler(scheduler);
+      }, newTimeUntilExecution);
+
+      this.activeTimeouts.set(scheduler.id, timeout);
+      console.log(`📅 Scheduler "${scheduler.name}" reprogramado para: ${nextExecution.toLocaleString('es-ES')}`);
       return;
     }
 
@@ -137,6 +168,25 @@ export class PaymentSchedulerService {
     console.log('🔄 Recargando schedulers...');
     await this.loadAndScheduleAll();
     console.log('✅ Schedulers recargados exitosamente');
+  }
+
+  /**
+   * Ejecuta un scheduler específico por ID (método público para cron jobs)
+   */
+  async executeSchedulerById(schedulerId: number) {
+    const scheduler = await prisma.paymentScheduler.findUnique({
+      where: { id: schedulerId }
+    });
+
+    if (!scheduler) {
+      throw new Error(`Scheduler con ID ${schedulerId} no encontrado`);
+    }
+
+    if (!scheduler.isActive) {
+      throw new Error(`Scheduler ${scheduler.name} no está activo`);
+    }
+
+    return await this.executeScheduler(scheduler);
   }
 
   /**
@@ -564,26 +614,32 @@ export class PaymentSchedulerService {
    */
   private calculateNextExecution(scheduler: any): Date {
     const now = new Date();
-    const nextMonth = new Date(now);
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth();
+    const currentDay = now.getDate();
     
     if (scheduler.dayOfMonth) {
       // Scheduler mensual recurrente
-      nextMonth.setMonth(nextMonth.getMonth() + 1);
-      nextMonth.setDate(scheduler.dayOfMonth);
-      nextMonth.setHours(scheduler.hour);
-      nextMonth.setMinutes(scheduler.minute);
-      nextMonth.setSeconds(0);
-      nextMonth.setMilliseconds(0);
+      // Primero intentar este mes
+      let targetDate = new Date(currentYear, currentMonth, scheduler.dayOfMonth, scheduler.hour, scheduler.minute, 0, 0);
+      
+      // Si ya pasó este mes (día pasado o mismo día pero hora/minuto pasados), programar para el próximo mes
+      if (targetDate <= now) {
+        // Calcular para el próximo mes
+        targetDate = new Date(currentYear, currentMonth + 1, scheduler.dayOfMonth, scheduler.hour, scheduler.minute, 0, 0);
+        
+        // Si el día no existe en el próximo mes (ej: 31 de febrero), ajustar al último día del mes
+        if (targetDate.getDate() !== scheduler.dayOfMonth) {
+          targetDate.setDate(0); // Último día del mes anterior (que es el último del mes actual)
+        }
+      }
+      
+      return targetDate;
     } else {
       // Por defecto, próximo mes mismo día
-      nextMonth.setMonth(nextMonth.getMonth() + 1);
-      nextMonth.setHours(scheduler.hour);
-      nextMonth.setMinutes(scheduler.minute);
-      nextMonth.setSeconds(0);
-      nextMonth.setMilliseconds(0);
+      const nextMonth = new Date(currentYear, currentMonth + 1, currentDay, scheduler.hour, scheduler.minute, 0, 0);
+      return nextMonth;
     }
-
-    return nextMonth;
   }
 
   /**

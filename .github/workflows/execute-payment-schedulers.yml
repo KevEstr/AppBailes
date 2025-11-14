@@ -1,0 +1,56 @@
+name: Execute Payment Schedulers
+
+on:
+  schedule:
+    # Ejecutar solo los días 1 y 16 de cada mes
+    # Día 1: Para schedulers de corte 30 (que se ejecutan el día 1)
+    # Día 16: Para schedulers de corte 15 (que se ejecutan el día 16)
+    # Se ejecuta cada hora en esos días para cubrir diferentes horarios de schedulers
+    - cron: '0 */1 1,16 * *'  # Cada hora en los días 1 y 16 del mes
+  workflow_dispatch: # Permitir ejecución manual
+
+jobs:
+  execute-payment-schedulers:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Execute Payment Schedulers
+        run: |
+          echo "🚀 Iniciando ejecución de schedulers de pago..."
+          echo "📡 URL: ${{ secrets.RAILWAY_PUBLIC_DOMAIN }}/api/cron/execute-payment-schedulers"
+          echo "🕐 Hora actual: $(date)"
+          
+          response=$(curl -s -w "\n%{http_code}" -X GET "${{ secrets.RAILWAY_PUBLIC_DOMAIN }}/api/cron/execute-payment-schedulers" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}")
+          
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | head -n -1)
+          
+          echo "📊 Status Code: $http_code"
+          echo "📄 Response: $body"
+          
+          if [ "$http_code" -eq 200 ]; then
+            echo "✅ Ejecución de schedulers completada exitosamente"
+            echo "$body" | jq '.'
+            
+            # Extraer resumen de resultados
+            executed=$(echo "$body" | jq -r '.summary.executed // 0')
+            total_sent=$(echo "$body" | jq -r '.summary.totalSent // 0')
+            total_failed=$(echo "$body" | jq -r '.summary.totalFailed // 0')
+            
+            echo ""
+            echo "📈 Resumen:"
+            echo "   - Schedulers ejecutados: $executed"
+            echo "   - Mensajes enviados: $total_sent"
+            echo "   - Mensajes fallidos: $total_failed"
+            
+            if [ "$executed" -eq 0 ]; then
+              echo "ℹ️  No había schedulers programados para ejecutarse en este momento"
+            fi
+          else
+            echo "❌ Error en la ejecución de schedulers"
+            echo "$body"
+            exit 1
+          fi
+

@@ -272,47 +272,29 @@ export function PaymentSchedulerDashboard() {
         <CardHeader>
           <CardTitle className="text-white flex items-center gap-2 text-lg md:text-xl">
             <Activity className="h-5 w-5" />
-            Estado del Sistema de Scheduler
+            Sistema de Ejecución de Schedulers
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="space-y-4">
             <div className="flex items-center gap-4">
-              <div className={`h-3 w-3 rounded-full ${systemStatus.isRunning ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></div>
+              <div className="h-3 w-3 rounded-full bg-green-500 animate-pulse"></div>
               <div>
                 <p className="text-white font-medium">
-                  {systemStatus.isRunning ? 'Scheduler Activo' : 'Scheduler Detenido'}
+                  Ejecutado vía GitHub Actions
                 </p>
                 <p className="text-gray-400 text-sm">
-                  {systemStatus.isRunning 
-                    ? 'Sistema basado en eventos - Sin polling automático' 
-                    : 'Sistema detenido - Necesita inicialización manual'
-                  }
+                  Los schedulers se ejecutan automáticamente los días 1 y 16 de cada mes según su configuración
                 </p>
               </div>
             </div>
             
-            <div className="flex gap-2 self-start sm:self-auto">
-              {systemStatus.isRunning ? (
-                <Button 
-                  onClick={stopScheduler}
-                  variant="destructive"
-                  size="sm"
-                  className="w-full sm:w-auto"
-                >
-                  <Pause className="h-4 w-4 mr-2" />
-                  Detener
-                </Button>
-              ) : (
-                <Button 
-                  onClick={startScheduler}
-                  className="bg-green-600 hover:bg-green-700 w-full sm:w-auto"
-                  size="sm"
-                >
-                  <Play className="h-4 w-4 mr-2" />
-                  Iniciar
-                </Button>
-              )}
+            <div className="bg-blue-900/20 border border-blue-500/30 rounded-lg p-3">
+              <p className="text-blue-300 text-sm">
+                <strong>ℹ️ Información:</strong> El sistema se ejecuta automáticamente los días 1 y 16 de cada mes 
+                (cada hora en esos días) para verificar y ejecutar schedulers programados. Los schedulers se ejecutan 
+                en su fecha, hora y minuto configurados. Todos los mensajes enviados se registran para generar reportes.
+              </p>
             </div>
           </div>
         </CardContent>

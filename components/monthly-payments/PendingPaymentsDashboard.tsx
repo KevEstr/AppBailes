@@ -16,7 +16,11 @@ import {
 } from '@/components/ui/table';
 import { AdvancedPagination } from '@/components/ui/advanced-pagination';
 import { 
-  Dialog
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription
 } from '@/components/ui/dialog';
 import { 
   Search, 
@@ -26,7 +30,8 @@ import {
   MessageSquare,
   Copy,
   X,
-  Filter
+  Filter,
+  Trash2
 } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import { MarkPaymentReceivedModal } from '@/components/admin/MarkPaymentReceivedModal';
@@ -95,6 +100,8 @@ export const PendingPaymentsDashboard = forwardRef<PendingPaymentsDashboardRef, 
   const [selectedPayment, setSelectedPayment] = useState<PendingPayment | null>(null);
   const [sendingWhatsApp, setSendingWhatsApp] = useState<number | null>(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [paymentToDelete, setPaymentToDelete] = useState<PendingPayment | null>(null);
+  const [deletingPayment, setDeletingPayment] = useState(false);
 
   // Exponer método refresh al componente padre
   useImperativeHandle(ref, () => ({
@@ -283,6 +290,54 @@ export const PendingPaymentsDashboard = forwardRef<PendingPaymentsDashboardRef, 
         description: "No se pudo copiar el link del recibo",
         variant: "destructive",
       });
+    }
+  };
+
+  const handleDeletePayment = async () => {
+    if (!paymentToDelete) return;
+
+    try {
+      setDeletingPayment(true);
+      
+      const response = await fetch(`/api/admin/monthly-payments/${paymentToDelete.id}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || data.details || 'Error al eliminar el pago');
+      }
+
+      // Mostrar mensaje de éxito con advertencia si hay formularios eliminados
+      if (data.warning) {
+        toast({
+          title: "Pago eliminado",
+          description: `${data.message}. ${data.warning}`,
+          variant: "default",
+        });
+      } else {
+        toast({
+          title: "Pago eliminado",
+          description: `El pago de ${paymentToDelete.student.name} ha sido eliminado exitosamente`,
+        });
+      }
+
+      // Cerrar el modal y refrescar la lista
+      setPaymentToDelete(null);
+      await loadPayments();
+    } catch (err) {
+      console.error('Error al eliminar pago:', err);
+      toast({
+        title: "Error al eliminar pago",
+        description: err instanceof Error ? err.message : 'Error desconocido',
+        variant: "destructive",
+      });
+    } finally {
+      setDeletingPayment(false);
     }
   };
 
@@ -503,6 +558,19 @@ export const PendingPaymentsDashboard = forwardRef<PendingPaymentsDashboardRef, 
                         </Button>
                       )}
 
+                      {/* Solo mostrar botón "Eliminar" para pagos pendientes */}
+                      {(payment.status === 'PENDING' || payment.status === 'OVERDUE') && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="bg-red-600 border-red-500 text-white hover:bg-red-700"
+                          onClick={() => setPaymentToDelete(payment)}
+                          disabled={deletingPayment}
+                        >
+                          <Trash2 className="h-4 w-4 mr-1" />
+                        </Button>
+                      )}
+
                       {/* Mostrar botón "Recibo" para pagos completados y parciales */}
                       {(payment.status === 'PAID' || payment.status === 'PARTIAL_PAID') && (
                         <Button
@@ -557,6 +625,95 @@ export const PendingPaymentsDashboard = forwardRef<PendingPaymentsDashboardRef, 
             }}
           />
         )}
+      </Dialog>
+
+      {/* Modal de confirmación para eliminar pago */}
+      <Dialog open={!!paymentToDelete} onOpenChange={(open) => !open && setPaymentToDelete(null)}>
+        <DialogContent className="bg-gray-800 border-gray-600 text-white max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold text-white flex items-center gap-2">
+              <Trash2 className="h-5 w-5 text-red-400" />
+              Confirmar Eliminación
+            </DialogTitle>
+            <DialogDescription className="text-gray-300">
+              Esta acción no se puede deshacer
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            {paymentToDelete && (
+              <>
+                <p className="text-gray-300">
+                  ¿Estás seguro de que deseas eliminar el pago de{' '}
+                  <span className="font-semibold text-white">
+                    {paymentToDelete.student.name}
+                  </span>
+                  {paymentToDelete.class && (
+                    <>
+                      {' '}para la clase{' '}
+                      <span className="font-semibold text-white">
+                        {paymentToDelete.class.name}
+                      </span>
+                    </>
+                  )}
+                  ?
+                </p>
+                <div className="bg-gray-700/50 rounded-lg p-3 space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-400">Monto esperado:</span>
+                    <span className="text-white font-semibold">
+                      {formatCurrency(paymentToDelete.expectedAmount)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-400">Período:</span>
+                    <span className="text-white">{paymentToDelete.period}</span>
+                  </div>
+                  {paymentToDelete.dueDate && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-400">Vencimiento:</span>
+                      <span className="text-white">
+                        {new Date(paymentToDelete.dueDate).toLocaleDateString('es-CO')}
+                      </span>
+                    </div>
+                  )}
+                </div>
+                <div className="bg-red-900/20 border border-red-500/30 rounded-lg p-3">
+                  <p className="text-red-300 text-sm">
+                    <strong>⚠️ Advertencia:</strong> Esta acción eliminará permanentemente 
+                    el registro del pago. Solo se pueden eliminar pagos pendientes o vencidos.
+                  </p>
+                </div>
+              </>
+            )}
+            <div className="flex justify-end space-x-3">
+              <Button
+                variant="outline"
+                onClick={() => setPaymentToDelete(null)}
+                className="border-gray-600 text-gray-300 hover:bg-gray-700"
+                disabled={deletingPayment}
+              >
+                Cancelar
+              </Button>
+              <Button
+                onClick={handleDeletePayment}
+                className="bg-red-600 hover:bg-red-700 text-white"
+                disabled={deletingPayment}
+              >
+                {deletingPayment ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                    Eliminando...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Eliminar Pago
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
       </Dialog>
     </Card>
   );
