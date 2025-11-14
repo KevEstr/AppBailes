@@ -22,7 +22,7 @@ export async function GET(request: Request) {
 
     // Filtro por clase específica
     if (classIdParam !== "all") {
-      const classId = parseInt(classIdParam)
+      const classId = Number.parseInt(classIdParam, 10)
       if (classId) {
         whereClause.session = {
           classId: classId
@@ -46,41 +46,128 @@ export async function GET(request: Request) {
       }
     })
 
-    // Agrupar por estudiante y encontrar faltas consecutivas
-    const studentAbsencesMap: { [key: string]: any[] } = {}
+    // Agrupar por estudiante Y clase para calcular faltas consecutivas por clase
+    // Usamos una clave compuesta: studentId-classId
+    const studentClassAbsencesMap: { [key: string]: any[] } = {}
     
     absentAttendances.forEach((attendance: any) => {
       const studentId = attendance.studentId
-      if (!studentAbsencesMap[studentId]) {
-        studentAbsencesMap[studentId] = []
+      const classId = attendance.session?.danceClass?.id || 'unknown'
+      const key = `${studentId}-${classId}`
+      
+      if (!studentClassAbsencesMap[key]) {
+        studentClassAbsencesMap[key] = []
       }
-      studentAbsencesMap[studentId].push({
+      studentClassAbsencesMap[key].push({
         date: new Date(attendance.date),
-        class: attendance.session?.danceClass
+        sessionDate: attendance.session?.date ? new Date(attendance.session.date) : new Date(attendance.date),
+        class: attendance.session?.danceClass,
+        student: attendance.student
       })
     })
 
-    // Encontrar estudiantes con 3 o más faltas consecutivas
+    // Obtener todas las clases únicas que tienen faltas para optimizar consultas
+    const uniqueClassIds = Array.from(new Set(
+      Object.values(studentClassAbsencesMap)
+        .flat()
+        .map((a: any) => a.class?.id)
+        .filter((id): id is number => id !== undefined && id !== 'unknown')
+    ))
+
+    // Obtener todas las sesiones de todas las clases de una vez para optimizar
+    const allClassSessionsMap = new Map<number, Array<{ id: number; date: Date }>>()
+    
+    if (uniqueClassIds.length > 0) {
+      const allSessions = await prisma.classSession.findMany({
+        where: {
+          classId: {
+            in: uniqueClassIds
+          },
+          date: {
+            gte: startDate,
+            lte: endDate
+          }
+        },
+        orderBy: {
+          date: 'asc'
+        },
+        select: {
+          id: true,
+          date: true,
+          classId: true
+        }
+      })
+
+      // Agrupar sesiones por clase
+      for (const session of allSessions) {
+        if (!allClassSessionsMap.has(session.classId)) {
+          allClassSessionsMap.set(session.classId, [])
+        }
+        allClassSessionsMap.get(session.classId)!.push({
+          id: session.id,
+          date: session.date
+        })
+      }
+    }
+
+    // Normalizar fechas a solo fecha (sin hora) para comparación
+    const normalizeDate = (date: Date) => {
+      const d = new Date(date)
+      d.setHours(0, 0, 0, 0)
+      return d.getTime()
+    }
+
+    // Encontrar estudiantes con 3 o más faltas consecutivas por clase
     const studentsWithConsecutiveAbsences: any[] = []
 
-    Object.keys(studentAbsencesMap).forEach((studentId) => {
-      const absences = studentAbsencesMap[studentId]
-      if (absences.length < 3) return
+    for (const key of Object.keys(studentClassAbsencesMap)) {
+      const absences = studentClassAbsencesMap[key]
+      if (absences.length < 3) continue
 
-      // Ordenar por fecha
-      absences.sort((a, b) => a.date.getTime() - b.date.getTime())
+      // Ordenar por fecha de sesión (no fecha de registro)
+      absences.sort((a, b) => a.sessionDate.getTime() - b.sessionDate.getTime())
 
-      // Buscar secuencias consecutivas
+      // Obtener todas las sesiones de esta clase en el período para determinar frecuencia
+      // Esto nos ayuda a entender si las faltas son en sesiones consecutivas
+      const classId = absences[0].class?.id
+      if (!classId || typeof classId !== 'number') continue
+
+      // Obtener sesiones de esta clase desde el mapa
+      const allClassSessions = allClassSessionsMap.get(classId) || []
+
+      // Buscar secuencias consecutivas considerando sesiones de clase
+      // Para clases con días específicos (ej: miércoles y viernes), necesitamos
+      // verificar si las faltas son en sesiones consecutivas de la clase
       let maxConsecutive = 1
-      let currentConsecutive = 1 // Empezamos con 1 porque ya tenemos la primera falta
+      let currentConsecutive = 1
+
+      // Crear lista de fechas de sesiones normalizadas y ordenadas
+      const sessionDates = allClassSessions
+        .map(s => normalizeDate(s.date))
+        .sort((a, b) => a - b)
 
       for (let i = 1; i < absences.length; i++) {
-        const currentDate = absences[i].date
-        const previousDate = absences[i - 1].date
-        const daysDiff = Math.floor((currentDate.getTime() - previousDate.getTime()) / (1000 * 60 * 60 * 24))
+        const currentSessionDate = absences[i].sessionDate
+        const previousSessionDate = absences[i - 1].sessionDate
+        const daysDiff = Math.floor((currentSessionDate.getTime() - previousSessionDate.getTime()) / (1000 * 60 * 60 * 24))
 
-        // Si la diferencia es 1 día o menos (mismo día o día siguiente), es consecutivo
-        if (daysDiff <= 1) {
+        // Normalizar fechas para comparación
+        const currentDateNormalized = normalizeDate(currentSessionDate)
+        const previousDateNormalized = normalizeDate(previousSessionDate)
+
+        // Verificar si son sesiones consecutivas de la clase
+        const currentSessionIndex = sessionDates.findIndex(d => d === currentDateNormalized)
+        const previousSessionIndex = sessionDates.findIndex(d => d === previousDateNormalized)
+        
+        const isConsecutiveSession = currentSessionIndex !== -1 && 
+                                     previousSessionIndex !== -1 && 
+                                     currentSessionIndex === previousSessionIndex + 1
+
+        // Criterio para considerar consecutivo:
+        // 1. Si son sesiones consecutivas de la clase (índices adyacentes en la lista de sesiones)
+        // 2. O si la diferencia es <= 3 días (para clases que se dan varios días por semana)
+        // 3. O si la diferencia es <= 7 días (para clases semanales)
+        if (isConsecutiveSession || daysDiff <= 7) {
           currentConsecutive++
         } else {
           // Si encontramos una secuencia de 3 o más, actualizar maxConsecutive
@@ -96,27 +183,27 @@ export async function GET(request: Request) {
         maxConsecutive = currentConsecutive
       }
 
-      // Si tiene 3 o más faltas consecutivas, agregarlo a la lista
+      // Si tiene 3 o más faltas consecutivas en esta clase, agregarlo a la lista
       if (maxConsecutive >= 3) {
-        const student = absentAttendances.find((att: any) => att.studentId === studentId)?.student
-        const lastAbsence = absences[absences.length - 1]
+        const student = absences[0].student
+        const lastAbsence = absences.at(-1)
         
-        if (student) {
+        if (student && lastAbsence.class) {
           studentsWithConsecutiveAbsences.push({
             id: student.id,
             name: student.name,
             avatar: student.avatar || "",
             consecutiveAbsences: maxConsecutive,
-            lastAbsenceDate: lastAbsence.date,
-            class: lastAbsence.class ? {
+            lastAbsenceDate: lastAbsence.sessionDate,
+            class: {
               id: lastAbsence.class.id,
               name: lastAbsence.class.name,
               sport: lastAbsence.class.sport
-            } : undefined
+            }
           })
         }
       }
-    })
+    }
 
     // Ordenar por número de faltas consecutivas (mayor a menor)
     studentsWithConsecutiveAbsences.sort((a, b) => b.consecutiveAbsences - a.consecutiveAbsences)
