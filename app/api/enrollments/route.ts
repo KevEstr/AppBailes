@@ -33,62 +33,108 @@ export async function GET(request: NextRequest) {
 
     if (groupByStudent) {
       // Lógica para agrupar por estudiante
-      const studentQuery: any = {}
+      const enrollmentQuery: any = {
+        isActive: true // Solo inscripciones activas
+      }
       
       // Agregar filtros de estado del estudiante
       if (status === 'active') {
-        studentQuery.isActive = true
+        enrollmentQuery.student = { isActive: true }
       } else if (status === 'inactive') {
-        studentQuery.isActive = false
+        enrollmentQuery.student = { isActive: false }
       }
 
       // Agregar condiciones de búsqueda si existe un término
       if (search) {
-        studentQuery.OR = [
-          { name: { contains: search, mode: 'insensitive' } },
-          { phone: { contains: search, mode: 'insensitive' } },
-          { id: { contains: search, mode: 'insensitive' } }
-        ]
+        enrollmentQuery.student = {
+          ...enrollmentQuery.student,
+          OR: [
+            { name: { contains: search, mode: 'insensitive' } },
+            { phone: { contains: search, mode: 'insensitive' } },
+            { id: { contains: search, mode: 'insensitive' } }
+          ]
+        }
       }
 
-      console.log('🗄️ Ejecutando consulta agrupada por estudiante...')
+      console.log('🗄️ Ejecutando consulta agrupada por estudiante ordenada por fecha de inscripción...')
       
-      // Obtener estudiantes con sus clases
-      const [students, totalStudents, stats] = await Promise.all([
-        prisma.student.findMany({
-          where: studentQuery,
-          include: {
-            user: { select: { email: true } },
-            classEnrollments: {
-              where: { isActive: true },
-              include: {
-                danceClass: {
-                  include: {
-                    trainer: { select: { name: true } },
-                    location: { select: { name: true, address: true } }
-                  }
+      // Primero obtener todas las inscripciones ordenadas por fecha de creación (más antiguas primero)
+      const allEnrollments = await prisma.classEnrollment.findMany({
+        where: enrollmentQuery,
+        include: {
+          student: {
+            include: {
+              user: { select: { email: true } }
+            }
+          },
+          danceClass: {
+            include: {
+              trainer: { select: { name: true } },
+              location: { select: { name: true, address: true } }
+            }
+          }
+        },
+        orderBy: {
+          createdAt: 'desc' // Ordenar por fecha de inscripción (más recientes primero)
+        }
+      })
+
+      // Agrupar por estudiante, manteniendo solo la primera inscripción (más reciente) para el ordenamiento
+      const studentMap = new Map<string, typeof allEnrollments[0]>()
+      for (const enrollment of allEnrollments) {
+        const studentIdStr = String(enrollment.studentId)
+        if (!studentMap.has(studentIdStr)) {
+          studentMap.set(studentIdStr, enrollment)
+        }
+      }
+
+      // Obtener IDs únicos de estudiantes ordenados por fecha de inscripción (más recientes primero)
+      const sortedStudentIds = Array.from(studentMap.values())
+        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+        .map(e => String(e.studentId))
+
+      // Aplicar paginación a los IDs ordenados
+      const paginatedStudentIds = sortedStudentIds.slice(skip, skip + validLimit)
+
+      // Obtener estudiantes completos con todas sus inscripciones activas
+      const students = await prisma.student.findMany({
+        where: {
+          id: { in: paginatedStudentIds }
+        },
+        include: {
+          user: { select: { email: true } },
+          classEnrollments: {
+            where: { isActive: true },
+            include: {
+              danceClass: {
+                include: {
+                  trainer: { select: { name: true } },
+                  location: { select: { name: true, address: true } }
                 }
               }
             }
-          },
-          orderBy: [
-            { isActive: 'desc' },
-            { name: 'asc' }
-          ],
-          skip,
-          take: validLimit
-        }),
-        prisma.student.count({ where: studentQuery }),
-        // Obtener estadísticas generales
-        Promise.all([
-          prisma.student.count({ where: { isActive: true } }),
-          prisma.student.count({ where: { isActive: false } }),
-          prisma.student.count({ where: { hasDebt: true } })
-        ])
+          }
+        }
+      })
+
+      // Ordenar los estudiantes según el orden de paginatedStudentIds
+      const studentsMap = new Map(students.map(s => [s.id, s]))
+      const orderedStudents = paginatedStudentIds
+        .map(id => studentsMap.get(id))
+        .filter((s): s is NonNullable<typeof s> => s !== undefined)
+
+      // Contar estudiantes únicos basándose en las inscripciones agrupadas
+      const totalStudents = sortedStudentIds.length
+
+      // Obtener estadísticas generales
+      const stats = await Promise.all([
+        prisma.student.count({ where: { isActive: true } }),
+        prisma.student.count({ where: { isActive: false } }),
+        prisma.student.count({ where: { hasDebt: true } })
       ])
 
       // Transformar datos para el frontend
-      const studentsWithClasses = students.map(student => ({
+      const studentsWithClasses = orderedStudents.map(student => ({
         student: {
           id: student.id,
           name: student.name,

@@ -34,7 +34,6 @@ interface NewPeriod {
   year: number;
   month: number;
   name: string;
-  dueDate: string;
 }
 
 export default function PaymentPeriodsManager() {
@@ -45,7 +44,6 @@ export default function PaymentPeriodsManager() {
     year: new Date().getFullYear(),
     month: new Date().getMonth() + 1,
     name: "",
-    dueDate: "",
   });
 
   useEffect(() => {
@@ -70,8 +68,8 @@ export default function PaymentPeriodsManager() {
   };
 
   const createPeriod = async () => {
-    if (!newPeriod.name || !newPeriod.dueDate) {
-      toast.error("Todos los campos son obligatorios");
+    if (!newPeriod.name) {
+      toast.error("El nombre del período es obligatorio");
       return;
     }
 
@@ -90,7 +88,6 @@ export default function PaymentPeriodsManager() {
           year: new Date().getFullYear(),
           month: new Date().getMonth() + 1,
           name: "",
-          dueDate: "",
         });
         toast.success("Período creado exitosamente");
       } else {
@@ -227,21 +224,6 @@ export default function PaymentPeriodsManager() {
                 />
               </div>
 
-              <div>
-                <Label htmlFor="dueDate">Fecha de Vencimiento</Label>
-                <Input
-                  id="dueDate"
-                  type="date"
-                  value={newPeriod.dueDate}
-                  onChange={(e) =>
-                    setNewPeriod((prev) => ({
-                      ...prev,
-                      dueDate: e.target.value,
-                    }))
-                  }
-                />
-              </div>
-
               <Button
                 onClick={createPeriod}
                 disabled={isCreating}
@@ -279,12 +261,6 @@ export default function PaymentPeriodsManager() {
                             {period.isActive ? "Activo" : "Inactivo"}
                           </Badge>
                         </div>
-                        <p className="text-sm text-gray-600">
-                          Vence:{" "}
-                          {format(new Date(period.dueDate), "PPP", {
-                            locale: es,
-                          })}
-                        </p>
                         <p className="text-xs text-gray-500">
                           {period.year}/
                           {period.month.toString().padStart(2, "0")}

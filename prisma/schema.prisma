@@ -327,7 +327,7 @@ model PaymentPeriod {
   year            Int
   month           Int
   name            String
-  dueDate         DateTime         @db.Timestamptz
+  dueDate         DateTime?        @db.Timestamptz
   isActive        Boolean          @default(true)
   createdAt       DateTime         @default(now()) @db.Timestamptz
   updatedAt       DateTime         @updatedAt @db.Timestamptz

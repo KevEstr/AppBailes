@@ -62,11 +62,12 @@ export class MonthlyPaymentService {
 
   /**
    * Crea un nuevo período de pago
+   * Nota: La fecha de vencimiento ya no se establece a nivel de período,
+   * cada pago tiene su propia fecha de vencimiento basada en el día de corte del estudiante
    */
   async createPaymentPeriod(data: {
     year: number;
     month: number;
-    dueDate: Date;
   }) {
     const monthNames = [
       "Enero",
@@ -90,7 +91,6 @@ export class MonthlyPaymentService {
         year: data.year,
         month: data.month,
         name,
-        dueDate: data.dueDate,
         isActive: true,
       },
     });

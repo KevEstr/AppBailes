@@ -9,7 +9,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
-import { Plus, Settings, Calendar, DollarSign, FileText, Users, CheckCircle, Clock } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { Plus, Settings, Calendar, DollarSign, FileText, Users, CheckCircle, Clock, ChevronsUpDown } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import Link from 'next/link';
 
@@ -59,8 +61,11 @@ export function MonthlyPaymentsDashboard() {
   // Formulario de nuevo período
   const [newPeriodYear, setNewPeriodYear] = useState(new Date().getFullYear().toString());
   const [newPeriodMonth, setNewPeriodMonth] = useState((new Date().getMonth() + 1).toString());
-  const [newPeriodDueDate, setNewPeriodDueDate] = useState('');
   const [creatingPeriod, setCreatingPeriod] = useState(false);
+  const [showCreatePeriodDialog, setShowCreatePeriodDialog] = useState(false);
+  const [showPeriodSuccessModal, setShowPeriodSuccessModal] = useState(false);
+  const [createdPeriodName, setCreatedPeriodName] = useState('');
+  const [monthPopoverOpen, setMonthPopoverOpen] = useState(false);
 
   useEffect(() => {
     loadInitialData();
@@ -147,7 +152,7 @@ export function MonthlyPaymentsDashboard() {
   };
 
   const createPeriod = async () => {
-    if (!newPeriodYear || !newPeriodMonth || !newPeriodDueDate) return;
+    if (!newPeriodYear || !newPeriodMonth) return;
 
     try {
       setCreatingPeriod(true);
@@ -156,8 +161,7 @@ export function MonthlyPaymentsDashboard() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           year: parseInt(newPeriodYear),
-          month: parseInt(newPeriodMonth),
-          dueDate: newPeriodDueDate
+          month: parseInt(newPeriodMonth)
         })
       });
 
@@ -166,10 +170,21 @@ export function MonthlyPaymentsDashboard() {
         throw new Error(error.message);
       }
 
+      const createdPeriod = await response.json();
+      
+      // Cerrar el modal de creación
+      setShowCreatePeriodDialog(false);
+      
+      // Mostrar modal de éxito
+      setCreatedPeriodName(createdPeriod.name);
+      setShowPeriodSuccessModal(true);
+      
+      // Recargar períodos
       await loadPeriods();
+      
+      // Resetear formulario
       setNewPeriodYear(new Date().getFullYear().toString());
       setNewPeriodMonth((new Date().getMonth() + 1).toString());
-      setNewPeriodDueDate('');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al crear período');
     } finally {
@@ -426,7 +441,7 @@ export function MonthlyPaymentsDashboard() {
                 {generatingPayments ? 'Procesando...' : 'Generar/Actualizar Pagos'}
               </Button>
 
-              <Dialog>
+              <Dialog open={showCreatePeriodDialog} onOpenChange={setShowCreatePeriodDialog}>
                 <DialogTrigger asChild>
                   <Button 
                     className="flex-1 bg-blue-600 hover:bg-blue-700"
@@ -454,37 +469,65 @@ export function MonthlyPaymentsDashboard() {
                       </div>
                       <div>
                         <Label htmlFor="month" className="text-gray-300">Mes</Label>
-                        <Select value={newPeriodMonth} onValueChange={setNewPeriodMonth}>
-                          <SelectTrigger className="bg-gray-700 border-gray-600 text-white">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent className="bg-gray-800 border-gray-600">
-                            {Array.from({ length: 12 }, (_, i) => (
-                              <SelectItem 
-                                key={i + 1} 
-                                value={(i + 1).toString()}
-                                className="text-white hover:bg-gray-700"
-                              >
-                                {new Date(2024, i).toLocaleString('es', { month: 'long' })}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <Popover open={monthPopoverOpen} onOpenChange={setMonthPopoverOpen}>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              role="combobox"
+                              aria-expanded={monthPopoverOpen}
+                              className="w-full justify-between bg-gray-700 border-gray-600 text-white hover:bg-gray-600"
+                            >
+                              {newPeriodMonth 
+                                ? (() => {
+                                    const monthName = new Date(2024, Number.parseInt(newPeriodMonth) - 1).toLocaleString('es', { month: 'long' });
+                                    return monthName.charAt(0).toUpperCase() + monthName.slice(1);
+                                  })()
+                                : "Seleccionar mes..."}
+                              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-[200px] p-0 bg-gray-800 border-gray-600" align="start">
+                            <Command className="bg-gray-800">
+                              <CommandInput 
+                                placeholder="Buscar mes..." 
+                                className="text-white placeholder:text-gray-400"
+                              />
+                              <CommandList>
+                                <CommandEmpty className="text-gray-400">No se encontró el mes.</CommandEmpty>
+                                <CommandGroup>
+                                  {Array.from({ length: 12 }, (_, i) => {
+                                    const monthNumber = (i + 1).toString();
+                                    const monthNameLower = new Date(2024, i).toLocaleString('es', { month: 'long' });
+                                    const monthName = monthNameLower.charAt(0).toUpperCase() + monthNameLower.slice(1);
+                                    return (
+                                      <CommandItem
+                                        key={monthNumber}
+                                        value={monthNameLower}
+                                        onSelect={() => {
+                                          setNewPeriodMonth(monthNumber);
+                                          setMonthPopoverOpen(false);
+                                        }}
+                                        className="text-white hover:bg-gray-700 cursor-pointer"
+                                      >
+                                        <CheckCircle
+                                          className={`mr-2 h-4 w-4 ${
+                                            newPeriodMonth === monthNumber ? "opacity-100" : "opacity-0"
+                                          }`}
+                                        />
+                                        {monthName}
+                                      </CommandItem>
+                                    );
+                                  })}
+                                </CommandGroup>
+                              </CommandList>
+                            </Command>
+                          </PopoverContent>
+                        </Popover>
                       </div>
-                    </div>
-                    <div>
-                      <Label htmlFor="dueDate" className="text-gray-300">Fecha de vencimiento</Label>
-                      <Input
-                        id="dueDate"
-                        type="date"
-                        value={newPeriodDueDate}
-                        onChange={(e) => setNewPeriodDueDate(e.target.value)}
-                        className="bg-gray-700 border-gray-600 text-white"
-                      />
                     </div>
                     <Button 
                       onClick={createPeriod} 
-                      disabled={creatingPeriod || !newPeriodDueDate}
+                      disabled={creatingPeriod || !newPeriodYear || !newPeriodMonth}
                       className="w-full bg-blue-600 hover:bg-blue-700"
                     >
                       {creatingPeriod ? 'Creando...' : 'Crear Período'}
@@ -574,6 +617,44 @@ export function MonthlyPaymentsDashboard() {
             <div className="flex justify-end">
               <Button
                 onClick={() => setShowResultModal(false)}
+                className="bg-green-600 hover:bg-green-700 text-white"
+              >
+                <CheckCircle className="h-4 w-4 mr-2" />
+                Entendido
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de éxito al crear período */}
+      <Dialog open={showPeriodSuccessModal} onOpenChange={setShowPeriodSuccessModal}>
+        <DialogContent className="bg-gray-800 border-gray-600 text-white max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold text-white flex items-center gap-2">
+              <CheckCircle className="h-5 w-5 text-green-400" />
+              Período Creado Exitosamente
+            </DialogTitle>
+            <DialogDescription className="text-gray-300">
+              El período ha sido creado correctamente
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="bg-green-900/20 border border-green-500/30 rounded-lg p-4">
+              <p className="text-green-300 text-sm">
+                ✅ El período <span className="font-semibold text-white">{createdPeriodName}</span> ha sido creado exitosamente.
+              </p>
+            </div>
+            
+            <div className="bg-blue-900/20 border border-blue-500/30 rounded-lg p-3">
+              <p className="text-blue-300 text-sm">
+                💡 Recuerda que cada pago tendrá su propia fecha de vencimiento según el día de corte del estudiante (15 o 30).
+              </p>
+            </div>
+            
+            <div className="flex justify-end">
+              <Button
+                onClick={() => setShowPeriodSuccessModal(false)}
                 className="bg-green-600 hover:bg-green-700 text-white"
               >
                 <CheckCircle className="h-4 w-4 mr-2" />

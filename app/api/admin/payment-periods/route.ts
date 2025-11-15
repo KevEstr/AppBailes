@@ -27,12 +27,12 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { year, month, dueDate } = body;
+    const { year, month } = body;
 
     // Validaciones
-    if (!year || !month || !dueDate) {
+    if (!year || !month) {
       return NextResponse.json(
-        { message: 'Año, mes y fecha de vencimiento son obligatorios' },
+        { message: 'Año y mes son obligatorios' },
         { status: 400 }
       );
     }
@@ -46,8 +46,7 @@ export async function POST(request: NextRequest) {
 
     const period = await monthlyPaymentService.createPaymentPeriod({
       year: parseInt(year),
-      month: parseInt(month),
-      dueDate: new Date(dueDate)
+      month: parseInt(month)
     });
 
     return NextResponse.json(period, { status: 201 });
