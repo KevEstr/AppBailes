@@ -1,9 +1,7 @@
 import { NextAuthOptions } from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
 import bcrypt from "bcryptjs"
-import { PrismaClient } from "@prisma/client"
-
-const prisma = new PrismaClient()
+import { prisma } from "@/lib/prisma"
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -115,4 +113,21 @@ export async function verifyPassword(password: string, hashedPassword: string): 
 export function requireRole(userRole: UserRole, requiredRole: UserRole): boolean {
   const roleHierarchy = { USER: 0, MODERATOR: 1, ADMIN: 2 }
   return roleHierarchy[userRole] >= roleHierarchy[requiredRole]
+}
+
+// Obtener usuario desde la sesión de NextAuth
+export async function getUserFromRequest(request?: Request) {
+  const { getServerSession } = await import('next-auth')
+  const session = await getServerSession(authOptions)
+  
+  if (!session?.user) {
+    return null
+  }
+  
+  return {
+    id: session.user.id || '',
+    email: session.user.email || '',
+    role: session.user.role as UserRole,
+    name: session.user.name || session.user.email || ''
+  }
 } 

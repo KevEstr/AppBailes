@@ -5,9 +5,8 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  // IMPORTANTE: En Prisma 7, la URL se configura en prisma.config.ts para Migrate
-  // y se pasa al constructor de PrismaClient en lib/prisma.ts
-  // Para que las fechas se guarden con hora de Colombia sin zona horaria:
+  url      = env("DATABASE_URL")
+  // IMPORTANTE: Para que las fechas se guarden con hora de Colombia sin zona horaria:
   // Configurar en DATABASE_URL: postgresql://user:pass@localhost:5432/db?timezone=America/Bogota
   // Los campos DateTime sin @db.Timestamptz se guardan en la zona horaria del servidor
   // Los campos con @db.Timestamptz almacenan la zona horaria explícitamente

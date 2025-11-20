@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { monthlyPaymentService } from '@/lib/monthly-payment-service';
+import { MonthlyPaymentService } from '@/lib/monthly-payment-service';
 
 export async function POST(request: NextRequest) {
   try {
@@ -26,6 +26,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Generar pagos mensuales basados en configuración por deporte
+    const monthlyPaymentService = new MonthlyPaymentService();
     const result = await monthlyPaymentService.generateMonthlyPayments(periodId, regenerate);
 
     return NextResponse.json({

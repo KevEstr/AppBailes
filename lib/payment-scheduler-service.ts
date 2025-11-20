@@ -1,8 +1,6 @@
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
 import { whatsappService } from './whatsapp-service';
 import { MonthlyPaymentService } from './monthly-payment-service';
-
-const prisma = new PrismaClient();
 
 export class PaymentSchedulerService {
   private static instance: PaymentSchedulerService;

@@ -5,14 +5,11 @@ const globalForPrisma = globalThis as unknown as {
 }
 
 // ⚡ CONFIGURACIÓN OPTIMIZADA DE PRISMA
+// Prisma 7.0.0 lee DATABASE_URL automáticamente de process.env.DATABASE_URL
+// No es necesario especificarlo en datasources
 function createPrismaClient() {
   return new PrismaClient({
-    log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
-    datasources: {
-      db: {
-        url: process.env.DATABASE_URL
-      }
-    }
+    log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error']
   })
 }
 

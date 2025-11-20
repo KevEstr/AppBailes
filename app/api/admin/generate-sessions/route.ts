@@ -2,9 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { ClassSessionService } from '@/lib/class-session-service';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { prisma } from '@/lib/prisma';
 
 // POST /api/admin/generate-sessions - Generar sesiones manualmente
 export async function POST(request: NextRequest) {

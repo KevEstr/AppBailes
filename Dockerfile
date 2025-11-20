@@ -1,5 +1,6 @@
 # Dockerfile para AppBailes - Next.js con Prisma
-FROM node:20-alpine AS base
+# Prisma 6.19.0 funciona con Node.js 18+, 20+, o 22+
+FROM node:22-alpine AS base
 
 # Install dependencies only when needed
 FROM base AS deps
@@ -22,7 +23,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ENV DATABASE_URL="postgresql://build:build@localhost:5432/build"
 ENV WHATSAPP_ACCESS_TOKEN="build_token"
 ENV WHATSAPP_PHONE_NUMBER_ID="123456789012345"
-ENV NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=AIzaSyAkJA2y7VQLc7S_ioTeAmVzxnZaNfkoPcM
+ENV NEXT_PUBLIC_GOOGLE_MAPS_API_KEY="AIzaSyAkJA2y7VQLc7S_ioTeAmVzxnZaNfkoPcM"
 
 # Generate Prisma Client
 RUN npx prisma generate
@@ -34,9 +35,9 @@ RUN npm run build
 FROM base AS runner
 WORKDIR /app
 
-ENV NODE_ENV production
+ENV NODE_ENV=production
 # Uncomment the following line in case you want to disable telemetry during runtime.
-ENV NEXT_TELEMETRY_DISABLED 1
+ENV NEXT_TELEMETRY_DISABLED=1
 
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
@@ -74,9 +75,9 @@ USER nextjs
 
 EXPOSE 3000
 
-ENV PORT 3000
+ENV PORT=3000
 # set hostname to localhost
-ENV HOSTNAME "0.0.0.0"
+ENV HOSTNAME="0.0.0.0"
 
 # Use custom start script that handles migrations
 CMD ["./start-production.sh"] 

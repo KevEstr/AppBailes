@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { PrismaClient } from '@prisma/client'
+import { prisma } from '@/lib/prisma'
 import { getUserFromRequest } from '@/lib/auth'
-
-const prisma = new PrismaClient()
 
 // POST - Activar una clase (iniciar la toma de asistencia)
 export async function POST(

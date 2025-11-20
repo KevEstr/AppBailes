@@ -56,10 +56,10 @@ export async function GET(request: NextRequest) {
       // Combinar búsqueda con filtro de estado usando AND
       if (search) {
         const searchConditions = [
-          { name: { contains: search, mode: 'insensitive' } },
-          { phone: { contains: search, mode: 'insensitive' } },
-          { id: { contains: search, mode: 'insensitive' } }
-        ]
+            { name: { contains: search, mode: 'insensitive' } },
+            { phone: { contains: search, mode: 'insensitive' } },
+            { id: { contains: search, mode: 'insensitive' } }
+          ]
         
         // Si ya hay un filtro de isActive, combinarlo con la búsqueda usando AND
         if (studentFilter.isActive !== undefined) {
