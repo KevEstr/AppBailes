@@ -33,27 +33,50 @@ export async function GET(request: NextRequest) {
 
     if (groupByStudent) {
       // Lógica para agrupar por estudiante
-      const enrollmentQuery: any = {
-        isActive: true // Solo inscripciones activas
-      }
+      const enrollmentQuery: any = {}
+      
+      // Construir filtro de estudiante
+      const studentFilter: any = {}
       
       // Agregar filtros de estado del estudiante
       if (status === 'active') {
-        enrollmentQuery.student = { isActive: true }
+        studentFilter.isActive = true
+        // Solo mostrar inscripciones activas para estudiantes activos
+        enrollmentQuery.isActive = true
       } else if (status === 'inactive') {
-        enrollmentQuery.student = { isActive: false }
+        studentFilter.isActive = false
+        // Para estudiantes inactivos, mostrar todas sus inscripciones (activas e inactivas)
+        // No filtrar por isActive en las inscripciones
+      } else {
+        // Si no hay filtro de status, solo mostrar inscripciones activas por defecto
+        enrollmentQuery.isActive = true
       }
 
       // Agregar condiciones de búsqueda si existe un término
+      // Combinar búsqueda con filtro de estado usando AND
       if (search) {
-        enrollmentQuery.student = {
-          ...enrollmentQuery.student,
-          OR: [
-            { name: { contains: search, mode: 'insensitive' } },
-            { phone: { contains: search, mode: 'insensitive' } },
-            { id: { contains: search, mode: 'insensitive' } }
+        const searchConditions = [
+          { name: { contains: search, mode: 'insensitive' } },
+          { phone: { contains: search, mode: 'insensitive' } },
+          { id: { contains: search, mode: 'insensitive' } }
+        ]
+        
+        // Si ya hay un filtro de isActive, combinarlo con la búsqueda usando AND
+        if (studentFilter.isActive !== undefined) {
+          studentFilter.AND = [
+            { isActive: studentFilter.isActive },
+            { OR: searchConditions }
           ]
+          // Eliminar isActive del nivel superior ya que está en AND
+          delete studentFilter.isActive
+        } else {
+          studentFilter.OR = searchConditions
         }
+      }
+      
+      // Aplicar filtro de estudiante
+      if (Object.keys(studentFilter).length > 0) {
+        enrollmentQuery.student = studentFilter
       }
 
       console.log('🗄️ Ejecutando consulta agrupada por estudiante ordenada por fecha de inscripción...')
@@ -92,11 +115,23 @@ export async function GET(request: NextRequest) {
       const sortedStudentIds = Array.from(studentMap.values())
         .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
         .map(e => String(e.studentId))
+      
+      console.log('📊 Estudiantes encontrados:', {
+        total: sortedStudentIds.length,
+        status,
+        enrollmentQuery: JSON.stringify(enrollmentQuery, null, 2)
+      })
 
       // Aplicar paginación a los IDs ordenados
       const paginatedStudentIds = sortedStudentIds.slice(skip, skip + validLimit)
 
-      // Obtener estudiantes completos con todas sus inscripciones activas
+      // Obtener estudiantes completos con todas sus inscripciones
+      // Si se filtra por inactivos, incluir todas las inscripciones (activas e inactivas)
+      // Si se filtra por activos o sin filtro, solo incluir inscripciones activas
+      const enrollmentIncludeFilter = status === 'inactive' 
+        ? {} // Sin filtro, traer todas las inscripciones
+        : { isActive: true } // Solo inscripciones activas
+      
       const students = await prisma.student.findMany({
         where: {
           id: { in: paginatedStudentIds }
@@ -104,7 +139,7 @@ export async function GET(request: NextRequest) {
         include: {
           user: { select: { email: true } },
           classEnrollments: {
-            where: { isActive: true },
+            where: enrollmentIncludeFilter,
             include: {
               danceClass: {
                 include: {

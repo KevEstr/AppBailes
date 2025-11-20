@@ -24,24 +24,22 @@ export async function GET(request: NextRequest) {
     console.log(`📋 Encontrados ${activeSchedulers.length} schedulers activos`);
 
     // Filtrar schedulers que deben ejecutarse ahora
-    // Verificar si el día del mes, hora y minuto coinciden
+    // Verificar solo día del mes y hora (sin considerar minutos)
     const schedulersToExecute = activeSchedulers.filter(scheduler => {
       // Verificar día del mes (permitir ejecución en el día configurado)
       const dayMatches = scheduler.dayOfMonth === currentDay;
       
-      if (!dayMatches) return false;
+      if (!dayMatches) {
+        console.log(`⏭️  Scheduler ${scheduler.name}: día no coincide (configurado: ${scheduler.dayOfMonth}, actual: ${currentDay})`);
+        return false;
+      }
       
-      // Verificar hora y minuto
+      // Verificar solo la hora (sin considerar minutos)
       // El scheduler debe ejecutarse en esta hora específica
-      if (scheduler.hour !== currentHour) return false;
-      
-      // Verificar minuto: ejecutar si el minuto configurado ya pasó o está en el rango actual
-      // Con tolerancia hacia atrás de 15 minutos (porque el workflow se ejecuta cada 15 min)
-      // Ejemplo: si el workflow se ejecuta a las 9:15, puede ejecutar schedulers de 9:00 a 9:15
-      const minuteDiff = currentMinute - scheduler.minute;
-      const minuteMatches = minuteDiff >= 0 && minuteDiff <= 15; // El minuto ya pasó y está dentro de la ventana
-      
-      if (!minuteMatches) return false;
+      if (scheduler.hour !== currentHour) {
+        console.log(`⏭️  Scheduler ${scheduler.name}: hora no coincide (configurado: ${scheduler.hour}:${scheduler.minute}, actual: ${currentHour}:${currentMinute})`);
+        return false;
+      }
       
       // Evitar ejecuciones duplicadas: verificar si ya se ejecutó hoy
       if (scheduler.lastExecuted) {
@@ -54,11 +52,12 @@ export async function GET(request: NextRequest) {
         if (lastExecutedDay === currentDay && 
             lastExecutedMonth === currentMonth && 
             lastExecutedYear === currentYear) {
-          console.log(`⏭️  Scheduler ${scheduler.name} ya se ejecutó hoy, omitiendo`);
+          console.log(`⏭️  Scheduler ${scheduler.name} ya se ejecutó hoy a las ${lastExecutedDate.toLocaleTimeString()}, omitiendo`);
           return false;
         }
       }
       
+      console.log(`✅ Scheduler ${scheduler.name} debe ejecutarse ahora (día: ${currentDay}, hora: ${currentHour})`);
       return true;
     });
 
@@ -92,6 +91,7 @@ export async function GET(request: NextRequest) {
     for (const scheduler of schedulersToExecute) {
       try {
         console.log(`🚀 Ejecutando scheduler: ${scheduler.name} (ID: ${scheduler.id})`);
+        console.log(`   📅 Configurado para: día ${scheduler.dayOfMonth}, hora ${scheduler.hour}:${scheduler.minute.toString().padStart(2, '0')}`);
         
         // Ejecutar el scheduler (esto crea la ejecución y actualiza estadísticas internamente)
         await schedulerService.executeSchedulerById(scheduler.id);
@@ -103,23 +103,34 @@ export async function GET(request: NextRequest) {
         });
 
         if (lastExecution) {
-          totalSent += lastExecution.sentMessages || 0;
-          totalFailed += lastExecution.failedMessages || 0;
+          const sent = lastExecution.sentMessages || 0;
+          const failed = lastExecution.failedMessages || 0;
+          const total = lastExecution.totalMessages || 0;
+          
+          totalSent += sent;
+          totalFailed += failed;
           totalExecutions++;
+
+          console.log(`   ✅ Scheduler ejecutado: ${sent} enviados, ${failed} fallidos de ${total} totales`);
+          if (failed > 0) {
+            console.log(`   ⚠️  ${failed} mensajes no pudieron enviarse`);
+          }
 
           results.push({
             schedulerId: scheduler.id,
             schedulerName: scheduler.name,
             executionId: lastExecution.id,
             status: lastExecution.status,
-            sent: lastExecution.sentMessages || 0,
-            failed: lastExecution.failedMessages || 0,
-            total: lastExecution.totalMessages || 0,
+            sent,
+            failed,
+            total,
             startedAt: lastExecution.startedAt,
-            completedAt: lastExecution.completedAt
+            completedAt: lastExecution.completedAt,
+            errorMessage: lastExecution.errorMessage || null
           });
         } else {
           // Si no hay ejecución registrada, el scheduler se ejecutó pero no creó registro
+          console.log(`   ⚠️  Scheduler ejecutado pero sin registro de ejecución`);
           results.push({
             schedulerId: scheduler.id,
             schedulerName: scheduler.name,
@@ -129,7 +140,7 @@ export async function GET(request: NextRequest) {
         }
 
       } catch (error) {
-        console.error(`❌ Error ejecutando scheduler ${scheduler.id}:`, error);
+        console.error(`❌ Error ejecutando scheduler ${scheduler.id} (${scheduler.name}):`, error);
         
         // Obtener la última ejecución para ver si se creó antes del error
         const lastExecution = await prisma.schedulerExecution.findFirst({
@@ -138,17 +149,28 @@ export async function GET(request: NextRequest) {
         });
 
         if (lastExecution && lastExecution.status === 'FAILED') {
+          const sent = lastExecution.sentMessages || 0;
+          const failed = lastExecution.failedMessages || 0;
+          const total = lastExecution.totalMessages || 0;
+          
+          totalSent += sent;
+          totalFailed += failed;
+          
+          console.log(`   ❌ Scheduler falló: ${sent} enviados, ${failed} fallidos de ${total} totales`);
+          console.log(`   🔴 Error: ${lastExecution.errorMessage || (error instanceof Error ? error.message : 'Error desconocido')}`);
+          
           results.push({
             schedulerId: scheduler.id,
             schedulerName: scheduler.name,
             executionId: lastExecution.id,
             status: 'FAILED',
             error: lastExecution.errorMessage || (error instanceof Error ? error.message : 'Error desconocido'),
-            sent: lastExecution.sentMessages || 0,
-            failed: lastExecution.failedMessages || 0,
-            total: lastExecution.totalMessages || 0
+            sent,
+            failed,
+            total
           });
         } else {
+          console.log(`   🔴 Error crítico: ${error instanceof Error ? error.message : 'Error desconocido'}`);
           results.push({
             schedulerId: scheduler.id,
             schedulerName: scheduler.name,
@@ -162,10 +184,20 @@ export async function GET(request: NextRequest) {
     const endTime = new Date();
     const duration = endTime.getTime() - startTime.getTime();
 
-    console.log(`✅ Cron job completado: ${totalExecutions} ejecuciones, ${totalSent} enviados, ${totalFailed} fallidos`);
+    console.log(`\n📊 ===== RESUMEN FINAL =====`);
+    console.log(`✅ Cron job completado en ${duration}ms`);
+    console.log(`📋 Schedulers activos: ${activeSchedulers.length}`);
+    console.log(`⚡ Schedulers a ejecutar: ${schedulersToExecute.length}`);
+    console.log(`🚀 Schedulers ejecutados: ${totalExecutions}`);
+    console.log(`✅ Mensajes enviados exitosamente: ${totalSent}`);
+    console.log(`❌ Mensajes que no se pudieron enviar: ${totalFailed}`);
+    console.log(`📈 Total de mensajes procesados: ${totalSent + totalFailed}`);
+    console.log(`===========================\n`);
 
     return NextResponse.json({
-      message: 'Cron job de Payment Schedulers ejecutado exitosamente',
+      message: totalExecutions > 0 
+        ? 'Cron job de Payment Schedulers ejecutado exitosamente'
+        : 'No hay schedulers programados para ejecutarse en este momento',
       timestamp: startTime.toISOString(),
       duration: `${duration}ms`,
       currentTime: {
@@ -180,7 +212,8 @@ export async function GET(request: NextRequest) {
         schedulersToExecute: schedulersToExecute.length,
         executed: totalExecutions,
         totalSent,
-        totalFailed
+        totalFailed,
+        totalProcessed: totalSent + totalFailed
       },
       results
     });

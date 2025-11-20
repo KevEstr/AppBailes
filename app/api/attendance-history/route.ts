@@ -36,10 +36,7 @@ export async function GET(request: Request) {
 
     // Filtro por estudiante específico
     if (studentIdParam !== "all") {
-      const studentId = parseInt(studentIdParam)
-      if (studentId) {
-        whereClause.studentId = studentId
-      }
+      whereClause.studentId = studentIdParam
     }
 
     // Filtro por clase específica

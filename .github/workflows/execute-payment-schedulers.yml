@@ -31,21 +31,49 @@ jobs:
           
           if [ "$http_code" -eq 200 ]; then
             echo "✅ Ejecución de schedulers completada exitosamente"
+            echo ""
+            echo "📄 Respuesta completa:"
             echo "$body" | jq '.'
             
             # Extraer resumen de resultados
             executed=$(echo "$body" | jq -r '.summary.executed // 0')
             total_sent=$(echo "$body" | jq -r '.summary.totalSent // 0')
             total_failed=$(echo "$body" | jq -r '.summary.totalFailed // 0')
+            total_processed=$(echo "$body" | jq -r '.summary.totalProcessed // 0')
+            active_schedulers=$(echo "$body" | jq -r '.summary.activeSchedulers // 0')
+            schedulers_to_execute=$(echo "$body" | jq -r '.summary.schedulersToExecute // 0')
             
             echo ""
-            echo "📈 Resumen:"
-            echo "   - Schedulers ejecutados: $executed"
-            echo "   - Mensajes enviados: $total_sent"
-            echo "   - Mensajes fallidos: $total_failed"
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            echo "📊 RESUMEN DE EJECUCIÓN"
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            echo "📋 Schedulers activos en el sistema: $active_schedulers"
+            echo "⚡ Schedulers programados para ejecutarse: $schedulers_to_execute"
+            echo "🚀 Schedulers ejecutados: $executed"
+            echo ""
+            echo "📨 MENSAJES:"
+            echo "   ✅ Enviados exitosamente: $total_sent"
+            echo "   ❌ No se pudieron enviar: $total_failed"
+            echo "   📈 Total procesados: $total_processed"
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
             
-            if [ "$executed" -eq 0 ]; then
+            # Mostrar detalles de cada scheduler ejecutado
+            if [ "$executed" -gt 0 ]; then
+              echo ""
+              echo "📋 DETALLES POR SCHEDULER:"
+              echo "$body" | jq -r '.results[] | "   • \(.schedulerName) (ID: \(.schedulerId)):\n     - Estado: \(.status)\n     - Enviados: \(.sent // 0)\n     - Fallidos: \(.failed // 0)\n     - Total: \(.total // 0)"'
+              
+              # Mostrar errores si los hay
+              errors=$(echo "$body" | jq -r '.results[] | select(.error != null) | "   ⚠️  \(.schedulerName): \(.error)"')
+              if [ -n "$errors" ]; then
+                echo ""
+                echo "⚠️  ERRORES ENCONTRADOS:"
+                echo "$errors"
+              fi
+            else
+              echo ""
               echo "ℹ️  No había schedulers programados para ejecutarse en este momento"
+              echo "   (Verifica que el día del mes y la hora coincidan con la configuración)"
             fi
           else
             echo "❌ Error en la ejecución de schedulers"

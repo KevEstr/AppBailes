@@ -425,6 +425,7 @@ export class PaymentSchedulerService {
       
       let sentCount = 0;
       let failedCount = 0;
+      let skippedCount = 0; // Pagos omitidos porque ya fueron pagados
       const errors: string[] = [];
 
       // Enviar mensajes con intervalo y manejo de errores robusto
@@ -432,6 +433,27 @@ export class PaymentSchedulerService {
         const payment = paymentsWithPhone[i];
         
         try {
+          // ========== VALIDACIÓN CRÍTICA: Verificar que el pago sigue pendiente ==========
+          // Esto evita enviar mensajes a personas que ya pagaron entre el momento
+          // en que se obtuvieron los pagos y el momento del envío
+          const currentPaymentStatus = await prisma.monthlyPayment.findUnique({
+            where: { id: payment.id },
+            select: { status: true }
+          });
+
+          if (!currentPaymentStatus) {
+            console.log(`⏭️  Pago ${payment.id} ya no existe, omitiendo envío a ${payment.student.name}`);
+            skippedCount++;
+            continue;
+          }
+
+          if (currentPaymentStatus.status !== 'PENDING') {
+            console.log(`⏭️  Pago ${payment.id} ya fue ${currentPaymentStatus.status}, omitiendo envío a ${payment.student.name}`);
+            skippedCount++;
+            continue;
+          }
+          // ===============================================================================
+
           // Obtener el día de corte de la clase específica
           let cutoffDay = 30; // Default
           if (payment.classId) {
@@ -450,6 +472,7 @@ export class PaymentSchedulerService {
           console.log(`   - StudentId: ${payment.studentId}`);
           console.log(`   - ClassId: ${payment.classId}`);
           console.log(`   - CutoffDay calculado: ${cutoffDay}`);
+          console.log(`   - Estado del pago: ${currentPaymentStatus.status} (verificado antes de enviar)`);
           
           // Calcular fecha de corte (15 o 30) para el mensaje
           const now = new Date();
@@ -552,7 +575,8 @@ export class PaymentSchedulerService {
       console.log(`   📅 Período: ${activePeriod.name}`);
       console.log(`   💰 Pagos generados: ${existingPayments.length === 0 ? 'Sí' : 'Ya existían'}`);
       console.log(`   📋 Sistema: Pagos pendientes (sin formularios)`);
-      console.log(`   📊 Mensajes procesados: ${paymentsWithPhone.length}`);
+      console.log(`   📊 Pagos candidatos: ${paymentsWithPhone.length}`);
+      console.log(`   ⏭️  Pagos omitidos (ya pagados): ${skippedCount}`);
       console.log(`   ✅ Mensajes enviados: ${sentCount}`);
       console.log(`   ❌ Mensajes fallidos: ${failedCount}`);
       console.log(`   ⏱️  Duración total: ${duration}ms`);
@@ -616,7 +640,6 @@ export class PaymentSchedulerService {
     const now = new Date();
     const currentYear = now.getFullYear();
     const currentMonth = now.getMonth();
-    const currentDay = now.getDate();
     
     if (scheduler.dayOfMonth) {
       // Scheduler mensual recurrente
@@ -626,18 +649,29 @@ export class PaymentSchedulerService {
       // Si ya pasó este mes (día pasado o mismo día pero hora/minuto pasados), programar para el próximo mes
       if (targetDate <= now) {
         // Calcular para el próximo mes
-        targetDate = new Date(currentYear, currentMonth + 1, scheduler.dayOfMonth, scheduler.hour, scheduler.minute, 0, 0);
+        let nextMonth = currentMonth + 1;
+        let nextYear = currentYear;
+        
+        // Manejar cambio de año
+        if (nextMonth > 11) {
+          nextMonth = 0;
+          nextYear = currentYear + 1;
+        }
+        
+        targetDate = new Date(nextYear, nextMonth, scheduler.dayOfMonth, scheduler.hour, scheduler.minute, 0, 0);
         
         // Si el día no existe en el próximo mes (ej: 31 de febrero), ajustar al último día del mes
         if (targetDate.getDate() !== scheduler.dayOfMonth) {
-          targetDate.setDate(0); // Último día del mes anterior (que es el último del mes actual)
+          // Crear fecha del último día del mes siguiente
+          const lastDayOfMonth = new Date(nextYear, nextMonth + 1, 0);
+          targetDate = new Date(nextYear, nextMonth, lastDayOfMonth.getDate(), scheduler.hour, scheduler.minute, 0, 0);
         }
       }
       
       return targetDate;
     } else {
       // Por defecto, próximo mes mismo día
-      const nextMonth = new Date(currentYear, currentMonth + 1, currentDay, scheduler.hour, scheduler.minute, 0, 0);
+      const nextMonth = new Date(currentYear, currentMonth + 1, now.getDate(), scheduler.hour, scheduler.minute, 0, 0);
       return nextMonth;
     }
   }
@@ -761,9 +795,10 @@ export class PaymentSchedulerService {
 
   /**
    * Obtiene todos los schedulers
+   * Recalcula nextExecution si está desactualizado o es incorrecto
    */
   async getSchedulers() {
-    return await prisma.paymentScheduler.findMany({
+    const schedulers = await prisma.paymentScheduler.findMany({
       include: {
         executions: {
           orderBy: { createdAt: 'desc' },
@@ -772,6 +807,52 @@ export class PaymentSchedulerService {
       },
       orderBy: { createdAt: 'desc' }
     });
+
+    // Recalcular nextExecution para cada scheduler si está desactualizado
+    const now = new Date();
+    const updates: Array<{ id: number; nextExecution: Date }> = [];
+
+    for (const scheduler of schedulers) {
+      if (scheduler.isActive && scheduler.dayOfMonth) {
+        // Calcular la próxima ejecución correcta
+        const correctNextExecution = this.calculateNextExecution(scheduler);
+        
+        // Si no tiene nextExecution o está incorrecto, actualizarlo
+        if (!scheduler.nextExecution || 
+            new Date(scheduler.nextExecution).getTime() !== correctNextExecution.getTime()) {
+          updates.push({
+            id: scheduler.id,
+            nextExecution: correctNextExecution
+          });
+        }
+      }
+    }
+
+    // Actualizar en batch si hay cambios
+    if (updates.length > 0) {
+      await Promise.all(
+        updates.map(update =>
+          prisma.paymentScheduler.update({
+            where: { id: update.id },
+            data: { nextExecution: update.nextExecution }
+          })
+        )
+      );
+      console.log(`🔄 Actualizados ${updates.length} schedulers con nextExecution correcto`);
+      
+      // Recargar los schedulers con los valores actualizados
+      return await prisma.paymentScheduler.findMany({
+        include: {
+          executions: {
+            orderBy: { createdAt: 'desc' },
+            take: 5
+          }
+        },
+        orderBy: { createdAt: 'desc' }
+      });
+    }
+
+    return schedulers;
   }
 
   /**
