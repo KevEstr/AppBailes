@@ -132,6 +132,7 @@ export class MonthlyPaymentService {
 
     const monthlyPayments = [] as any[];
     const updatedPayments = [] as any[];
+    const deletedPayments = [] as any[];
 
     for (const student of activeStudents) {
       // Procesar cada clase inscrita del estudiante
@@ -198,11 +199,61 @@ export class MonthlyPaymentService {
           updatedPayments.push(updatedPayment);
         }
       }
+
+      // Limpiar pagos huérfanos: eliminar pagos de clases donde el estudiante ya no está inscrito
+      // Obtener todos los pagos del estudiante para este período
+      const allStudentPayments = await prisma.monthlyPayment.findMany({
+        where: {
+          studentId: student.id,
+          periodId: period.id,
+        },
+      });
+
+      // Obtener IDs de clases activas del estudiante
+      const activeClassIds = student.classEnrollments.map(e => e.danceClass.id);
+
+      // Debug: Log para entender qué está pasando
+      if (allStudentPayments.length > 0) {
+        console.log(`🔍 [DEBUG] Estudiante ${student.name}: ${allStudentPayments.length} pagos encontrados, ${activeClassIds.length} clases activas`);
+        console.log(`   Clases activas: [${activeClassIds.join(', ')}]`);
+        console.log(`   Pagos:`, allStudentPayments.map(p => ({
+          id: p.id,
+          classId: p.classId,
+          status: p.status,
+          isOrphan: p.classId ? !activeClassIds.includes(p.classId) : 'null classId'
+        })));
+      }
+
+      // Eliminar pagos de clases donde el estudiante ya no está inscrito
+      for (const payment of allStudentPayments) {
+        // Verificar si el pago tiene classId (no debería ser null en el nuevo sistema)
+        if (!payment.classId) {
+          console.log(`⚠️ Pago #${payment.id} del estudiante ${student.name} tiene classId null - no se puede verificar si es huérfano`);
+          continue;
+        }
+
+        // Verificar si el classId del pago NO está en las clases activas
+        if (!activeClassIds.includes(payment.classId)) {
+          // Solo eliminar si está pendiente o vencido (no pagos completados para mantener historial)
+          if (payment.status === 'PENDING' || payment.status === 'OVERDUE') {
+            const deletedPayment = await prisma.monthlyPayment.delete({
+              where: { id: payment.id }
+            });
+            deletedPayments.push(deletedPayment);
+            console.log(`🗑️ Eliminado pago huérfano #${payment.id} del estudiante ${student.name} - Clase ${payment.classId} (ya no está inscrito, estado: ${payment.status})`);
+          } else {
+            console.log(`⚠️ Pago #${payment.id} del estudiante ${student.name} (Clase ${payment.classId}) no se eliminó porque tiene estado ${payment.status} (se mantiene para historial)`);
+          }
+        } else {
+          console.log(`✅ Pago #${payment.id} del estudiante ${student.name} (Clase ${payment.classId}) es válido - estudiante sigue inscrito`);
+        }
+      }
     }
 
     return {
       created: monthlyPayments,
       updated: updatedPayments,
+      deleted: deletedPayments,
       total: monthlyPayments.length + updatedPayments.length
     };
   }
@@ -262,7 +313,6 @@ export class MonthlyPaymentService {
   async resolveClassFeeAndConfig(student: any, enrollment: any): Promise<{ amount: number; feeConfigId: number }> {
     // 1. Si la clase tiene mensualidad específica configurada, usarla
     if (enrollment.monthlyFee && enrollment.monthlyFee > 0) {
-      console.log(`💰 Estudiante ${student.name} - Clase ${enrollment.danceClass.name}: Usando mensualidad específica de clase $${enrollment.monthlyFee.toLocaleString()}`);
       
       // Buscar o crear configuración para esta clase específica
       let feeConfig = await prisma.monthlyFeeConfig.findFirst({
@@ -297,7 +347,6 @@ export class MonthlyPaymentService {
 
     // 2. Si el estudiante tiene mensualidad individual configurada, usarla
     if (student.enrollmentData?.monthlyFee && student.enrollmentData.monthlyFee > 0) {
-      console.log(`💰 Estudiante ${student.name} - Clase ${enrollment.danceClass.name}: Usando mensualidad individual $${student.enrollmentData.monthlyFee.toLocaleString()}`);
       
       const feeConfig = await this.getOrCreateFeeConfig(enrollment.danceClass.sport as any, student.enrollmentData.monthlyFee);
       return { amount: student.enrollmentData.monthlyFee, feeConfigId: feeConfig.id };
@@ -318,7 +367,6 @@ export class MonthlyPaymentService {
     });
 
     if (feeConfig) {
-      console.log(`💰 Estudiante ${student.name} - Clase ${enrollment.danceClass.name}: Usando mensualidad por deporte ${enrollment.danceClass.sport} $${feeConfig.amount.toLocaleString()}`);
       return { amount: feeConfig.amount, feeConfigId: feeConfig.id };
     }
 
@@ -337,7 +385,6 @@ export class MonthlyPaymentService {
     });
 
     if (globalFeeConfig) {
-      console.log(`💰 Estudiante ${student.name} - Clase ${enrollment.danceClass.name}: Usando mensualidad global $${globalFeeConfig.amount.toLocaleString()}`);
       return { amount: globalFeeConfig.amount, feeConfigId: globalFeeConfig.id };
     }
 
@@ -377,9 +424,7 @@ export class MonthlyPaymentService {
     // Crear la fecha de vencimiento
     const dueDay = cutoffDay === 15 ? 20 : 5;
     const dueDate = new Date(dueYear, dueMonth - 1, dueDay, 23, 59, 59);
-    
-    console.log(`📅 Calculando fecha de vencimiento: Corte ${cutoffDay} del ${month}/${year} → Vence ${dueDay}/${dueMonth}/${dueYear}`);
-    
+        
     return dueDate;
   }
 
@@ -1139,7 +1184,10 @@ export class MonthlyPaymentService {
     });
 
     const overdue = payments.filter(
-      (p) => p.status === "PENDING" && new Date() > period.dueDate
+      (p) => {
+        if (p.status !== "PENDING" || !period.dueDate) return false;
+        return new Date() > period.dueDate;
+      }
     ).length;
 
     const collectionRate =
@@ -1345,7 +1393,7 @@ export class MonthlyPaymentService {
         expectedAmount: payment.expectedAmount,
         dueDate: payment.period.dueDate,
         period: payment.period.name,
-        isOverdue: new Date() > payment.period.dueDate && (payment.status === 'PENDING' || payment.status === 'OVERDUE'),
+        isOverdue: payment.period.dueDate ? new Date() > payment.period.dueDate && (payment.status === 'PENDING' || payment.status === 'OVERDUE') : false,
       }));
 
     // Deudas regulares

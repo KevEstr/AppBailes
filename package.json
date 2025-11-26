@@ -45,7 +45,8 @@
     "setup:products": "node scripts/setup-products.js",
     "seed:products": "tsx scripts/seed-products.ts",
     "fix:products-migration": "node scripts/fix-products-migration.js",
-    "migrate:smart": "node scripts/smart-migration.js"
+    "migrate:smart": "node scripts/smart-migration.js",
+    "generate:sessions": "node scripts/generate-sessions-local.js"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",
