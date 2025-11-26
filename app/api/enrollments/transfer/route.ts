@@ -123,6 +123,19 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Obtener el período activo actual para borrar pagos pendientes
+    const currentDate = new Date()
+    const currentYear = currentDate.getFullYear()
+    const currentMonth = currentDate.getMonth() + 1
+    
+    const activePeriod = await prisma.paymentPeriod.findFirst({
+      where: {
+        year: currentYear,
+        month: currentMonth,
+        isActive: true
+      }
+    })
+
     // Realizar la transferencia en una transacción
     const result = await prisma.$transaction(async (tx) => {
       // Desactivar inscripción actual
@@ -200,6 +213,45 @@ export async function POST(request: NextRequest) {
           reason: validatedData.reason
         }
       })
+
+      // Borrar pagos PENDING/OVERDUE de la clase vieja para el período actual
+      // SOLO si NO hay pagos PAID o PARTIAL_PAID (para no afectar pagos ya realizados)
+      // Solo si existe un período activo
+      if (activePeriod) {
+        // Primero verificar si hay pagos PAID o PARTIAL_PAID en la clase vieja
+        const paidOrPartialPayments = await tx.monthlyPayment.findFirst({
+          where: {
+            studentId: validatedData.studentId,
+            classId: validatedData.fromClassId,
+            periodId: activePeriod.id,
+            status: {
+              in: ['PAID', 'PARTIAL_PAID']
+            }
+          }
+        })
+
+        // Solo borrar pagos pendientes si NO hay pagos completados o parciales
+        // Si hay PAID o PARTIAL_PAID, dejar todo como está (incluyendo pendientes)
+        if (!paidOrPartialPayments) {
+          const deletedPayments = await tx.monthlyPayment.deleteMany({
+            where: {
+              studentId: validatedData.studentId,
+              classId: validatedData.fromClassId,
+              periodId: activePeriod.id,
+              status: {
+                in: ['PENDING', 'OVERDUE']
+              }
+            }
+          })
+
+          // Log para debugging (opcional)
+          if (deletedPayments.count > 0) {
+            console.log(`🗑️ Eliminados ${deletedPayments.count} pago(s) pendiente(s) de la clase ${validatedData.fromClassId} para el estudiante ${validatedData.studentId}`)
+          }
+        } else {
+          console.log(`ℹ️ No se eliminaron pagos pendientes de la clase ${validatedData.fromClassId} porque existe un pago ${paidOrPartialPayments.status} (se mantiene el estado actual)`)
+        }
+      }
 
       return { newEnrollment, transfer }
     })

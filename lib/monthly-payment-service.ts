@@ -117,7 +117,16 @@ export class MonthlyPaymentService {
         enrollmentData: true,
         classEnrollments: {
           where: { isActive: true },
-          include: {
+          select: {
+            id: true,
+            studentId: true,
+            classId: true,
+            isActive: true,
+            paymentCutoffDay: true,
+            monthlyFee: true,
+            enrolledAt: true,
+            createdAt: true,
+            updatedAt: true,
             danceClass: {
               select: { 
                 id: true,
@@ -148,6 +157,89 @@ export class MonthlyPaymentService {
 
         // Resolver la tarifa para esta clase específica
         const { amount, feeConfigId } = await this.resolveClassFeeAndConfig(student, enrollment);
+
+        // Validar si hay transferencia a esta clase en el período actual
+        // Esto debe verificarse ANTES de procesar el pago existente
+        const periodStart = new Date(period.year, period.month - 1, 1);
+        const periodEnd = new Date(period.year, period.month, 1);
+        
+        const transferToThisClass = await prisma.studentTransfer.findFirst({
+          where: {
+            studentId: student.id,
+            toClassId: enrollment.danceClass.id,
+            transferredAt: {
+              gte: periodStart,
+              lt: periodEnd
+            }
+          }
+        });
+
+        if (transferToThisClass) {
+          // Hay transferencia a esta clase en el período
+          // Verificar si ya pagó en la clase anterior
+          const paidPaymentFromPreviousClass = await prisma.monthlyPayment.findFirst({
+            where: {
+              studentId: student.id,
+              classId: transferToThisClass.fromClassId,
+              periodId: period.id,
+              status: { in: ['PAID', 'PARTIAL_PAID'] }
+            }
+          });
+
+          if (paidPaymentFromPreviousClass) {
+            // Ya pagó en la clase anterior → No crear nuevo pago
+            // Si existe un pago para la clase nueva, eliminarlo (es duplicado)
+            if (existingPayment && (existingPayment.status === 'PENDING' || existingPayment.status === 'OVERDUE')) {
+              await prisma.monthlyPayment.delete({
+                where: { id: existingPayment.id }
+              });
+            }
+            continue;
+          }
+
+          // Si no pagó, verificar si hay un pago PENDING/OVERDUE en la clase vieja
+          const pendingPaymentFromPreviousClass = await prisma.monthlyPayment.findFirst({
+            where: {
+              studentId: student.id,
+              classId: transferToThisClass.fromClassId,
+              periodId: period.id,
+              status: { in: ['PENDING', 'OVERDUE'] }
+            }
+          });
+
+          if (pendingPaymentFromPreviousClass) {
+            // Hay pago PENDING en la clase vieja → Actualizarlo para que apunte a la clase nueva
+            // Si existe un pago para la clase nueva, eliminarlo primero (es duplicado)
+            if (existingPayment && (existingPayment.status === 'PENDING' || existingPayment.status === 'OVERDUE')) {
+              await prisma.monthlyPayment.delete({
+                where: { id: existingPayment.id }
+              });
+            }
+
+            // Calcular nueva fecha de vencimiento basada en el día de corte de la nueva clase
+            const dueDate = this.calculateDueDate(
+              enrollment.paymentCutoffDay || 30, 
+              { year: period.year, month: period.month }
+            );
+
+            const updatedPayment = await prisma.monthlyPayment.update({
+              where: { id: pendingPaymentFromPreviousClass.id },
+              data: {
+                classId: enrollment.danceClass.id,
+                feeConfigId: feeConfigId,
+                expectedAmount: amount,
+                dueDate: dueDate,
+                notes: `Mensualidad ${period.name} - ${enrollment.danceClass.name} (Corte día ${enrollment.paymentCutoffDay || 30})`,
+                // Mantener el estado (PENDING o OVERDUE)
+                status: pendingPaymentFromPreviousClass.status,
+              },
+            });
+
+            updatedPayments.push(updatedPayment);
+            continue; // Ya actualizamos el pago, no crear uno nuevo
+          }
+          // Si no hay pago PENDING en la clase vieja, continuar con el flujo normal
+        }
 
         if (!existingPayment) {
           // Calcular fecha de vencimiento basada en el día de corte de la clase
@@ -212,40 +304,16 @@ export class MonthlyPaymentService {
       // Obtener IDs de clases activas del estudiante
       const activeClassIds = student.classEnrollments.map(e => e.danceClass.id);
 
-      // Debug: Log para entender qué está pasando
-      if (allStudentPayments.length > 0) {
-        console.log(`🔍 [DEBUG] Estudiante ${student.name}: ${allStudentPayments.length} pagos encontrados, ${activeClassIds.length} clases activas`);
-        console.log(`   Clases activas: [${activeClassIds.join(', ')}]`);
-        console.log(`   Pagos:`, allStudentPayments.map(p => ({
-          id: p.id,
-          classId: p.classId,
-          status: p.status,
-          isOrphan: p.classId ? !activeClassIds.includes(p.classId) : 'null classId'
-        })));
-      }
-
       // Eliminar pagos de clases donde el estudiante ya no está inscrito
       for (const payment of allStudentPayments) {
-        // Verificar si el pago tiene classId (no debería ser null en el nuevo sistema)
-        if (!payment.classId) {
-          console.log(`⚠️ Pago #${payment.id} del estudiante ${student.name} tiene classId null - no se puede verificar si es huérfano`);
-          continue;
-        }
-
-        // Verificar si el classId del pago NO está en las clases activas
-        if (!activeClassIds.includes(payment.classId)) {
+        if (payment.classId && !activeClassIds.includes(payment.classId)) {
           // Solo eliminar si está pendiente o vencido (no pagos completados para mantener historial)
           if (payment.status === 'PENDING' || payment.status === 'OVERDUE') {
             const deletedPayment = await prisma.monthlyPayment.delete({
               where: { id: payment.id }
             });
             deletedPayments.push(deletedPayment);
-            console.log(`🗑️ Eliminado pago huérfano #${payment.id} del estudiante ${student.name} - Clase ${payment.classId} (ya no está inscrito, estado: ${payment.status})`);
-          } else {
-            console.log(`⚠️ Pago #${payment.id} del estudiante ${student.name} (Clase ${payment.classId}) no se eliminó porque tiene estado ${payment.status} (se mantiene para historial)`);
           }
-        } else {
-          console.log(`✅ Pago #${payment.id} del estudiante ${student.name} (Clase ${payment.classId}) es válido - estudiante sigue inscrito`);
         }
       }
     }
