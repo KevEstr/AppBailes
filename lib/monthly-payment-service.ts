@@ -158,8 +158,8 @@ export class MonthlyPaymentService {
         // Resolver la tarifa para esta clase específica
         const { amount, feeConfigId } = await this.resolveClassFeeAndConfig(student, enrollment);
 
-        // Validar si hay transferencia a esta clase en el período actual
-        // Esto debe verificarse ANTES de procesar el pago existente
+        // Validar si hay transferencia a esta clase DENTRO del período
+        // Solo considerar transferencias que ocurrieron durante el período específico
         const periodStart = new Date(period.year, period.month - 1, 1);
         const periodEnd = new Date(period.year, period.month, 1);
         
@@ -175,7 +175,7 @@ export class MonthlyPaymentService {
         });
 
         if (transferToThisClass) {
-          // Hay transferencia a esta clase en el período
+          // Hay transferencia a esta clase DENTRO del período
           // Verificar si ya pagó en la clase anterior
           const paidPaymentFromPreviousClass = await prisma.monthlyPayment.findFirst({
             where: {
@@ -239,6 +239,35 @@ export class MonthlyPaymentService {
             continue; // Ya actualizamos el pago, no crear uno nuevo
           }
           // Si no hay pago PENDING en la clase vieja, continuar con el flujo normal
+        } else {
+          // NO hay transferencia dentro del período
+          // Verificar si hay un pago PAID/PARTIAL_PAID en una clase donde el estudiante ya no está inscrito
+          // (esto maneja el caso donde se transfirió después del período pero ya pagó en el período)
+          const allPaymentsForPeriod = await prisma.monthlyPayment.findMany({
+            where: {
+              studentId: student.id,
+              periodId: period.id,
+              status: { in: ['PAID', 'PARTIAL_PAID'] }
+            }
+          });
+
+          // Verificar si alguno de estos pagos es de una clase donde el estudiante ya no está inscrito
+          const activeClassIds = student.classEnrollments.map(e => e.danceClass.id);
+          const paidPaymentFromInactiveClass = allPaymentsForPeriod.find(
+            p => p.classId && !activeClassIds.includes(p.classId)
+          );
+
+          if (paidPaymentFromInactiveClass) {
+            // Hay un pago PAID en una clase inactiva para este período
+            // El estudiante ya pagó la mensualidad del período, no crear nuevo pago
+            // Si existe un pago PENDING para la clase nueva, eliminarlo (es duplicado)
+            if (existingPayment && (existingPayment.status === 'PENDING' || existingPayment.status === 'OVERDUE')) {
+              await prisma.monthlyPayment.delete({
+                where: { id: existingPayment.id }
+              });
+            }
+            continue;
+          }
         }
 
         if (!existingPayment) {

@@ -195,8 +195,12 @@ export function MonthlyPaymentsDashboard() {
   const generatePendingPayments = async () => {
     if (!selectedPeriod) return;
 
+    // Abrir modal inmediatamente con loader
+    setShowResultModal(true);
+    setGenerationResult(null);
+    setGeneratingPayments(true);
+
     try {
-      setGeneratingPayments(true);
       const response = await fetch('/api/admin/generate-payment-forms', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -210,13 +214,12 @@ export function MonthlyPaymentsDashboard() {
 
       const result = await response.json();
       
-      // Guardar resultado y mostrar modal
+      // Guardar resultado (el modal ya está abierto, solo actualizar el contenido)
       setGenerationResult({
         message: result.message || 'Proceso completado exitosamente',
         created: result.created || 0,
         updated: result.updated || 0
       });
-      setShowResultModal(true);
       
       // Recargar estadísticas
       if (selectedPeriod) {
@@ -232,6 +235,11 @@ export function MonthlyPaymentsDashboard() {
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al generar pagos pendientes');
+      setGenerationResult({
+        message: err instanceof Error ? err.message : 'Error al generar pagos pendientes',
+        created: 0,
+        updated: 0
+      });
     } finally {
       setGeneratingPayments(false);
     }
@@ -569,19 +577,53 @@ export function MonthlyPaymentsDashboard() {
       )}
 
       {/* Modal de resultado de generación/actualización de pagos */}
-      <Dialog open={showResultModal} onOpenChange={setShowResultModal}>
+      <Dialog open={showResultModal} onOpenChange={(open) => {
+        // Prevenir cerrar el modal mientras se está procesando
+        if (!open && generatingPayments) {
+          return;
+        }
+        setShowResultModal(open);
+      }}>
         <DialogContent className="bg-gray-800 border-gray-600 text-white max-w-md">
           <DialogHeader>
             <DialogTitle className="text-xl font-bold text-white flex items-center gap-2">
-              <CheckCircle className="h-5 w-5 text-green-400" />
-              Proceso Completado
+              {generatingPayments ? (
+                <>
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-400"></div>
+                  Procesando...
+                </>
+              ) : (
+                <>
+                  <CheckCircle className="h-5 w-5 text-green-400" />
+                  Proceso Completado
+                </>
+              )}
             </DialogTitle>
             <DialogDescription className="text-gray-300">
-              Resultado de la generación/actualización de pagos
+              {generatingPayments 
+                ? 'Generando/actualizando pagos mensuales' 
+                : 'Resultado de la generación/actualización de pagos'}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            {generationResult && (
+            {generatingPayments ? (
+              // Mostrar loader mientras se procesa
+              <div className="flex flex-col items-center justify-center py-8 space-y-4">
+                <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-400"></div>
+                <div className="text-center space-y-2">
+                  <p className="text-white font-medium">
+                    Generando/actualizando pagos mensuales...
+                  </p>
+                  <p className="text-yellow-400 text-sm font-semibold">
+                    ⚠️ Por favor, no cierre esta pestaña hasta que se complete el proceso
+                  </p>
+                  <p className="text-gray-400 text-xs">
+                    Este proceso puede tardar varios minutos dependiendo del número de estudiantes
+                  </p>
+                </div>
+              </div>
+            ) : generationResult ? (
+              // Mostrar resultado cuando termine
               <>
                 {(generationResult.created > 0 || generationResult.updated > 0) && (
                   <div className="bg-green-900/20 border border-green-500/30 rounded-lg p-4">
@@ -612,12 +654,13 @@ export function MonthlyPaymentsDashboard() {
                   </p>
                 </div>
               </>
-            )}
+            ) : null}
             
             <div className="flex justify-end">
               <Button
                 onClick={() => setShowResultModal(false)}
-                className="bg-green-600 hover:bg-green-700 text-white"
+                disabled={generatingPayments}
+                className="bg-green-600 hover:bg-green-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <CheckCircle className="h-4 w-4 mr-2" />
                 Entendido
