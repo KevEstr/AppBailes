@@ -903,6 +903,10 @@ export class MonthlyPaymentService {
           isOverdue: new Date() > dueDate && (payment.status === 'PENDING' || payment.status === 'OVERDUE'),
           createdAt: payment.createdAt,
           paymentDate: payment.paymentDate,
+          reminderSent: (payment as any).reminderSent || false,
+          reminderSentAt: (payment as any).reminderSentAt || null,
+          receiptSent: (payment as any).receiptSent || false,
+          receiptSentAt: (payment as any).receiptSentAt || null,
         };
       }),
       pagination: {
@@ -1880,10 +1884,30 @@ export class MonthlyPaymentService {
         nextPaymentDate,
       };
 
-      await whatsappService.sendProofApprovedNotification(notificationData);
-      console.log("✅ Notificación de pago recibido enviada exitosamente");
+      const result = await whatsappService.sendProofApprovedNotification(notificationData);
+      
+      // Verificar que el mensaje se haya enviado correctamente
+      // Solo marcar como enviado si la respuesta es exitosa (sin errores y con ID de mensaje)
+      const hasError = (result as any)?.error;
+      const hasMessageId = (result as any)?.messages?.[0]?.id;
+      
+      if (result && !hasError && hasMessageId) {
+        // Marcar como enviado el recibo solo si fue exitoso
+        await prisma.monthlyPayment.update({
+          where: { id: payment.id },
+          data: {
+            receiptSent: true,
+            receiptSentAt: new Date()
+          } as any // Temporal hasta que se regenere Prisma
+        });
+        console.log("✅ Notificación de pago recibido enviada exitosamente y marcada como enviada");
+      } else {
+        console.warn("⚠️ Respuesta de WhatsApp no confirma envío exitoso, no se marca como enviado");
+        throw new Error('No se recibió confirmación válida de envío del recibo');
+      }
     } catch (whatsappError) {
       console.error("❌ Error enviando notificación de pago recibido:", whatsappError);
+      // No marcar como enviado si hay error
     }
   }
 

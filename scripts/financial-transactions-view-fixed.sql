@@ -88,7 +88,7 @@ SELECT
     ep.id::text as transaction_id,
     ep."expectedAmount" as amount,
     
-    CONCAT('Pago de inscripción - ', ep.sport::text, ' - Estudiante: ', ep."studentId") as description,
+    CONCAT('Pago de inscripción - ', COALESCE(s.name, ep."studentId")) as description,
     CASE 
         WHEN ep.status = 'PAID' THEN 'INCOME'
         WHEN ep.status = 'PENDING' THEN 'PENDING_LIABILITY'
@@ -109,6 +109,7 @@ SELECT
     ep."createdAt" as created_at,
     ep."updatedAt" as updated_at
 FROM enrollment_payments ep
+LEFT JOIN students s ON ep."studentId" = s.id
 WHERE ep."createdAt" IS NOT NULL
 
 UNION ALL

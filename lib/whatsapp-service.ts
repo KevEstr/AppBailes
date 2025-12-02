@@ -180,8 +180,23 @@ export class WhatsAppService {
     const responseData = await response.json();
     console.log('📨 Response Body (Custom Template):', JSON.stringify(responseData, null, 2));
 
+    // Verificar status HTTP
     if (!response.ok) {
       throw new Error(`Custom template error: ${JSON.stringify(responseData)}`);
+    }
+
+    // Verificar si hay errores en el body de la respuesta (códigos como 2010, etc.)
+    if (responseData.error) {
+      const errorCode = responseData.error.code;
+      const errorMessage = responseData.error.message || 'Error desconocido';
+      console.error(`❌ Error en respuesta de WhatsApp: código ${errorCode}, mensaje: ${errorMessage}`);
+      throw new Error(`WhatsApp API Error ${errorCode}: ${errorMessage}`);
+    }
+
+    // Verificar que la respuesta tenga el formato esperado de éxito
+    if (!responseData.messages || !responseData.messages[0]?.id) {
+      console.warn('⚠️ Respuesta sin ID de mensaje, puede no haberse enviado correctamente');
+      throw new Error('Respuesta inválida de WhatsApp API');
     }
 
     console.log('✅ Template personalizado enviado exitosamente');
@@ -992,6 +1007,20 @@ ${data.paymentLink}
       throw new Error(`Proof approved template error: ${JSON.stringify(responseData)}`);
     }
 
+    // Verificar si hay errores en el body de la respuesta (códigos como 2010, etc.)
+    if (responseData.error) {
+      const errorCode = responseData.error.code;
+      const errorMessage = responseData.error.message || 'Error desconocido';
+      console.error(`❌ Error en respuesta de WhatsApp: código ${errorCode}, mensaje: ${errorMessage}`);
+      throw new Error(`WhatsApp API Error ${errorCode}: ${errorMessage}`);
+    }
+
+    // Verificar que la respuesta tenga el formato esperado de éxito
+    if (!responseData.messages || !responseData.messages[0]?.id) {
+      console.warn('⚠️ Respuesta sin ID de mensaje, puede no haberse enviado correctamente');
+      throw new Error('Respuesta inválida de WhatsApp API');
+    }
+
     console.log(`✅ Template de aprobación ${data.isPartialPayment ? 'parcial' : 'completo'} enviado exitosamente`);
     return responseData;
   }
@@ -1062,6 +1091,20 @@ ${data.paymentLink}
 
     if (!response.ok) {
       throw new Error(`Proof rejected template error: ${JSON.stringify(responseData)}`);
+    }
+
+    // Verificar si hay errores en el body de la respuesta (códigos como 2010, etc.)
+    if (responseData.error) {
+      const errorCode = responseData.error.code;
+      const errorMessage = responseData.error.message || 'Error desconocido';
+      console.error(`❌ Error en respuesta de WhatsApp: código ${errorCode}, mensaje: ${errorMessage}`);
+      throw new Error(`WhatsApp API Error ${errorCode}: ${errorMessage}`);
+    }
+
+    // Verificar que la respuesta tenga el formato esperado de éxito
+    if (!responseData.messages || !responseData.messages[0]?.id) {
+      console.warn('⚠️ Respuesta sin ID de mensaje, puede no haberse enviado correctamente');
+      throw new Error('Respuesta inválida de WhatsApp API');
     }
 
     console.log('✅ Template de rechazo enviado exitosamente');

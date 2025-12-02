@@ -144,7 +144,30 @@ export async function POST(request: NextRequest) {
         
         const result = await whatsappService.sendCustomPaymentTemplate(whatsappData, formattedPhone);
         console.log('📨 Resultado WhatsApp para', payment.student.name, ':', result);
-        sentCount++;
+        
+        // Verificar que el mensaje se haya enviado correctamente
+        // Solo marcar como enviado si la respuesta es exitosa (status 200 y sin errores)
+        const hasError = (result as any)?.error;
+        const hasMessageId = (result as any)?.messages?.[0]?.id;
+        
+        if (result && !hasError && hasMessageId) {
+          // Marcar como enviado el recordatorio solo si fue exitoso
+          await prisma.monthlyPayment.update({
+            where: { id: payment.id },
+            data: {
+              reminderSent: true,
+              reminderSentAt: new Date()
+            } as any // Temporal hasta que se regenere Prisma
+          });
+          sentCount++;
+        } else {
+          // Si no hay ID de mensaje o hay error, considerar como fallido
+          const errorCode = (result as any)?.error?.code;
+          const errorMsg = errorCode 
+            ? `Error ${errorCode} de WhatsApp API`
+            : 'No se recibió confirmación de envío del mensaje';
+          throw new Error(errorMsg);
+        }
 
         // Intervalo entre mensajes
         if (i < paymentsWithPhone.length - 1) {

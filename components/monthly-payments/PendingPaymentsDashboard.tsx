@@ -31,7 +31,8 @@ import {
   Copy,
   X,
   Filter,
-  Trash2
+  Trash2,
+  Send
 } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import { MarkPaymentReceivedModal } from '@/components/admin/MarkPaymentReceivedModal';
@@ -57,6 +58,10 @@ interface PendingPayment {
   isOverdue: boolean;
   createdAt: string;
   paymentDate?: string | null;
+  reminderSent?: boolean;
+  reminderSentAt?: string | null;
+  receiptSent?: boolean;
+  receiptSentAt?: string | null;
 }
 
 interface PendingPaymentsResponse {
@@ -102,6 +107,7 @@ export const PendingPaymentsDashboard = forwardRef<PendingPaymentsDashboardRef, 
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [paymentToDelete, setPaymentToDelete] = useState<PendingPayment | null>(null);
   const [deletingPayment, setDeletingPayment] = useState(false);
+  const [bulkSendModalOpen, setBulkSendModalOpen] = useState(false);
 
   // Exponer método refresh al componente padre
   useImperativeHandle(ref, () => ({
@@ -250,6 +256,8 @@ export const PendingPaymentsDashboard = forwardRef<PendingPaymentsDashboardRef, 
         title: "Mensaje enviado",
         description: `Se ha enviado el recordatorio de pago a ${payment.student.name}`,
       });
+      // Refrescar la lista para actualizar el estado de reminderSent
+      await loadPayments();
     } catch (err) {
       console.error('Error al enviar mensaje WhatsApp:', err);
       toast({
@@ -425,7 +433,7 @@ export const PendingPaymentsDashboard = forwardRef<PendingPaymentsDashboardRef, 
         </CardTitle>
       </CardHeader>
       <CardContent>
-        {/* Barra de búsqueda y filtros */}
+          {/* Barra de búsqueda y filtros */}
         <div className="flex flex-col sm:flex-row gap-4 mb-6">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
@@ -438,6 +446,14 @@ export const PendingPaymentsDashboard = forwardRef<PendingPaymentsDashboardRef, 
           </div>
           
           <div className="flex gap-2">
+            <Button
+              onClick={() => setBulkSendModalOpen(true)}
+              className="bg-green-600 hover:bg-green-700 text-white"
+            >
+              <Send className="h-4 w-4 mr-2" />
+              Envío Masivo
+            </Button>
+            
             <Select value={statusFilter} onValueChange={handleStatusFilterChange}>
               <SelectTrigger className="w-[180px] bg-gray-700 border-gray-600 text-white">
                 <Filter className="h-4 w-4 mr-2" />
@@ -489,8 +505,10 @@ export const PendingPaymentsDashboard = forwardRef<PendingPaymentsDashboardRef, 
                 <TableHead className="text-gray-300">Clase</TableHead>
                 <TableHead className="text-gray-300">Teléfono</TableHead>
                 <TableHead className="text-gray-300">Monto</TableHead>
-                <TableHead className="text-gray-300">Estado</TableHead>
+                  <TableHead className="text-gray-300">Estado</TableHead>
                 <TableHead className="text-gray-300">Vencimiento</TableHead>
+                <TableHead className="text-gray-300">Recordatorio</TableHead>
+                <TableHead className="text-gray-300">Recibo</TableHead>
                 <TableHead className="text-gray-300">Acciones</TableHead>
               </TableRow>
             </TableHeader>
@@ -529,6 +547,46 @@ export const PendingPaymentsDashboard = forwardRef<PendingPaymentsDashboardRef, 
                   </TableCell>
                   <TableCell className="text-gray-300">
                     {payment.dueDate ? new Date(payment.dueDate).toLocaleDateString('es-CO') : 'Calculando...'}
+                  </TableCell>
+                  <TableCell>
+                    {payment.reminderSent ? (
+                      <div className="flex flex-col items-start">
+                        <Badge variant="secondary" className="bg-green-600 text-white text-xs">
+                          <CheckCircle className="h-3 w-3 mr-1" />
+                          Enviado
+                        </Badge>
+                        {payment.reminderSentAt && (
+                          <span className="text-xs text-gray-400 mt-1">
+                            {new Date(payment.reminderSentAt).toLocaleDateString('es-CO')}
+                          </span>
+                        )}
+                      </div>
+                    ) : (
+                      <Badge variant="secondary" className="bg-gray-600 text-white text-xs">
+                        <Clock className="h-3 w-3 mr-1" />
+                        Pendiente
+                      </Badge>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {payment.receiptSent ? (
+                      <div className="flex flex-col items-start">
+                        <Badge variant="secondary" className="bg-green-600 text-white text-xs">
+                          <CheckCircle className="h-3 w-3 mr-1" />
+                          Enviado
+                        </Badge>
+                        {payment.receiptSentAt && (
+                          <span className="text-xs text-gray-400 mt-1">
+                            {new Date(payment.receiptSentAt).toLocaleDateString('es-CO')}
+                          </span>
+                        )}
+                      </div>
+                    ) : (
+                      <Badge variant="secondary" className="bg-gray-600 text-white text-xs">
+                        <Clock className="h-3 w-3 mr-1" />
+                        Pendiente
+                      </Badge>
+                    )}
                   </TableCell>
                   <TableCell>
                     <div className="flex gap-2">
@@ -715,6 +773,290 @@ export const PendingPaymentsDashboard = forwardRef<PendingPaymentsDashboardRef, 
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Modal de envío masivo */}
+      <Dialog open={bulkSendModalOpen} onOpenChange={setBulkSendModalOpen}>
+        <BulkSendModal
+          periodId={periodId}
+          onClose={() => setBulkSendModalOpen(false)}
+          onSuccess={async () => {
+            await loadPayments();
+            setBulkSendModalOpen(false);
+          }}
+        />
+      </Dialog>
     </Card>
   );
 });
+
+// Modal de envío masivo
+interface BulkSendModalProps {
+  periodId: number;
+  onClose: () => void;
+  onSuccess: () => void;
+}
+
+function BulkSendModal({ periodId, onClose, onSuccess }: BulkSendModalProps) {
+  const [selectedCutoff, setSelectedCutoff] = useState<'15' | '30' | null>(null);
+  const [payments, setPayments] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [sentCount, setSentCount] = useState(0);
+  const [failedCount, setFailedCount] = useState(0);
+
+  const loadPaymentsByCutoff = async (cutoffDay: '15' | '30') => {
+    try {
+      setLoading(true);
+      const response = await fetch(`/api/admin/monthly-payments/by-cutoff?periodId=${periodId}&cutoffDay=${cutoffDay}`);
+      const data = await response.json();
+      
+      if (data.success) {
+        setPayments(data.payments || []);
+      } else {
+        toast({
+          title: "Error",
+          description: data.message || "Error al cargar pagos",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Error cargando pagos:', error);
+      toast({
+        title: "Error",
+        description: "Error al cargar los pagos",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (selectedCutoff) {
+      loadPaymentsByCutoff(selectedCutoff);
+    } else {
+      setPayments([]);
+    }
+  }, [selectedCutoff, periodId]);
+
+  const handleSend = async () => {
+    if (!selectedCutoff || payments.length === 0) return;
+
+    try {
+      setSending(true);
+      setSentCount(0);
+      setFailedCount(0);
+
+      const studentIds = payments.map(p => p.student.id);
+      
+      const response = await fetch('/api/admin/send-pending-payment-whatsapp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          periodId: periodId,
+          studentIds: studentIds
+        })
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        setSentCount(data.sentCount || 0);
+        setFailedCount(data.failedCount || 0);
+        
+        toast({
+          title: "Mensajes enviados",
+          description: `Se enviaron ${data.sentCount} mensajes exitosamente${data.failedCount > 0 ? `. ${data.failedCount} fallaron.` : '.'}`,
+        });
+        
+        // Recargar pagos para actualizar estados
+        await loadPaymentsByCutoff(selectedCutoff);
+        onSuccess();
+      } else {
+        throw new Error(data.message || 'Error al enviar mensajes');
+      }
+    } catch (error) {
+      console.error('Error enviando mensajes:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : 'Error al enviar mensajes',
+        variant: "destructive",
+      });
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <DialogContent className="bg-gray-800 border-gray-600 text-white max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogHeader>
+        <DialogTitle className="text-xl font-bold text-white flex items-center gap-2">
+          <Send className="h-5 w-5 text-green-400" />
+          Envío Masivo de Recordatorios
+        </DialogTitle>
+        <DialogDescription className="text-gray-300">
+          Selecciona el día de corte y envía recordatorios a todos los estudiantes con pagos pendientes
+        </DialogDescription>
+      </DialogHeader>
+      
+      <div className="space-y-4">
+        {/* Selector de día de corte */}
+        <div>
+          <label className="text-sm font-medium text-gray-300 mb-2 block">
+            Día de Corte
+          </label>
+          <Select value={selectedCutoff || ''} onValueChange={(value) => setSelectedCutoff(value as '15' | '30')}>
+            <SelectTrigger className="bg-gray-700 border-gray-600 text-white">
+              <SelectValue placeholder="Selecciona el día de corte" />
+            </SelectTrigger>
+            <SelectContent className="bg-gray-800 border-gray-600">
+              <SelectItem value="15" className="text-white hover:bg-gray-700">
+                Corte del 15
+              </SelectItem>
+              <SelectItem value="30" className="text-white hover:bg-gray-700">
+                Corte del 30
+              </SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Lista de estudiantes */}
+        {(() => {
+          if (loading) {
+            return (
+              <div className="flex items-center justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                <span className="ml-3 text-gray-300">Cargando estudiantes...</span>
+              </div>
+            );
+          }
+          
+          if (selectedCutoff && payments.length > 0) {
+            return (
+          <>
+            <div className="bg-gray-700/50 rounded-lg p-3">
+              <p className="text-sm text-gray-300">
+                <strong className="text-white">{payments.length}</strong> estudiantes con pagos pendientes para el corte del {selectedCutoff} que aún no han recibido recordatorio
+              </p>
+              <p className="text-xs text-gray-400 mt-1">
+                Los pagos que ya recibieron recordatorio no se muestran en esta lista
+              </p>
+            </div>
+            
+            <div className="max-h-96 overflow-y-auto border border-gray-600 rounded-lg">
+              <Table>
+                <TableHeader>
+                  <TableRow className="border-gray-600">
+                    <TableHead className="text-gray-300">Estudiante</TableHead>
+                    <TableHead className="text-gray-300">Clase</TableHead>
+                    <TableHead className="text-gray-300">Monto</TableHead>
+                    <TableHead className="text-gray-300">Estado Pago</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {payments.map((payment) => (
+                    <TableRow key={payment.id} className="border-gray-600">
+                      <TableCell className="text-white font-medium">
+                        {payment.student.name}
+                      </TableCell>
+                      <TableCell className="text-gray-300">
+                        {payment.class ? payment.class.name : 'Sin clase'}
+                      </TableCell>
+                      <TableCell className="text-white">
+                        {formatCurrency(payment.expectedAmount)}
+                      </TableCell>
+                      <TableCell>
+                        {(() => {
+                          const isOverdue = payment.status === 'OVERDUE';
+                          const badgeClassName = isOverdue 
+                            ? "bg-red-600 text-white text-xs"
+                            : "bg-yellow-600 text-white text-xs";
+                          
+                          return (
+                            <Badge 
+                              variant="secondary" 
+                              className={badgeClassName}
+                            >
+                              {isOverdue ? (
+                                <>
+                                  <AlertTriangle className="h-3 w-3 mr-1" />
+                                  Vencido
+                                </>
+                              ) : (
+                                <>
+                                  <Clock className="h-3 w-3 mr-1" />
+                                  Pendiente
+                                </>
+                              )}
+                            </Badge>
+                          );
+                        })()}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+
+            {/* Botones de acción */}
+            <div className="flex justify-end gap-3 pt-4 border-t border-gray-700">
+              <Button
+                variant="outline"
+                onClick={onClose}
+                className="border-gray-600 text-gray-300 hover:bg-gray-700"
+                disabled={sending}
+              >
+                Cancelar
+              </Button>
+              <Button
+                onClick={handleSend}
+                className="bg-green-600 hover:bg-green-700 text-white"
+                disabled={sending || payments.length === 0}
+              >
+                {sending ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                    Enviando...
+                  </>
+                ) : (
+                  <>
+                    <Send className="h-4 w-4 mr-2" />
+                    Enviar a {payments.length} estudiante{payments.length !== 1 ? 's' : ''}
+                  </>
+                )}
+              </Button>
+            </div>
+
+            {/* Resultados */}
+            {(sentCount > 0 || failedCount > 0) && (() => {
+              const failedText = failedCount > 0 ? `, ${failedCount} fallaron` : '';
+              return (
+                <div className="bg-blue-900/20 border border-blue-500/30 rounded-lg p-3">
+                  <p className="text-sm text-blue-300">
+                    <strong>Resultados:</strong> {sentCount} enviados exitosamente{failedText}
+                  </p>
+                </div>
+              );
+            })()}
+          </>
+            );
+          }
+          
+          if (selectedCutoff && payments.length === 0) {
+            return (
+              <div className="text-center py-8">
+                <Clock className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-medium mb-2 text-white">No hay pagos pendientes</h3>
+                <p className="text-gray-400">
+                  No se encontraron estudiantes con pagos pendientes para el corte del {selectedCutoff}
+                </p>
+              </div>
+            );
+          }
+          
+          return null;
+        })()}
+      </div>
+    </DialogContent>
+  );
+}

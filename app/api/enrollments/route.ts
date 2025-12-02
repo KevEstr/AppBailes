@@ -48,8 +48,9 @@ export async function GET(request: NextRequest) {
         // Para estudiantes inactivos, mostrar todas sus inscripciones (activas e inactivas)
         // No filtrar por isActive en las inscripciones
       } else {
-        // Si no hay filtro de status, solo mostrar inscripciones activas por defecto
-        enrollmentQuery.isActive = true
+        // Si no hay filtro de status (status === 'all'), mostrar todos los estudiantes
+        // No aplicar filtro de isActive en las inscripciones para incluir activos e inactivos
+        // No aplicar filtro de isActive en los estudiantes
       }
 
       // Agregar condiciones de búsqueda si existe un término
@@ -126,9 +127,9 @@ export async function GET(request: NextRequest) {
       const paginatedStudentIds = sortedStudentIds.slice(skip, skip + validLimit)
 
       // Obtener estudiantes completos con todas sus inscripciones
-      // Si se filtra por inactivos, incluir todas las inscripciones (activas e inactivas)
-      // Si se filtra por activos o sin filtro, solo incluir inscripciones activas
-      const enrollmentIncludeFilter = status === 'inactive' 
+      // Si se filtra por inactivos o todos, incluir todas las inscripciones (activas e inactivas)
+      // Si se filtra por activos, solo incluir inscripciones activas
+      const enrollmentIncludeFilter = (status === 'inactive' || status === 'all' || !status)
         ? {} // Sin filtro, traer todas las inscripciones
         : { isActive: true } // Solo inscripciones activas
       

@@ -357,6 +357,11 @@ model MonthlyPayment {
   markedAsPaidBy String?              // Usuario que marcó el pago como recibido
   // Fecha de vencimiento individual basada en el día de corte de la clase
   dueDate        DateTime?            @db.Timestamptz
+  // Campos para tracking de mensajes WhatsApp
+  reminderSent   Boolean              @default(false) // Si se envió el recordatorio de pago pendiente
+  reminderSentAt DateTime?            @db.Timestamptz // Fecha cuando se envió el recordatorio
+  receiptSent    Boolean              @default(false) // Si se envió el mensaje del recibo
+  receiptSentAt  DateTime?            @db.Timestamptz // Fecha cuando se envió el recibo
   createdAt      DateTime             @default(now()) @db.Timestamptz
   updatedAt      DateTime             @updatedAt @db.Timestamptz
   feeConfig      MonthlyFeeConfig     @relation(fields: [feeConfigId], references: [id])
