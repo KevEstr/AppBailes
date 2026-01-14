@@ -529,8 +529,6 @@ export const PendingPaymentsDashboard = forwardRef<PendingPaymentsDashboardRef, 
                 <TableHead className="text-gray-300">Monto</TableHead>
                   <TableHead className="text-gray-300">Estado</TableHead>
                 <TableHead className="text-gray-300">Vencimiento</TableHead>
-                <TableHead className="text-gray-300">Recordatorio</TableHead>
-                <TableHead className="text-gray-300">Recibo</TableHead>
                 <TableHead className="text-gray-300">Acciones</TableHead>
               </TableRow>
             </TableHeader>
@@ -570,46 +568,7 @@ export const PendingPaymentsDashboard = forwardRef<PendingPaymentsDashboardRef, 
                   <TableCell className="text-gray-300">
                     {payment.dueDate ? new Date(payment.dueDate).toLocaleDateString('es-CO') : 'Calculando...'}
                   </TableCell>
-                  <TableCell>
-                    {payment.reminderSent ? (
-                      <div className="flex flex-col items-start">
-                        <Badge variant="secondary" className="bg-green-600 text-white text-xs">
-                          <CheckCircle className="h-3 w-3 mr-1" />
-                          Enviado
-                        </Badge>
-                        {payment.reminderSentAt && (
-                          <span className="text-xs text-gray-400 mt-1">
-                            {new Date(payment.reminderSentAt).toLocaleDateString('es-CO')}
-                          </span>
-                        )}
-                      </div>
-                    ) : (
-                      <Badge variant="secondary" className="bg-gray-600 text-white text-xs">
-                        <Clock className="h-3 w-3 mr-1" />
-                        Pendiente
-                      </Badge>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {payment.receiptSent ? (
-                      <div className="flex flex-col items-start">
-                        <Badge variant="secondary" className="bg-green-600 text-white text-xs">
-                          <CheckCircle className="h-3 w-3 mr-1" />
-                          Enviado
-                        </Badge>
-                        {payment.receiptSentAt && (
-                          <span className="text-xs text-gray-400 mt-1">
-                            {new Date(payment.receiptSentAt).toLocaleDateString('es-CO')}
-                          </span>
-                        )}
-                      </div>
-                    ) : (
-                      <Badge variant="secondary" className="bg-gray-600 text-white text-xs">
-                        <Clock className="h-3 w-3 mr-1" />
-                        Pendiente
-                      </Badge>
-                    )}
-                  </TableCell>
+                  
                   <TableCell>
                     <div className="flex gap-2">
                       {/* Solo mostrar botón "Marcar Recibido" para pagos pendientes */}

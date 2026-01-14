@@ -60,3 +60,4 @@ node scripts/mark-paid-payments-reminder-sent.js
 - La fecha `reminderSentAt` se establece usando la fecha de pago si está disponible
 
 
+
