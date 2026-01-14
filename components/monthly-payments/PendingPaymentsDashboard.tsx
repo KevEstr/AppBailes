@@ -36,6 +36,8 @@ import {
 } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import { MarkPaymentReceivedModal } from '@/components/admin/MarkPaymentReceivedModal';
+import { WhatsAppMessageTemplateModal } from './WhatsAppMessageTemplateModal';
+import { ReceiptTemplateModal } from '@/components/admin/ReceiptTemplateModal';
 import { toast } from '@/hooks/use-toast';
 
 interface PendingPayment {
@@ -103,11 +105,23 @@ export const PendingPaymentsDashboard = forwardRef<PendingPaymentsDashboardRef, 
     hasPrev: false
   });
   const [selectedPayment, setSelectedPayment] = useState<PendingPayment | null>(null);
-  const [sendingWhatsApp, setSendingWhatsApp] = useState<number | null>(null);
+  // const [sendingWhatsApp, setSendingWhatsApp] = useState<number | null>(null); // Ya no se usa - envío deshabilitado
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [paymentToDelete, setPaymentToDelete] = useState<PendingPayment | null>(null);
   const [deletingPayment, setDeletingPayment] = useState(false);
   const [bulkSendModalOpen, setBulkSendModalOpen] = useState(false);
+  const [whatsAppTemplateModalOpen, setWhatsAppTemplateModalOpen] = useState(false);
+  const [selectedPaymentForTemplate, setSelectedPaymentForTemplate] = useState<PendingPayment | null>(null);
+  const [receiptModalOpen, setReceiptModalOpen] = useState(false);
+  const [receiptModalData, setReceiptModalData] = useState<{
+    payment: PendingPayment;
+    receiptId: number;
+    receivedAmount: number;
+    paymentMethod: string;
+    isPartialPayment: boolean;
+    remainingAmount: number;
+    nextPaymentDate?: string;
+  } | null>(null);
 
   // Exponer método refresh al componente padre
   useImperativeHandle(ref, () => ({
@@ -222,7 +236,7 @@ export const PendingPaymentsDashboard = forwardRef<PendingPaymentsDashboardRef, 
       
       toast({
         title: "Pago marcado como recibido",
-        description: "El pago ha sido procesado exitosamente y se ha enviado la notificación.",
+        description: "El pago ha sido procesado exitosamente.",
       });
     } catch (err) {
       console.error('Error al actualizar pagos:', err);
@@ -234,40 +248,46 @@ export const PendingPaymentsDashboard = forwardRef<PendingPaymentsDashboardRef, 
     }
   };
 
-  const sendWhatsAppMessage = async (payment: PendingPayment) => {
-    try {
-      setSendingWhatsApp(payment.id);
-      
-      const response = await fetch('/api/admin/send-pending-payment-whatsapp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          periodId: periodId,
-          studentIds: [payment.student.id]
-        })
-      });
+  // Función comentada - ya no se envían mensajes automáticamente
+  // const sendWhatsAppMessage = async (payment: PendingPayment) => {
+  //   try {
+  //     setSendingWhatsApp(payment.id);
+  //     
+  //     const response = await fetch('/api/admin/send-pending-payment-whatsapp', {
+  //       method: 'POST',
+  //       headers: { 'Content-Type': 'application/json' },
+  //       body: JSON.stringify({
+  //         periodId: periodId,
+  //         studentIds: [payment.student.id]
+  //       })
+  //     });
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Error al enviar mensaje');
-      }
+  //     if (!response.ok) {
+  //       const error = await response.json();
+  //       throw new Error(error.message || 'Error al enviar mensaje');
+  //     }
 
-      toast({
-        title: "Mensaje enviado",
-        description: `Se ha enviado el recordatorio de pago a ${payment.student.name}`,
-      });
-      // Refrescar la lista para actualizar el estado de reminderSent
-      await loadPayments();
-    } catch (err) {
-      console.error('Error al enviar mensaje WhatsApp:', err);
-      toast({
-        title: "Error al enviar mensaje",
-        description: err instanceof Error ? err.message : 'Error desconocido',
-        variant: "destructive",
-      });
-    } finally {
-      setSendingWhatsApp(null);
-    }
+  //     toast({
+  //       title: "Mensaje enviado",
+  //       description: `Se ha enviado el recordatorio de pago a ${payment.student.name}`,
+  //     });
+  //     // Refrescar la lista para actualizar el estado de reminderSent
+  //     await loadPayments();
+  //   } catch (err) {
+  //     console.error('Error al enviar mensaje WhatsApp:', err);
+  //     toast({
+  //       title: "Error al enviar mensaje",
+  //       description: err instanceof Error ? err.message : 'Error desconocido',
+  //       variant: "destructive",
+  //     });
+  //   } finally {
+  //     setSendingWhatsApp(null);
+  //   }
+  // };
+
+  const handleShowWhatsAppTemplate = (payment: PendingPayment) => {
+    setSelectedPaymentForTemplate(payment);
+    setWhatsAppTemplateModalOpen(true);
   };
 
   const copyReceiptLink = async (paymentId: number) => {
@@ -449,6 +469,8 @@ export const PendingPaymentsDashboard = forwardRef<PendingPaymentsDashboardRef, 
             <Button
               onClick={() => setBulkSendModalOpen(true)}
               className="bg-green-600 hover:bg-green-700 text-white"
+              disabled={true}
+              title="Función deshabilitada - Los mensajes ya no se envían automáticamente"
             >
               <Send className="h-4 w-4 mr-2" />
               Envío Masivo
@@ -602,17 +624,16 @@ export const PendingPaymentsDashboard = forwardRef<PendingPaymentsDashboardRef, 
                         </Button>
                       )}
 
-                      {/* Solo mostrar botón "WhatsApp" para pagos pendientes */}
+                      {/* Botón para mostrar plantilla de mensaje WhatsApp */}
                       {(payment.status === 'PENDING' || payment.status === 'OVERDUE') && (
                         <Button
                           size="sm"
                           variant="outline"
                           className="bg-blue-600 border-blue-500 text-white hover:bg-blue-700"
-                          onClick={() => sendWhatsAppMessage(payment)}
-                          disabled={sendingWhatsApp === payment.id}
+                          onClick={() => handleShowWhatsAppTemplate(payment)}
                         >
                           <MessageSquare className="h-4 w-4 mr-1" />
-                          {sendingWhatsApp === payment.id ? 'Enviando...' : 'WhatsApp'}
+                          Ver Mensaje
                         </Button>
                       )}
 
@@ -681,9 +702,74 @@ export const PendingPaymentsDashboard = forwardRef<PendingPaymentsDashboardRef, 
               await handleMarkAsReceived();
               setSelectedPayment(null);
             }}
+            onReceiptGenerated={(data: {
+              payment: {
+                id: number;
+                student: {
+                  name: string;
+                  phone: string;
+                };
+                expectedAmount: number;
+                period: string;
+                class?: {
+                  id: number;
+                  name: string;
+                  sport: string;
+                } | null;
+              };
+              receiptId: number;
+              receivedAmount: number;
+              paymentMethod: string;
+              isPartialPayment: boolean;
+              remainingAmount: number;
+              nextPaymentDate?: string;
+            }) => {
+              // Cerrar el modal de marcar pago
+              setSelectedPayment(null);
+              // Mostrar el modal de recibo
+              setReceiptModalData({
+                payment: selectedPayment!,
+                receiptId: data.receiptId,
+                receivedAmount: data.receivedAmount,
+                paymentMethod: data.paymentMethod,
+                isPartialPayment: data.isPartialPayment,
+                remainingAmount: data.remainingAmount,
+                nextPaymentDate: data.nextPaymentDate,
+              });
+              setReceiptModalOpen(true);
+            }}
           />
         )}
       </Dialog>
+
+      {/* Modal de plantilla de recibo */}
+      {receiptModalData && (
+        <ReceiptTemplateModal
+          isOpen={receiptModalOpen}
+          onClose={() => {
+            setReceiptModalOpen(false);
+            setReceiptModalData(null);
+            // Recargar la lista después de cerrar
+            handleMarkAsReceived();
+          }}
+          payment={{
+            id: receiptModalData.payment.id,
+            student: {
+              name: receiptModalData.payment.student.name,
+              phone: receiptModalData.payment.student.phone,
+            },
+            expectedAmount: receiptModalData.payment.expectedAmount,
+            period: receiptModalData.payment.period,
+            class: receiptModalData.payment.class || null,
+          }}
+          receiptId={receiptModalData.receiptId}
+          receivedAmount={receiptModalData.receivedAmount}
+          paymentMethod={receiptModalData.paymentMethod}
+          isPartialPayment={receiptModalData.isPartialPayment}
+          remainingAmount={receiptModalData.remainingAmount}
+          nextPaymentDate={receiptModalData.nextPaymentDate}
+        />
+      )}
 
       {/* Modal de confirmación para eliminar pago */}
       <Dialog open={!!paymentToDelete} onOpenChange={(open) => !open && setPaymentToDelete(null)}>
@@ -785,6 +871,17 @@ export const PendingPaymentsDashboard = forwardRef<PendingPaymentsDashboardRef, 
           }}
         />
       </Dialog>
+
+      {/* Modal de plantilla de mensaje WhatsApp */}
+      <WhatsAppMessageTemplateModal
+        isOpen={whatsAppTemplateModalOpen}
+        onClose={() => {
+          setWhatsAppTemplateModalOpen(false);
+          setSelectedPaymentForTemplate(null);
+        }}
+        payment={selectedPaymentForTemplate}
+        periodId={periodId}
+      />
     </Card>
   );
 });
@@ -800,9 +897,9 @@ function BulkSendModal({ periodId, onClose, onSuccess }: BulkSendModalProps) {
   const [selectedCutoff, setSelectedCutoff] = useState<'15' | '30' | null>(null);
   const [payments, setPayments] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
-  const [sending, setSending] = useState(false);
-  const [sentCount, setSentCount] = useState(0);
-  const [failedCount, setFailedCount] = useState(0);
+  // const [sending, setSending] = useState(false); // Ya no se usa - envío deshabilitado
+  // const [sentCount, setSentCount] = useState(0); // Ya no se usa - envío deshabilitado
+  // const [failedCount, setFailedCount] = useState(0); // Ya no se usa - envío deshabilitado
 
   const loadPaymentsByCutoff = async (cutoffDay: '15' | '30') => {
     try {
@@ -839,53 +936,54 @@ function BulkSendModal({ periodId, onClose, onSuccess }: BulkSendModalProps) {
     }
   }, [selectedCutoff, periodId]);
 
-  const handleSend = async () => {
-    if (!selectedCutoff || payments.length === 0) return;
+  // Función comentada - ya no se envían mensajes automáticamente
+  // const handleSend = async () => {
+  //   if (!selectedCutoff || payments.length === 0) return;
 
-    try {
-      setSending(true);
-      setSentCount(0);
-      setFailedCount(0);
+  //   try {
+  //     setSending(true);
+  //     setSentCount(0);
+  //     setFailedCount(0);
 
-      const studentIds = payments.map(p => p.student.id);
-      
-      const response = await fetch('/api/admin/send-pending-payment-whatsapp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          periodId: periodId,
-          studentIds: studentIds
-        })
-      });
+  //     const studentIds = payments.map(p => p.student.id);
+  //     
+  //     const response = await fetch('/api/admin/send-pending-payment-whatsapp', {
+  //       method: 'POST',
+  //       headers: { 'Content-Type': 'application/json' },
+  //       body: JSON.stringify({
+  //         periodId: periodId,
+  //         studentIds: studentIds
+  //       })
+  //     });
 
-      const data = await response.json();
+  //     const data = await response.json();
 
-      if (response.ok && data.success) {
-        setSentCount(data.sentCount || 0);
-        setFailedCount(data.failedCount || 0);
-        
-        toast({
-          title: "Mensajes enviados",
-          description: `Se enviaron ${data.sentCount} mensajes exitosamente${data.failedCount > 0 ? `. ${data.failedCount} fallaron.` : '.'}`,
-        });
-        
-        // Recargar pagos para actualizar estados
-        await loadPaymentsByCutoff(selectedCutoff);
-        onSuccess();
-      } else {
-        throw new Error(data.message || 'Error al enviar mensajes');
-      }
-    } catch (error) {
-      console.error('Error enviando mensajes:', error);
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : 'Error al enviar mensajes',
-        variant: "destructive",
-      });
-    } finally {
-      setSending(false);
-    }
-  };
+  //     if (response.ok && data.success) {
+  //       setSentCount(data.sentCount || 0);
+  //       setFailedCount(data.failedCount || 0);
+  //       
+  //       toast({
+  //         title: "Mensajes enviados",
+  //         description: `Se enviaron ${data.sentCount} mensajes exitosamente${data.failedCount > 0 ? `. ${data.failedCount} fallaron.` : '.'}`,
+  //       });
+  //       
+  //       // Recargar pagos para actualizar estados
+  //       await loadPaymentsByCutoff(selectedCutoff);
+  //       onSuccess();
+  //     } else {
+  //       throw new Error(data.message || 'Error al enviar mensajes');
+  //     }
+  //   } catch (error) {
+  //     console.error('Error enviando mensajes:', error);
+  //     toast({
+  //       title: "Error",
+  //       description: error instanceof Error ? error.message : 'Error al enviar mensajes',
+  //       variant: "destructive",
+  //     });
+  //   } finally {
+  //     setSending(false);
+  //   }
+  // };
 
   return (
     <DialogContent className="bg-gray-800 border-gray-600 text-white max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -895,7 +993,7 @@ function BulkSendModal({ periodId, onClose, onSuccess }: BulkSendModalProps) {
           Envío Masivo de Recordatorios
         </DialogTitle>
         <DialogDescription className="text-gray-300">
-          Selecciona el día de corte y envía recordatorios a todos los estudiantes con pagos pendientes
+          Los mensajes ya no se envían automáticamente. Usa el botón "Ver Mensaje" en cada pago individual para copiar el mensaje manualmente.
         </DialogDescription>
       </DialogHeader>
       
@@ -1004,40 +1102,25 @@ function BulkSendModal({ periodId, onClose, onSuccess }: BulkSendModalProps) {
                 variant="outline"
                 onClick={onClose}
                 className="border-gray-600 text-gray-300 hover:bg-gray-700"
-                disabled={sending}
               >
                 Cancelar
               </Button>
               <Button
-                onClick={handleSend}
-                className="bg-green-600 hover:bg-green-700 text-white"
-                disabled={sending || payments.length === 0}
+                onClick={() => {
+                  toast({
+                    title: "Función deshabilitada",
+                    description: "Los mensajes ya no se envían automáticamente. Usa el botón 'Ver Mensaje' en cada pago para copiar el mensaje manualmente.",
+                    variant: "default",
+                  });
+                }}
+                className="bg-gray-600 hover:bg-gray-700 text-white"
+                disabled={true}
+                title="Función deshabilitada - Los mensajes ya no se envían automáticamente"
               >
-                {sending ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
-                    Enviando...
-                  </>
-                ) : (
-                  <>
-                    <Send className="h-4 w-4 mr-2" />
-                    Enviar a {payments.length} estudiante{payments.length !== 1 ? 's' : ''}
-                  </>
-                )}
+                <Send className="h-4 w-4 mr-2" />
+                Envío Deshabilitado
               </Button>
             </div>
-
-            {/* Resultados */}
-            {(sentCount > 0 || failedCount > 0) && (() => {
-              const failedText = failedCount > 0 ? `, ${failedCount} fallaron` : '';
-              return (
-                <div className="bg-blue-900/20 border border-blue-500/30 rounded-lg p-3">
-                  <p className="text-sm text-blue-300">
-                    <strong>Resultados:</strong> {sentCount} enviados exitosamente{failedText}
-                  </p>
-                </div>
-              );
-            })()}
           </>
             );
           }

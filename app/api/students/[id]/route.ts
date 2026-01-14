@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { formatPhoneForDisplay, formatPhoneForStorage } from '@/lib/phone-utils'
+import { toZonedTime } from 'date-fns-tz'
 
 export async function GET(
   request: NextRequest,
@@ -17,16 +18,31 @@ export async function GET(
       )
     }
 
+    const today = new Date()
+    
     const student = await prisma.student.findUnique({
       where: { id: studentId },
       include: {
         user: true,
         enrollmentData: true,
-        debts: {
-          where: { 
-            isPaid: false,
+        monthlyPayments: {
+          where: {
+            status: { in: ['PENDING', 'OVERDUE'] },
             dueDate: {
-              gte: new Date(new Date().setFullYear(new Date().getFullYear() - 1))
+              lt: today, // Pagos vencidos (dueDate < hoy)
+              not: null // Solo los que tienen fecha de vencimiento
+            }
+          },
+          include: {
+            period: {
+              select: {
+                name: true
+              }
+            },
+            danceClass: {
+              select: {
+                name: true
+              }
             }
           },
           orderBy: { dueDate: 'asc' }
@@ -50,6 +66,32 @@ export async function GET(
       )
     }
 
+    // Transformar pagos vencidos al formato esperado por el modal
+    const TZ = 'America/Bogota';
+    const overdueDebts = student.monthlyPayments.map(payment => {
+      // Formatear la fecha preservando la zona horaria de Colombia (-05:00)
+      // Convertir a zona horaria de Colombia antes de extraer componentes
+      let dueDateStr = '';
+      if (payment.dueDate) {
+        const zoned = toZonedTime(payment.dueDate, TZ);
+        const year = zoned.getFullYear();
+        const month = String(zoned.getMonth() + 1).padStart(2, '0');
+        const day = String(zoned.getDate()).padStart(2, '0');
+        const hours = String(zoned.getHours()).padStart(2, '0');
+        const minutes = String(zoned.getMinutes()).padStart(2, '0');
+        const seconds = String(zoned.getSeconds()).padStart(2, '0');
+        // Mantener la zona horaria de Colombia (-05:00)
+        dueDateStr = `${year}-${month}-${day}T${hours}:${minutes}:${seconds}.000-05:00`;
+      }
+      
+      return {
+        id: payment.id,
+        amount: payment.expectedAmount - (payment.paidAmount || 0), // Monto pendiente
+        concept: `Mensualidad ${payment.period.name}${payment.danceClass ? ` - ${payment.danceClass.name}` : ''}`,
+        dueDate: dueDateStr || new Date().toISOString()
+      };
+    })
+
     // Formatear números de teléfono para mostrar sin código de país
     const formattedStudent = {
       ...student,
@@ -58,11 +100,13 @@ export async function GET(
         ...student.enrollmentData,
         emergencyContactPhone: formatPhoneForDisplay(student.enrollmentData.emergencyContactPhone),
         // Guardian fields removed - using emergency contact instead
-      } : null
+      } : null,
+      debts: overdueDebts, // Reemplazar con pagos vencidos transformados
+      monthlyPayments: undefined // No exponer directamente
     }
     
     // Debug: Log the student data
-    console.log('🔍 API: Student data with debts and receipts:', {
+    console.log('🔍 API: Student data with overdue payments and receipts:', {
       studentId: formattedStudent.id,
       debts: formattedStudent.debts,
       receipts: formattedStudent.receipts,

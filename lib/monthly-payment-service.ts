@@ -713,14 +713,14 @@ export class MonthlyPaymentService {
       // No lanzar error, continuar sin recibo
     }
 
-    // Enviar notificación de WhatsApp con el monto total (mensualidad + adicional)
-    try {
-      const totalPaidForClient = receivedAmount + ((data.additionalPayment?.amount) || 0);
-      await this.sendPaymentReceivedNotification(payment, totalPaidForClient, data.paymentMethod, receiptData);
-    } catch (whatsappError) {
-      console.error("❌ Error enviando notificación WhatsApp (continuando):", whatsappError);
-      // No lanzar error, continuar sin notificación
-    }
+    // Envío de notificación WhatsApp deshabilitado - ya no se envían mensajes automáticamente
+    // try {
+    //   const totalPaidForClient = receivedAmount + ((data.additionalPayment?.amount) || 0);
+    //   await this.sendPaymentReceivedNotification(payment, totalPaidForClient, data.paymentMethod, receiptData);
+    // } catch (whatsappError) {
+    //   console.error("❌ Error enviando notificación WhatsApp (continuando):", whatsappError);
+    //   // No lanzar error, continuar sin notificación
+    // }
 
     console.log(`✅ Pago marcado como recibido: ${payment.student.name} - $${receivedAmount.toLocaleString()}`);
 

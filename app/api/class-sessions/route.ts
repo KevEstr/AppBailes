@@ -142,6 +142,50 @@ export async function GET(request: NextRequest) {
     });
 
     console.log(`✅ Encontradas ${sessions.length} sesiones`);
+    
+    // Calcular hasDebt dinámicamente para todos los estudiantes en las sesiones
+    // Obtener todos los IDs de estudiantes únicos
+    const allStudentIds = new Set<string>();
+    sessions.forEach(session => {
+      session.danceClass.enrollments.forEach(enrollment => {
+        allStudentIds.add(enrollment.student.id);
+      });
+    });
+    
+    // Consultar pagos vencidos para todos los estudiantes
+    const today = new Date();
+    const studentIdsArray = Array.from(allStudentIds);
+    const overduePaymentsCount = await prisma.monthlyPayment.groupBy({
+      by: ['studentId'],
+      where: {
+        studentId: { in: studentIdsArray },
+        status: { in: ['PENDING', 'OVERDUE'] },
+        dueDate: {
+          lt: today, // Pagos vencidos (dueDate < hoy)
+          not: null
+        }
+      },
+      _count: true
+    });
+    
+    // Crear mapa para acceso rápido
+    const overduePaymentsMap = new Map(overduePaymentsCount.map(p => [p.studentId, p._count]));
+    
+    // Actualizar hasDebt en cada enrollment
+    const sessionsWithDebt = sessions.map(session => ({
+      ...session,
+      danceClass: {
+        ...session.danceClass,
+        enrollments: session.danceClass.enrollments.map(enrollment => ({
+          ...enrollment,
+          student: {
+            ...enrollment.student,
+            hasDebt: (overduePaymentsMap.get(enrollment.student.id) || 0) > 0
+          }
+        }))
+      }
+    }));
+    
     sessions.forEach((session, index) => {
       console.log(`📝 Sesión ${index + 1}:`, {
         id: session.id,
@@ -154,7 +198,7 @@ export async function GET(request: NextRequest) {
       });
     });
 
-    return NextResponse.json({ success: true, sessions });
+    return NextResponse.json({ success: true, sessions: sessionsWithDebt });
   } catch (error) {
     console.error("Error fetching sessions:", error);
     return NextResponse.json(

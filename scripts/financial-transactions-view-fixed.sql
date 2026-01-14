@@ -28,14 +28,14 @@ SELECT
     'MONTHLY_PAYMENT' as source_table,
     mp.id::text as transaction_id,
     COALESCE(mp."paidAmount", mp."expectedAmount") as amount,
-    CONCAT('Mensualidad - ', COALESCE(mp.notes, 'Sin descripción'), ' - Estudiante: ', COALESCE(s.name, mp."studentId")) as description,
+    CONCAT(COALESCE(mp.notes, 'Sin descripción'), ' - Estudiante: ', COALESCE(s.name, mp."studentId")) as description,
     CASE 
         WHEN mp.status = 'PAID' THEN 'INCOME'
         WHEN mp.status = 'PENDING' THEN 'PENDING_LIABILITY'
         ELSE 'PENDING_REVIEW'
     END as transaction_type,
     'MONTHLY_PAYMENT' as category,
-    mp."createdAt" as transaction_date,
+    mp."paymentDate" as transaction_date,
     NULL as payment_method,
     mp."studentId" as student_id,
     mp."periodId"::text as period_id,

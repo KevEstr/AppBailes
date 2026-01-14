@@ -21,6 +21,7 @@ import {
 } from '@/components/ui/select';
 import { toast } from '@/hooks/use-toast';
 import { Loader2, CheckCircle } from 'lucide-react';
+import { ReceiptTemplateModal } from './ReceiptTemplateModal';
 
 interface MarkPaymentReceivedModalProps {
   readonly isOpen: boolean;
@@ -36,19 +37,53 @@ interface MarkPaymentReceivedModalProps {
     dueDate: string | null;
   } | null;
   readonly onSuccess: () => void;
+  readonly onReceiptGenerated?: (data: {
+    payment: {
+      id: number;
+      student: {
+        name: string;
+        phone: string;
+      };
+      expectedAmount: number;
+      period: string;
+      class?: {
+        id: number;
+        name: string;
+        sport: string;
+      } | null;
+    };
+    receiptId: number;
+    receivedAmount: number;
+    paymentMethod: string;
+    isPartialPayment: boolean;
+    remainingAmount: number;
+    nextPaymentDate?: string;
+  }) => void;
 }
 
 export function MarkPaymentReceivedModal({
   isOpen,
   onClose,
   payment,
-  onSuccess
+  onSuccess,
+  onReceiptGenerated
 }: MarkPaymentReceivedModalProps) {
   const [paymentMethod, setPaymentMethod] = useState<string>('');
   const [receivedAmount, setReceivedAmount] = useState<string>(payment?.expectedAmount.toString() || '');
   const [additionalDebt, setAdditionalDebt] = useState<string>('');
   const [discount, setDiscount] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
+  
+  // Estados para el modal de recibo
+  const [showReceiptModal, setShowReceiptModal] = useState(false);
+  const [receiptId, setReceiptId] = useState<number | null>(null);
+  const [receiptData, setReceiptData] = useState<{
+    receivedAmount: number;
+    paymentMethod: string;
+    isPartialPayment: boolean;
+    remainingAmount: number;
+    nextPaymentDate?: string;
+  } | null>(null);
   
   // Estados para pago adicional
   const [hasAdditionalPayment, setHasAdditionalPayment] = useState<boolean>(false);
@@ -246,23 +281,77 @@ export function MarkPaymentReceivedModal({
         throw new Error(data.message || 'Error al marcar el pago');
       }
 
-      toast({
-        title: 'Éxito',
-        description: 'Pago marcado como recibido exitosamente',
-        variant: 'default'
-      });
+      // Calcular si es pago parcial
+      const receivedValue = receivedAmount ? Number.parseFloat(receivedAmount) : baseAmount;
+      const discountValue = discount ? Number.parseFloat(discount) : 0;
+      const effectiveExpectedAmount = baseAmount - discountValue;
+      const isPartialPayment = receivedValue < effectiveExpectedAmount;
+      const remainingAmount = isPartialPayment ? effectiveExpectedAmount - receivedValue : 0;
 
-      // Reset form
-      setPaymentMethod('');
-      setReceivedAmount('');
-      setAdditionalDebt('');
-      setDiscount('');
-      setHasAdditionalPayment(false);
-      setAdditionalPaymentType('');
-      setAdditionalPaymentAmount('');
-      
-      onSuccess();
-      onClose();
+      // Guardar datos para el modal de recibo
+      if (data.receiptId) {
+        // Reset form
+        setPaymentMethod('');
+        setReceivedAmount('');
+        setAdditionalDebt('');
+        setDiscount('');
+        setHasAdditionalPayment(false);
+        setAdditionalPaymentType('');
+        setAdditionalPaymentAmount('');
+        setAdditionalPaymentMethod('');
+        
+        // Si hay callback, usarlo para mostrar el modal en el componente padre
+        if (onReceiptGenerated && payment) {
+          onReceiptGenerated({
+            payment: {
+              id: payment.id,
+              student: {
+                name: payment.student.name,
+                phone: payment.student.phone,
+              },
+              expectedAmount: payment.expectedAmount,
+              period: data.periodName || payment.period, // Usar el período calculado si está disponible
+              class: null, // Se puede obtener del payment si está disponible
+            },
+            receiptId: data.receiptId,
+            receivedAmount: receivedValue,
+            paymentMethod: paymentMethod,
+            isPartialPayment: isPartialPayment,
+            remainingAmount: remainingAmount,
+            nextPaymentDate: data.nextPaymentDate || undefined,
+          });
+        } else {
+          // Fallback: mostrar modal interno (comportamiento anterior)
+          setReceiptId(data.receiptId);
+          setReceiptData({
+            receivedAmount: receivedValue,
+            paymentMethod: paymentMethod,
+            isPartialPayment: isPartialPayment,
+            remainingAmount: remainingAmount,
+            nextPaymentDate: undefined
+          });
+          setShowReceiptModal(true);
+        }
+      } else {
+        toast({
+          title: 'Éxito',
+          description: 'Pago marcado como recibido exitosamente',
+          variant: 'default'
+        });
+
+        // Reset form
+        setPaymentMethod('');
+        setReceivedAmount('');
+        setAdditionalDebt('');
+        setDiscount('');
+        setHasAdditionalPayment(false);
+        setAdditionalPaymentType('');
+        setAdditionalPaymentAmount('');
+        setAdditionalPaymentMethod('');
+        
+        onSuccess();
+        onClose();
+      }
     } catch (error) {
       console.error('Error marcando pago:', error);
       toast({
@@ -291,18 +380,20 @@ export function MarkPaymentReceivedModal({
   if (!payment) return null;
 
   return (
-    <DialogContent className="sm:max-w-[800px] bg-gray-800 border-gray-600">
-      <DialogHeader>
-        <DialogTitle className="flex items-center gap-2 text-white">
-          <CheckCircle className="h-5 w-5 text-green-600" />
-          Marcar Pago como Recibido
-        </DialogTitle>
-        <DialogDescription className="text-gray-300">
-          Confirma que has recibido el pago de {payment.student.name}
-        </DialogDescription>
-      </DialogHeader>
+    <>
+      <DialogContent className="sm:max-w-[800px] bg-gray-800 border-gray-600">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-white">
+            <CheckCircle className="h-5 w-5 text-green-600" />
+            Marcar Pago como Recibido
+          </DialogTitle>
+          <DialogDescription className="text-gray-300">
+            Confirma que has recibido el pago de {payment.student.name}
+          </DialogDescription>
+        </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        {!showReceiptModal && (
+          <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label className="text-white">Estudiante</Label>
             <Input
@@ -480,6 +571,39 @@ export function MarkPaymentReceivedModal({
             </Button>
           </DialogFooter>
         </form>
+        )}
       </DialogContent>
+      
+      {/* Modal de plantilla de recibo - renderizado fuera del DialogContent para evitar conflictos */}
+      {payment && receiptData && receiptId && (
+        <ReceiptTemplateModal
+          isOpen={showReceiptModal}
+          onClose={() => {
+            setShowReceiptModal(false);
+            setReceiptId(null);
+            setReceiptData(null);
+            // Cerrar el modal principal y recargar la lista
+            onClose();
+            onSuccess();
+          }}
+          payment={{
+            id: payment.id,
+            student: {
+              name: payment.student.name,
+              phone: payment.student.phone,
+            },
+            expectedAmount: payment.expectedAmount,
+            period: payment.period,
+            class: null, // Se puede obtener del payment si está disponible
+          }}
+          receiptId={receiptId}
+          receivedAmount={receiptData.receivedAmount}
+          paymentMethod={receiptData.paymentMethod}
+          isPartialPayment={receiptData.isPartialPayment}
+          remainingAmount={receiptData.remainingAmount}
+          nextPaymentDate={receiptData.nextPaymentDate}
+        />
+      )}
+    </>
   );
 }

@@ -30,7 +30,6 @@ export async function GET(
             id: true,
             name: true,
             avatar: true,
-            hasDebt: true,
           },
         },
       },
@@ -41,7 +40,30 @@ export async function GET(
       },
     });
 
-    const students = enrollments.map(enrollment => enrollment.student);
+    // Calcular hasDebt dinámicamente para todos los estudiantes
+    const studentIds = enrollments.map(e => e.student.id);
+    const today = new Date();
+    const overduePaymentsCount = await prisma.monthlyPayment.groupBy({
+      by: ['studentId'],
+      where: {
+        studentId: { in: studentIds },
+        status: { in: ['PENDING', 'OVERDUE'] },
+        dueDate: {
+          lt: today, // Pagos vencidos (dueDate < hoy)
+          not: null
+        }
+      },
+      _count: true
+    });
+    
+    // Crear mapa para acceso rápido
+    const overduePaymentsMap = new Map(overduePaymentsCount.map(p => [p.studentId, p._count]));
+
+    // Mapear estudiantes con hasDebt calculado dinámicamente
+    const students = enrollments.map(enrollment => ({
+      ...enrollment.student,
+      hasDebt: (overduePaymentsMap.get(enrollment.student.id) || 0) > 0
+    }));
 
     return NextResponse.json({
       success: true,

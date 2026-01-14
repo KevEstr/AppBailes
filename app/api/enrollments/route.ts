@@ -39,19 +39,18 @@ export async function GET(request: NextRequest) {
       const studentFilter: any = {}
       
       // Agregar filtros de estado del estudiante
+      // Nota: El filtro de status solo afecta al estado del estudiante, no al de las inscripciones
+      // En el listado siempre mostramos solo inscripciones activas (clases actuales)
       if (status === 'active') {
         studentFilter.isActive = true
-        // Solo mostrar inscripciones activas para estudiantes activos
-        enrollmentQuery.isActive = true
       } else if (status === 'inactive') {
         studentFilter.isActive = false
-        // Para estudiantes inactivos, mostrar todas sus inscripciones (activas e inactivas)
-        // No filtrar por isActive en las inscripciones
-      } else {
-        // Si no hay filtro de status (status === 'all'), mostrar todos los estudiantes
-        // No aplicar filtro de isActive en las inscripciones para incluir activos e inactivos
-        // No aplicar filtro de isActive en los estudiantes
       }
+      // Si status === 'all' o no hay filtro, no aplicamos filtro de estado del estudiante
+      
+      // Siempre filtrar solo inscripciones activas para el listado
+      // Las inscripciones inactivas son históricas (transferencias, cancelaciones)
+      enrollmentQuery.isActive = true
 
       // Agregar condiciones de búsqueda si existe un término
       // Combinar búsqueda con filtro de estado usando AND
@@ -126,12 +125,10 @@ export async function GET(request: NextRequest) {
       // Aplicar paginación a los IDs ordenados
       const paginatedStudentIds = sortedStudentIds.slice(skip, skip + validLimit)
 
-      // Obtener estudiantes completos con todas sus inscripciones
-      // Si se filtra por inactivos o todos, incluir todas las inscripciones (activas e inactivas)
-      // Si se filtra por activos, solo incluir inscripciones activas
-      const enrollmentIncludeFilter = (status === 'inactive' || status === 'all' || !status)
-        ? {} // Sin filtro, traer todas las inscripciones
-        : { isActive: true } // Solo inscripciones activas
+      // Obtener estudiantes completos con solo sus inscripciones activas
+      // En el listado de estudiantes, siempre mostramos solo las clases activas
+      // Las clases inactivas son históricas (transferencias, cancelaciones) y no deben aparecer
+      const enrollmentIncludeFilter = { isActive: true }
       
       const students = await prisma.student.findMany({
         where: {
@@ -169,17 +166,42 @@ export async function GET(request: NextRequest) {
         prisma.student.count({ where: { hasDebt: true } })
       ])
 
-      // Transformar datos para el frontend
-      const studentsWithClasses = orderedStudents.map(student => ({
-        student: {
-          id: student.id,
-          name: student.name,
-          phone: student.phone,
-          hasDebt: student.hasDebt,
-          isActive: student.isActive,
-          avatar: student.avatar,
-          user: student.user
+      // Calcular hasDebt dinámicamente para cada estudiante
+      // Buscar pagos PENDING que están vencidos (dueDate < fecha actual)
+      // El status OVERDUE es solo visual, en DB se mantiene como PENDING
+      const studentIds = orderedStudents.map(s => s.id)
+      const today = new Date()
+      const overduePaymentsCount = await prisma.monthlyPayment.groupBy({
+        by: ['studentId'],
+        where: {
+          studentId: { in: studentIds },
+          status: { in: ['PENDING', 'OVERDUE'] }, // Incluir ambos por si acaso
+          dueDate: {
+            lt: today // Fecha de vencimiento menor a hoy = vencido
+          }
         },
+        _count: true
+      })
+
+      // Crear mapa para acceso rápido
+      const overduePaymentsMap = new Map(overduePaymentsCount.map(p => [p.studentId, p._count]))
+
+      // Transformar datos para el frontend
+      const studentsWithClasses = orderedStudents.map(student => {
+        // Calcular hasDebt dinámicamente - pagos vencidos basados en fecha
+        const overduePayments = overduePaymentsMap.get(student.id) || 0
+        const hasDebt = overduePayments > 0
+
+        return {
+          student: {
+            id: student.id,
+            name: student.name,
+            phone: student.phone,
+            hasDebt: hasDebt,
+            isActive: student.isActive,
+            avatar: student.avatar,
+            user: student.user
+          },
         classEnrollments: student.classEnrollments.map(enrollment => ({
           id: enrollment.id,
           studentId: enrollment.studentId,
@@ -192,7 +214,7 @@ export async function GET(request: NextRequest) {
             id: student.id,
             name: student.name,
             phone: student.phone,
-            hasDebt: student.hasDebt,
+            hasDebt: hasDebt,
             isActive: student.isActive,
             avatar: student.avatar,
             user: student.user
@@ -207,7 +229,8 @@ export async function GET(request: NextRequest) {
         })),
         totalClasses: student.classEnrollments.length,
         activeClasses: student.classEnrollments.filter(ce => ce.isActive).length
-      }))
+        }
+      })
 
       const totalPages = Math.ceil(totalStudents / validLimit)
       const hasNextPage = validPage < totalPages

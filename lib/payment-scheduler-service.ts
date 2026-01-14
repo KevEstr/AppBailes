@@ -418,117 +418,120 @@ export class PaymentSchedulerService {
         throw new Error('No hay estudiantes activos con teléfono configurado para enviar mensajes');
       }
 
-      // ========== PASO 5: ENVIAR MENSAJES DE WHATSAPP ==========
-      console.log(`📤 Iniciando envío de mensajes de WhatsApp...`);
+      // ========== PASO 5: ENVÍO DE MENSAJES DESHABILITADO ==========
+      // Los mensajes ya no se envían automáticamente
+      // Los usuarios deben copiar el mensaje manualmente desde el botón "Ver Mensaje" en cada pago
+      console.log(`⚠️  Envío de mensajes deshabilitado. Se encontraron ${paymentsWithPhone.length} pagos pendientes.`);
       
       let sentCount = 0;
       let failedCount = 0;
-      let skippedCount = 0; // Pagos omitidos porque ya fueron pagados
+      let skippedCount = 0;
       const errors: string[] = [];
 
-      // Enviar mensajes con intervalo y manejo de errores robusto
-      for (let i = 0; i < paymentsWithPhone.length; i++) {
-        const payment = paymentsWithPhone[i];
-        
-        try {
-          // ========== VALIDACIÓN CRÍTICA: Verificar que el pago sigue pendiente ==========
-          // Esto evita enviar mensajes a personas que ya pagaron entre el momento
-          // en que se obtuvieron los pagos y el momento del envío
-          const currentPaymentStatus = await prisma.monthlyPayment.findUnique({
-            where: { id: payment.id },
-            select: { status: true }
-          });
+      // Código comentado - ya no se envían mensajes automáticamente
+      // // Enviar mensajes con intervalo y manejo de errores robusto
+      // for (let i = 0; i < paymentsWithPhone.length; i++) {
+      //   const payment = paymentsWithPhone[i];
+      //   
+      //   try {
+      //     // ========== VALIDACIÓN CRÍTICA: Verificar que el pago sigue pendiente ==========
+      //     // Esto evita enviar mensajes a personas que ya pagaron entre el momento
+      //     // en que se obtuvieron los pagos y el momento del envío
+      //     const currentPaymentStatus = await prisma.monthlyPayment.findUnique({
+      //       where: { id: payment.id },
+      //       select: { status: true }
+      //     });
 
-          if (!currentPaymentStatus) {
-            console.log(`⏭️  Pago ${payment.id} ya no existe, omitiendo envío a ${payment.student.name}`);
-            skippedCount++;
-            continue;
-          }
+      //     if (!currentPaymentStatus) {
+      //       console.log(`⏭️  Pago ${payment.id} ya no existe, omitiendo envío a ${payment.student.name}`);
+      //       skippedCount++;
+      //       continue;
+      //     }
 
-          if (currentPaymentStatus.status !== 'PENDING') {
-            console.log(`⏭️  Pago ${payment.id} ya fue ${currentPaymentStatus.status}, omitiendo envío a ${payment.student.name}`);
-            skippedCount++;
-            continue;
-          }
-          // ===============================================================================
+      //     if (currentPaymentStatus.status !== 'PENDING') {
+      //       console.log(`⏭️  Pago ${payment.id} ya fue ${currentPaymentStatus.status}, omitiendo envío a ${payment.student.name}`);
+      //       skippedCount++;
+      //       continue;
+      //     }
+      //     // ===============================================================================
 
-          // Obtener el día de corte de la clase específica
-          let cutoffDay = 30; // Default
-          if (payment.classId) {
-            const enrollment = await prisma.classEnrollment.findFirst({
-              where: {
-                studentId: payment.studentId,
-                classId: payment.classId,
-                isActive: true
-              },
-              select: { paymentCutoffDay: true }
-            });
-            cutoffDay = enrollment?.paymentCutoffDay || 30;
-          }
-          
-          console.log(`🔍 Debug para scheduler pago ${payment.id}:`);
-          console.log(`   - StudentId: ${payment.studentId}`);
-          console.log(`   - ClassId: ${payment.classId}`);
-          console.log(`   - CutoffDay calculado: ${cutoffDay}`);
-          console.log(`   - Estado del pago: ${currentPaymentStatus.status} (verificado antes de enviar)`);
-          
-          // Calcular fecha de corte (15 o 30) para el mensaje
-          const now = new Date();
-          const due = new Date(now);
-          // Si hoy ya pasó el corte de este mes, apuntar al próximo mes
-          if (now.getDate() > cutoffDay) {
-            due.setMonth(due.getMonth() + 1);
-          }
-          due.setDate(cutoffDay);
-          const dueDate = due.toLocaleDateString('es-ES');
-          
-          // Determinar el deporte del estudiante (priorizar DANCE sobre VOLLEYBALL)
-          const sports = payment.student.classEnrollments?.map((enrollment: any) => enrollment.danceClass.sport) || [];
-          const primarySport = sports.includes('DANCE') ? 'DANCE' : (sports[0] || 'DANCE');
-          
-          const isMinor = payment.student.enrollmentData?.isAdult === false;
-          const targetPhone = isMinor
-            ? (payment.student.enrollmentData?.emergencyContactPhone || payment.student.phone)
-            : payment.student.phone;
+      //     // Obtener el día de corte de la clase específica
+      //     let cutoffDay = 30; // Default
+      //     if (payment.classId) {
+      //       const enrollment = await prisma.classEnrollment.findFirst({
+      //         where: {
+      //           studentId: payment.studentId,
+      //           classId: payment.classId,
+      //           isActive: true
+      //         },
+      //         select: { paymentCutoffDay: true }
+      //       });
+      //       cutoffDay = enrollment?.paymentCutoffDay || 30;
+      //     }
+      //     
+      //     console.log(`🔍 Debug para scheduler pago ${payment.id}:`);
+      //     console.log(`   - StudentId: ${payment.studentId}`);
+      //     console.log(`   - ClassId: ${payment.classId}`);
+      //     console.log(`   - CutoffDay calculado: ${cutoffDay}`);
+      //     console.log(`   - Estado del pago: ${currentPaymentStatus.status} (verificado antes de enviar)`);
+      //     
+      //     // Calcular fecha de corte (15 o 30) para el mensaje
+      //     const now = new Date();
+      //     const due = new Date(now);
+      //     // Si hoy ya pasó el corte de este mes, apuntar al próximo mes
+      //     if (now.getDate() > cutoffDay) {
+      //       due.setMonth(due.getMonth() + 1);
+      //     }
+      //     due.setDate(cutoffDay);
+      //     const dueDate = due.toLocaleDateString('es-ES');
+      //     
+      //     // Determinar el deporte del estudiante (priorizar DANCE sobre VOLLEYBALL)
+      //     const sports = payment.student.classEnrollments?.map((enrollment: any) => enrollment.danceClass.sport) || [];
+      //     const primarySport = sports.includes('DANCE') ? 'DANCE' : (sports[0] || 'DANCE');
+      //     
+      //     const isMinor = payment.student.enrollmentData?.isAdult === false;
+      //     const targetPhone = isMinor
+      //       ? (payment.student.enrollmentData?.emergencyContactPhone || payment.student.phone)
+      //       : payment.student.phone;
 
-          const whatsappData = {
-            studentName: payment.student.name,
-            parentPhone: targetPhone,
-            paymentLink: '',
-            amount: payment.expectedAmount,
-            period: payment.period.name,
-            dueDate: dueDate,
-            sport: primarySport,
-            paymentId: payment.id, // Para referencia del pago pendiente
-            cutoffDay
-          };
+      //     const whatsappData = {
+      //       studentName: payment.student.name,
+      //       parentPhone: targetPhone,
+      //       paymentLink: '',
+      //       amount: payment.expectedAmount,
+      //       period: payment.period.name,
+      //       dueDate: dueDate,
+      //       sport: primarySport,
+      //       paymentId: payment.id, // Para referencia del pago pendiente
+      //       cutoffDay
+      //     };
 
-          console.log(`📱 [${i + 1}/${paymentsWithPhone.length}] Enviando a ${payment.student.name} (${payment.student.phone})`);
-          
-          // Enviar template personalizado aprobado por Meta (usa cutoffDay)
-          const formattedPhone = whatsappService.formatPhoneNumber(targetPhone);
-          await Promise.race([
-            whatsappService.sendCustomPaymentTemplate(whatsappData, formattedPhone),
-            new Promise((_, reject) => 
-              setTimeout(() => reject(new Error('Timeout WhatsApp')), 30000)
-            )
-          ]);
-          
-          sentCount++;
-          console.log(`✅ Enviado exitosamente a ${payment.student.name}`);
+      //     console.log(`📱 [${i + 1}/${paymentsWithPhone.length}] Enviando a ${payment.student.name} (${payment.student.phone})`);
+      //     
+      //     // Enviar template personalizado aprobado por Meta (usa cutoffDay)
+      //     const formattedPhone = whatsappService.formatPhoneNumber(targetPhone);
+      //     await Promise.race([
+      //       whatsappService.sendCustomPaymentTemplate(whatsappData, formattedPhone),
+      //       new Promise((_, reject) => 
+      //         setTimeout(() => reject(new Error('Timeout WhatsApp')), 30000)
+      //       )
+      //     ]);
+      //     
+      //     sentCount++;
+      //     console.log(`✅ Enviado exitosamente a ${payment.student.name}`);
 
-          // Intervalo entre mensajes (solo si no es el último)
-          if (i < paymentsWithPhone.length - 1) {
-            console.log(`⏳ Esperando 2 segundos antes del siguiente envío...`);
-            await new Promise(resolve => setTimeout(resolve, 2000));
-          }
-        } catch (messageError) {
-          const errorMsg = `Error enviando a ${payment.student.name}: ${messageError instanceof Error ? messageError.message : 'Error desconocido'}`;
-          console.error(`❌ ${errorMsg}`);
-          errors.push(errorMsg);
-          failedCount++;
-        }
-      }
+      //     // Intervalo entre mensajes (solo si no es el último)
+      //     if (i < paymentsWithPhone.length - 1) {
+      //       console.log(`⏳ Esperando 2 segundos antes del siguiente envío...`);
+      //       await new Promise(resolve => setTimeout(resolve, 2000));
+      //     }
+      //   } catch (messageError) {
+      //     const errorMsg = `Error enviando a ${payment.student.name}: ${messageError instanceof Error ? messageError.message : 'Error desconocido'}`;
+      //     console.error(`❌ ${errorMsg}`);
+      //     errors.push(errorMsg);
+      //     failedCount++;
+      //   }
+      // }
 
       const endTime = new Date();
       const duration = endTime.getTime() - startTime.getTime();
