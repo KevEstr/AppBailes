@@ -4,8 +4,10 @@ import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import * as XLSX from 'xlsx'
 
-function formatDate(date: Date | string) {
+function formatDate(date: Date | string | null | undefined) {
+  if (!date) return '-'
   const d = typeof date === 'string' ? new Date(date) : date
+  if (isNaN(d.getTime())) return '-'
   return d.toLocaleDateString('es-CO', {
     year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit'
   })

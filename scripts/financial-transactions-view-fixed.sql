@@ -30,13 +30,16 @@ SELECT
     COALESCE(mp."paidAmount", mp."expectedAmount") as amount,
     CONCAT(COALESCE(mp.notes, 'Sin descripción'), ' - Estudiante: ', COALESCE(s.name, mp."studentId")) as description,
     CASE 
-        WHEN mp.status = 'PAID' THEN 'INCOME'
+        WHEN mp.status = 'PAID' OR mp.status = 'PARTIAL_PAID' THEN 'INCOME'
         WHEN mp.status = 'PENDING' THEN 'PENDING_LIABILITY'
         ELSE 'PENDING_REVIEW'
     END as transaction_type,
     'MONTHLY_PAYMENT' as category,
     mp."paymentDate" as transaction_date,
-    NULL as payment_method,
+    CASE 
+      WHEN r."paymentMethod" IS NOT NULL THEN r."paymentMethod"::text 
+      ELSE NULL 
+    END as payment_method,
     mp."studentId" as student_id,
     mp."periodId"::text as period_id,
     NULL::text as related_id,
@@ -47,6 +50,7 @@ SELECT
     mp."updatedAt" as updated_at
 FROM monthly_payments mp
 LEFT JOIN students s ON mp."studentId" = s.id
+LEFT JOIN receipts r ON r."monthlyPaymentId" = mp.id
 WHERE mp."createdAt" IS NOT NULL
 
 UNION ALL
