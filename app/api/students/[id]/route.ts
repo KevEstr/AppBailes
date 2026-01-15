@@ -19,14 +19,14 @@ export async function GET(
     }
 
     const today = new Date()
-    
+
     const student = await prisma.student.findUnique({
       where: { id: studentId },
       include: {
         user: true,
         enrollmentData: true,
         monthlyPayments: {
-          where: {
+          where: { 
             status: { in: ['PENDING', 'OVERDUE'] },
             dueDate: {
               lt: today, // Pagos vencidos (dueDate < hoy)

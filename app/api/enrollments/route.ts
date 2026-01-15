@@ -17,8 +17,8 @@ export async function GET(request: NextRequest) {
     
     const searchParams = request.nextUrl.searchParams
     status = searchParams.get('status')
-    page = parseInt(searchParams.get('page') || '1')
-    limit = parseInt(searchParams.get('limit') || '10')
+    page = Number.parseInt(searchParams.get('page') || '1', 10)
+    limit = Number.parseInt(searchParams.get('limit') || '10', 10)
     search = searchParams.get('search')
     const groupByStudent = searchParams.get('groupByStudent') === 'true'
 
@@ -39,18 +39,19 @@ export async function GET(request: NextRequest) {
       const studentFilter: any = {}
       
       // Agregar filtros de estado del estudiante
-      // Nota: El filtro de status solo afecta al estado del estudiante, no al de las inscripciones
-      // En el listado siempre mostramos solo inscripciones activas (clases actuales)
       if (status === 'active') {
         studentFilter.isActive = true
+        // Para estudiantes activos, solo mostrar inscripciones activas
+        enrollmentQuery.isActive = true
       } else if (status === 'inactive') {
         studentFilter.isActive = false
+        // Para estudiantes inactivos, NO filtrar por estado de inscripción
+        // Mostrar todos los estudiantes inactivos, tengan o no inscripciones activas
+        // No establecer enrollmentQuery.isActive aquí
+      } else {
+        // Si status === 'all', mostrar solo inscripciones activas por defecto
+        enrollmentQuery.isActive = true
       }
-      // Si status === 'all' o no hay filtro, no aplicamos filtro de estado del estudiante
-      
-      // Siempre filtrar solo inscripciones activas para el listado
-      // Las inscripciones inactivas son históricas (transferencias, cancelaciones)
-      enrollmentQuery.isActive = true
 
       // Agregar condiciones de búsqueda si existe un término
       // Combinar búsqueda con filtro de estado usando AND
@@ -81,40 +82,55 @@ export async function GET(request: NextRequest) {
 
       console.log('🗄️ Ejecutando consulta agrupada por estudiante ordenada por fecha de inscripción...')
       
-      // Primero obtener todas las inscripciones ordenadas por fecha de creación (más antiguas primero)
-      const allEnrollments = await prisma.classEnrollment.findMany({
-        where: enrollmentQuery,
-        include: {
-          student: {
-            include: {
-              user: { select: { email: true } }
+      let sortedStudentIds: string[] = []
+      
+      // Si estamos buscando estudiantes inactivos, buscar directamente por estudiantes
+      // en lugar de por inscripciones, ya que pueden no tener inscripciones activas
+      if (status === 'inactive') {
+        // Buscar estudiantes inactivos directamente
+        const inactiveStudents = await prisma.student.findMany({
+          where: studentFilter,
+          select: { id: true },
+          orderBy: { id: 'desc' } // Ordenar por ID descendente como fallback
+        })
+        
+        sortedStudentIds = inactiveStudents.map(s => String(s.id))
+      } else {
+        // Para estudiantes activos o "all", buscar por inscripciones como antes
+        const allEnrollments = await prisma.classEnrollment.findMany({
+          where: enrollmentQuery,
+          include: {
+            student: {
+              include: {
+                user: { select: { email: true } }
+              }
+            },
+            danceClass: {
+              include: {
+                trainer: { select: { name: true } },
+                location: { select: { name: true, address: true } }
+              }
             }
           },
-          danceClass: {
-            include: {
-              trainer: { select: { name: true } },
-              location: { select: { name: true, address: true } }
-            }
+          orderBy: {
+            createdAt: 'desc' // Ordenar por fecha de inscripción (más recientes primero)
           }
-        },
-        orderBy: {
-          createdAt: 'desc' // Ordenar por fecha de inscripción (más recientes primero)
-        }
-      })
+        })
 
-      // Agrupar por estudiante, manteniendo solo la primera inscripción (más reciente) para el ordenamiento
-      const studentMap = new Map<string, typeof allEnrollments[0]>()
-      for (const enrollment of allEnrollments) {
-        const studentIdStr = String(enrollment.studentId)
-        if (!studentMap.has(studentIdStr)) {
-          studentMap.set(studentIdStr, enrollment)
+        // Agrupar por estudiante, manteniendo solo la primera inscripción (más reciente) para el ordenamiento
+        const studentMap = new Map<string, typeof allEnrollments[0]>()
+        for (const enrollment of allEnrollments) {
+          const studentIdStr = String(enrollment.studentId)
+          if (!studentMap.has(studentIdStr)) {
+            studentMap.set(studentIdStr, enrollment)
+          }
         }
+
+        // Obtener IDs únicos de estudiantes ordenados por fecha de inscripción (más recientes primero)
+        sortedStudentIds = Array.from(studentMap.values())
+          .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+          .map(e => String(e.studentId))
       }
-
-      // Obtener IDs únicos de estudiantes ordenados por fecha de inscripción (más recientes primero)
-      const sortedStudentIds = Array.from(studentMap.values())
-        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
-        .map(e => String(e.studentId))
       
       console.log('📊 Estudiantes encontrados:', {
         total: sortedStudentIds.length,
@@ -193,15 +209,15 @@ export async function GET(request: NextRequest) {
         const hasDebt = overduePayments > 0
 
         return {
-          student: {
-            id: student.id,
-            name: student.name,
-            phone: student.phone,
+        student: {
+          id: student.id,
+          name: student.name,
+          phone: student.phone,
             hasDebt: hasDebt,
-            isActive: student.isActive,
-            avatar: student.avatar,
-            user: student.user
-          },
+          isActive: student.isActive,
+          avatar: student.avatar,
+          user: student.user
+        },
         classEnrollments: student.classEnrollments.map(enrollment => ({
           id: enrollment.id,
           studentId: enrollment.studentId,

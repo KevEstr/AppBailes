@@ -333,24 +333,24 @@ export function MarkPaymentReceivedModal({
           setShowReceiptModal(true);
         }
       } else {
-        toast({
-          title: 'Éxito',
-          description: 'Pago marcado como recibido exitosamente',
-          variant: 'default'
-        });
+      toast({
+        title: 'Éxito',
+        description: 'Pago marcado como recibido exitosamente',
+        variant: 'default'
+      });
 
-        // Reset form
-        setPaymentMethod('');
-        setReceivedAmount('');
-        setAdditionalDebt('');
-        setDiscount('');
-        setHasAdditionalPayment(false);
-        setAdditionalPaymentType('');
-        setAdditionalPaymentAmount('');
+      // Reset form
+      setPaymentMethod('');
+      setReceivedAmount('');
+      setAdditionalDebt('');
+      setDiscount('');
+      setHasAdditionalPayment(false);
+      setAdditionalPaymentType('');
+      setAdditionalPaymentAmount('');
         setAdditionalPaymentMethod('');
-        
-        onSuccess();
-        onClose();
+      
+      onSuccess();
+      onClose();
       }
     } catch (error) {
       console.error('Error marcando pago:', error);
@@ -381,19 +381,19 @@ export function MarkPaymentReceivedModal({
 
   return (
     <>
-      <DialogContent className="sm:max-w-[800px] bg-gray-800 border-gray-600">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-white">
-            <CheckCircle className="h-5 w-5 text-green-600" />
-            Marcar Pago como Recibido
-          </DialogTitle>
-          <DialogDescription className="text-gray-300">
-            Confirma que has recibido el pago de {payment.student.name}
-          </DialogDescription>
-        </DialogHeader>
+    <DialogContent className="sm:max-w-[800px] bg-gray-800 border-gray-600">
+      <DialogHeader>
+        <DialogTitle className="flex items-center gap-2 text-white">
+          <CheckCircle className="h-5 w-5 text-green-600" />
+          Marcar Pago como Recibido
+        </DialogTitle>
+        <DialogDescription className="text-gray-300">
+          Confirma que has recibido el pago de {payment.student.name}
+        </DialogDescription>
+      </DialogHeader>
 
         {!showReceiptModal && (
-          <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label className="text-white">Estudiante</Label>
             <Input
