@@ -52,14 +52,18 @@ export class EnrollmentPaymentService {
         throw new Error('Estudiante no encontrado');
       }
 
-      // Verificar que no tenga ya un pago de inscripción
-      const existingPayment = await prisma.enrollmentPayment.findUnique({
-        where: { studentId }
+      // Evitar solo duplicar un PENDING del mismo deporte (flujo de registro); múltiples PAID sí se permiten
+      const existingPending = await prisma.enrollmentPayment.findFirst({
+        where: {
+          studentId,
+          sport,
+          status: 'PENDING'
+        }
       });
 
-      if (existingPayment) {
-        console.log(`⚠️ El estudiante ${studentId} ya tiene un pago de inscripción`);
-        return existingPayment;
+      if (existingPending) {
+        console.log(`⚠️ El estudiante ${studentId} ya tiene un pago de inscripción PENDIENTE para ${sport}`);
+        return existingPending;
       }
 
       const enrollmentFee = this.getEnrollmentFee(sport);
@@ -94,8 +98,10 @@ export class EnrollmentPaymentService {
    */
   async generateEnrollmentPaymentForm(studentId: string) {
     try {
-      const enrollmentPayment = await prisma.enrollmentPayment.findUnique({
+      // Tomar el pago de inscripción más reciente para este estudiante
+      const enrollmentPayment = await prisma.enrollmentPayment.findFirst({
         where: { studentId },
+        orderBy: { createdAt: 'desc' },
         include: {
           student: true
         }
@@ -402,8 +408,9 @@ export class EnrollmentPaymentService {
    */
   async sendEnrollmentPaymentWhatsApp(studentId: string) {
     try {
-      const enrollmentPayment = await prisma.enrollmentPayment.findUnique({
+      const enrollmentPayment = await prisma.enrollmentPayment.findFirst({
         where: { studentId },
+        orderBy: { createdAt: 'desc' },
         include: {
           student: true
         }
@@ -558,8 +565,10 @@ Tu inscripción está completa y puedes comenzar a entrenar.
    * Obtiene información de pago de inscripción de un estudiante
    */
   async getStudentEnrollmentPaymentInfo(studentId: string) {
-    const enrollmentPayment = await prisma.enrollmentPayment.findUnique({
+    // Obtener el pago de inscripción más reciente del estudiante
+    const enrollmentPayment = await prisma.enrollmentPayment.findFirst({
       where: { studentId },
+      orderBy: { createdAt: 'desc' },
       include: {
         student: true,
         paymentForms: {

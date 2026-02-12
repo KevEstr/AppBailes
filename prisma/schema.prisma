@@ -425,7 +425,7 @@ model PaymentProof {
 
 model EnrollmentPayment {
   id              Int                     @id @default(autoincrement())
-  studentId       String                  @unique
+  studentId       String
   sport           SportType
   expectedAmount  Float
   status          EnrollmentPaymentStatus @default(PENDING)
@@ -438,6 +438,7 @@ model EnrollmentPayment {
   student         Student                 @relation(fields: [studentId], references: [id], onDelete: Cascade)
   paymentForms    EnrollmentPaymentForm[]
   
+  @@index([studentId, sport])
   @@map("enrollment_payments")
 }
 

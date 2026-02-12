@@ -2447,43 +2447,18 @@ export class MonthlyPaymentService {
         const sport = danceClass.sport as "DANCE" | "VOLLEYBALL";
         console.log(`🏃 Deporte determinado automáticamente: ${sport}`);
 
-        // Verificar si el estudiante ya tiene un pago de inscripción
-        const existingEnrollmentPayment = await prisma.enrollmentPayment.findUnique({
-          where: { studentId: student.id }
-        });
-
-        if (existingEnrollmentPayment) {
-          if (existingEnrollmentPayment.status === "PAID") {
-            console.log(`⚠️ El estudiante ${student.name} ya tiene un pago de inscripción completado`);
-            return;
-          } else {
-            // Actualizar el pago de inscripción existente
-            await prisma.enrollmentPayment.update({
-              where: { id: existingEnrollmentPayment.id },
-              data: {
-                status: "PAID",
-                paidAt: new Date(),
-                expectedAmount: additionalPayment.amount,
-                sport: sport,
-                paymentMethod: additionalPayment.paymentMethod || null
-              }
-            });
-            console.log(`✅ Pago de inscripción existente actualizado: ID ${existingEnrollmentPayment.id}`);
+        // Permitir múltiples pagos de inscripción por deporte: siempre crear un nuevo registro
+        const enrollmentPayment = await prisma.enrollmentPayment.create({
+          data: {
+            studentId: student.id,
+            sport: sport,
+            expectedAmount: additionalPayment.amount,
+            status: "PAID",
+            paidAt: new Date(),
+            paymentMethod: additionalPayment.paymentMethod || null
           }
-        } else {
-          // Crear nuevo pago de inscripción
-          const enrollmentPayment = await prisma.enrollmentPayment.create({
-            data: {
-              studentId: student.id,
-              sport: sport,
-              expectedAmount: additionalPayment.amount,
-              status: "PAID",
-              paidAt: new Date(),
-              paymentMethod: additionalPayment.paymentMethod || null
-            }
-          });
-          console.log(`✅ Nuevo pago de inscripción creado: ID ${enrollmentPayment.id}`);
-        }
+        });
+        console.log(`✅ Pago de inscripción creado: ID ${enrollmentPayment.id} (${sport})`);
 
         // El recibo se generará junto con el pago mensual
       }
