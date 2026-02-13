@@ -9,10 +9,30 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Upload, CheckCircle, AlertCircle, Camera, Info } from 'lucide-react';
 import Image from 'next/image';
 
+const UPLOAD_TIMEOUT_MS = 60000; // 60 segundos
+
+/** Clasifica el error para mostrar un mensaje claro al usuario (red vs servidor vs otro). */
+function getUploadErrorMessage(err: unknown): string {
+  if (err instanceof Error) {
+    if (err.name === 'AbortError') {
+      return 'La subida tardó demasiado. Revisa tu conexión a internet e intenta de nuevo.';
+    }
+    if (err.message.includes('Failed to fetch') || err.message.includes('NetworkError')) {
+      return 'No hay conexión a internet o el servidor no responde. Revisa tu red e intenta de nuevo.';
+    }
+    if (err.message.includes('JSON')) {
+      return 'El servidor respondió con un error inesperado. Intenta de nuevo en unos momentos.';
+    }
+    return err.message;
+  }
+  return 'Error desconocido al subir la foto. Intenta de nuevo.';
+}
+
 interface ProfilePhotoUploadProps {
   studentId?: string;
   currentPhotoUrl?: string;
   onSuccess?: (newPhotoUrl: string) => void;
+  onError?: (message: string) => void;
   uploadOnly?: boolean;
 }
 
@@ -20,6 +40,7 @@ export function ProfilePhotoUpload({
   studentId, 
   currentPhotoUrl, 
   onSuccess,
+  onError,
   uploadOnly
 }: ProfilePhotoUploadProps) {
   const [photoFile, setPhotoFile] = useState<File | null>(null);
@@ -30,47 +51,61 @@ export function ProfilePhotoUpload({
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Formatos habituales: iPhone (HEIC), Huawei/Android (JPEG, PNG, WebP), etc.
+  const allowedTypes = [
+    'image/jpeg',
+    'image/jpg',
+    'image/png',
+    'image/webp',
+    'image/heic',
+    'image/heif',
+    'image/x-heic'
+  ];
+
+  const isHeicOrHeif = (type: string) =>
+    ['image/heic', 'image/heif', 'image/x-heic'].includes(type);
+
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    // Validar tipo de archivo - solo imágenes
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg'];
     if (!allowedTypes.includes(file.type)) {
-      setError('Solo se permiten archivos de imagen (JPG, PNG)');
+      setError('Formato no admitido. Usa JPG, PNG, WebP o HEIC (iPhone).');
       return;
     }
 
-    // Validar tamaño (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
       setError('La imagen no puede superar los 5MB');
       return;
     }
 
-    // Validar dimensiones mínimas
+    // HEIC/HEIF: muchos navegadores no pueden previsualizar ni leer dimensiones; aceptar sin comprobar tamaño
+    if (isHeicOrHeif(file.type)) {
+      setPhotoFile(file);
+      setError(null);
+      setSuccess(false);
+      setPreviewUrl(null);
+      return;
+    }
+
     const img = document.createElement('img');
     img.onload = () => {
       if (img.width < 200 || img.height < 200) {
         setError('La imagen debe tener al menos 200x200 píxeles');
         return;
       }
-      
       setPhotoFile(file);
       setError(null);
       setSuccess(false);
-
-      // Crear preview
       const reader = new FileReader();
       reader.onload = (e) => {
         setPreviewUrl(e.target?.result as string);
       };
       reader.readAsDataURL(file);
     };
-    
     img.onerror = () => {
       setError('Error al procesar la imagen');
     };
-    
     img.src = URL.createObjectURL(file);
   };
 
@@ -82,8 +117,19 @@ export function ProfilePhotoUpload({
       return;
     }
 
+    // Validar conexión antes de intentar subir
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      const msg = 'No hay conexión a internet. Conéctate y vuelve a intentar subir la foto.';
+      setError(msg);
+      onError?.(msg);
+      return;
+    }
+
     setLoading(true);
     setError(null);
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), UPLOAD_TIMEOUT_MS);
 
     try {
       // Subir imagen
@@ -95,15 +141,37 @@ export function ProfilePhotoUpload({
       
       const uploadResponse = await fetch('/api/upload/profile-photo', {
         method: 'POST',
-        body: uploadFormData
+        body: uploadFormData,
+        signal: controller.signal
       });
 
+      clearTimeout(timeoutId);
+
       if (!uploadResponse.ok) {
-        const errorData = await uploadResponse.json();
-        throw new Error(errorData.message || 'Error al subir la foto');
+        let message = 'Error al subir la foto';
+        try {
+          const errorData = await uploadResponse.json();
+          message = errorData.message || message;
+        } catch {
+          if (uploadResponse.status >= 500) {
+            message = 'El servidor no está disponible. Intenta de nuevo en unos minutos.';
+          } else if (uploadResponse.status === 408 || uploadResponse.status === 504) {
+            message = 'La subida tardó demasiado. Revisa tu conexión e intenta de nuevo.';
+          }
+        }
+        throw new Error(message);
       }
 
-      const uploadResult = await uploadResponse.json();
+      let uploadResult: { url?: string };
+      try {
+        uploadResult = await uploadResponse.json();
+      } catch {
+        throw new Error('El servidor respondió con un formato inesperado. Intenta de nuevo.');
+      }
+
+      if (!uploadResult?.url) {
+        throw new Error('El servidor no devolvió la URL de la foto. Intenta de nuevo.');
+      }
 
       // Si estamos en modo pre-inscripción o no hay studentId, retornar solo la URL
       if (!studentId || uploadOnly) {
@@ -122,8 +190,16 @@ export function ProfilePhotoUpload({
         });
 
         if (!updateResponse.ok) {
-          const errorData = await updateResponse.json();
-          throw new Error(errorData.message || 'Error al actualizar la foto de perfil');
+          let msg = 'Error al actualizar la foto de perfil';
+          try {
+            const errorData = await updateResponse.json();
+            msg = errorData.message || msg;
+          } catch {
+            if (updateResponse.status >= 500) {
+              msg = 'El servidor no está disponible. Intenta de nuevo en unos minutos.';
+            }
+          }
+          throw new Error(msg);
         }
 
         setSuccess(true);
@@ -139,7 +215,9 @@ export function ProfilePhotoUpload({
       }, 2000);
 
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error desconocido');
+      const message = getUploadErrorMessage(err);
+      setError(message);
+      onError?.(message);
     } finally {
       setLoading(false);
     }
@@ -193,7 +271,7 @@ export function ProfilePhotoUpload({
                 </div>
                 <div className="flex items-start gap-2">
                   <CheckCircle className="w-4 h-4 text-green-400 mt-0.5 flex-shrink-0" />
-                  <span>Formato JPG o PNG, máximo 5MB</span>
+                  <span>Formato JPG, PNG, WebP o HEIC (iPhone), máximo 5MB</span>
                 </div>
                 <div className="flex items-start gap-2">
                   <CheckCircle className="w-4 h-4 text-green-400 mt-0.5 flex-shrink-0" />
@@ -231,7 +309,7 @@ export function ProfilePhotoUpload({
                   ref={fileInputRef}
                   id="photo"
                   type="file"
-                  accept="image/jpeg,image/png,image/jpg"
+                  accept="image/jpeg,image/jpg,image/png,image/webp,image/heic,image/heif,image/x-heic"
                   onChange={handleFileSelect}
                   className="hidden"
                 />

@@ -10,6 +10,7 @@ interface ProfilePhotoModalProps {
   studentId?: string;
   currentPhotoUrl?: string;
   onSuccess?: (newPhotoUrl: string) => void;
+  onError?: (message: string) => void;
   triggerText?: string | React.ReactNode;
   customTrigger?: React.ReactNode;
   uploadOnly?: boolean;
@@ -19,6 +20,7 @@ export function ProfilePhotoModal({
   studentId, 
   currentPhotoUrl, 
   onSuccess,
+  onError,
   triggerText = "Cambiar Foto",
   customTrigger,
   uploadOnly
@@ -55,6 +57,7 @@ export function ProfilePhotoModal({
             studentId={studentId}
             currentPhotoUrl={currentPhotoUrl}
             onSuccess={handleSuccess}
+            onError={onError}
             uploadOnly={uploadOnly}
           />
         </div>

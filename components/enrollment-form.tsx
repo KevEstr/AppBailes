@@ -762,6 +762,13 @@ export function EnrollmentForm() {
                           const fileName = url.split('/').pop() || ''
                           setPhotoFileName(fileName)
                         }}
+                        onError={(message: string) => {
+                          toast({
+                            title: 'Error al subir la foto',
+                            description: message,
+                            variant: 'destructive'
+                          })
+                        }}
                         triggerText={formData.profilePhotoUrl ? 'Cambiar foto' : 'Subir foto'}
                       />
                       {photoFileName && (
@@ -775,6 +782,9 @@ export function EnrollmentForm() {
                     {!formData.profilePhotoUrl && (
                       <p className="text-red-400 text-xs">Debes subir una foto de perfil para continuar</p>
                     )}
+                    <p className="text-gray-400 text-xs mt-1">
+                      Si la subida falla o se queda cargando, revisa tu conexión a internet e intenta de nuevo.
+                    </p>
                   </div>
                 </div>
 

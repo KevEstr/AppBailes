@@ -17,11 +17,19 @@ export async function POST(request: NextRequest) {
 
     // Nota: studentId es opcional para permitir carga previa en el formulario de inscripción
 
-    // Validar tipo de archivo
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg'];
+    // Formatos habituales: iPhone (HEIC), Huawei/Android (JPEG, PNG, WebP)
+    const allowedTypes = [
+      'image/jpeg',
+      'image/jpg',
+      'image/png',
+      'image/webp',
+      'image/heic',
+      'image/heif',
+      'image/x-heic'
+    ];
     if (!allowedTypes.includes(photo.type)) {
       return NextResponse.json(
-        { message: 'Solo se permiten archivos de imagen (JPG, PNG)' },
+        { message: 'Formato no admitido. Usa JPG, PNG, WebP o HEIC.' },
         { status: 400 }
       );
     }
@@ -38,9 +46,10 @@ export async function POST(request: NextRequest) {
     const bytes = await photo.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
-    // Subir a Cloudinary
+    // Subir a Cloudinary (pasamos el MIME para HEIC/WebP/etc.)
     const photoUrl = await cloudinaryService.uploadFile(buffer, {
-      folder: 'profile-photos'
+      folder: 'profile-photos',
+      mimeType: photo.type
     });
 
     return NextResponse.json({

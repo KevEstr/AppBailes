@@ -9,13 +9,19 @@ cloudinary.config({
 
 export class CloudinaryService {
   /**
-   * Sube un archivo a Cloudinary
+   * Sube un archivo a Cloudinary.
+   * options.mimeType: MIME real del archivo (ej. image/heic, image/webp) para que Cloudinary lo decodifique correctamente.
    */
-  async uploadFile(file: Buffer, options?: { folder?: string }): Promise<string> {
+  async uploadFile(
+    file: Buffer,
+    options?: { folder?: string; mimeType?: string }
+  ): Promise<string> {
     try {
-      // Convertir el buffer a base64
       const base64File = file.toString('base64');
-      const dataURI = `data:image/jpeg;base64,${base64File}`;
+      const mime = options?.mimeType && options.mimeType.startsWith('image/')
+        ? options.mimeType
+        : 'image/jpeg';
+      const dataURI = `data:${mime};base64,${base64File}`;
 
       // Subir a Cloudinary
       const result = await cloudinary.uploader.upload(dataURI, {
