@@ -342,7 +342,7 @@ model PaymentPeriod {
 model MonthlyPayment {
   id             Int                  @id @default(autoincrement())
   studentId      String
-  classId        Int?                 // Temporalmente nullable para migración
+  classId        Int                   // Obligatorio: todo pago debe estar asociado a una clase
   periodId       Int
   feeConfigId    Int
   expectedAmount Float
@@ -367,7 +367,7 @@ model MonthlyPayment {
   feeConfig      MonthlyFeeConfig     @relation(fields: [feeConfigId], references: [id])
   period         PaymentPeriod        @relation(fields: [periodId], references: [id], onDelete: Cascade)
   student        Student              @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  danceClass     DanceClass?          @relation(fields: [classId], references: [id], onDelete: Cascade)
+  danceClass     DanceClass           @relation(fields: [classId], references: [id], onDelete: Cascade)
   paymentForms   PaymentForm[]
   receipts       Receipt[]
 

@@ -289,12 +289,20 @@ export class PaymentSchedulerService {
         const monthlyPaymentService = new MonthlyPaymentService();
         
         for (const student of activeStudents) {
+          // classId es obligatorio: usar la primera clase activa del estudiante
+          const firstEnrollment = student.classEnrollments?.[0];
+          if (!firstEnrollment) {
+            console.warn(`⚠️ Estudiante ${student.id} sin clase activa; se omite crear pago para el período.`);
+            continue;
+          }
+          const classId = firstEnrollment.classId;
           // Determinar el monto correcto para este estudiante (diferenciado por deporte)
           const studentAmount = await monthlyPaymentService.getStudentMonthlyFee(student, currentFeeConfig.amount);
           
           await prisma.monthlyPayment.create({
             data: {
               studentId: student.id,
+              classId,
               periodId: activePeriod.id,
               feeConfigId: currentFeeConfig.id,
               expectedAmount: studentAmount,

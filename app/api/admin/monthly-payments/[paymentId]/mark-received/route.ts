@@ -167,10 +167,15 @@ export async function POST(
           { status: 404 }
         );
       }
-      
       if (error.message === 'El pago ya ha sido marcado como recibido') {
         return NextResponse.json(
           { message: 'El pago ya ha sido marcado como recibido' },
+          { status: 400 }
+        );
+      }
+      if (error.message.startsWith('No se puede registrar el adeudo:')) {
+        return NextResponse.json(
+          { message: error.message },
           { status: 400 }
         );
       }

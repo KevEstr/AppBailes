@@ -656,6 +656,21 @@ export class MonthlyPaymentService {
     const isPartialPayment = receivedAmount < effectiveExpectedAmount;
     const newStatus: "PAID" | "PARTIAL_PAID" = isPartialPayment ? "PARTIAL_PAID" : "PAID";
 
+    // Si es pago parcial, la clase es obligatoria para generar el adeudo. Resolver antes de modificar nada.
+    let danceClassForRemaining: { id: number; name: string; sport: string } | null = payment.danceClass;
+    if (!danceClassForRemaining && payment.classId != null) {
+      danceClassForRemaining = await prisma.danceClass.findUnique({
+        where: { id: payment.classId },
+        select: { id: true, name: true, sport: true },
+      });
+    }
+    if (isPartialPayment && !danceClassForRemaining) {
+      throw new Error(
+        "No se puede registrar el adeudo: el pago debe tener una clase asociada. " +
+        "Verifique que el pago tenga classId y que la clase exista en la base de datos."
+      );
+    }
+
     // Actualizar el pago
     const updatedPayment = await prisma.monthlyPayment.update({
       where: { id: paymentId },
@@ -673,14 +688,12 @@ export class MonthlyPaymentService {
     await this.updateStudentDebtStatus(payment.studentId);
     console.log("✅ Estado de deuda actualizado");
 
-    // Calcular el saldo restante
-    const remainingAmount = effectiveExpectedAmount - receivedAmount;
-    
-    // Crear nuevo pago pendiente para el saldo restante si es pago parcial
-    if (isPartialPayment && payment.danceClass) {
+    // Crear nuevo pago pendiente para el saldo restante (solo si es parcial; la clase ya está resuelta arriba)
+    if (isPartialPayment && danceClassForRemaining) {
+      const remainingAmount = effectiveExpectedAmount - receivedAmount;
       console.log("🔄 Creando pago pendiente para saldo restante...");
       console.log(`📊 Monto esperado: $${effectiveExpectedAmount.toLocaleString()}, Monto recibido: $${receivedAmount.toLocaleString()}, Saldo restante: $${remainingAmount.toLocaleString()}`);
-      await this.createRemainingPayment(payment.student, payment.period, payment.danceClass, remainingAmount, data.markedBy);
+      await this.createRemainingPayment(payment.student, payment.period, danceClassForRemaining, remainingAmount, data.markedBy);
       console.log("✅ Pago pendiente creado");
     }
 
