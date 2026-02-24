@@ -144,6 +144,10 @@ export async function POST(request: NextRequest) {
         data: { isActive: false }
       })
 
+      // Heredar configuración de pago de la inscripción origen
+      const inheritedCutoffDay = currentEnrollment.paymentCutoffDay ?? 30
+      const inheritedMonthlyFee = currentEnrollment.monthlyFee
+
       // Crear nueva inscripción o reactivar existente
       let newEnrollment
       if (existingEnrollment && !existingEnrollment.isActive) {
@@ -151,7 +155,9 @@ export async function POST(request: NextRequest) {
           where: { id: existingEnrollment.id },
           data: { 
             isActive: true,
-            enrolledAt: new Date()
+            enrolledAt: new Date(),
+            paymentCutoffDay: inheritedCutoffDay,
+            monthlyFee: inheritedMonthlyFee,
           },
           include: {
             student: {
@@ -178,7 +184,9 @@ export async function POST(request: NextRequest) {
         newEnrollment = await tx.classEnrollment.create({
           data: {
             studentId: validatedData.studentId,
-            classId: validatedData.toClassId
+            classId: validatedData.toClassId,
+            paymentCutoffDay: inheritedCutoffDay,
+            monthlyFee: inheritedMonthlyFee,
           },
           include: {
             student: {

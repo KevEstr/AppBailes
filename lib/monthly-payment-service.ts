@@ -599,6 +599,10 @@ export class MonthlyPaymentService {
 
   /**
    * Marca un pago mensual como recibido (nuevo sistema sin formularios)
+   *
+   * Usa una transacción de Prisma para garantizar atomicidad:
+   * si la creación del pago pendiente por adeudo falla, el pago original
+   * NO queda marcado como PARTIAL_PAID.
    */
   async markPaymentAsReceived(
     paymentId: number,
@@ -615,6 +619,9 @@ export class MonthlyPaymentService {
       };
     }
   ) {
+    // ═══════════════════════════════════════════════════════════════
+    // FASE 1: Lecturas y validaciones (fuera de la transacción)
+    // ═══════════════════════════════════════════════════════════════
     const payment = await prisma.monthlyPayment.findUnique({
       where: { id: paymentId },
       include: { 
@@ -639,24 +646,16 @@ export class MonthlyPaymentService {
     const baseAmount = payment.expectedAmount;
     const discountAmount = data.discount || 0;
     const effectiveExpectedAmount = Math.max(0, baseAmount - discountAmount);
-    
-    // CRÍTICO: Si hay descuento, actualizar el expectedAmount en la DB ANTES de las comparaciones
-    // Esto asegura que el resto de la lógica funcione correctamente
+
     if (discountAmount > 0) {
-      await prisma.monthlyPayment.update({
-        where: { id: paymentId },
-        data: { expectedAmount: effectiveExpectedAmount }
-      });
-      payment.expectedAmount = effectiveExpectedAmount;
-      console.log("payment: ", payment);
-      console.log(`💰 Descuento aplicado: $${discountAmount.toLocaleString()}. Nuevo monto esperado: $${effectiveExpectedAmount.toLocaleString()}`);
+      console.log(`💰 Descuento a aplicar: $${discountAmount.toLocaleString()}. Nuevo monto esperado: $${effectiveExpectedAmount.toLocaleString()}`);
     }
     
     const receivedAmount = data.receivedAmount || effectiveExpectedAmount;
     const isPartialPayment = receivedAmount < effectiveExpectedAmount;
     const newStatus: "PAID" | "PARTIAL_PAID" = isPartialPayment ? "PARTIAL_PAID" : "PAID";
 
-    // Si es pago parcial, la clase es obligatoria para generar el adeudo. Resolver antes de modificar nada.
+    // Resolver la clase para el pago restante (si aplica)
     let danceClassForRemaining: { id: number; name: string; sport: string } | null = payment.danceClass;
     if (!danceClassForRemaining && payment.classId != null) {
       danceClassForRemaining = await prisma.danceClass.findUnique({
@@ -671,42 +670,111 @@ export class MonthlyPaymentService {
       );
     }
 
-    // Actualizar el pago
-    const updatedPayment = await prisma.monthlyPayment.update({
-      where: { id: paymentId },
-      data: {
-        status: newStatus,
-        paidAmount: receivedAmount,
-        paymentDate: new Date(),
-        approvedBy: data.markedBy,
-        notes: this.generatePaymentNotes(data, receivedAmount, effectiveExpectedAmount, baseAmount, isPartialPayment),
+    // Pre-calcular datos para el pago pendiente ANTES de la transacción
+    // para que cualquier fallo de lectura ocurra antes de modificar la DB
+    let remainingPaymentData: {
+      remainingAmount: number;
+      feeConfigId: number;
+      dueDate: Date;
+      cutoffDay: number;
+    } | null = null;
+
+    if (isPartialPayment && danceClassForRemaining) {
+      const remainingAmount = effectiveExpectedAmount - receivedAmount;
+
+      const feeConfig = await prisma.monthlyFeeConfig.findFirst({
+        where: { 
+          isActive: true,
+          sport: danceClassForRemaining.sport as any
+        },
+        orderBy: { id: 'desc' },
+      });
+
+      if (!feeConfig) {
+        throw new Error(`No hay configuración de mensualidad activa para ${danceClassForRemaining.sport}`);
+      }
+
+      const enrollment = await prisma.classEnrollment.findFirst({
+        where: {
+          studentId: payment.studentId,
+          classId: danceClassForRemaining.id,
+          isActive: true
+        }
+      });
+
+      const dueDate = this.calculateDueDate(
+        enrollment?.paymentCutoffDay || 30, 
+        { year: payment.period.year, month: payment.period.month }
+      );
+
+      remainingPaymentData = {
+        remainingAmount,
+        feeConfigId: feeConfig.id,
+        dueDate,
+        cutoffDay: enrollment?.paymentCutoffDay || 30,
+      };
+
+      console.log("🔄 Creando pago pendiente para saldo restante...");
+      console.log(`📊 Monto esperado: $${effectiveExpectedAmount.toLocaleString()}, Monto recibido: $${receivedAmount.toLocaleString()}, Saldo restante: $${remainingAmount.toLocaleString()}`);
+    }
+
+    // Pre-calcular notas del pago
+    const notes = this.generatePaymentNotes(data, receivedAmount, effectiveExpectedAmount, baseAmount, isPartialPayment);
+
+    // ═══════════════════════════════════════════════════════════════
+    // FASE 2: Escrituras atómicas (dentro de la transacción)
+    // Si falla cualquier paso, todo se revierte automáticamente.
+    // ═══════════════════════════════════════════════════════════════
+    const updatedPayment = await prisma.$transaction(async (tx) => {
+      // Aplicar descuento si corresponde
+      if (discountAmount > 0) {
+        await tx.monthlyPayment.update({
+          where: { id: paymentId },
+          data: { expectedAmount: effectiveExpectedAmount }
+        });
+      }
+
+      // Actualizar el pago (status, monto pagado, etc.)
+      const updated = await tx.monthlyPayment.update({
+        where: { id: paymentId },
+        data: {
+          status: newStatus,
+          paidAmount: receivedAmount,
+          paymentDate: new Date(),
+          approvedBy: data.markedBy,
+          notes,
+        },
+      });
+
+      // Crear pago pendiente por el saldo restante (solo si es parcial)
+      if (isPartialPayment && danceClassForRemaining && remainingPaymentData) {
+        await tx.monthlyPayment.create({
+          data: {
+            studentId: payment.studentId,
+            classId: danceClassForRemaining.id,
+            periodId: payment.periodId,
+            feeConfigId: remainingPaymentData.feeConfigId,
+            expectedAmount: remainingPaymentData.remainingAmount,
+            status: "PENDING",
+            dueDate: remainingPaymentData.dueDate,
+            notes: `Saldo restante de pago parcial - ${payment.period.name} - ${danceClassForRemaining.name} (Corte día ${remainingPaymentData.cutoffDay})`,
           },
         });
+        console.log(`✅ Pago pendiente creado por $${remainingPaymentData.remainingAmount.toLocaleString()} para clase ${danceClassForRemaining.name}`);
+      }
+
+      return updated;
+    });
+
+    // ═══════════════════════════════════════════════════════════════
+    // FASE 3: Operaciones no-críticas (fuera de la transacción)
+    // Estas operaciones pueden fallar sin dejar inconsistencias.
+    // ═══════════════════════════════════════════════════════════════
 
     // Actualizar estado de deuda del estudiante
     console.log("🔄 Actualizando estado de deuda del estudiante...");
     await this.updateStudentDebtStatus(payment.studentId);
     console.log("✅ Estado de deuda actualizado");
-
-    // Crear nuevo pago pendiente para el saldo restante (solo si es parcial; la clase ya está resuelta arriba)
-    if (isPartialPayment && danceClassForRemaining) {
-      const remainingAmount = effectiveExpectedAmount - receivedAmount;
-      console.log("🔄 Creando pago pendiente para saldo restante...");
-      console.log(`📊 Monto esperado: $${effectiveExpectedAmount.toLocaleString()}, Monto recibido: $${receivedAmount.toLocaleString()}, Saldo restante: $${remainingAmount.toLocaleString()}`);
-      await this.createRemainingPayment(payment.student, payment.period, danceClassForRemaining, remainingAmount, data.markedBy);
-      console.log("✅ Pago pendiente creado");
-    }
-
-    // NO crear deuda adicional cuando additionalDebt se usa solo para validar el saldo restante
-    // El campo additionalDebt en el modal se usa para validar que receivedAmount + additionalDebt = expectedAmount
-    // El sistema ya crea automáticamente el pago pendiente con el saldo restante arriba
-    // Solo crear deuda adicional si es un adeudo completamente separado (mayor al saldo restante)
-    // Pero según el modal, esto no debería suceder, así que comentamos esta lógica
-    // if (isPartialPayment && data.additionalDebt && data.additionalDebt > remainingAmount) {
-    //   console.log("🔄 Creando deuda adicional separada...");
-    //   await this.createAdditionalDebt(payment.student, payment.period, data.additionalDebt - remainingAmount);
-    //   console.log("✅ Deuda adicional creada");
-    // }
 
     // Procesar pago adicional si se especificó
     let additionalPayments = undefined;
@@ -718,22 +786,11 @@ export class MonthlyPaymentService {
     }
 
     // Generar recibo digital (con manejo de errores)
-    let receiptData = null;
     try {
-      receiptData = await this.generateDigitalReceipt(paymentId, receivedAmount, data.paymentMethod, data.markedBy, additionalPayments);
+      await this.generateDigitalReceipt(paymentId, receivedAmount, data.paymentMethod, data.markedBy, additionalPayments);
     } catch (receiptError) {
       console.error("❌ Error generando recibo digital (continuando):", receiptError);
-      // No lanzar error, continuar sin recibo
     }
-
-    // Envío de notificación WhatsApp deshabilitado - ya no se envían mensajes automáticamente
-    // try {
-    //   const totalPaidForClient = receivedAmount + ((data.additionalPayment?.amount) || 0);
-    //   await this.sendPaymentReceivedNotification(payment, totalPaidForClient, data.paymentMethod, receiptData);
-    // } catch (whatsappError) {
-    //   console.error("❌ Error enviando notificación WhatsApp (continuando):", whatsappError);
-    //   // No lanzar error, continuar sin notificación
-    // }
 
     console.log(`✅ Pago marcado como recibido: ${payment.student.name} - $${receivedAmount.toLocaleString()}`);
 
