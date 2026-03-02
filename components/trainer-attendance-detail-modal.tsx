@@ -18,6 +18,7 @@ import {
   Calendar,
   User,
   Trophy,
+  Camera,
 } from "lucide-react";
 import { formatDateLongWithoutTimezone, formatDateOnlyWithoutTimezone } from "@/lib/date-utils";
 
@@ -26,6 +27,7 @@ interface TrainerAttendanceDetail {
   status: "PRESENT" | "LATE" | "ABSENT" | "CHANGE_REQUEST";
   date: string;
   notes?: string;
+  photoUrl?: string;
   createdAt: string;
   class?: {
     id: number;
@@ -77,6 +79,7 @@ export function TrainerAttendanceDetailModal({
   const [details, setDetails] = useState<TrainerAttendanceDetail[]>([]);
   const [loading, setLoading] = useState(false);
   const [userInfo, setUserInfo] = useState<{ email: string; name?: string } | null>(null);
+  const [previewPhoto, setPreviewPhoto] = useState<string | null>(null);
 
   useEffect(() => {
     if (isOpen && userId) {
@@ -177,6 +180,7 @@ export function TrainerAttendanceDetailModal({
   const absentCount = details.filter((d) => d.status === "ABSENT").length;
 
   return (
+    <>
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-gray-800 border-gray-600">
         <DialogHeader>
@@ -263,7 +267,7 @@ export function TrainerAttendanceDetailModal({
                 <div className="space-y-2">
                   {details
                     .filter((d) => d.status === "PRESENT")
-                    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+                    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
                     .map((attendance) => (
                       <Card
                         key={attendance.id}
@@ -309,6 +313,24 @@ export function TrainerAttendanceDetailModal({
                               </div>
                             </div>
                           </div>
+                          {(type === "events" || attendance.photoUrl) && (
+                            <div className="mt-2">
+                              {attendance.photoUrl ? (
+                                <button
+                                  onClick={() => setPreviewPhoto(attendance.photoUrl!)}
+                                  className="inline-flex items-center gap-1.5 text-xs text-purple-400 hover:text-purple-300 transition-colors bg-purple-500/10 hover:bg-purple-500/20 rounded-lg px-2.5 py-1.5 border border-purple-500/20"
+                                >
+                                  <Camera className="w-3.5 h-3.5" />
+                                  Ver foto grupal
+                                </button>
+                              ) : (
+                                <span className="inline-flex items-center gap-1.5 text-xs text-gray-500">
+                                  <Camera className="w-3.5 h-3.5" />
+                                  Sin foto grupal
+                                </span>
+                              )}
+                            </div>
+                          )}
                         </CardContent>
                       </Card>
                     ))}
@@ -328,7 +350,7 @@ export function TrainerAttendanceDetailModal({
                 <div className="space-y-2">
                   {details
                     .filter((d) => d.status === "LATE")
-                    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+                    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
                     .map((attendance) => (
                       <Card
                         key={attendance.id}
@@ -374,6 +396,24 @@ export function TrainerAttendanceDetailModal({
                               </div>
                             </div>
                           </div>
+                          {(type === "events" || attendance.photoUrl) && (
+                            <div className="mt-2">
+                              {attendance.photoUrl ? (
+                                <button
+                                  onClick={() => setPreviewPhoto(attendance.photoUrl!)}
+                                  className="inline-flex items-center gap-1.5 text-xs text-purple-400 hover:text-purple-300 transition-colors bg-purple-500/10 hover:bg-purple-500/20 rounded-lg px-2.5 py-1.5 border border-purple-500/20"
+                                >
+                                  <Camera className="w-3.5 h-3.5" />
+                                  Ver foto grupal
+                                </button>
+                              ) : (
+                                <span className="inline-flex items-center gap-1.5 text-xs text-gray-500">
+                                  <Camera className="w-3.5 h-3.5" />
+                                  Sin foto grupal
+                                </span>
+                              )}
+                            </div>
+                          )}
                         </CardContent>
                       </Card>
                     ))}
@@ -393,7 +433,7 @@ export function TrainerAttendanceDetailModal({
                 <div className="space-y-2">
                   {details
                     .filter((d) => d.status === "ABSENT")
-                    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+                    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
                     .map((attendance) => (
                       <Card
                         key={attendance.id}
@@ -439,6 +479,24 @@ export function TrainerAttendanceDetailModal({
                               </div>
                             </div>
                           </div>
+                          {(type === "events" || attendance.photoUrl) && (
+                            <div className="mt-2">
+                              {attendance.photoUrl ? (
+                                <button
+                                  onClick={() => setPreviewPhoto(attendance.photoUrl!)}
+                                  className="inline-flex items-center gap-1.5 text-xs text-purple-400 hover:text-purple-300 transition-colors bg-purple-500/10 hover:bg-purple-500/20 rounded-lg px-2.5 py-1.5 border border-purple-500/20"
+                                >
+                                  <Camera className="w-3.5 h-3.5" />
+                                  Ver foto grupal
+                                </button>
+                              ) : (
+                                <span className="inline-flex items-center gap-1.5 text-xs text-gray-500">
+                                  <Camera className="w-3.5 h-3.5" />
+                                  Sin foto grupal
+                                </span>
+                              )}
+                            </div>
+                          )}
                         </CardContent>
                       </Card>
                     ))}
@@ -449,6 +507,28 @@ export function TrainerAttendanceDetailModal({
         )}
       </DialogContent>
     </Dialog>
+
+    {/* Modal de vista previa de foto grupal */}
+    <Dialog open={!!previewPhoto} onOpenChange={(open) => !open && setPreviewPhoto(null)}>
+      <DialogContent className="bg-gray-800 border-gray-700 text-white max-w-3xl">
+        <DialogHeader>
+          <DialogTitle className="text-lg font-bold flex items-center gap-2">
+            <Camera className="h-5 w-5 text-purple-400" />
+            Foto Grupal de Asistencia
+          </DialogTitle>
+        </DialogHeader>
+        {previewPhoto && (
+          <div className="rounded-xl overflow-hidden border border-gray-600">
+            <img
+              src={previewPhoto}
+              alt="Foto grupal de asistencia"
+              className="w-full h-auto max-h-[70vh] object-contain"
+            />
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  </>
   );
 }
 

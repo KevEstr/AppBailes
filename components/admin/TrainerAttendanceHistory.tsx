@@ -40,6 +40,7 @@ interface TrainerAttendance {
   status: "PRESENT" | "LATE" | "ABSENT" | "CHANGE_REQUEST";
   date: string;
   notes?: string;
+  photoUrl?: string;
   createdAt: string;
   user: {
     id: number;
@@ -61,6 +62,7 @@ interface MatchTrainerAttendance {
   status: "PRESENT" | "LATE" | "ABSENT" | "CHANGE_REQUEST";
   date: string;
   notes?: string;
+  photoUrl?: string;
   createdAt: string;
   user: {
     id: number;

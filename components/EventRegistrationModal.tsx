@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Calendar as CalendarIcon, Trophy as TrophyIcon, Search as SearchIcon, Users as UsersIcon, Check as CheckIcon, X as XIcon, Clock as ClockIcon, User as UserIcon } from "lucide-react";
+import { Calendar as CalendarIcon, Trophy as TrophyIcon, Search as SearchIcon, Users as UsersIcon, Check as CheckIcon, X as XIcon, Clock as ClockIcon, User as UserIcon, Camera as CameraIcon, Image as ImageIcon, Loader2 } from "lucide-react";
 
 interface EventClass {
   id: number;
@@ -57,6 +57,10 @@ export function EventRegistrationModal({
   const [activeTab, setActiveTab] = useState<string>("class");
   const [classStudents, setClassStudents] = useState<any[]>([]);
   const [studentAttendances, setStudentAttendances] = useState<{[key: string]: string}>({});
+  const [eventPhoto, setEventPhoto] = useState<File | null>(null);
+  const [eventPhotoPreview, setEventPhotoPreview] = useState<string | null>(null);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const eventPhotoInputRef = useRef<HTMLInputElement>(null);
 
   // Cargar todas las clases cuando se abre el modal
   useEffect(() => {
@@ -151,11 +155,81 @@ export function EventRegistrationModal({
 
   const selectedClass = availableClasses.find(c => c.id.toString() === selectedClassId);
 
+  const handleEventPhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const allowedTypes = [
+      'image/jpeg', 'image/jpg', 'image/png', 'image/webp',
+      'image/heic', 'image/heif', 'image/x-heic', 'image/gif',
+      'image/bmp', 'image/tiff',
+    ];
+
+    if (!allowedTypes.includes(file.type)) {
+      toast({
+        title: "Formato no admitido",
+        description: "Usa JPG, PNG, WebP, GIF, BMP, TIFF o HEIC.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast({
+        title: "Archivo muy grande",
+        description: "La imagen no puede superar los 5MB.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setEventPhoto(file);
+    const reader = new FileReader();
+    reader.onload = (ev) => setEventPhotoPreview(ev.target?.result as string);
+    reader.readAsDataURL(file);
+  };
+
+  const uploadEventPhoto = async (matchTrainerAttendanceId: number): Promise<boolean> => {
+    if (!eventPhoto) return true;
+    setIsUploadingPhoto(true);
+    try {
+      const formData = new FormData();
+      formData.append("photo", eventPhoto);
+      formData.append("matchTrainerAttendanceId", matchTrainerAttendanceId.toString());
+
+      const response = await fetch("/api/upload/attendance-photo", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        console.error("Error uploading event photo:", data.error);
+        return false;
+      }
+      return true;
+    } catch (error) {
+      console.error("Error uploading event photo:", error);
+      return false;
+    } finally {
+      setIsUploadingPhoto(false);
+    }
+  };
+
   const handleSubmit = async () => {
     if (!selectedClassId || !eventDate) {
       toast({
         title: "❌ Error",
         description: "Por favor completa todos los campos requeridos",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!eventPhoto) {
+      toast({
+        title: "Foto grupal requerida",
+        description: "Antes de registrar el evento debes añadir la foto grupal.",
         variant: "destructive",
       });
       return;
@@ -212,9 +286,21 @@ export function EventRegistrationModal({
       });
 
       if (data.success) {
+        // Subir foto grupal si se seleccionó una
+        if (eventPhoto && data.match?.trainerAttendance?.id) {
+          const photoUploaded = await uploadEventPhoto(data.match.trainerAttendance.id);
+          if (!photoUploaded) {
+            toast({
+              title: "Evento registrado",
+              description: "El evento se creó correctamente pero no se pudo subir la foto grupal.",
+              variant: "destructive",
+            });
+          }
+        }
+
         const eventType = selectedClass?.sport === "VOLLEYBALL" ? "partido" : "evento";
         toast({
-          title: "✅ Evento registrado",
+          title: "Evento registrado",
           description: `${eventType.charAt(0).toUpperCase() + eventType.slice(1)} creado exitosamente para ${selectedClass?.name}`,
         });
         
@@ -224,6 +310,8 @@ export function EventRegistrationModal({
         setNotes("");
         setClassStudents([]);
         setStudentAttendances({});
+        setEventPhoto(null);
+        setEventPhotoPreview(null);
         setActiveTab("class");
         
         // Cerrar modal y notificar al componente padre
@@ -289,6 +377,8 @@ export function EventRegistrationModal({
       setAllClasses([]);
       setClassStudents([]);
       setStudentAttendances({});
+      setEventPhoto(null);
+      setEventPhotoPreview(null);
       setActiveTab("class");
       onClose();
     }
@@ -296,7 +386,7 @@ export function EventRegistrationModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="bg-gray-800 border-gray-700 text-white max-w-lg w-full mx-4">
+      <DialogContent className="bg-gray-800 border-gray-700 text-white w-[94vw] max-w-lg mx-auto px-4 py-4 sm:px-6 sm:py-5">
         <DialogHeader>
           <DialogTitle className="text-xl font-bold flex items-center gap-2">
             <TrophyIcon className="h-6 w-6 text-yellow-500" />
@@ -411,7 +501,7 @@ export function EventRegistrationModal({
                     : availableClasses.length > 5;
                   
                   return (
-                    <div className="p-1 space-y-0.5 w-full">
+                    <div className="px-1 py-1 space-y-1 w-full">
                       {filteredClasses.map((eventClass) => {
                         // Mapear niveles para mostrar texto más amigable
                         const levelMap: { [key: string]: string } = {
@@ -441,14 +531,17 @@ export function EventRegistrationModal({
                                loadClassStudents(eventClass.id);
                              }}
                              disabled={isLoading}
-                             className={`w-full text-left p-2 rounded-lg transition-all duration-200 overflow-hidden ${
+                             className={`w-[96%] mx-auto text-left p-2 rounded-lg transition-all duration-200 overflow-hidden box-border ${
                                selectedClassId === eventClass.id.toString()
-                                 ? "bg-yellow-600/20 border-2 border-yellow-500/50 text-yellow-100"
-                                 : "bg-gray-600/50 hover:bg-gray-600 text-white border border-transparent"
+                                 ? "bg-yellow-600/15 border border-yellow-500/60 text-yellow-100"
+                                 : "bg-gray-600/60 hover:bg-gray-600 text-white border border-transparent"
                              }`}
                            >
                              <div className="flex flex-col space-y-1 min-w-0 w-full">
-                               <span className="font-medium text-sm truncate w-full" title={eventClass.name}>
+                               <span
+                                 className="font-medium text-sm leading-snug line-clamp-2 break-words"
+                                 title={eventClass.name}
+                               >
                                  {eventClass.name.split(' - ')[0]}
                                </span>
                                <div className="flex items-center gap-2 w-full">
@@ -508,10 +601,13 @@ export function EventRegistrationModal({
               const displaySport = sportMap[selectedClass.sport] || selectedClass.sport;
               
               return (
-                <div className="bg-yellow-600/10 border border-yellow-500/30 rounded-lg p-3 space-y-2">
+                <div className="w-[96%] mx-auto bg-yellow-600/10 border border-yellow-500/30 rounded-lg p-3 space-y-2 box-border">
                   <div className="flex items-center gap-2">
                     <TrophyIcon className="h-4 w-4 text-yellow-400 flex-shrink-0" />
-                    <span className="font-medium text-yellow-400 text-sm truncate flex-1" title={selectedClass.name}>
+                    <span
+                      className="font-medium text-yellow-400 text-sm leading-snug line-clamp-2 break-words flex-1"
+                      title={selectedClass.name}
+                    >
                       {selectedClass.name.split(' - ')[0]}
                     </span>
                     <span className={`text-xs px-2 py-1 rounded flex-shrink-0 ${
@@ -586,6 +682,55 @@ export function EventRegistrationModal({
                 </div>
               </div>
             )}
+
+            {/* Foto grupal del evento */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium flex items-center gap-2">
+                <CameraIcon className="h-4 w-4" />
+                Foto Grupal *
+              </Label>
+              {eventPhotoPreview ? (
+                <div className="relative rounded-lg overflow-hidden border border-gray-600">
+                  <img
+                    src={eventPhotoPreview}
+                    alt="Vista previa foto grupal"
+                    className="w-full h-32 object-cover"
+                  />
+                  <div className="absolute bottom-2 right-2 flex gap-1">
+                    <button
+                      onClick={() => eventPhotoInputRef.current?.click()}
+                      className="bg-gray-800/80 text-white text-xs px-2 py-1 rounded-md hover:bg-gray-700/80 transition-colors"
+                    >
+                      Cambiar
+                    </button>
+                    <button
+                      onClick={() => {
+                        setEventPhoto(null);
+                        setEventPhotoPreview(null);
+                      }}
+                      className="bg-red-600/80 text-white text-xs px-2 py-1 rounded-md hover:bg-red-500/80 transition-colors"
+                    >
+                      Quitar
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={() => eventPhotoInputRef.current?.click()}
+                  className="w-full flex items-center justify-center gap-2 text-sm text-purple-400 bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/30 rounded-lg py-3 transition-colors"
+                >
+                  <CameraIcon className="h-4 w-4" />
+                  Añadir foto grupal
+                </button>
+              )}
+              <input
+                ref={eventPhotoInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleEventPhotoSelect}
+              />
+            </div>
 
             <div className="space-y-2">
               <Label className="text-sm font-medium flex items-center gap-2">
@@ -674,13 +819,13 @@ export function EventRegistrationModal({
           {activeTab === "attendance" ? (
             <Button
               onClick={handleSubmit}
-              disabled={isLoading}
+              disabled={isLoading || isUploadingPhoto}
               className="bg-yellow-600 hover:bg-yellow-700 text-white"
             >
-              {isLoading ? (
+              {isLoading || isUploadingPhoto ? (
                 <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  Registrando...
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  {isUploadingPhoto ? "Subiendo foto..." : "Registrando..."}
                 </>
               ) : (
                 <>

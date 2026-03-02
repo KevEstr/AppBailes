@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -20,6 +20,9 @@ import {
   ArrowRight,
   Star as StarIcon,
   Trophy as TrophyIcon,
+  Camera as CameraIcon,
+  ImageIcon,
+  Loader2,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useSession } from "next-auth/react";
@@ -180,6 +183,15 @@ export default function ClassAttendanceTikTok() {
 
   // Estado para prevenir llamadas duplicadas de asistencia del profesor
   const [isRegisteringTrainerAttendance, setIsRegisteringTrainerAttendance] = useState(false);
+
+  // Estados para foto grupal de asistencia
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const [attendancePhotoUrl, setAttendancePhotoUrl] = useState<string | null>(null);
+  const [pendingCompletionStudents, setPendingCompletionStudents] = useState<Student[] | null>(null);
+  const [showPhotoPreview, setShowPhotoPreview] = useState(false);
+  const [finishAfterPhoto, setFinishAfterPhoto] = useState(false);
+  const [showPhotoRequiredForFinishModal, setShowPhotoRequiredForFinishModal] = useState(false);
+  const attendancePhotoInputRef = useRef<HTMLInputElement>(null);
 
   // Separar clases en "Mis Clases" y "Todas las Clases"
   const { myClasses, otherClasses } = useMemo(() => {
@@ -611,6 +623,37 @@ export default function ClassAttendanceTikTok() {
         const canRetake = canRetakeAttendanceNow(session);
         setCanRetakeAttendance(canRetake);
 
+        // Cargar foto grupal existente (si ya fue subida antes para esta clase y día)
+        try {
+          const todayStr = nowLocal.toISOString().split("T")[0];
+          const userIdParam = userSession?.user?.id
+            ? `&userId=${userSession.user.id}`
+            : "";
+          const photoResponse = await fetch(
+            `/api/trainer-attendance?classId=${session.danceClass.id}&date=${todayStr}&limit=1${userIdParam}`
+          );
+          const photoData = await photoResponse.json();
+          console.log('🧭 DEBUG foto de asistencia:', photoData);     
+          if (
+            photoResponse.ok &&
+            photoData.success &&
+            Array.isArray(photoData.attendances) &&
+            photoData.attendances.length > 0
+          ) {
+            const existingAttendance = photoData.attendances[0] as any;
+            if (existingAttendance.photoUrl) {
+              setAttendancePhotoUrl(existingAttendance.photoUrl as string);
+            } else {
+              setAttendancePhotoUrl(null);
+            }
+          } else {
+            setAttendancePhotoUrl(null);
+          }
+        } catch (photoError) {
+          console.warn("Error cargando foto de asistencia existente:", photoError);
+          setAttendancePhotoUrl(null);
+        }
+
         // Preparar datos de estudiantes con asistencias existentes
         const enrolledStudents = session.danceClass.enrollments.map(
           (enrollment: any) => {
@@ -899,7 +942,7 @@ export default function ClassAttendanceTikTok() {
       return;
     }
 
-    // Modo normal: avanzar al siguiente estudiante o completar
+      // Modo normal: avanzar al siguiente estudiante o completar
     if (currentStudentIndex < students.length - 1) {
       setCurrentStudentIndex((prev) => prev + 1);
     } else {
@@ -907,12 +950,124 @@ export default function ClassAttendanceTikTok() {
       const updatedStudents = students.map((s) =>
         s.id === studentId ? { ...s, status } : s
       );
-      await completeSession(updatedStudents);
+
+        // Si aún no hay foto grupal, guardar el estado pendiente y pedirla
+      if (!attendancePhotoUrl) {
+        setPendingCompletionStudents(updatedStudents);
+          setShowPhotoRequiredForFinishModal(true);
+        return;
+      }
+
+      await completeSession(updatedStudents, attendancePhotoUrl);
+      setPendingCompletionStudents(null);
     }
   };
 
-  const completeSession = async (finalStudents?: Student[]) => {
+  const handleAttendancePhotoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const allowedTypes = [
+      'image/jpeg', 'image/jpg', 'image/png', 'image/webp',
+      'image/heic', 'image/heif', 'image/x-heic', 'image/gif',
+      'image/bmp', 'image/tiff',
+    ];
+
+    if (!allowedTypes.includes(file.type)) {
+      toast({
+        title: "❌ Formato no admitido",
+        description: "Usa JPG, PNG, WebP, GIF, BMP, TIFF o HEIC.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast({
+        title: "❌ Archivo muy grande",
+        description: "La imagen no puede superar los 5MB.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!currentSession?.danceClass?.id) {
+      toast({
+        title: "❌ Error",
+        description: "No se pudo determinar la clase actual.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsUploadingPhoto(true);
+    try {
+      const formData = new FormData();
+      formData.append("photo", file);
+      formData.append("classId", currentSession.danceClass.id.toString());
+
+      const response = await fetch("/api/upload/attendance-photo", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        setAttendancePhotoUrl(data.url);
+        toast({
+          title: "📸 Foto subida",
+          description: "La foto grupal de asistencia se guardó correctamente.",
+        });
+
+        // Si había una finalización pendiente por falta de foto (sesión en curso), completarla ahora
+        if (pendingCompletionStudents && currentSession?.status !== "COMPLETED") {
+          await completeSession(pendingCompletionStudents, data.url);
+          setPendingCompletionStudents(null);
+          setShowPhotoRequiredForFinishModal(false);
+        }
+
+        // Si veníamos de "Finalizar Modificación" sin foto, cerrar modal y modo edición
+        if (finishAfterPhoto && currentSession?.status === "COMPLETED") {
+          setShowPhotoRequiredForFinishModal(false);
+          setSessionAlreadyCompleted(true);
+          setFinishAfterPhoto(false);
+        }
+      } else {
+        toast({
+          title: "❌ Error al subir foto",
+          description: data.error || "No se pudo subir la foto.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Error uploading attendance photo:", error);
+      toast({
+        title: "❌ Error de conexión",
+        description: "No se pudo conectar con el servidor.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUploadingPhoto(false);
+      if (attendancePhotoInputRef.current) {
+        attendancePhotoInputRef.current.value = "";
+      }
+    }
+  };
+
+  const completeSession = async (finalStudents?: Student[], photoUrlForCompletion?: string | null) => {
     if (!currentSession) return;
+
+    // La foto grupal es obligatoria para completar la asistencia
+    const photoToUse = photoUrlForCompletion ?? attendancePhotoUrl;
+    if (!photoToUse) {
+      toast({
+        title: "Foto grupal requerida",
+        description: "Antes de completar la asistencia debes añadir la foto grupal de la clase.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     try {
       // Marcar sesión como completada
@@ -1047,8 +1202,9 @@ export default function ClassAttendanceTikTok() {
     setStudents([]);
     setSessionAlreadyCompleted(false);
     setCanRetakeAttendance(false);
-    setAttendanceReason(""); // Limpiar el motivo
-    setReasonAlreadyProvided(false); // Resetear el estado del motivo
+    setAttendanceReason("");
+    setReasonAlreadyProvided(false);
+    setAttendancePhotoUrl(null);
     toast({
       title: "✅ Asistencia completada",
       description: "La asistencia ha sido registrada exitosamente",
@@ -1303,7 +1459,7 @@ export default function ClassAttendanceTikTok() {
 
       {/* Reason Modal for Other Trainer's Classes */}
       <Dialog open={showReasonModal} onOpenChange={setShowReasonModal}>
-        <DialogContent className="bg-gray-800 border-gray-700 text-white max-w-md">
+        <DialogContent className="bg-gray-800 border-gray-700 text-white">
           <DialogHeader>
             <DialogTitle className="text-xl font-bold flex items-center gap-2">
               <AlertIcon className="h-6 w-6 text-yellow-500" />
@@ -1616,7 +1772,7 @@ export default function ClassAttendanceTikTok() {
                           {danceClass.trainer.name}
                         </div>
                         {danceClass.schedules.length > 0 && (
-                          <div className="text-xs text-gray-400 mt-1">
+                          <div className="text-xs text-gray-400 mt-1 truncate">
                             {danceClass.schedules.map((schedule, index) => (
                               <span key={index} className="mr-2">
                                 {getDayNameFromNumber(schedule.dayOfWeek)}{" "}
@@ -1671,7 +1827,7 @@ export default function ClassAttendanceTikTok() {
                           {danceClass.trainer.name}
                         </div>
                         {danceClass.schedules.length > 0 && (
-                          <div className="text-xs text-gray-500 mt-1">
+                          <div className="text-xs text-gray-500 mt-1 truncate">
                             {danceClass.schedules.map((schedule, index) => (
                               <span key={index} className="mr-2">
                                 {getDayNameFromNumber(schedule.dayOfWeek)}{" "}
@@ -1822,6 +1978,30 @@ export default function ClassAttendanceTikTok() {
               </div>
 
               <div className="space-y-2">
+                <Button
+                  onClick={() => {
+                    if (attendancePhotoUrl) {
+                      setShowPhotoPreview(true);
+                    } else {
+                      attendancePhotoInputRef.current?.click();
+                    }
+                  }}
+                  disabled={isUploadingPhoto}
+                  className={`w-full ${
+                    attendancePhotoUrl
+                      ? "bg-green-600 hover:bg-green-700"
+                      : "bg-purple-600 hover:bg-purple-700"
+                  }`}
+                >
+                  {isUploadingPhoto ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : attendancePhotoUrl ? (
+                    <ImageIcon className="mr-2 h-4 w-4" />
+                  ) : (
+                    <CameraIcon className="mr-2 h-4 w-4" />
+                  )}
+                  {attendancePhotoUrl ? "Ver foto grupal" : "Añadir foto grupal"}
+                </Button>
                 {canRetakeAttendance && (
                   <Button
                     onClick={retakeAttendance}
@@ -1875,51 +2055,86 @@ export default function ClassAttendanceTikTok() {
       ) : currentStudent ? (
         <div className="w-full flex flex-col bg-gradient-to-b from-gray-800 to-gray-900 relative">
           {/* Header con botón de retroceso */}
-          <div className="sticky top-0 z-20 p-4 flex items-center justify-between border-b border-gray-700 bg-gray-800/95 backdrop-blur-sm">
-            <div className="flex items-center">
-              <Button
-                variant="ghost"
-                onClick={() => setSelectedClass(null)}
-                className="text-gray-400 hover:text-white"
-              >
-                <ArrowLeftIcon className="h-5 w-5" />
-              </Button>
-              <div className="ml-4">
-                <h2 className="text-lg font-semibold text-white">
-                  {currentSession.danceClass.name}
-                </h2>
-                <p className="text-sm text-gray-400">
-                  {validStudentIndex + 1} de {students.length} estudiantes
-                </p>
+          <div className="sticky top-0 z-20 border-b border-gray-700 bg-gray-800/95 backdrop-blur-sm">
+            <div className="flex items-center justify-between p-3 pb-2">
+              <div className="flex items-center min-w-0 flex-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setSelectedClass(null)}
+                  className="text-gray-400 hover:text-white flex-shrink-0 p-1"
+                >
+                  <ArrowLeftIcon className="h-5 w-5" />
+                </Button>
+                <div className="ml-2 min-w-0 flex-1">
+                  <h2 className="text-sm font-semibold text-white line-clamp-2 leading-tight">
+                    {currentSession.danceClass.name}
+                  </h2>
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    {validStudentIndex + 1} de {students.length} estudiantes
+                  </p>
+                </div>
+              </div>
+
+              {/* Navegación entre estudiantes */}
+              <div className="flex items-center gap-1 flex-shrink-0 ml-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() =>
+                    setCurrentStudentIndex(Math.max(0, validStudentIndex - 1))
+                  }
+                  disabled={validStudentIndex === 0}
+                  className="text-gray-400 hover:text-white disabled:opacity-30 px-2"
+                >
+                  ←
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() =>
+                    setCurrentStudentIndex(
+                      Math.min(students.length - 1, validStudentIndex + 1)
+                    )
+                  }
+                  disabled={validStudentIndex === students.length - 1}
+                  className="text-gray-400 hover:text-white disabled:opacity-30 px-2"
+                >
+                  →
+                </Button>
               </div>
             </div>
 
-            {/* Navegación entre estudiantes */}
-            <div className="flex items-center gap-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() =>
-                  setCurrentStudentIndex(Math.max(0, validStudentIndex - 1))
-                }
-                disabled={validStudentIndex === 0}
-                className="text-gray-400 hover:text-white disabled:opacity-30"
+            {/* Botón de foto grupal en fila separada */}
+            <div className="px-3 pb-2">
+              <button
+                onClick={() => {
+                  if (attendancePhotoUrl) {
+                    setShowPhotoPreview(true);
+                  } else {
+                    attendancePhotoInputRef.current?.click();
+                  }
+                }}
+                disabled={isUploadingPhoto}
+                className={`inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-colors ${
+                  attendancePhotoUrl
+                    ? "text-green-400 bg-green-500/10 border-green-500/30 hover:bg-green-500/20"
+                    : "text-purple-400 bg-purple-500/10 border-purple-500/30 hover:bg-purple-500/20"
+                }`}
               >
-                ←
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() =>
-                  setCurrentStudentIndex(
-                    Math.min(students.length - 1, validStudentIndex + 1)
-                  )
-                }
-                disabled={validStudentIndex === students.length - 1}
-                className="text-gray-400 hover:text-white disabled:opacity-30"
-              >
-                →
-              </Button>
+                {isUploadingPhoto ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : attendancePhotoUrl ? (
+                  <ImageIcon className="h-3.5 w-3.5" />
+                ) : (
+                  <CameraIcon className="h-3.5 w-3.5" />
+                )}
+                {isUploadingPhoto
+                  ? "Subiendo foto..."
+                  : attendancePhotoUrl
+                  ? "Ver foto grupal"
+                  : "Añadir foto grupal"}
+              </button>
             </div>
           </div>
 
@@ -2053,7 +2268,16 @@ export default function ClassAttendanceTikTok() {
               {currentSession?.status === "COMPLETED" && (
                 <div className="px-3 pb-3">
                   <Button
-                    onClick={() => setSessionAlreadyCompleted(true)}
+                    onClick={() => {
+                      // Validar que exista foto grupal antes de finalizar modificación
+                      if (!attendancePhotoUrl) {
+                        setFinishAfterPhoto(true);
+                        setShowPhotoRequiredForFinishModal(true);
+                        return;
+                      }
+
+                      setSessionAlreadyCompleted(true);
+                    }}
                     className="w-full bg-gray-600 hover:bg-gray-700 text-white h-14 text-lg rounded-xl"
                     variant="outline"
                   >
@@ -2102,6 +2326,112 @@ export default function ClassAttendanceTikTok() {
         classes={classes}
         onEventCreated={handleEventCreated}
       />
+
+      {/* Input oculto para foto grupal de asistencia */}
+      <input
+        ref={attendancePhotoInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={handleAttendancePhotoSelect}
+      />
+
+      {/* Modal: foto grupal requerida para finalizar asistencia (nueva o modificada) */}
+      <Dialog
+        open={showPhotoRequiredForFinishModal}
+        onOpenChange={(open) => {
+          setShowPhotoRequiredForFinishModal(open);
+          if (!open) setFinishAfterPhoto(false);
+        }}
+      >
+        <DialogContent className="bg-gray-800 border-gray-700 text-white max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold flex items-center gap-2">
+              <CameraIcon className="h-6 w-6 text-amber-400" />
+              Foto grupal requerida para finalizar
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <p className="text-gray-300">
+              Para poder <strong className="text-white">finalizar el registro de asistencia</strong> (tanto
+              una nueva toma como una modificación) debes añadir la{" "}
+              <strong className="text-white">foto grupal de la clase</strong>. Es un requisito del registro
+              para dejar constancia de la sesión.
+            </p>
+            <p className="text-sm text-gray-400">
+              Sube una foto (JPG, PNG, WebP, etc.) de la clase y luego la asistencia se completará
+              automáticamente.
+            </p>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowPhotoRequiredForFinishModal(false);
+                setFinishAfterPhoto(false);
+              }}
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={() => attendancePhotoInputRef.current?.click()}
+              disabled={isUploadingPhoto}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              {isUploadingPhoto ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <CameraIcon className="mr-2 h-4 w-4" />
+              )}
+              Añadir foto grupal
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de vista previa de foto grupal */}
+      <Dialog open={showPhotoPreview} onOpenChange={setShowPhotoPreview}>
+        <DialogContent className="bg-gray-800 border-gray-700 text-white max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-bold flex items-center gap-2">
+              <CameraIcon className="h-5 w-5 text-purple-400" />
+              Foto Grupal de Asistencia
+            </DialogTitle>
+          </DialogHeader>
+          {attendancePhotoUrl && (
+            <div className="space-y-4">
+              <div className="rounded-xl overflow-hidden border border-gray-600">
+                <img
+                  src={attendancePhotoUrl}
+                  alt="Foto grupal de asistencia"
+                  className="w-full h-auto max-h-[60vh] object-contain"
+                />
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  onClick={() => attendancePhotoInputRef.current?.click()}
+                  disabled={isUploadingPhoto}
+                  variant="outline"
+                  className="flex-1"
+                >
+                  {isUploadingPhoto ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <CameraIcon className="mr-2 h-4 w-4" />
+                  )}
+                  Cambiar foto
+                </Button>
+                <Button
+                  onClick={() => setShowPhotoPreview(false)}
+                  className="flex-1 bg-blue-600 hover:bg-blue-700"
+                >
+                  Cerrar
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

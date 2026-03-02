@@ -106,6 +106,7 @@ export async function GET(request: NextRequest) {
         status: att.status,
         date: att.date,
         notes: att.notes,
+        photoUrl: att.photoUrl,
         createdAt: att.createdAt,
         match: {
           id: att.match.id,

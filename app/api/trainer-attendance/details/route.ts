@@ -99,6 +99,7 @@ export async function GET(request: NextRequest) {
         status: att.status,
         date: att.date,
         notes: att.notes,
+        photoUrl: att.photoUrl,
         createdAt: att.createdAt,
         class: {
           id: att.class.id,
