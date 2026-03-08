@@ -179,6 +179,18 @@ export async function POST(
           { status: 400 }
         );
       }
+      if (error.message.startsWith('Error crítico:')) {
+        return NextResponse.json(
+          { message: error.message },
+          { status: 500 }
+        );
+      }
+      if (error.message.startsWith('No hay configuración de mensualidad')) {
+        return NextResponse.json(
+          { message: error.message },
+          { status: 400 }
+        );
+      }
     }
 
     return NextResponse.json(

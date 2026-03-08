@@ -48,10 +48,9 @@ export async function GET(request: NextRequest) {
         // Para estudiantes inactivos, NO filtrar por estado de inscripción
         // Mostrar todos los estudiantes inactivos, tengan o no inscripciones activas
         // No establecer enrollmentQuery.isActive aquí
-      } else {
-        // Si status === 'all', mostrar solo inscripciones activas por defecto
-        enrollmentQuery.isActive = true
       }
+      // Si status === 'all', no filtrar por estado de inscripción
+      // Los estudiantes se buscarán directamente por su propio campo isActive
 
       // Agregar condiciones de búsqueda si existe un término
       // Combinar búsqueda con filtro de estado usando AND
@@ -84,19 +83,18 @@ export async function GET(request: NextRequest) {
       
       let sortedStudentIds: string[] = []
       
-      // Si estamos buscando estudiantes inactivos, buscar directamente por estudiantes
-      // en lugar de por inscripciones, ya que pueden no tener inscripciones activas
-      if (status === 'inactive') {
-        // Buscar estudiantes inactivos directamente
-        const inactiveStudents = await prisma.student.findMany({
+      // Para inactivos y "todos": buscar directamente por estudiantes (no por inscripciones),
+      // ya que los inactivos pueden no tener inscripciones activas y quedarían excluidos.
+      if (status === 'inactive' || status === 'all' || !status) {
+        const filteredStudents = await prisma.student.findMany({
           where: studentFilter,
           select: { id: true },
-          orderBy: { id: 'desc' } // Ordenar por ID descendente como fallback
+          orderBy: { id: 'desc' }
         })
         
-        sortedStudentIds = inactiveStudents.map(s => String(s.id))
+        sortedStudentIds = filteredStudents.map(s => String(s.id))
       } else {
-        // Para estudiantes activos o "all", buscar por inscripciones como antes
+        // Para estudiantes activos (status === 'active'), buscar por inscripciones activas
         const allEnrollments = await prisma.classEnrollment.findMany({
           where: enrollmentQuery,
           include: {

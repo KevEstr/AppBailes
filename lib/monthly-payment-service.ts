@@ -724,7 +724,10 @@ export class MonthlyPaymentService {
     // ═══════════════════════════════════════════════════════════════
     // FASE 2: Escrituras atómicas (dentro de la transacción)
     // Si falla cualquier paso, todo se revierte automáticamente.
+    // Timeout amplio para evitar rollbacks silenciosos.
     // ═══════════════════════════════════════════════════════════════
+    let remainingPaymentId: number | null = null;
+
     const updatedPayment = await prisma.$transaction(async (tx) => {
       // Aplicar descuento si corresponde
       if (discountAmount > 0) {
@@ -748,7 +751,7 @@ export class MonthlyPaymentService {
 
       // Crear pago pendiente por el saldo restante (solo si es parcial)
       if (isPartialPayment && danceClassForRemaining && remainingPaymentData) {
-        await tx.monthlyPayment.create({
+        const remainingPayment = await tx.monthlyPayment.create({
           data: {
             studentId: payment.studentId,
             classId: danceClassForRemaining.id,
@@ -760,11 +763,67 @@ export class MonthlyPaymentService {
             notes: `Saldo restante de pago parcial - ${payment.period.name} - ${danceClassForRemaining.name} (Corte día ${remainingPaymentData.cutoffDay})`,
           },
         });
-        console.log(`✅ Pago pendiente creado por $${remainingPaymentData.remainingAmount.toLocaleString()} para clase ${danceClassForRemaining.name}`);
+        remainingPaymentId = remainingPayment.id;
+        console.log(`✅ Pago pendiente creado (ID: ${remainingPayment.id}) por $${remainingPaymentData.remainingAmount.toLocaleString()} para clase ${danceClassForRemaining.name}`);
       }
 
       return updated;
+    }, {
+      maxWait: 10000,
+      timeout: 15000,
     });
+
+    // ═══════════════════════════════════════════════════════════════
+    // FASE 2.5: Verificación post-transacción
+    // Garantiza que si era pago parcial, el pago restante realmente
+    // existe en la base de datos. Si no, revierte el status.
+    // ═══════════════════════════════════════════════════════════════
+    if (isPartialPayment && remainingPaymentData) {
+      if (!remainingPaymentId) {
+        console.error("❌ CRITICAL: La transacción se completó pero no se registró el ID del pago restante.");
+        await prisma.monthlyPayment.update({
+          where: { id: paymentId },
+          data: {
+            status: payment.status,
+            paidAmount: payment.paidAmount,
+            paymentDate: payment.paymentDate,
+            approvedBy: payment.approvedBy,
+            notes: payment.notes,
+            expectedAmount: payment.expectedAmount,
+          },
+        });
+        throw new Error(
+          `Error crítico: el pago parcial fue registrado pero el pago pendiente por $${remainingPaymentData.remainingAmount.toLocaleString()} no se creó. ` +
+          `La operación ha sido revertida. Por favor intente de nuevo.`
+        );
+      }
+
+      const verification = await prisma.monthlyPayment.findUnique({
+        where: { id: remainingPaymentId },
+        select: { id: true, expectedAmount: true, status: true },
+      });
+
+      if (!verification) {
+        console.error(`❌ CRITICAL: Pago restante ID ${remainingPaymentId} no encontrado después de la transacción.`);
+        await prisma.monthlyPayment.update({
+          where: { id: paymentId },
+          data: {
+            status: payment.status,
+            paidAmount: payment.paidAmount,
+            paymentDate: payment.paymentDate,
+            approvedBy: payment.approvedBy,
+            notes: payment.notes,
+            expectedAmount: payment.expectedAmount,
+          },
+        });
+        throw new Error(
+          `Error crítico: el pago pendiente por $${remainingPaymentData.remainingAmount.toLocaleString()} no se encontró en la base de datos después de la transacción. ` +
+          `La operación ha sido revertida. Por favor intente de nuevo.`
+        );
+      }
+
+      console.log(`✅ Verificación exitosa: pago restante ID ${verification.id} confirmado ($${verification.expectedAmount.toLocaleString()}, status: ${verification.status})`);
+    }
 
     // ═══════════════════════════════════════════════════════════════
     // FASE 3: Operaciones no-críticas (fuera de la transacción)
