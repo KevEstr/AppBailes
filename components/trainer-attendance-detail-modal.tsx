@@ -81,6 +81,20 @@ export function TrainerAttendanceDetailModal({
   const [userInfo, setUserInfo] = useState<{ email: string; name?: string } | null>(null);
   const [previewPhoto, setPreviewPhoto] = useState<string | null>(null);
 
+  const getDisplayPhotoUrl = (url: string | null) => {
+    if (!url) return null;
+    try {
+      const uploadSegment = "/image/upload/";
+      const existingTransform = "/image/upload/f_auto,q_auto/";
+      if (url.includes(existingTransform)) return url;
+      const idx = url.indexOf(uploadSegment);
+      if (idx === -1) return url;
+      return url.replace(uploadSegment, existingTransform);
+    } catch {
+      return url;
+    }
+  };
+
   useEffect(() => {
     if (isOpen && userId) {
       loadDetails();
@@ -520,7 +534,7 @@ export function TrainerAttendanceDetailModal({
         {previewPhoto && (
           <div className="rounded-xl overflow-hidden border border-gray-600">
             <img
-              src={previewPhoto}
+              src={getDisplayPhotoUrl(previewPhoto) || undefined}
               alt="Foto grupal de asistencia"
               className="w-full h-auto max-h-[70vh] object-contain"
             />

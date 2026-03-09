@@ -2402,7 +2402,18 @@ export default function ClassAttendanceTikTok() {
             <div className="space-y-4">
               <div className="rounded-xl overflow-hidden border border-gray-600">
                 <img
-                  src={attendancePhotoUrl}
+                  src={(() => {
+                    try {
+                      const uploadSegment = "/image/upload/";
+                      const existingTransform = "/image/upload/f_auto,q_auto/";
+                      if (attendancePhotoUrl.includes(existingTransform)) return attendancePhotoUrl;
+                      const idx = attendancePhotoUrl.indexOf(uploadSegment);
+                      if (idx === -1) return attendancePhotoUrl;
+                      return attendancePhotoUrl.replace(uploadSegment, existingTransform);
+                    } catch {
+                      return attendancePhotoUrl;
+                    }
+                  })()}
                   alt="Foto grupal de asistencia"
                   className="w-full h-auto max-h-[60vh] object-contain"
                 />
