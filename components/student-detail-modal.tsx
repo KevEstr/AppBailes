@@ -117,32 +117,40 @@ interface EnrollmentDetail {
   };
 }
 
-interface StudentDetailModalProps {
-  enrollment: {
-    id: number;
-    student: {
-      id: number
-      name: string
-      user?: { email: string }
-      phone: string
-      hasDebt: boolean
-      isActive: boolean
-    }
-    danceClass: {
+interface StudentSummary {
+  id: number
+  name: string
+  user?: { email: string }
+  phone: string
+  hasDebt: boolean
+  isActive: boolean
+  avatar?: string
+}
+
+interface EnrollmentSummary {
+  id: number;
+  student: StudentSummary;
+  danceClass: {
+    name: string;
+    sport: string;
+    trainer: {
       name: string;
-      sport: string;
-      trainer: {
-        name: string;
-      };
-      location?: {
-        name: string;
-        address?: string;
-      };
+    };
+    location?: {
+      name: string;
+      address?: string;
     };
   };
 }
 
-export function StudentDetailModal({ enrollment }: StudentDetailModalProps) {
+interface StudentDetailModalProps {
+  // Puede venir null si el estudiante no tiene clases activas.
+  enrollment: EnrollmentSummary | null;
+  // Información básica del estudiante desde el listado (siempre disponible).
+  student: StudentSummary;
+}
+
+export function StudentDetailModal({ enrollment, student }: StudentDetailModalProps) {
   const [detailData, setDetailData] = useState<EnrollmentDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [mapError, setMapError] = useState(false);
@@ -150,7 +158,8 @@ export function StudentDetailModal({ enrollment }: StudentDetailModalProps) {
   useEffect(() => {
     const fetchDetailData = async () => {
       try {
-        const studentId = enrollment.student.id;
+        // Tomar siempre el ID del estudiante desde props, aunque no haya enrollment
+        const studentId = student.id;
         const response = await fetch(`/api/students/${studentId}`);
         const data = await response.json();
 
@@ -165,8 +174,38 @@ export function StudentDetailModal({ enrollment }: StudentDetailModalProps) {
           });
           
           // Create detail data structure from API response
+          const baseDanceClass = enrollment?.danceClass
+            ? {
+                id: 0,
+                name: enrollment.danceClass.name,
+                sport: enrollment.danceClass.sport,
+                trainer: {
+                  id: 0,
+                  name: enrollment.danceClass.trainer.name,
+                },
+                location: enrollment.danceClass.location
+                  ? {
+                      id: 0,
+                      name: enrollment.danceClass.location.name,
+                      address: enrollment.danceClass.location.address,
+                    }
+                  : undefined,
+                schedules: [] as EnrollmentDetail["danceClass"]["schedules"],
+              }
+            : {
+                id: 0,
+                name: "Sin clase activa",
+                sport: "DANCE",
+                trainer: {
+                  id: 0,
+                  name: "Sin entrenador",
+                },
+                location: undefined,
+                schedules: [] as EnrollmentDetail["danceClass"]["schedules"],
+              };
+
           const detailData: EnrollmentDetail = {
-            id: enrollment.id,
+            id: enrollment?.id ?? 0,
             studentId: data.student.id,
             classId: 0,
             isActive: true,
@@ -176,8 +215,8 @@ export function StudentDetailModal({ enrollment }: StudentDetailModalProps) {
               id: data.student.id,
               name: data.student.name,
               phone: data.student.phone,
-              hasDebt: enrollment.student.hasDebt,
-              isActive: enrollment.student.isActive,
+              hasDebt: student.hasDebt,
+              isActive: student.isActive,
               user: data.student.user,
               avatar: data.student.avatar || '',
               enrollmentData: data.student.enrollmentData ? {
@@ -192,22 +231,8 @@ export function StudentDetailModal({ enrollment }: StudentDetailModalProps) {
               attendances: [],
             },
             danceClass: {
-              id: 0,
-              name: enrollment.danceClass.name,
-              sport: enrollment.danceClass.sport,
+              ...baseDanceClass,
               price: undefined,
-              trainer: {
-                id: 0,
-                name: enrollment.danceClass.trainer.name,
-              },
-              location: enrollment.danceClass.location
-                ? {
-                    id: 0,
-                    name: enrollment.danceClass.location.name,
-                    address: enrollment.danceClass.location.address,
-                  }
-                : undefined,
-              schedules: [],
             },
           };
           
@@ -232,20 +257,20 @@ export function StudentDetailModal({ enrollment }: StudentDetailModalProps) {
         } else {
           // Fallback to basic data
           const mockDetailData: EnrollmentDetail = {
-            id: enrollment.id,
-            studentId: enrollment.student.id,
+            id: enrollment?.id ?? 0,
+            studentId: student.id,
             classId: 0,
             isActive: true,
             enrolledAt: new Date().toISOString(),
             createdAt: new Date().toISOString(),
             student: {
-              id: enrollment.student.id,
-              name: enrollment.student.name,
-              phone: enrollment.student.phone,
-              hasDebt: enrollment.student.hasDebt,
-              isActive: enrollment.student.isActive,
-              user: enrollment.student.user,
-              avatar: data.student.avatar || '',
+              id: student.id,
+              name: student.name,
+              phone: student.phone,
+              hasDebt: student.hasDebt,
+              isActive: student.isActive,
+              user: student.user,
+              avatar: data.student?.avatar || student.avatar || '',
               enrollmentData: undefined,
               debts: data.student?.debts || [],
               receipts: data.student?.receipts || [],
@@ -253,14 +278,14 @@ export function StudentDetailModal({ enrollment }: StudentDetailModalProps) {
             },
             danceClass: {
               id: 0,
-              name: enrollment.danceClass.name,
-              sport: enrollment.danceClass.sport,
+              name: enrollment?.danceClass.name ?? "Sin clase activa",
+              sport: enrollment?.danceClass.sport ?? "DANCE",
               price: undefined,
               trainer: {
                 id: 0,
-                name: enrollment.danceClass.trainer.name,
+                name: enrollment?.danceClass.trainer.name ?? "Sin entrenador",
               },
-              location: enrollment.danceClass.location
+              location: enrollment?.danceClass.location
                 ? {
                     id: 0,
                     name: enrollment.danceClass.location.name,
@@ -276,19 +301,19 @@ export function StudentDetailModal({ enrollment }: StudentDetailModalProps) {
         console.error("Error fetching detail data:", error);
         // Fallback to basic data
         const mockDetailData: EnrollmentDetail = {
-          id: enrollment.id,
-          studentId: enrollment.student.id,
+          id: enrollment?.id ?? 0,
+          studentId: student.id,
           classId: 0,
           isActive: true,
           enrolledAt: new Date().toISOString(),
           createdAt: new Date().toISOString(),
           student: {
-            id: enrollment.student.id,
-            name: enrollment.student.name,
-            phone: enrollment.student.phone,
-            hasDebt: enrollment.student.hasDebt,
-            isActive: enrollment.student.isActive,
-            user: enrollment.student.user,
+            id: student.id,
+            name: student.name,
+            phone: student.phone,
+            hasDebt: student.hasDebt,
+            isActive: student.isActive,
+            user: student.user,
             enrollmentData: undefined,
             debts: [],
             receipts: [],
@@ -296,14 +321,14 @@ export function StudentDetailModal({ enrollment }: StudentDetailModalProps) {
           },
           danceClass: {
             id: 0,
-            name: enrollment.danceClass.name,
-            sport: enrollment.danceClass.sport,
+            name: enrollment?.danceClass.name ?? "Sin clase activa",
+            sport: enrollment?.danceClass.sport ?? "DANCE",
             price: undefined,
             trainer: {
               id: 0,
-              name: enrollment.danceClass.trainer.name,
+              name: enrollment?.danceClass.trainer.name ?? "Sin entrenador",
             },
-            location: enrollment.danceClass.location
+            location: enrollment?.danceClass.location
               ? {
                   id: 0,
                   name: enrollment.danceClass.location.name,

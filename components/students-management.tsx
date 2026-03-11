@@ -189,7 +189,9 @@ export function StudentsManagement() {
       const data = await response.json();
 
       if (data.success) {
-        setStudents(data.students || data.enrollments); // Compatibilidad con ambos formatos
+        // El backend ya devuelve los estudiantes globalmente ordenados por fecha de inscripción.
+        // Aquí solo asignamos la lista tal como viene.
+        setStudents((data.students || data.enrollments || []) as StudentWithClasses[]);
         setPagination(data.pagination);
         // Guardar las estadísticas generales
         if (data.stats) {
@@ -530,7 +532,7 @@ export function StudentsManagement() {
           <Card className="bg-gray-800/90 border-gray-600 w-full">
             <CardHeader>
               <CardTitle className="text-white">
-                Lista de Estudiantes ({pagination.total} total)
+                Lista de inscritos ({pagination.total} total)
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -787,7 +789,10 @@ export function StudentsManagement() {
                     Detalles Completos del Estudiante
                   </DialogTitle>
                 </DialogHeader>
-                <StudentDetailModal enrollment={selectedStudent?.classEnrollments[0] || null} />
+                <StudentDetailModal
+                  enrollment={selectedStudent?.classEnrollments[0] || null}
+                  student={selectedStudent.student}
+                />
                 <div className="flex justify-end mt-6 pt-4 border-t border-gray-700">
                   <Button
                     onClick={() => setDetailModalOpen(false)}

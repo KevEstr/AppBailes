@@ -79,56 +79,58 @@ export async function GET(request: NextRequest) {
         enrollmentQuery.student = studentFilter
       }
 
-      console.log('🗄️ Ejecutando consulta agrupada por estudiante ordenada por fecha de inscripción...')
+      console.log('🗄️ Ejecutando consulta agrupada por estudiante ordenada por fecha de inscripción (global)...')
       
-      let sortedStudentIds: string[] = []
-      
-      // Para inactivos y "todos": buscar directamente por estudiantes (no por inscripciones),
-      // ya que los inactivos pueden no tener inscripciones activas y quedarían excluidos.
-      if (status === 'inactive' || status === 'all' || !status) {
-        const filteredStudents = await prisma.student.findMany({
-          where: studentFilter,
-          select: { id: true },
-          orderBy: { id: 'desc' }
-        })
-        
-        sortedStudentIds = filteredStudents.map(s => String(s.id))
-      } else {
-        // Para estudiantes activos (status === 'active'), buscar por inscripciones activas
-        const allEnrollments = await prisma.classEnrollment.findMany({
-          where: enrollmentQuery,
-          include: {
-            student: {
-              include: {
-                user: { select: { email: true } }
-              }
-            },
-            danceClass: {
-              include: {
-                trainer: { select: { name: true } },
-                location: { select: { name: true, address: true } }
-              }
-            }
-          },
-          orderBy: {
-            createdAt: 'desc' // Ordenar por fecha de inscripción (más recientes primero)
-          }
-        })
+      // 1) Obtener todos los estudiantes que cumplen el filtro (pueden o no tener inscripciones)
+      const filteredStudents = await prisma.student.findMany({
+        where: studentFilter,
+        select: { id: true },
+        orderBy: { id: 'desc' }
+      })
 
-        // Agrupar por estudiante, manteniendo solo la primera inscripción (más reciente) para el ordenamiento
-        const studentMap = new Map<string, typeof allEnrollments[0]>()
-        for (const enrollment of allEnrollments) {
-          const studentIdStr = String(enrollment.studentId)
-          if (!studentMap.has(studentIdStr)) {
-            studentMap.set(studentIdStr, enrollment)
-          }
+      // 2) Obtener todas las inscripciones relacionadas (usadas solo para calcular la última fecha)
+      const allEnrollments = await prisma.classEnrollment.findMany({
+        where: enrollmentQuery,
+        select: {
+          studentId: true,
+          createdAt: true
+        },
+        orderBy: {
+          createdAt: 'desc' // Más recientes primero
         }
+      })
 
-        // Obtener IDs únicos de estudiantes ordenados por fecha de inscripción (más recientes primero)
-        sortedStudentIds = Array.from(studentMap.values())
-          .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
-          .map(e => String(e.studentId))
+      // 3) Mapear por estudiante la última fecha de inscripción
+      const lastEnrollmentByStudent = new Map<string, Date>()
+      for (const enrollment of allEnrollments) {
+        const studentIdStr = String(enrollment.studentId)
+        // Como viene ordenado desc, la primera vez que lo vemos es la fecha más reciente
+        if (!lastEnrollmentByStudent.has(studentIdStr)) {
+          lastEnrollmentByStudent.set(studentIdStr, enrollment.createdAt)
+        }
       }
+
+      // 4) Separar estudiantes con y sin fecha de inscripción
+      type StudentWithLastDate = { id: string; lastDate: Date }
+      const studentsWithDate: StudentWithLastDate[] = []
+      const studentsWithoutDate: string[] = []
+
+      for (const s of filteredStudents) {
+        const idStr = String(s.id)
+        const lastDate = lastEnrollmentByStudent.get(idStr)
+        if (lastDate) {
+          studentsWithDate.push({ id: idStr, lastDate })
+        } else {
+          studentsWithoutDate.push(idStr)
+        }
+      }
+
+      // 5) Ordenar: primero por fecha de inscripción (desc), luego los que no tienen fecha
+      studentsWithDate.sort((a, b) => b.lastDate.getTime() - a.lastDate.getTime())
+      const sortedStudentIds: string[] = [
+        ...studentsWithDate.map(s => s.id),
+        ...studentsWithoutDate
+      ]
       
       console.log('📊 Estudiantes encontrados:', {
         total: sortedStudentIds.length,
