@@ -5,15 +5,37 @@ import { authOptions } from '@/lib/nextauth';
 import { prisma } from '@/lib/prisma';
 import { DigitalReceiptService } from '@/lib/digital-receipt-service';
 import { calculatePaymentPeriodForConcept } from '@/lib/period-calculator';
+import { createCorrelationId, logStep, withTimer } from '@/lib/ops-logger';
 
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ paymentId: string }> }
 ) {
+  const correlationId = createCorrelationId(request.headers.get('x-request-id'));
+  const t = withTimer();
+
   try {
+    logStep({
+      correlationId,
+      scope: 'api.mark-received',
+      step: 'start',
+      verbose: true,
+      data: {
+        url: request.url,
+        method: 'POST',
+      },
+    });
+
     const session = await getServerSession(authOptions);
     
     if (!session?.user?.id) {
+      logStep({
+        correlationId,
+        scope: 'api.mark-received',
+        step: 'auth.unauthorized',
+        level: 'warn',
+        data: { elapsedMs: t.ms() },
+      });
       return NextResponse.json(
         { message: 'No autorizado' },
         { status: 401 }
@@ -24,28 +46,79 @@ export async function POST(
     const paymentId = Number.parseInt(paymentIdParam);
     
     if (Number.isNaN(paymentId)) {
+      logStep({
+        correlationId,
+        scope: 'api.mark-received',
+        step: 'validate.invalid_payment_id',
+        level: 'warn',
+        data: { paymentIdParam, elapsedMs: t.ms() },
+      });
       return NextResponse.json(
         { message: 'ID de pago inválido' },
         { status: 400 }
       );
     }
 
+    const bodyTimer = withTimer();
     const { paymentMethod, receivedAmount, additionalDebt, discount, additionalPayment } = await request.json();
+    logStep({
+      correlationId,
+      scope: 'api.mark-received',
+      step: 'request.body_parsed',
+      verbose: true,
+      data: {
+        paymentId,
+        paymentMethod,
+        hasReceivedAmount: receivedAmount !== undefined,
+        hasAdditionalDebt: additionalDebt !== undefined,
+        hasDiscount: discount !== undefined,
+        hasAdditionalPayment: additionalPayment !== undefined,
+        bodyParseMs: bodyTimer.ms(),
+      },
+    });
 
     if (!paymentMethod) {
+      logStep({
+        correlationId,
+        scope: 'api.mark-received',
+        step: 'validate.missing_payment_method',
+        level: 'warn',
+        data: { paymentId, elapsedMs: t.ms() },
+      });
       return NextResponse.json(
         { message: 'Método de pago es requerido' },
         { status: 400 }
       );
     }
 
+    logStep({
+      correlationId,
+      scope: 'api.mark-received',
+      step: 'service.markPaymentAsReceived.call',
+      verbose: true,
+      data: { paymentId, userId: session.user.id },
+    });
+
+    const serviceTimer = withTimer();
     const updatedPayment = await monthlyPaymentService.markPaymentAsReceived(paymentId, {
       paymentMethod,
       receivedAmount,
       additionalDebt,
       discount,
       markedBy: session.user.id,
-      additionalPayment
+      additionalPayment,
+      correlationId
+    });
+    logStep({
+      correlationId,
+      scope: 'api.mark-received',
+      step: 'service.markPaymentAsReceived.done',
+      verbose: true,
+      data: {
+        paymentId,
+        serviceMs: serviceTimer.ms(),
+        status: (updatedPayment as any)?.status,
+      },
     });
 
     // Buscar el recibo más reciente generado para este pago
@@ -55,6 +128,7 @@ export async function POST(
     let periodName = null;
     
     try {
+      const receiptTimer = withTimer();
       const receipt = await prisma.receipt.findFirst({
         where: {
           monthlyPaymentId: paymentId,
@@ -68,8 +142,20 @@ export async function POST(
         receiptId = receipt.id;
         receiptUrl = DigitalReceiptService.generateReceiptUrl(receipt.id);
       }
+      logStep({
+        correlationId,
+        scope: 'api.mark-received',
+        step: 'receipt.lookup.done',
+        verbose: true,
+        data: {
+          paymentId,
+          receiptId,
+          receiptLookupMs: receiptTimer.ms(),
+        },
+      });
 
       // Obtener información del pago para calcular fecha del próximo pago y período
+      const paymentLookupTimer = withTimer();
       const payment = await prisma.monthlyPayment.findUnique({
         where: { id: paymentId },
         include: {
@@ -88,11 +174,23 @@ export async function POST(
           }
         }
       });
+      logStep({
+        correlationId,
+        scope: 'api.mark-received',
+        step: 'payment.lookup.done',
+        verbose: true,
+        data: {
+          paymentId,
+          found: Boolean(payment),
+          paymentLookupMs: paymentLookupTimer.ms(),
+        },
+      });
 
       if (payment && payment.period) {
         // Obtener el día de corte de la clase específica (15 o 30)
         let cutoffDay = 30; // Default
         if (payment.classId) {
+          const cutoffLookupTimer = withTimer();
           const enrollment = await prisma.classEnrollment.findFirst({
             where: {
               studentId: payment.studentId,
@@ -102,6 +200,18 @@ export async function POST(
             select: { paymentCutoffDay: true }
           });
           cutoffDay = enrollment?.paymentCutoffDay || 30;
+          logStep({
+            correlationId,
+            scope: 'api.mark-received',
+            step: 'cutoff.lookup.done',
+            verbose: true,
+            data: {
+              paymentId,
+              classId: payment.classId,
+              cutoffDay,
+              cutoffLookupMs: cutoffLookupTimer.ms(),
+            },
+          });
         }
 
         // Calcular el período correcto para el concepto basado en el día de corte
@@ -111,6 +221,19 @@ export async function POST(
           payment.period.month
         );
         periodName = periodInfo.periodName;
+        logStep({
+          correlationId,
+          scope: 'api.mark-received',
+          step: 'period.calculate.done',
+          verbose: true,
+          data: {
+            paymentId,
+            cutoffDay,
+            year: payment.period.year,
+            month: payment.period.month,
+            periodName,
+          },
+        });
 
         // Calcular fecha del próximo pago
         const currentDate = new Date(payment.period.year, payment.period.month - 1, 1);
@@ -118,11 +241,25 @@ export async function POST(
         nextMonth.setMonth(nextMonth.getMonth() + 1);
 
         // Buscar si ya existe un período para el próximo mes
+        const nextPeriodLookupTimer = withTimer();
         const nextPeriod = await prisma.paymentPeriod.findFirst({
           where: {
             year: nextMonth.getFullYear(),
             month: nextMonth.getMonth() + 1,
             isActive: true,
+          },
+        });
+        logStep({
+          correlationId,
+          scope: 'api.mark-received',
+          step: 'nextPeriod.lookup.done',
+          verbose: true,
+          data: {
+            paymentId,
+            nextYear: nextMonth.getFullYear(),
+            nextMonth: nextMonth.getMonth() + 1,
+            found: Boolean(nextPeriod),
+            nextPeriodLookupMs: nextPeriodLookupTimer.ms(),
           },
         });
 
@@ -141,13 +278,44 @@ export async function POST(
             day: 'numeric'
           });
         }
+
+        logStep({
+          correlationId,
+          scope: 'api.mark-received',
+          step: 'nextPaymentDate.calculate.done',
+          verbose: true,
+          data: { paymentId, nextPaymentDate, cutoffDay },
+        });
       }
     } catch (receiptError) {
-      console.error('Error buscando recibo o calculando fechas:', receiptError);
+      logStep({
+        correlationId,
+        scope: 'api.mark-received',
+        step: 'receipt_or_dates.error',
+        level: 'error',
+        data: {
+          paymentId,
+          elapsedMs: t.ms(),
+          error: receiptError instanceof Error ? { name: receiptError.name, message: receiptError.message, stack: receiptError.stack } : receiptError,
+        },
+      });
       // Continuar sin recibo
     }
 
-    return NextResponse.json({
+    logStep({
+      correlationId,
+      scope: 'api.mark-received',
+      step: 'response.ok',
+      verbose: true,
+      data: {
+        paymentId,
+        receiptId,
+        hasReceiptUrl: Boolean(receiptUrl),
+        totalMs: t.ms(),
+      },
+    });
+
+    const res = NextResponse.json({
       success: true,
       message: 'Pago marcado como recibido exitosamente',
       payment: updatedPayment,
@@ -156,9 +324,20 @@ export async function POST(
       nextPaymentDate,
       periodName
     });
+    res.headers.set('x-correlation-id', correlationId);
+    return res;
 
   } catch (error) {
-    console.error('Error marcando pago como recibido:', error);
+    logStep({
+      correlationId,
+      scope: 'api.mark-received',
+      step: 'handler.error',
+      level: 'error',
+      data: {
+        elapsedMs: t.ms(),
+        error: error instanceof Error ? { name: error.name, message: error.message, stack: error.stack } : error,
+      },
+    });
     
     if (error instanceof Error) {
       if (error.message === 'Pago no encontrado') {

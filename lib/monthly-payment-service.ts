@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { whatsappService } from "@/lib/whatsapp-service";
 import { DigitalReceiptService } from "@/lib/digital-receipt-service";
 import { calculatePaymentPeriodForConcept } from '@/lib/period-calculator';
+import { logStep, withTimer } from "@/lib/ops-logger";
 
 export class MonthlyPaymentService {
   // ========== CONFIGURACIÓN DE MENSUALIDADES ==========
@@ -612,6 +613,7 @@ export class MonthlyPaymentService {
       additionalDebt?: number;
       discount?: number;
       markedBy: string;
+      correlationId?: string;
       additionalPayment?: {
         type: "ENROLLMENT";
         amount: number;
@@ -619,9 +621,28 @@ export class MonthlyPaymentService {
       };
     }
   ) {
+    const correlationId = data.correlationId || `payment-${paymentId}`;
+    const t = withTimer();
+    logStep({
+      correlationId,
+      scope: "monthlyPaymentService.markPaymentAsReceived",
+      step: "start",
+      verbose: true,
+      data: {
+        paymentId,
+        paymentMethod: data.paymentMethod,
+        hasReceivedAmount: typeof data.receivedAmount !== "undefined",
+        hasAdditionalDebt: typeof data.additionalDebt !== "undefined",
+        hasDiscount: typeof data.discount !== "undefined",
+        hasAdditionalPayment: typeof data.additionalPayment !== "undefined",
+        markedBy: data.markedBy,
+      },
+    });
+
     // ═══════════════════════════════════════════════════════════════
     // FASE 1: Lecturas y validaciones (fuera de la transacción)
     // ═══════════════════════════════════════════════════════════════
+    const readTimer = withTimer();
     const payment = await prisma.monthlyPayment.findUnique({
       where: { id: paymentId },
       include: { 
@@ -631,6 +652,20 @@ export class MonthlyPaymentService {
         danceClass: {
           select: { id: true, name: true, sport: true }
         }
+      },
+    });
+    logStep({
+      correlationId,
+      scope: "monthlyPaymentService.markPaymentAsReceived",
+      step: "db.payment.findUnique.done",
+      verbose: true,
+      data: {
+        paymentId,
+        found: Boolean(payment),
+        ms: readTimer.ms(),
+        status: payment?.status,
+        classId: payment?.classId ?? null,
+        studentId: payment?.studentId ?? null,
       },
     });
 
@@ -648,19 +683,47 @@ export class MonthlyPaymentService {
     const effectiveExpectedAmount = Math.max(0, baseAmount - discountAmount);
 
     if (discountAmount > 0) {
-      console.log(`💰 Descuento a aplicar: $${discountAmount.toLocaleString()}. Nuevo monto esperado: $${effectiveExpectedAmount.toLocaleString()}`);
+      // noisy console log removed; structured logs cover amounts
     }
     
     const receivedAmount = data.receivedAmount || effectiveExpectedAmount;
     const isPartialPayment = receivedAmount < effectiveExpectedAmount;
     const newStatus: "PAID" | "PARTIAL_PAID" = isPartialPayment ? "PARTIAL_PAID" : "PAID";
+    logStep({
+      correlationId,
+      scope: "monthlyPaymentService.markPaymentAsReceived",
+      step: "amounts.calculated",
+      verbose: true,
+      data: {
+        paymentId,
+        baseAmount,
+        discountAmount,
+        effectiveExpectedAmount,
+        receivedAmount,
+        isPartialPayment,
+        newStatus,
+      },
+    });
 
     // Resolver la clase para el pago restante (si aplica)
     let danceClassForRemaining: { id: number; name: string; sport: string } | null = payment.danceClass;
     if (!danceClassForRemaining && payment.classId != null) {
+      const classTimer = withTimer();
       danceClassForRemaining = await prisma.danceClass.findUnique({
         where: { id: payment.classId },
         select: { id: true, name: true, sport: true },
+      });
+      logStep({
+        correlationId,
+        scope: "monthlyPaymentService.markPaymentAsReceived",
+        step: "db.danceClass.findUnique.done",
+        verbose: true,
+        data: {
+          paymentId,
+          classId: payment.classId,
+          found: Boolean(danceClassForRemaining),
+          ms: classTimer.ms(),
+        },
       });
     }
     if (isPartialPayment && !danceClassForRemaining) {
@@ -682,6 +745,7 @@ export class MonthlyPaymentService {
     if (isPartialPayment && danceClassForRemaining) {
       const remainingAmount = effectiveExpectedAmount - receivedAmount;
 
+      const feeTimer = withTimer();
       const feeConfig = await prisma.monthlyFeeConfig.findFirst({
         where: { 
           isActive: true,
@@ -689,17 +753,44 @@ export class MonthlyPaymentService {
         },
         orderBy: { id: 'desc' },
       });
+      logStep({
+        correlationId,
+        scope: "monthlyPaymentService.markPaymentAsReceived",
+        step: "db.monthlyFeeConfig.findFirst.done",
+        verbose: true,
+        data: {
+          paymentId,
+          sport: danceClassForRemaining.sport,
+          found: Boolean(feeConfig),
+          ms: feeTimer.ms(),
+        },
+      });
 
       if (!feeConfig) {
         throw new Error(`No hay configuración de mensualidad activa para ${danceClassForRemaining.sport}`);
       }
 
+      const enrollmentTimer = withTimer();
       const enrollment = await prisma.classEnrollment.findFirst({
         where: {
           studentId: payment.studentId,
           classId: danceClassForRemaining.id,
           isActive: true
         }
+      });
+      logStep({
+        correlationId,
+        scope: "monthlyPaymentService.markPaymentAsReceived",
+        step: "db.classEnrollment.findFirst.done",
+        verbose: true,
+        data: {
+          paymentId,
+          classId: danceClassForRemaining.id,
+          studentId: payment.studentId,
+          found: Boolean(enrollment),
+          cutoffDay: enrollment?.paymentCutoffDay || 30,
+          ms: enrollmentTimer.ms(),
+        },
       });
 
       const dueDate = this.calculateDueDate(
@@ -714,12 +805,33 @@ export class MonthlyPaymentService {
         cutoffDay: enrollment?.paymentCutoffDay || 30,
       };
 
-      console.log("🔄 Creando pago pendiente para saldo restante...");
-      console.log(`📊 Monto esperado: $${effectiveExpectedAmount.toLocaleString()}, Monto recibido: $${receivedAmount.toLocaleString()}, Saldo restante: $${remainingAmount.toLocaleString()}`);
+      // noisy console logs removed; structured logs cover remainingPayment.prepared
+      logStep({
+        correlationId,
+        scope: "monthlyPaymentService.markPaymentAsReceived",
+        step: "remainingPayment.prepared",
+        verbose: true,
+        data: {
+          paymentId,
+          remainingAmount,
+          dueDate: dueDate.toISOString(),
+          cutoffDay: remainingPaymentData.cutoffDay,
+        },
+      });
     }
 
     // Pre-calcular notas del pago
     const notes = this.generatePaymentNotes(data, receivedAmount, effectiveExpectedAmount, baseAmount, isPartialPayment);
+    logStep({
+      correlationId,
+      scope: "monthlyPaymentService.markPaymentAsReceived",
+      step: "notes.generated",
+      verbose: true,
+      data: {
+        paymentId,
+        notes,
+      },
+    });
 
     // ═══════════════════════════════════════════════════════════════
     // FASE 2: Escrituras atómicas (dentro de la transacción)
@@ -728,9 +840,17 @@ export class MonthlyPaymentService {
     // ═══════════════════════════════════════════════════════════════
     let remainingPaymentId: number | null = null;
 
+    const txTimer = withTimer();
     const updatedPayment = await prisma.$transaction(async (tx) => {
       // Aplicar descuento si corresponde
       if (discountAmount > 0) {
+        logStep({
+          correlationId,
+          scope: "monthlyPaymentService.markPaymentAsReceived",
+          step: "tx.applyDiscount.update_expectedAmount",
+          verbose: true,
+          data: { paymentId, effectiveExpectedAmount },
+        });
         await tx.monthlyPayment.update({
           where: { id: paymentId },
           data: { expectedAmount: effectiveExpectedAmount }
@@ -748,6 +868,13 @@ export class MonthlyPaymentService {
           notes,
         },
       });
+      logStep({
+        correlationId,
+        scope: "monthlyPaymentService.markPaymentAsReceived",
+        step: "tx.monthlyPayment.update.done",
+        verbose: true,
+        data: { paymentId, newStatus },
+      });
 
       // Crear pago pendiente por el saldo restante (solo si es parcial)
       if (isPartialPayment && danceClassForRemaining && remainingPaymentData) {
@@ -764,13 +891,30 @@ export class MonthlyPaymentService {
           },
         });
         remainingPaymentId = remainingPayment.id;
-        console.log(`✅ Pago pendiente creado (ID: ${remainingPayment.id}) por $${remainingPaymentData.remainingAmount.toLocaleString()} para clase ${danceClassForRemaining.name}`);
+        logStep({
+          correlationId,
+          scope: "monthlyPaymentService.markPaymentAsReceived",
+          step: "tx.remainingPayment.create.done",
+          verbose: true,
+          data: {
+            paymentId,
+            remainingPaymentId,
+            remainingAmount: remainingPaymentData.remainingAmount,
+          },
+        });
       }
 
       return updated;
     }, {
       maxWait: 10000,
       timeout: 15000,
+    });
+    logStep({
+      correlationId,
+      scope: "monthlyPaymentService.markPaymentAsReceived",
+      step: "tx.done",
+      verbose: true,
+      data: { paymentId, ms: txTimer.ms() },
     });
 
     // ═══════════════════════════════════════════════════════════════
@@ -780,7 +924,14 @@ export class MonthlyPaymentService {
     // ═══════════════════════════════════════════════════════════════
     if (isPartialPayment && remainingPaymentData) {
       if (!remainingPaymentId) {
-        console.error("❌ CRITICAL: La transacción se completó pero no se registró el ID del pago restante.");
+        // keep structured error (avoid duplicate console.error noise)
+        logStep({
+          correlationId,
+          scope: "monthlyPaymentService.markPaymentAsReceived",
+          step: "verify.remainingPaymentId.missing",
+          level: "error",
+          data: { paymentId, elapsedMs: t.ms() },
+        });
         await prisma.monthlyPayment.update({
           where: { id: paymentId },
           data: {
@@ -804,7 +955,14 @@ export class MonthlyPaymentService {
       });
 
       if (!verification) {
-        console.error(`❌ CRITICAL: Pago restante ID ${remainingPaymentId} no encontrado después de la transacción.`);
+        // keep structured error (avoid duplicate console.error noise)
+        logStep({
+          correlationId,
+          scope: "monthlyPaymentService.markPaymentAsReceived",
+          step: "verify.remainingPayment.notFound",
+          level: "error",
+          data: { paymentId, remainingPaymentId, elapsedMs: t.ms() },
+        });
         await prisma.monthlyPayment.update({
           where: { id: paymentId },
           data: {
@@ -822,7 +980,18 @@ export class MonthlyPaymentService {
         );
       }
 
-      console.log(`✅ Verificación exitosa: pago restante ID ${verification.id} confirmado ($${verification.expectedAmount.toLocaleString()}, status: ${verification.status})`);
+      logStep({
+        correlationId,
+        scope: "monthlyPaymentService.markPaymentAsReceived",
+        step: "verify.remainingPayment.ok",
+        verbose: true,
+        data: {
+          paymentId,
+          remainingPaymentId: verification.id,
+          remainingExpectedAmount: verification.expectedAmount,
+          remainingStatus: verification.status,
+        },
+      });
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -831,27 +1000,64 @@ export class MonthlyPaymentService {
     // ═══════════════════════════════════════════════════════════════
 
     // Actualizar estado de deuda del estudiante
-    console.log("🔄 Actualizando estado de deuda del estudiante...");
+    const debtTimer = withTimer();
     await this.updateStudentDebtStatus(payment.studentId);
-    console.log("✅ Estado de deuda actualizado");
+    logStep({
+      correlationId,
+      scope: "monthlyPaymentService.markPaymentAsReceived",
+      step: "studentDebtStatus.updated",
+      verbose: true,
+      data: { paymentId, studentId: payment.studentId, ms: debtTimer.ms() },
+    });
 
     // Procesar pago adicional si se especificó
     let additionalPayments = undefined;
     if (data.additionalPayment) {
-      console.log("🔄 Procesando pago adicional...");
+      const additionalTimer = withTimer();
       await this.processAdditionalPayment(payment.student, data.additionalPayment, data.markedBy, payment.classId || 0);
       additionalPayments = [data.additionalPayment];
-      console.log("✅ Pago adicional procesado");
+      logStep({
+        correlationId,
+        scope: "monthlyPaymentService.markPaymentAsReceived",
+        step: "additionalPayment.processed",
+        verbose: true,
+        data: { paymentId, ms: additionalTimer.ms(), additionalPayment: data.additionalPayment },
+      });
     }
 
     // Generar recibo digital (con manejo de errores)
     try {
-      await this.generateDigitalReceipt(paymentId, receivedAmount, data.paymentMethod, data.markedBy, additionalPayments);
+      const receiptTimer = withTimer();
+      await this.generateDigitalReceipt(paymentId, receivedAmount, data.paymentMethod, data.markedBy, additionalPayments, correlationId);
+      logStep({
+        correlationId,
+        scope: "monthlyPaymentService.markPaymentAsReceived",
+        step: "digitalReceipt.generated",
+        verbose: true,
+        data: { paymentId, ms: receiptTimer.ms() },
+      });
     } catch (receiptError) {
-      console.error("❌ Error generando recibo digital (continuando):", receiptError);
+      logStep({
+        correlationId,
+        scope: "monthlyPaymentService.markPaymentAsReceived",
+        step: "digitalReceipt.error",
+        level: "error",
+        data: {
+          paymentId,
+          elapsedMs: t.ms(),
+          error: receiptError instanceof Error ? { name: receiptError.name, message: receiptError.message, stack: receiptError.stack } : receiptError,
+        },
+      });
     }
 
-    console.log(`✅ Pago marcado como recibido: ${payment.student.name} - $${receivedAmount.toLocaleString()}`);
+    // noisy console log removed; structured logs cover completion
+    logStep({
+      correlationId,
+      scope: "monthlyPaymentService.markPaymentAsReceived",
+      step: "done",
+      verbose: true,
+      data: { paymentId, totalMs: t.ms() },
+    });
 
     return updatedPayment;
   }
@@ -1907,7 +2113,8 @@ export class MonthlyPaymentService {
       type: string;
       amount: number;
       paymentMethod?: string;
-    }[]
+    }[],
+    correlationId?: string
   ) {
     try {
       console.log("📄 Generando recibo digital...");
@@ -1916,7 +2123,8 @@ export class MonthlyPaymentService {
         paidAmount,
         paymentMethod,
         reviewedBy,
-        additionalPayments
+        additionalPayments,
+        { correlationId: correlationId || `payment-${monthlyPaymentId}` }
       );
 
       console.log(`✅ Recibo digital generado: ${receiptData.receiptNumber}`);

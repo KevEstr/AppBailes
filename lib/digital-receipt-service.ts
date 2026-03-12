@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { calculatePaymentPeriodForConcept } from '@/lib/period-calculator';
+import { logStep, withTimer } from '@/lib/ops-logger';
 
 export interface ReceiptData {
   id: number;
@@ -34,9 +35,50 @@ export class DigitalReceiptService {
       amount: number;
       paymentMethod?: string;
     }[]
+  ): Promise<ReceiptData>;
+  static async createReceiptFromMonthlyPayment(
+    monthlyPaymentId: number,
+    approvedAmount: number,
+    paymentMethod: string,
+    reviewedBy: string,
+    additionalPayments: {
+      type: string;
+      amount: number;
+      paymentMethod?: string;
+    }[] | undefined,
+    opts: { correlationId?: string } | undefined
+  ): Promise<ReceiptData>;
+  static async createReceiptFromMonthlyPayment(
+    monthlyPaymentId: number,
+    approvedAmount: number,
+    paymentMethod: string,
+    reviewedBy: string,
+    additionalPayments?: {
+      type: string;
+      amount: number;
+      paymentMethod?: string;
+    }[],
+    opts?: { correlationId?: string }
   ): Promise<ReceiptData> {
+    const correlationId = opts?.correlationId || `payment-${monthlyPaymentId}`;
+    const t = withTimer();
     try {
+      logStep({
+        correlationId,
+        scope: 'DigitalReceiptService.createReceiptFromMonthlyPayment',
+        step: 'start',
+        verbose: true,
+        data: {
+          monthlyPaymentId,
+          approvedAmount,
+          paymentMethod,
+          reviewedBy,
+          additionalPaymentsCount: additionalPayments?.length || 0,
+        },
+      });
+
       // Obtener información del pago mensual
+      const paymentLookupTimer = withTimer();
       const monthlyPayment = await prisma.monthlyPayment.findUnique({
         where: { id: monthlyPaymentId },
         include: {
@@ -57,6 +99,19 @@ export class DigitalReceiptService {
           period: true
         }
       });
+      logStep({
+        correlationId,
+        scope: 'DigitalReceiptService.createReceiptFromMonthlyPayment',
+        step: 'db.monthlyPayment.findUnique.done',
+        verbose: true,
+        data: {
+          monthlyPaymentId,
+          found: Boolean(monthlyPayment),
+          ms: paymentLookupTimer.ms(),
+          classId: monthlyPayment?.classId ?? null,
+          studentId: monthlyPayment?.studentId ?? null,
+        },
+      });
 
       if (!monthlyPayment) {
         throw new Error('Pago mensual no encontrado');
@@ -69,16 +124,26 @@ export class DigitalReceiptService {
       if (monthlyPayment.classId && monthlyPayment.danceClass) {
         // Usar el deporte de la clase específica del pago
         sport = monthlyPayment.danceClass.sport as 'DANCE' | 'VOLLEYBALL';
-        console.log(`📋 Usando deporte de la clase específica del pago: ${sport} (ClassId: ${monthlyPayment.classId})`);
       } else {
         // Fallback: usar el deporte principal del estudiante
         sport = this.pickPrimarySport(monthlyPayment.student);
-        console.log(`📋 Usando deporte principal del estudiante (fallback): ${sport}`);
       }
+      logStep({
+        correlationId,
+        scope: 'DigitalReceiptService.createReceiptFromMonthlyPayment',
+        step: 'sport.resolved',
+        verbose: true,
+        data: {
+          monthlyPaymentId,
+          classId: monthlyPayment.classId ?? null,
+          sport: sport || null,
+        },
+      });
 
       // Obtener el día de corte de la clase específica
       let cutoffDay = 30; // Default
       if (monthlyPayment.classId) {
+        const cutoffTimer = withTimer();
         const enrollment = await prisma.classEnrollment.findFirst({
           where: {
             studentId: monthlyPayment.studentId,
@@ -88,13 +153,19 @@ export class DigitalReceiptService {
           select: { paymentCutoffDay: true }
         });
         cutoffDay = enrollment?.paymentCutoffDay || 30;
+        logStep({
+          correlationId,
+          scope: 'DigitalReceiptService.createReceiptFromMonthlyPayment',
+          step: 'cutoff.lookup.done',
+          verbose: true,
+          data: {
+            monthlyPaymentId,
+            classId: monthlyPayment.classId,
+            cutoffDay,
+            ms: cutoffTimer.ms(),
+          },
+        });
       }
-      
-      console.log(`🔍 Debug para recibo digital pago ${monthlyPayment.id}:`);
-      console.log(`   - StudentId: ${monthlyPayment.studentId}`);
-      console.log(`   - ClassId: ${monthlyPayment.classId}`);
-      console.log(`   - Deporte del recibo: ${sport || 'No determinado'}`);
-      console.log(`   - CutoffDay calculado: ${cutoffDay}`);
       
       // Calcular el período correcto para el concepto basado en el día de corte
       const periodInfo = calculatePaymentPeriodForConcept(
@@ -102,8 +173,19 @@ export class DigitalReceiptService {
         monthlyPayment.period.year, 
         monthlyPayment.period.month
       );
-      console.log(`   - Payment period reference: ${monthlyPayment.period.year}-${monthlyPayment.period.month}`);
-      console.log(`   - Period info calculated: ${periodInfo.periodName}`);
+      logStep({
+        correlationId,
+        scope: 'DigitalReceiptService.createReceiptFromMonthlyPayment',
+        step: 'period.calculate.done',
+        verbose: true,
+        data: {
+          monthlyPaymentId,
+          cutoffDay,
+          year: monthlyPayment.period.year,
+          month: monthlyPayment.period.month,
+          periodName: periodInfo.periodName,
+        },
+      });
 
       // Calcular fecha del próximo pago basada en el día de corte de la clase
       // Calcular directamente sin conversiones de zona horaria para evitar desfases
@@ -122,21 +204,28 @@ export class DigitalReceiptService {
       const year = nextYear.toString();
       const nextPaymentDateFormatted = `${day}/${month}/${year}`;
       
-      console.log(`🔍 Debug cálculo de fecha próximo pago:`);
-      console.log(`   - Period year: ${monthlyPayment.period.year}`);
-      console.log(`   - Period month: ${monthlyPayment.period.month}`);
-      console.log(`   - Next year: ${nextYear}, Next month: ${nextMonthNum}, Cutoff day: ${cutoffDay}`);
-      console.log(`   - Next payment date (formatted): ${nextPaymentDateFormatted}`);
-
       // Calcular monto total (mensualidad + adicional, sin detalles)
       const additionalTotal = (additionalPayments || []).reduce((sum, payment) => sum + payment.amount, 0);
       const totalAmount = approvedAmount + additionalTotal;
+      logStep({
+        correlationId,
+        scope: 'DigitalReceiptService.createReceiptFromMonthlyPayment',
+        step: 'amounts.totalCalculated',
+        verbose: true,
+        data: {
+          monthlyPaymentId,
+          approvedAmount,
+          additionalTotal,
+          totalAmount,
+        },
+      });
 
       // Crear recibo en la base de datos con el total (mensualidad + adicional)
       const additionalMethodNote = (additionalPayments && additionalPayments[0]?.paymentMethod)
         ? ` | Inscripción vía ${this.getPaymentMethodLabel(additionalPayments[0].paymentMethod)}`
         : '';
 
+      const receiptCreateTimer = withTimer();
       const receipt = await prisma.receipt.create({
         data: {
           studentId: monthlyPayment.studentId,
@@ -147,6 +236,17 @@ export class DigitalReceiptService {
           notes: `Pago aprobado por ${reviewedBy}${additionalMethodNote}`,
           whatsappSent: false, // Se enviará por separado
         }
+      });
+      logStep({
+        correlationId,
+        scope: 'DigitalReceiptService.createReceiptFromMonthlyPayment',
+        step: 'db.receipt.create.done',
+        verbose: true,
+        data: {
+          monthlyPaymentId,
+          receiptId: receipt.id,
+          ms: receiptCreateTimer.ms(),
+        },
       });
 
       // Formatear datos del recibo
@@ -167,10 +267,34 @@ export class DigitalReceiptService {
         sport: sport || 'DANCE' // Default a DANCE si no se puede determinar
       };
 
+      logStep({
+        correlationId,
+        scope: 'DigitalReceiptService.createReceiptFromMonthlyPayment',
+        step: 'done',
+        verbose: true,
+        data: {
+          monthlyPaymentId,
+          receiptId: receiptData.id,
+          receiptNumber: receiptData.receiptNumber,
+          receiptUrl: this.generateReceiptUrl(receiptData.id),
+          totalMs: t.ms(),
+        },
+      });
+
       return receiptData;
 
     } catch (error) {
-      console.error('Error creando recibo digital:', error);
+      logStep({
+        correlationId,
+        scope: 'DigitalReceiptService.createReceiptFromMonthlyPayment',
+        step: 'error',
+        level: 'error',
+        data: {
+          monthlyPaymentId,
+          elapsedMs: t.ms(),
+          error: error instanceof Error ? { name: error.name, message: error.message, stack: error.stack } : error,
+        },
+      });
       throw error;
     }
   }
@@ -238,7 +362,6 @@ export class DigitalReceiptService {
       return receiptData;
 
     } catch (error) {
-      console.error('Error creando recibo digital:', error);
       throw error;
     }
   }
@@ -283,11 +406,9 @@ export class DigitalReceiptService {
       if (receipt.monthlyPayment?.classId && receipt.monthlyPayment?.danceClass) {
         // Usar el deporte de la clase específica del pago mensual
         sport = receipt.monthlyPayment.danceClass.sport as 'DANCE' | 'VOLLEYBALL';
-        console.log(`📋 Recibo ${receiptId}: Usando deporte de la clase específica del pago: ${sport} (ClassId: ${receipt.monthlyPayment.classId})`);
       } else {
         // Fallback: usar el deporte principal del estudiante
         sport = this.pickPrimarySport(receipt.student);
-        console.log(`📋 Recibo ${receiptId}: Usando deporte principal del estudiante (fallback): ${sport}`);
       }
 
       const receiptData: ReceiptData = {
@@ -308,7 +429,6 @@ export class DigitalReceiptService {
       return receiptData;
 
     } catch (error) {
-      console.error('Error obteniendo recibo:', error);
       throw error;
     }
   }

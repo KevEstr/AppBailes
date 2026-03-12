@@ -26,9 +26,6 @@ export function calculatePeriodForClass(
   const currentMonth = referenceDate.getMonth() + 1;
   const currentDay = referenceDate.getDate();
   
-  console.log(`📅 calculatePeriodForClass - Input: cutoffDay=${cutoffDay}, referenceDate=${referenceDate.toISOString()}`);
-  console.log(`📅 calculatePeriodForClass - Current: day=${currentDay}, month=${currentMonth}, year=${currentYear}`);
-  
   // Determinar el mes del período basado en el día de corte
   let periodMonth = currentMonth;
   let periodYear = currentYear;
@@ -66,8 +63,6 @@ export function calculatePeriodForClass(
   
   const periodName = `${cutoffDay} de ${monthNames[periodMonth - 1]} ${periodYear}`;
   
-  console.log(`📅 calculatePeriodForClass - Period calculated: ${periodName}`);
-  
   // Calcular fecha de vencimiento basada en el día de corte
   let dueMonth = periodMonth;
   let dueYear = periodYear;
@@ -88,8 +83,6 @@ export function calculatePeriodForClass(
   const dueDay = cutoffDay === 15 ? 20 : 5;
   const dueDate = new Date(dueYear, dueMonth - 1, dueDay).toLocaleDateString('es-ES');
   
-  console.log(`📅 calculatePeriodForClass - Due date calculated: ${dueDate} (day ${dueDay} of month ${dueMonth})`);
-  
   const result = {
     periodName,
     dueDate,
@@ -97,8 +90,6 @@ export function calculatePeriodForClass(
     periodMonth,
     periodYear
   };
-  
-  console.log(`📅 calculatePeriodForClass - Final result:`, result);
   
   return result;
 }
@@ -130,8 +121,6 @@ export function calculatePaymentPeriodForConcept(
   paymentPeriodYear: number,
   paymentPeriodMonth: number
 ): PeriodInfo {
-  console.log(`📅 calculatePaymentPeriodForConcept - Input: cutoffDay=${cutoffDay}, paymentPeriod=${paymentPeriodYear}-${paymentPeriodMonth}`);
-  
   let conceptMonth = paymentPeriodMonth;
   let conceptYear = paymentPeriodYear;
   
@@ -160,8 +149,6 @@ export function calculatePaymentPeriodForConcept(
   
   const periodName = `${monthNames[conceptMonth - 1]} ${conceptYear}`;
   
-  console.log(`📅 calculatePaymentPeriodForConcept - Concept calculated: ${periodName}`);
-  
   // Calcular fecha de vencimiento basada en el día de corte
   let dueMonth = conceptMonth;
   let dueYear = conceptYear;
@@ -182,8 +169,6 @@ export function calculatePaymentPeriodForConcept(
   const dueDay = cutoffDay === 15 ? 20 : 5;
   const dueDate = new Date(dueYear, dueMonth - 1, dueDay).toLocaleDateString('es-ES');
   
-  console.log(`📅 calculatePaymentPeriodForConcept - Due date calculated: ${dueDate} (day ${dueDay} of month ${dueMonth})`);
-  
   const result = {
     periodName,
     dueDate,
@@ -191,8 +176,6 @@ export function calculatePaymentPeriodForConcept(
     periodMonth: conceptMonth,
     periodYear: conceptYear
   };
-  
-  console.log(`📅 calculatePaymentPeriodForConcept - Final result:`, result);
   
   return result;
 }
