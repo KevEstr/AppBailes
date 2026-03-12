@@ -14,6 +14,10 @@ export async function POST(
   const correlationId = createCorrelationId(request.headers.get('x-request-id'));
   const t = withTimer();
 
+  // Parsear paymentId fuera del try para que esté disponible en el catch
+  const { paymentId: paymentIdParam } = await params;
+  const paymentId = Number.parseInt(paymentIdParam);
+
   try {
     logStep({
       correlationId,
@@ -42,9 +46,6 @@ export async function POST(
       );
     }
 
-    const { paymentId: paymentIdParam } = await params;
-    const paymentId = Number.parseInt(paymentIdParam);
-    
     if (Number.isNaN(paymentId)) {
       logStep({
         correlationId,
@@ -100,7 +101,7 @@ export async function POST(
     });
 
     const serviceTimer = withTimer();
-    const updatedPayment = await monthlyPaymentService.markPaymentAsReceived(paymentId, {
+    const serviceResult = await monthlyPaymentService.markPaymentAsReceived(paymentId, {
       paymentMethod,
       receivedAmount,
       additionalDebt,
@@ -109,6 +110,7 @@ export async function POST(
       additionalPayment,
       correlationId
     });
+    const updatedPayment = serviceResult.payment;
     logStep({
       correlationId,
       scope: 'api.mark-received',
@@ -117,108 +119,34 @@ export async function POST(
       data: {
         paymentId,
         serviceMs: serviceTimer.ms(),
-        status: (updatedPayment as any)?.status,
+        status: updatedPayment?.status,
+        receiptId: serviceResult.receiptId,
       },
     });
 
-    // Buscar el recibo más reciente generado para este pago
-    let receiptId = null;
-    let receiptUrl = null;
-    let nextPaymentDate = null;
-    let periodName = null;
-    
-    try {
-      const receiptTimer = withTimer();
-      const receipt = await prisma.receipt.findFirst({
-        where: {
-          monthlyPaymentId: paymentId,
-        },
-        orderBy: {
-          createdAt: 'desc',
-        },
-      });
+    // El recibo ya viene creado atómicamente desde el servicio
+    let receiptId: number | null = serviceResult.receiptId;
+    let receiptUrl: string | null = receiptId ? DigitalReceiptService.generateReceiptUrl(receiptId) : null;
+    let nextPaymentDate: string | null = null;
+    let periodName: string | null = null;
 
-      if (receipt) {
-        receiptId = receipt.id;
-        receiptUrl = DigitalReceiptService.generateReceiptUrl(receipt.id);
-      }
+    try {
+      const sourcePayment = serviceResult.sourcePayment;
+      const cutoffDay = serviceResult.cutoffDay;
+
       logStep({
         correlationId,
         scope: 'api.mark-received',
         step: 'receipt.lookup.done',
         verbose: true,
-        data: {
-          paymentId,
-          receiptId,
-          receiptLookupMs: receiptTimer.ms(),
-        },
+        data: { paymentId, receiptId, fromService: true },
       });
 
-      // Obtener información del pago para calcular fecha del próximo pago y período
-      const paymentLookupTimer = withTimer();
-      const payment = await prisma.monthlyPayment.findUnique({
-        where: { id: paymentId },
-        include: {
-          period: true,
-          student: {
-            include: {
-              classEnrollments: {
-                where: { isActive: true },
-                include: {
-                  danceClass: {
-                    select: { id: true, sport: true }
-                  }
-                }
-              }
-            }
-          }
-        }
-      });
-      logStep({
-        correlationId,
-        scope: 'api.mark-received',
-        step: 'payment.lookup.done',
-        verbose: true,
-        data: {
-          paymentId,
-          found: Boolean(payment),
-          paymentLookupMs: paymentLookupTimer.ms(),
-        },
-      });
-
-      if (payment && payment.period) {
-        // Obtener el día de corte de la clase específica (15 o 30)
-        let cutoffDay = 30; // Default
-        if (payment.classId) {
-          const cutoffLookupTimer = withTimer();
-          const enrollment = await prisma.classEnrollment.findFirst({
-            where: {
-              studentId: payment.studentId,
-              classId: payment.classId,
-              isActive: true
-            },
-            select: { paymentCutoffDay: true }
-          });
-          cutoffDay = enrollment?.paymentCutoffDay || 30;
-          logStep({
-            correlationId,
-            scope: 'api.mark-received',
-            step: 'cutoff.lookup.done',
-            verbose: true,
-            data: {
-              paymentId,
-              classId: payment.classId,
-              cutoffDay,
-              cutoffLookupMs: cutoffLookupTimer.ms(),
-            },
-          });
-        }
-
-        // Calcular el período correcto para el concepto basado en el día de corte
+      if (sourcePayment?.period) {
         const periodInfo = calculatePaymentPeriodForConcept(
           cutoffDay,
-          payment.period.year,
-          payment.period.month
+          sourcePayment.period.year,
+          sourcePayment.period.month
         );
         periodName = periodInfo.periodName;
         logStep({
@@ -229,18 +157,16 @@ export async function POST(
           data: {
             paymentId,
             cutoffDay,
-            year: payment.period.year,
-            month: payment.period.month,
+            year: sourcePayment.period.year,
+            month: sourcePayment.period.month,
             periodName,
           },
         });
 
-        // Calcular fecha del próximo pago
-        const currentDate = new Date(payment.period.year, payment.period.month - 1, 1);
+        const currentDate = new Date(sourcePayment.period.year, sourcePayment.period.month - 1, 1);
         const nextMonth = new Date(currentDate);
         nextMonth.setMonth(nextMonth.getMonth() + 1);
 
-        // Buscar si ya existe un período para el próximo mes
         const nextPeriodLookupTimer = withTimer();
         const nextPeriod = await prisma.paymentPeriod.findFirst({
           where: {
@@ -287,19 +213,18 @@ export async function POST(
           data: { paymentId, nextPaymentDate, cutoffDay },
         });
       }
-    } catch (receiptError) {
+    } catch (datesError) {
       logStep({
         correlationId,
         scope: 'api.mark-received',
-        step: 'receipt_or_dates.error',
-        level: 'error',
+        step: 'dates.error',
+        level: 'warn',
         data: {
           paymentId,
           elapsedMs: t.ms(),
-          error: receiptError instanceof Error ? { name: receiptError.name, message: receiptError.message, stack: receiptError.stack } : receiptError,
+          error: datesError instanceof Error ? { name: datesError.name, message: datesError.message } : datesError,
         },
       });
-      // Continuar sin recibo
     }
 
     logStep({
@@ -347,10 +272,22 @@ export async function POST(
         );
       }
       if (error.message === 'El pago ya ha sido marcado como recibido') {
-        return NextResponse.json(
-          { message: 'El pago ya ha sido marcado como recibido' },
+        // Intentar recuperar el recibo existente para que el frontend lo muestre
+        const existingReceipt = await prisma.receipt.findFirst({
+          where: { monthlyPaymentId: paymentId },
+          orderBy: { createdAt: 'desc' },
+          select: { id: true },
+        }).catch(() => null);
+        const res = NextResponse.json(
+          {
+            message: 'El pago ya ha sido marcado como recibido',
+            existingReceiptId: existingReceipt?.id ?? null,
+            existingReceiptUrl: existingReceipt ? DigitalReceiptService.generateReceiptUrl(existingReceipt.id) : null,
+          },
           { status: 400 }
         );
+        res.headers.set('x-correlation-id', correlationId);
+        return res;
       }
       if (error.message.startsWith('No se puede registrar el adeudo:')) {
         return NextResponse.json(

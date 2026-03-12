@@ -833,12 +833,40 @@ export class MonthlyPaymentService {
       },
     });
 
+    // Pre-calcular datos para el recibo (sin queries adicionales si ya son parciales)
+    const additionalTotal = data.additionalPayment ? data.additionalPayment.amount : 0;
+    const totalAmountForReceipt = receivedAmount + additionalTotal;
+    const additionalMethodNote = data.additionalPayment?.paymentMethod
+      ? ` | Inscripción vía ${data.additionalPayment.paymentMethod}`
+      : '';
+    const RECEIPT_METHOD_MAP: Record<string, 'CASH' | 'TRANSFER' | 'CARD'> = {
+      CASH: 'CASH', TRANSFER: 'TRANSFER', CARD: 'CARD',
+      efectivo: 'CASH', transferencia: 'TRANSFER', tarjeta: 'CARD',
+      nequi: 'TRANSFER', daviplata: 'TRANSFER',
+    };
+    const mappedPaymentMethod: 'CASH' | 'TRANSFER' | 'CARD' = RECEIPT_METHOD_MAP[data.paymentMethod] || 'CASH';
+
+    // Obtener día de corte (necesario para el API route al calcular nextPaymentDate)
+    let enrollmentCutoffDay = 30;
+    if (payment.classId) {
+      if (isPartialPayment && remainingPaymentData) {
+        enrollmentCutoffDay = remainingPaymentData.cutoffDay;
+      } else {
+        const cutoffEnrollment = await prisma.classEnrollment.findFirst({
+          where: { studentId: payment.studentId, classId: payment.classId, isActive: true },
+          select: { paymentCutoffDay: true },
+        });
+        enrollmentCutoffDay = cutoffEnrollment?.paymentCutoffDay || 30;
+      }
+    }
+
     // ═══════════════════════════════════════════════════════════════
     // FASE 2: Escrituras atómicas (dentro de la transacción)
-    // Si falla cualquier paso, todo se revierte automáticamente.
-    // Timeout amplio para evitar rollbacks silenciosos.
+    // Incluye: actualización del pago + pago restante (si parcial) + RECIBO.
+    // Todo o nada: si falla cualquier paso, se revierte todo.
     // ═══════════════════════════════════════════════════════════════
     let remainingPaymentId: number | null = null;
+    let createdReceiptId: number | null = null;
 
     const txTimer = withTimer();
     const updatedPayment = await prisma.$transaction(async (tx) => {
@@ -904,10 +932,31 @@ export class MonthlyPaymentService {
         });
       }
 
+      // Crear recibo atómicamente con el pago (si falla, todo revierte)
+      const receipt = await tx.receipt.create({
+        data: {
+          studentId: payment.studentId,
+          monthlyPaymentId: paymentId,
+          amount: totalAmountForReceipt,
+          concept: '',
+          paymentMethod: mappedPaymentMethod,
+          notes: `Pago aprobado por ${data.markedBy}${additionalMethodNote}`,
+          whatsappSent: false,
+        },
+      });
+      createdReceiptId = receipt.id;
+      logStep({
+        correlationId,
+        scope: "monthlyPaymentService.markPaymentAsReceived",
+        step: "tx.receipt.create.done",
+        verbose: true,
+        data: { paymentId, receiptId: receipt.id },
+      });
+
       return updated;
     }, {
       maxWait: 10000,
-      timeout: 15000,
+      timeout: 20000,
     });
     logStep({
       correlationId,
@@ -924,7 +973,6 @@ export class MonthlyPaymentService {
     // ═══════════════════════════════════════════════════════════════
     if (isPartialPayment && remainingPaymentData) {
       if (!remainingPaymentId) {
-        // keep structured error (avoid duplicate console.error noise)
         logStep({
           correlationId,
           scope: "monthlyPaymentService.markPaymentAsReceived",
@@ -943,6 +991,9 @@ export class MonthlyPaymentService {
             expectedAmount: payment.expectedAmount,
           },
         });
+        if (createdReceiptId) {
+          await prisma.receipt.delete({ where: { id: createdReceiptId } }).catch(() => {});
+        }
         throw new Error(
           `Error crítico: el pago parcial fue registrado pero el pago pendiente por $${remainingPaymentData.remainingAmount.toLocaleString()} no se creó. ` +
           `La operación ha sido revertida. Por favor intente de nuevo.`
@@ -955,7 +1006,6 @@ export class MonthlyPaymentService {
       });
 
       if (!verification) {
-        // keep structured error (avoid duplicate console.error noise)
         logStep({
           correlationId,
           scope: "monthlyPaymentService.markPaymentAsReceived",
@@ -974,6 +1024,9 @@ export class MonthlyPaymentService {
             expectedAmount: payment.expectedAmount,
           },
         });
+        if (createdReceiptId) {
+          await prisma.receipt.delete({ where: { id: createdReceiptId } }).catch(() => {});
+        }
         throw new Error(
           `Error crítico: el pago pendiente por $${remainingPaymentData.remainingAmount.toLocaleString()} no se encontró en la base de datos después de la transacción. ` +
           `La operación ha sido revertida. Por favor intente de nuevo.`
@@ -1011,11 +1064,9 @@ export class MonthlyPaymentService {
     });
 
     // Procesar pago adicional si se especificó
-    let additionalPayments = undefined;
     if (data.additionalPayment) {
       const additionalTimer = withTimer();
       await this.processAdditionalPayment(payment.student, data.additionalPayment, data.markedBy, payment.classId || 0);
-      additionalPayments = [data.additionalPayment];
       logStep({
         correlationId,
         scope: "monthlyPaymentService.markPaymentAsReceived",
@@ -1025,41 +1076,20 @@ export class MonthlyPaymentService {
       });
     }
 
-    // Generar recibo digital (con manejo de errores)
-    try {
-      const receiptTimer = withTimer();
-      await this.generateDigitalReceipt(paymentId, receivedAmount, data.paymentMethod, data.markedBy, additionalPayments, correlationId);
-      logStep({
-        correlationId,
-        scope: "monthlyPaymentService.markPaymentAsReceived",
-        step: "digitalReceipt.generated",
-        verbose: true,
-        data: { paymentId, ms: receiptTimer.ms() },
-      });
-    } catch (receiptError) {
-      logStep({
-        correlationId,
-        scope: "monthlyPaymentService.markPaymentAsReceived",
-        step: "digitalReceipt.error",
-        level: "error",
-        data: {
-          paymentId,
-          elapsedMs: t.ms(),
-          error: receiptError instanceof Error ? { name: receiptError.name, message: receiptError.message, stack: receiptError.stack } : receiptError,
-        },
-      });
-    }
-
-    // noisy console log removed; structured logs cover completion
     logStep({
       correlationId,
       scope: "monthlyPaymentService.markPaymentAsReceived",
       step: "done",
       verbose: true,
-      data: { paymentId, totalMs: t.ms() },
+      data: { paymentId, receiptId: createdReceiptId, totalMs: t.ms() },
     });
 
-    return updatedPayment;
+    return {
+      payment: updatedPayment,
+      receiptId: createdReceiptId,
+      sourcePayment: payment,
+      cutoffDay: enrollmentCutoffDay,
+    };
   }
 
   /**

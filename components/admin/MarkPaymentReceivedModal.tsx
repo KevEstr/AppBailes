@@ -278,6 +278,36 @@ export function MarkPaymentReceivedModal({
       const data = await response.json();
 
       if (!response.ok) {
+        // Caso especial: el pago ya fue marcado (puede ocurrir cuando la red es lenta y
+        // el cliente agota el tiempo pero el servidor completó la operación)
+        if (data.message === 'El pago ya ha sido marcado como recibido') {
+          if (data.existingReceiptId && onReceiptGenerated && payment) {
+            onReceiptGenerated({
+              payment: {
+                id: payment.id,
+                student: { name: payment.student.name, phone: payment.student.phone },
+                expectedAmount: payment.expectedAmount,
+                period: payment.period,
+                class: null,
+              },
+              receiptId: data.existingReceiptId,
+              receivedAmount: receivedAmount ? Number.parseFloat(receivedAmount) : baseAmount,
+              paymentMethod: paymentMethod,
+              isPartialPayment: false,
+              remainingAmount: 0,
+              nextPaymentDate: undefined,
+            });
+            return;
+          }
+          toast({
+            title: 'Pago ya registrado',
+            description: 'Este pago ya fue marcado como recibido anteriormente. Actualizando lista...',
+            variant: 'default',
+          });
+          onSuccess();
+          onClose();
+          return;
+        }
         throw new Error(data.message || 'Error al marcar el pago');
       }
 
