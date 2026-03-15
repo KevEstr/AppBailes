@@ -3,6 +3,28 @@ import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/nextauth"
 import { prisma } from "@/lib/prisma"
 
+// Cache en memoria para idempotencia: evita ventas duplicadas cuando el cliente
+// reintenta por timeout de red pero el servidor ya procesó la venta.
+const idempotencyCache = new Map<string, { saleId: number; createdAt: number }>();
+
+function getCachedSaleId(key: string): number | null {
+  const entry = idempotencyCache.get(key);
+  if (!entry) return null;
+  if (Date.now() - entry.createdAt > 60_000) {
+    idempotencyCache.delete(key);
+    return null;
+  }
+  return entry.saleId;
+}
+
+function cacheSaleId(key: string, saleId: number) {
+  // Limpiar entradas vencidas (>60s) al guardar una nueva
+  for (const [k, v] of idempotencyCache) {
+    if (Date.now() - v.createdAt > 60_000) idempotencyCache.delete(k);
+  }
+  idempotencyCache.set(key, { saleId, createdAt: Date.now() });
+}
+
 // Función auxiliar para procesar venta de producto simple
 async function processSimpleProductSale(tx: any, product: any, quantity: number, saleId: number, userId: number) {
   const currentStock = product.stock || 0
@@ -79,11 +101,12 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { productId, quantity, paymentMethod, notes } = body as { 
+    const { productId, quantity, paymentMethod, notes, idempotencyKey } = body as { 
       productId?: number; 
       quantity?: number; 
       paymentMethod?: string;
-      notes?: string 
+      notes?: string;
+      idempotencyKey?: string;
     }
 
     if (!productId || !quantity || quantity <= 0) {
@@ -97,6 +120,21 @@ export async function POST(request: NextRequest) {
     const userId = parseInt(session.user.id, 10)
     if (!userId || Number.isNaN(userId)) {
       return NextResponse.json({ error: "Usuario inválido" }, { status: 400 })
+    }
+
+    // Verificar idempotencia: si ya procesamos esta clave, devolver la venta existente
+    if (idempotencyKey) {
+      const cachedId = getCachedSaleId(idempotencyKey);
+      if (cachedId) {
+        const existingSale = await prisma.productSale.findUnique({ where: { id: cachedId } }).catch(() => null);
+        if (existingSale) {
+          return NextResponse.json({
+            success: true,
+            sale: existingSale,
+            message: "Venta registrada exitosamente",
+          });
+        }
+      }
     }
 
     const result = await prisma.$transaction(async (tx) => {
@@ -144,6 +182,10 @@ export async function POST(request: NextRequest) {
 
       return { sale }
     })
+
+    if (idempotencyKey) {
+      cacheSaleId(idempotencyKey, result.sale.id);
+    }
 
     return NextResponse.json({
       success: true,

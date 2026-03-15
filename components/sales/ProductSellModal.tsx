@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useEffect, useMemo, useState } from "react"
+import React, { useEffect, useMemo, useRef, useState } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
@@ -31,9 +31,13 @@ export function ProductSellModal({ isOpen, product, onClose, onCompleted }: Prod
   const [paymentMethod, setPaymentMethod] = useState<string>("CASH")
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
+  // Clave única por apertura del modal para idempotencia: si la red falla y el usuario
+  // reintenta desde el mismo modal, el servidor detecta la clave repetida y no duplica la venta.
+  const saleKeyRef = useRef<string | null>(null)
 
   useEffect(() => {
     if (isOpen) {
+      saleKeyRef.current = crypto.randomUUID()
       setQuantity(1)
       setPaymentMethod("CASH")
       setShowConfirm(false)
@@ -102,24 +106,39 @@ export function ProductSellModal({ isOpen, product, onClose, onCompleted }: Prod
 
   const confirmSale = async () => {
     if (!product) return
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 25_000)
     try {
       setIsSubmitting(true)
       const res = await fetch("/api/product-sales", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ productId: product.id, quantity, paymentMethod }),
+        body: JSON.stringify({
+          productId: product.id,
+          quantity,
+          paymentMethod,
+          idempotencyKey: saleKeyRef.current,
+        }),
+        signal: controller.signal,
       })
+      clearTimeout(timeoutId)
       const data = await res.json()
       if (!res.ok || !data.success) {
-        toast({ title: "Error", description: data.error || "No se pudo registrar la venta" })
+        toast({ title: "Error", description: data.error || "No se pudo registrar la venta", variant: "destructive" })
         return
       }
       toast({ title: "Venta registrada", description: `${quantity} x ${product.name} por ${formatPrice(total)} - ${getPaymentMethodLabel(paymentMethod)}` })
       onCompleted?.()
       onClose()
     } catch (error) {
-      console.error("Error completing sale:", error)
-      toast({ title: "Error de red", description: "No se pudo completar la operación" })
+      clearTimeout(timeoutId)
+      const isTimeout = error instanceof DOMException && error.name === "AbortError"
+      toast({
+        title: isTimeout ? "Conexión lenta" : "Error de red",
+        description: "La conexión fue interrumpida. Puedes intentar de nuevo — si la venta ya fue registrada, no se duplicará.",
+        variant: "destructive",
+        duration: 8000,
+      })
     } finally {
       setIsSubmitting(false)
       setShowConfirm(false)
