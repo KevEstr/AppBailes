@@ -49,7 +49,7 @@ const nextConfig = {
   
   // ⚡ OPTIMIZACIÓN DE COMPILACIÓN
   compiler: {
-    removeConsole: process.env.NODE_ENV === 'production',
+    removeConsole: false,
   },
 
   // ⚡ EXTERNAL PACKAGES (CORREGIDO)
