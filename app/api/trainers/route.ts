@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { PrismaClient } from '@prisma/client'
+import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/nextauth"
-
-const prisma = new PrismaClient()
 
 const createTrainerSchema = z.object({
   name: z.string().min(1, 'El nombre es requerido'),
@@ -75,8 +73,6 @@ export async function GET(request: NextRequest) {
       success: false,
       error: 'Error interno del servidor'
     }, { status: 500 })
-  } finally {
-    await prisma.$disconnect()
   }
 }
 

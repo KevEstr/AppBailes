@@ -1,11 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { PrismaClient } from '@prisma/client'
+import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { ClassSessionService } from '@/lib/class-session-service'
-
-const prisma = new PrismaClient()
 
 // 🕐 FUNCIÓN AUXILIAR: Detectar conflictos de horario
 function hasTimeConflict(schedule1: any, schedule2: any): boolean {
@@ -325,8 +323,6 @@ export async function POST(request: NextRequest) {
       { error: 'Error interno del servidor' },
       { status: 500 }
     )
-  } finally {
-    await prisma.$disconnect()
   }
 }
 

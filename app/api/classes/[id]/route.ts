@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { PrismaClient } from '@prisma/client'
-
-const prisma = new PrismaClient()
+import { prisma } from '@/lib/prisma'
 
 // DELETE - Eliminar clase específica por ID (soft delete)
 export async function DELETE(
@@ -72,8 +70,6 @@ export async function DELETE(
       success: false,
       error: 'Error interno del servidor'
     }, { status: 500 })
-  } finally {
-    await prisma.$disconnect()
   }
 }
 
@@ -165,7 +161,5 @@ export async function GET(
       success: false,
       error: 'Error interno del servidor'
     }, { status: 500 })
-  } finally {
-    await prisma.$disconnect()
   }
 } 

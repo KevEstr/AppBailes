@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { PrismaClient } from '@prisma/client'
+import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
-
-const prisma = new PrismaClient()
 
 const createLocationSchema = z.object({
   name: z.string().min(1, 'El nombre es requerido'),
@@ -43,8 +41,6 @@ export async function GET() {
       success: false,
       error: 'Error interno del servidor'
     }, { status: 500 })
-  } finally {
-    await prisma.$disconnect()
   }
 }
 
@@ -102,7 +98,5 @@ export async function POST(request: NextRequest) {
       success: false,
       error: 'Error interno del servidor'
     }, { status: 500 })
-  } finally {
-    await prisma.$disconnect()
   }
 } 
