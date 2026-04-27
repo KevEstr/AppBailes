@@ -1157,6 +1157,16 @@ export default function ClassAttendanceTikTok() {
   };
 
   const finishAttendance = async () => {
+    if (!attendancePhotoUrl) {
+      toast({
+        title: "Foto grupal requerida",
+        description: "Debes añadir la foto grupal antes de finalizar",
+        variant: "destructive",
+      });
+      setShowPhotoRequiredForFinishModal(true);
+      return;
+    }
+
     // Si estamos finalizando una modificación de sesión ya completada, registrar asistencia solo si es TEACHER o ADMIN
     // Prevenir llamadas duplicadas usando el flag de procesamiento
     if (currentSession?.status === "COMPLETED" && sessionAlreadyCompleted && (userSession?.user?.role === "TEACHER" || userSession?.user?.role === "ADMIN") && !isRegisteringTrainerAttendance) {
