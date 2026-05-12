@@ -623,29 +623,15 @@ export default function ClassAttendanceTikTok() {
         const canRetake = canRetakeAttendanceNow(session);
         setCanRetakeAttendance(canRetake);
 
-        // Cargar foto grupal existente (si ya fue subida antes para esta clase y día)
+        // Cargar foto grupal a nivel de sesión (fuente autoritativa sin filtrar por userId)
         try {
-          const todayStr = nowLocal.toISOString().split("T")[0];
-          const userIdParam = userSession?.user?.id
-            ? `&userId=${userSession.user.id}`
-            : "";
           const photoResponse = await fetch(
-            `/api/trainer-attendance?classId=${session.danceClass.id}&date=${todayStr}&limit=1${userIdParam}`
+            `/api/class-sessions/${session.id}/photo-status`
           );
           const photoData = await photoResponse.json();
-          console.log('🧭 DEBUG foto de asistencia:', photoData);     
-          if (
-            photoResponse.ok &&
-            photoData.success &&
-            Array.isArray(photoData.attendances) &&
-            photoData.attendances.length > 0
-          ) {
-            const existingAttendance = photoData.attendances[0] as any;
-            if (existingAttendance.photoUrl) {
-              setAttendancePhotoUrl(existingAttendance.photoUrl as string);
-            } else {
-              setAttendancePhotoUrl(null);
-            }
+          console.log('🧭 DEBUG foto de asistencia:', photoData);
+          if (photoResponse.ok && photoData.success && photoData.hasPhoto) {
+            setAttendancePhotoUrl(photoData.photoUrl as string);
           } else {
             setAttendancePhotoUrl(null);
           }
@@ -921,6 +907,24 @@ export default function ClassAttendanceTikTok() {
     loadActiveClasses(false);
   };
 
+  const fetchSessionPhotoStatus = useCallback(async (): Promise<{
+    hasPhoto: boolean;
+    photoUrl: string | null;
+  } | null> => {
+    if (!currentSession) return null;
+    try {
+      const res = await fetch(
+        `/api/class-sessions/${currentSession.id}/photo-status`
+      );
+      const data = await res.json();
+      if (!res.ok || !data.success) return null;
+      return { hasPhoto: Boolean(data.hasPhoto), photoUrl: data.photoUrl ?? null };
+    } catch (err) {
+      console.warn("photo-status fetch failed:", err);
+      return null;
+    }
+  }, [currentSession]);
+
   const handleAttendanceAndNext = async (studentId: string, status: Student["status"]) => {
     await markAttendance(studentId, status as string);
 
@@ -951,14 +955,20 @@ export default function ClassAttendanceTikTok() {
         s.id === studentId ? { ...s, status } : s
       );
 
-        // Si aún no hay foto grupal, guardar el estado pendiente y pedirla
-      if (!attendancePhotoUrl) {
+      const photoStatus = await fetchSessionPhotoStatus();
+      const authoritativePhotoUrl = photoStatus?.hasPhoto ? photoStatus.photoUrl : null;
+
+      if (authoritativePhotoUrl !== attendancePhotoUrl) {
+        setAttendancePhotoUrl(authoritativePhotoUrl);
+      }
+
+      if (!authoritativePhotoUrl) {
         setPendingCompletionStudents(updatedStudents);
-          setShowPhotoRequiredForFinishModal(true);
+        setShowPhotoRequiredForFinishModal(true);
         return;
       }
 
-      await completeSession(updatedStudents, attendancePhotoUrl);
+      await completeSession(updatedStudents, authoritativePhotoUrl);
       setPendingCompletionStudents(null);
     }
   };
@@ -1016,7 +1026,7 @@ export default function ClassAttendanceTikTok() {
       if (response.ok && data.success) {
         setAttendancePhotoUrl(data.url);
         toast({
-          title: "📸 Foto subida",
+          title: "Foto subida",
           description: "La foto grupal de asistencia se guardó correctamente.",
         });
 
@@ -1034,17 +1044,21 @@ export default function ClassAttendanceTikTok() {
           setFinishAfterPhoto(false);
         }
       } else {
+        const errorMsg =
+          data?.code === "NO_SESSION_FOR_PHOTO"
+            ? "No hay una sesión activa hoy para esta clase. Contacta al administrador."
+            : data?.error || "No se pudo subir la foto.";
         toast({
-          title: "❌ Error al subir foto",
-          description: data.error || "No se pudo subir la foto.",
+          title: "Error al subir foto",
+          description: errorMsg,
           variant: "destructive",
         });
       }
     } catch (error) {
       console.error("Error uploading attendance photo:", error);
       toast({
-        title: "❌ Error de conexión",
-        description: "No se pudo conectar con el servidor.",
+        title: "Error de conexión",
+        description: "No se pudo conectar con el servidor. El progreso se conservó.",
         variant: "destructive",
       });
     } finally {
@@ -1081,6 +1095,16 @@ export default function ClassAttendanceTikTok() {
           }),
         }
       );
+
+      if (response.status === 409) {
+        const data = await response.json().catch(() => ({}));
+        if (data?.code === "GROUP_PHOTO_REQUIRED") {
+          setAttendancePhotoUrl(null);
+          setPendingCompletionStudents(finalStudents ?? students);
+          setShowPhotoRequiredForFinishModal(true);
+          return;
+        }
+      }
 
       if (!response.ok) {
         throw new Error("Error al completar sesión");
@@ -2278,9 +2302,15 @@ export default function ClassAttendanceTikTok() {
               {currentSession?.status === "COMPLETED" && (
                 <div className="px-3 pb-3">
                   <Button
-                    onClick={() => {
-                      // Validar que exista foto grupal antes de finalizar modificación
-                      if (!attendancePhotoUrl) {
+                    onClick={async () => {
+                      const photoStatus = await fetchSessionPhotoStatus();
+                      const authoritativePhotoUrl = photoStatus?.hasPhoto
+                        ? photoStatus.photoUrl
+                        : null;
+                      if (authoritativePhotoUrl !== attendancePhotoUrl) {
+                        setAttendancePhotoUrl(authoritativePhotoUrl);
+                      }
+                      if (!authoritativePhotoUrl) {
                         setFinishAfterPhoto(true);
                         setShowPhotoRequiredForFinishModal(true);
                         return;
@@ -2351,7 +2381,15 @@ export default function ClassAttendanceTikTok() {
         open={showPhotoRequiredForFinishModal}
         onOpenChange={(open) => {
           setShowPhotoRequiredForFinishModal(open);
-          if (!open) setFinishAfterPhoto(false);
+          if (!open) {
+            setFinishAfterPhoto(false);
+            setPendingCompletionStudents(null);
+            toast({
+              title: "Foto grupal pendiente",
+              description:
+                "El progreso de asistencia se conservó. Pulsa 'Finalizar' para reintentar subir la foto.",
+            });
+          }
         }}
       >
         <DialogContent className="bg-gray-800 border-gray-700 text-white max-w-md">
@@ -2379,6 +2417,7 @@ export default function ClassAttendanceTikTok() {
               onClick={() => {
                 setShowPhotoRequiredForFinishModal(false);
                 setFinishAfterPhoto(false);
+                setPendingCompletionStudents(null);
               }}
             >
               Cancelar

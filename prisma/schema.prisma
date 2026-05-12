@@ -153,17 +153,20 @@ model ClassSchedule {
 }
 
 model ClassSession {
-  id          Int           @id @default(autoincrement())
-  classId     Int
-  date        DateTime      @db.Timestamptz
-  startTime   DateTime      @db.Timestamptz
-  endTime     DateTime      @db.Timestamptz
-  status      SessionStatus @default(SCHEDULED)
-  notes       String?
-  createdAt   DateTime      @default(now()) @db.Timestamptz
-  updatedAt   DateTime      @updatedAt @db.Timestamptz
-  attendances Attendance[]
-  danceClass  DanceClass    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  id                Int           @id @default(autoincrement())
+  classId           Int
+  date              DateTime      @db.Timestamptz
+  startTime         DateTime      @db.Timestamptz
+  endTime           DateTime      @db.Timestamptz
+  status            SessionStatus @default(SCHEDULED)
+  notes             String?
+  photoUrl          String?
+  photoUploadedAt   DateTime?     @db.Timestamptz
+  photoUploadedById Int?
+  createdAt         DateTime      @default(now()) @db.Timestamptz
+  updatedAt         DateTime      @updatedAt @db.Timestamptz
+  attendances       Attendance[]
+  danceClass        DanceClass    @relation(fields: [classId], references: [id], onDelete: Cascade)
 
   @@map("class_sessions")
 }

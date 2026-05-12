@@ -322,6 +322,31 @@ export async function PUT(request: NextRequest) {
     const body = await request.json();
     const validatedData = updateSessionSchema.parse(body);
 
+    if (validatedData.status === "COMPLETED") {
+      const existing = await prisma.classSession.findUnique({
+        where: { id: sessionId },
+        select: { status: true, photoUrl: true },
+      });
+
+      if (!existing) {
+        return NextResponse.json(
+          { success: false, error: "Sesión no encontrada" },
+          { status: 404 }
+        );
+      }
+
+      if (existing.status !== "COMPLETED" && !existing.photoUrl) {
+        return NextResponse.json(
+          {
+            success: false,
+            code: "GROUP_PHOTO_REQUIRED",
+            error: "La sesión requiere foto grupal para completarse",
+          },
+          { status: 409 }
+        );
+      }
+    }
+
     const updatedSession = await prisma.classSession.update({
       where: { id: sessionId },
       data: validatedData,
