@@ -1,139 +1,127 @@
 /**
- * Este archivo ya no es necesario.
- * La base de datos maneja automáticamente la zona horaria de Colombia.
- * Use date-fns directamente para formatear fechas según necesite.
+ * Utilidades de formato de fechas ancladas a America/Bogota.
+ *
+ * Los campos DateTime @db.Timestamptz de Prisma se serializan como UTC (sufijo "Z"),
+ * por lo tanto el formato para UI debe convertir explicitamente a la zona horaria
+ * de Colombia. Antes se parseaba el string ignorando el offset, lo cual producia
+ * desfases cuando la hora cruzaba medianoche UTC.
  */
 
-// Si necesita formatear fechas, use:
-// import { format, parseISO } from 'date-fns';
-// import { es } from 'date-fns/locale';
-// format(fecha, 'dd/MM/yyyy HH:mm', { locale: es }); 
+const BOGOTA_TZ = "America/Bogota"
 
-// ================================================
-// Utilidades para manejo de fechas sin conversión de zona horaria
-// ================================================
+function toDate(input: string | Date): Date | null {
+	if (input instanceof Date) return Number.isNaN(input.getTime()) ? null : input
+	const d = new Date(input)
+	return Number.isNaN(d.getTime()) ? null : d
+}
 
-/**
- * Extrae los componentes de fecha y hora de un string ISO sin crear objetos Date
- * para evitar conversiones automáticas de zona horaria
- */
-export function parseISODateString(dateString: string): {
-  year: string;
-  month: string;
-  day: string;
-  hours: string;
-  minutes: string;
-  seconds?: string;
-} | null {
-  try {
-    // Manejar diferentes formatos de fecha ISO
-    let cleanDateString = dateString;
-    
-    // Si tiene zona horaria, removerla para extraer solo la fecha/hora
-    if (dateString.includes('T')) {
-      const [dateTimePart] = dateString.split('T');
-      const timePart = dateString.split('T')[1]?.split(/[+-]/)[0]; // Remover zona horaria
-      cleanDateString = `${dateTimePart}T${timePart}`;
-    }
-    
-    // Parsear la fecha ISO
-    const [datePart, timePart] = cleanDateString.split('T');
-    if (!datePart) return null;
-    
-    const [year, month, day] = datePart.split('-');
-    if (!timePart) {
-      return { year, month, day, hours: '00', minutes: '00' };
-    }
-    
-    const [hours, minutes, seconds] = timePart.split(':');
-    return {
-      year,
-      month,
-      day,
-      hours,
-      minutes,
-      seconds
-    };
-  } catch (error) {
-    console.error('Error parsing ISO date string:', error);
-    return null;
-  }
+function formatParts(
+	date: Date,
+	options: Intl.DateTimeFormatOptions,
+): Record<string, string> {
+	const fmt = new Intl.DateTimeFormat("es-CO", { timeZone: BOGOTA_TZ, ...options })
+	const parts: Record<string, string> = {}
+	for (const p of fmt.formatToParts(date)) {
+		if (p.type !== "literal") parts[p.type] = p.value
+	}
+	return parts
 }
 
 /**
- * Formatea una fecha ISO como DD/MM/YYYY HH:mm sin conversión de zona horaria
+ * DD/MM/YYYY HH:mm en zona Colombia.
  */
-export function formatDateWithoutTimezone(dateString: string): string {
-  const parsed = parseISODateString(dateString);
-  if (!parsed) return dateString;
-  
-  return `${parsed.day}/${parsed.month}/${parsed.year} ${parsed.hours}:${parsed.minutes}`;
+export function formatDateWithoutTimezone(dateString: string | Date): string {
+	const date = toDate(dateString)
+	if (!date) return String(dateString)
+	const p = formatParts(date, {
+		year: "numeric",
+		month: "2-digit",
+		day: "2-digit",
+		hour: "2-digit",
+		minute: "2-digit",
+		hour12: false,
+	})
+	return `${p.day}/${p.month}/${p.year} ${p.hour}:${p.minute}`
 }
 
 /**
- * Formatea una fecha ISO como DD/MM/YYYY sin conversión de zona horaria
+ * DD/MM/YYYY en zona Colombia.
  */
-export function formatDateOnlyWithoutTimezone(dateString: string): string {
-  const parsed = parseISODateString(dateString);
-  if (!parsed) return dateString;
-  
-  return `${parsed.day}/${parsed.month}/${parsed.year}`;
+export function formatDateOnlyWithoutTimezone(dateString: string | Date): string {
+	const date = toDate(dateString)
+	if (!date) return String(dateString)
+	const p = formatParts(date, {
+		year: "numeric",
+		month: "2-digit",
+		day: "2-digit",
+	})
+	return `${p.day}/${p.month}/${p.year}`
 }
 
 /**
- * Formatea una fecha ISO como "DD de MMMM de YYYY" en español sin conversión de zona horaria
+ * "D de mes de YYYY" en zona Colombia.
  */
-export function formatDateLongWithoutTimezone(dateString: string): string {
-  const parsed = parseISODateString(dateString);
-  if (!parsed) return dateString;
-  
-  const months = [
-    "enero", "febrero", "marzo", "abril", "mayo", "junio",
-    "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"
-  ];
-  
-  const monthName = months[parseInt(parsed.month) - 1];
-  return `${parsed.day} de ${monthName} de ${parsed.year}`;
+export function formatDateLongWithoutTimezone(dateString: string | Date): string {
+	const date = toDate(dateString)
+	if (!date) return String(dateString)
+	const p = formatParts(date, {
+		year: "numeric",
+		month: "long",
+		day: "numeric",
+	})
+	return `${p.day} de ${p.month} de ${p.year}`
 }
 
 /**
- * Formatea una fecha ISO como "DD MMM YYYY" sin conversión de zona horaria
+ * "D mes YYYY" corto en zona Colombia.
  */
-export function formatDateShortWithoutTimezone(dateString: string): string {
-  const parsed = parseISODateString(dateString);
-  if (!parsed) return dateString;
-  
-  const months = [
-    "ene", "feb", "mar", "abr", "may", "jun",
-    "jul", "ago", "sep", "oct", "nov", "dic"
-  ];
-  
-  const monthName = months[parseInt(parsed.month) - 1];
-  return `${parsed.day} ${monthName} ${parsed.year}`;
+export function formatDateShortWithoutTimezone(dateString: string | Date): string {
+	const date = toDate(dateString)
+	if (!date) return String(dateString)
+	const p = formatParts(date, {
+		year: "numeric",
+		month: "short",
+		day: "numeric",
+	})
+	return `${p.day} ${p.month.replace(".", "")} ${p.year}`
 }
 
 /**
- * Formatea solo la hora de una fecha ISO como HH:mm sin conversión de zona horaria
+ * HH:mm en zona Colombia.
  */
-export function formatTimeWithoutTimezone(dateString: string): string {
-  const parsed = parseISODateString(dateString);
-  if (!parsed) return dateString;
-  
-  return `${parsed.hours}:${parsed.minutes}`;
+export function formatTimeWithoutTimezone(dateString: string | Date): string {
+	const date = toDate(dateString)
+	if (!date) return String(dateString)
+	const p = formatParts(date, { hour: "2-digit", minute: "2-digit", hour12: false })
+	return `${p.hour}:${p.minute}`
 }
 
 /**
- * Convierte una fecha local a ISO string para envío al servidor
- * Asume que la fecha está en zona horaria local de Colombia
+ * "D de mes de YYYY, HH:mm" en zona Colombia. Uso principal: listado de asistencias.
+ */
+export function formatDateTimeBogota(dateString: string | Date): string {
+	const date = toDate(dateString)
+	if (!date) return String(dateString)
+	const p = formatParts(date, {
+		year: "numeric",
+		month: "long",
+		day: "numeric",
+		hour: "2-digit",
+		minute: "2-digit",
+		hour12: false,
+	})
+	return `${p.day} de ${p.month} de ${p.year}, ${p.hour}:${p.minute}`
+}
+
+/**
+ * Serializa una Date local como ISO con offset -05:00 (usado para enviar al servidor).
  */
 export function localDateToISOString(date: Date): string {
-  // Crear una fecha ISO en la zona horaria local sin conversión
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  const hours = String(date.getHours()).padStart(2, '0');
-  const minutes = String(date.getMinutes()).padStart(2, '0');
-  const seconds = String(date.getSeconds()).padStart(2, '0');
-  
-  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}.000-05:00`;
-} 
+	const year = date.getFullYear()
+	const month = String(date.getMonth() + 1).padStart(2, "0")
+	const day = String(date.getDate()).padStart(2, "0")
+	const hours = String(date.getHours()).padStart(2, "0")
+	const minutes = String(date.getMinutes()).padStart(2, "0")
+	const seconds = String(date.getSeconds()).padStart(2, "0")
+	return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}.000-05:00`
+}

@@ -20,7 +20,7 @@ import {
   Trophy,
   Camera,
 } from "lucide-react";
-import { formatDateLongWithoutTimezone, formatDateOnlyWithoutTimezone } from "@/lib/date-utils";
+import { formatDateLongWithoutTimezone, formatDateOnlyWithoutTimezone, formatDateTimeBogota } from "@/lib/date-utils";
 
 interface TrainerAttendanceDetail {
   id: number;
@@ -320,7 +320,7 @@ export function TrainerAttendanceDetailModal({
                             </div>
                             <div className="text-right">
                               <div className="text-sm font-semibold text-emerald-300">
-                                {formatDateLongWithoutTimezone(attendance.date)}
+                                {formatDateTimeBogota(attendance.date)}
                               </div>
                               <div className="text-xs text-gray-400">
                                 {formatDateOnlyWithoutTimezone(attendance.date)}
@@ -403,7 +403,7 @@ export function TrainerAttendanceDetailModal({
                             </div>
                             <div className="text-right">
                               <div className="text-sm font-semibold text-amber-300">
-                                {formatDateLongWithoutTimezone(attendance.date)}
+                                {formatDateTimeBogota(attendance.date)}
                               </div>
                               <div className="text-xs text-gray-400">
                                 {formatDateOnlyWithoutTimezone(attendance.date)}
@@ -486,7 +486,7 @@ export function TrainerAttendanceDetailModal({
                             </div>
                             <div className="text-right">
                               <div className="text-sm font-semibold text-red-300">
-                                {formatDateLongWithoutTimezone(attendance.date)}
+                                {formatDateTimeBogota(attendance.date)}
                               </div>
                               <div className="text-xs text-gray-400">
                                 {formatDateOnlyWithoutTimezone(attendance.date)}

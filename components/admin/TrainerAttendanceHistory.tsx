@@ -235,7 +235,8 @@ export default function TrainerAttendanceHistory() {
     const dataMap = new Map<string, { present: number; late: number; absent: number }>();
     
     attendances.forEach(att => {
-      const date = new Date(att.date).toLocaleDateString("es-ES", { 
+      const date = new Date(att.date).toLocaleDateString("es-CO", { 
+        timeZone: "America/Bogota",
         weekday: 'short', 
         day: '2-digit', 
         month: '2-digit' 
@@ -376,7 +377,8 @@ export default function TrainerAttendanceHistory() {
     const dataMap = new Map<string, { present: number; late: number; absent: number }>();
     
     attendances.forEach(att => {
-      const date = new Date(att.match.matchDate).toLocaleDateString("es-ES", { 
+      const date = new Date(att.match.matchDate).toLocaleDateString("es-CO", { 
+        timeZone: "America/Bogota",
         weekday: 'short', 
         day: '2-digit', 
         month: '2-digit' 
@@ -503,13 +505,15 @@ export default function TrainerAttendanceHistory() {
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString("es-ES", {
+    return date.toLocaleDateString("es-CO", {
+      timeZone: "America/Bogota",
       weekday: "long",
       year: "numeric",
       month: "long",
       day: "numeric",
       hour: "2-digit",
       minute: "2-digit",
+      hour12: false,
     });
   };
 
