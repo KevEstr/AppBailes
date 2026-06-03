@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { whatsappService } from './whatsapp-service';
 import { MonthlyPaymentService } from './monthly-payment-service';
+import { resolveCutoffDay } from '@/lib/payment-utils';
 
 export class PaymentSchedulerService {
   private static instance: PaymentSchedulerService;
@@ -390,15 +391,7 @@ export class PaymentSchedulerService {
           for (const payment of paymentsToSend) {
             let cutoffDay = 30; // Default
             if (payment.classId) {
-              const enrollment = await prisma.classEnrollment.findFirst({
-                where: {
-                  studentId: payment.studentId,
-                  classId: payment.classId,
-                  isActive: true
-                },
-                select: { paymentCutoffDay: true }
-              });
-              cutoffDay = enrollment?.paymentCutoffDay || 30;
+              cutoffDay = await resolveCutoffDay(payment.studentId, payment.classId);
             }
             
             if (cutoffDay === wanted) {

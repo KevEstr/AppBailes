@@ -12,7 +12,7 @@ import { prisma } from '@/lib/prisma'
  */
 export async function GET(
 	_request: NextRequest,
-	{ params }: { params: { id: string } },
+	{ params }: { params: Promise<{ id: string }> },
 ) {
 	try {
 		const session = await getServerSession(authOptions)
@@ -31,7 +31,8 @@ export async function GET(
 			)
 		}
 
-		const sessionId = Number.parseInt(params.id)
+		const { id } = await params
+		const sessionId = Number.parseInt(id)
 		if (!sessionId || sessionId <= 0) {
 			return NextResponse.json(
 				{ success: false, error: 'ID de sesión inválido' },

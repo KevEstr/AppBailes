@@ -3,6 +3,7 @@ import { whatsappService } from "@/lib/whatsapp-service";
 import { DigitalReceiptService } from "@/lib/digital-receipt-service";
 import { calculatePaymentPeriodForConcept } from '@/lib/period-calculator';
 import { logStep, withTimer } from "@/lib/ops-logger";
+import { resolveCutoffDay, buildCutoffDaysMap, cutoffMapKey } from '@/lib/payment-utils';
 
 export class MonthlyPaymentService {
   // ========== CONFIGURACIÓN DE MENSUALIDADES ==========
@@ -147,14 +148,28 @@ export class MonthlyPaymentService {
     for (const student of activeStudents) {
       // Procesar cada clase inscrita del estudiante
       for (const enrollment of student.classEnrollments) {
-        // Verificar si ya existe un pago para este estudiante, clase y período
-        const existingPayment = await prisma.monthlyPayment.findFirst({
+        // Selección idempotente del pago existente para la terna (studentId, classId, periodId).
+        // findFirst sin orden ni filtro de status podía devolver la fila PENDING del saldo
+        // restante de un parcial y reescribirla con la mensualidad completa. Para evitarlo se
+        // prioriza la fila "principal" (PAID/PARTIAL_PAID) y nunca el restante derivado de un parcial.
+        const paymentsForTriple = await prisma.monthlyPayment.findMany({
           where: {
             studentId: student.id,
             classId: enrollment.danceClass.id,
             periodId: period.id,
           },
         });
+
+        const principalPayment = paymentsForTriple.find(
+          (p) => p.status === "PAID" || p.status === "PARTIAL_PAID"
+        );
+        const pendingPayment = paymentsForTriple.find(
+          (p) => p.status === "PENDING" || p.status === "OVERDUE"
+        );
+
+        // Cuando la terna ya tiene un principal saldado/parcial, su restante PENDING NO debe
+        // usarse como existingPayment a reescribir; se selecciona el principal de forma determinista.
+        const existingPayment = principalPayment ?? pendingPayment ?? paymentsForTriple[0] ?? null;
 
         // Resolver la tarifa para esta clase específica
         const { amount, feeConfigId } = await this.resolveClassFeeAndConfig(student, enrollment);
@@ -219,7 +234,7 @@ export class MonthlyPaymentService {
 
             // Calcular nueva fecha de vencimiento basada en el día de corte de la nueva clase
             const dueDate = this.calculateDueDate(
-              enrollment.paymentCutoffDay || 30, 
+              enrollment.paymentCutoffDay ?? 30, 
               { year: period.year, month: period.month }
             );
 
@@ -230,7 +245,7 @@ export class MonthlyPaymentService {
                 feeConfigId: feeConfigId,
                 expectedAmount: amount,
                 dueDate: dueDate,
-                notes: `Mensualidad ${period.name} - ${enrollment.danceClass.name} (Corte día ${enrollment.paymentCutoffDay || 30})`,
+                notes: `Mensualidad ${period.name} - ${enrollment.danceClass.name} (Corte día ${enrollment.paymentCutoffDay ?? 30})`,
                 // Mantener el estado (PENDING o OVERDUE)
                 status: pendingPaymentFromPreviousClass.status,
               },
@@ -274,7 +289,7 @@ export class MonthlyPaymentService {
         if (!existingPayment) {
           // Calcular fecha de vencimiento basada en el día de corte de la clase
           const dueDate = this.calculateDueDate(
-            enrollment.paymentCutoffDay || 30, 
+            enrollment.paymentCutoffDay ?? 30, 
             { year: period.year, month: period.month }
           );
 
@@ -288,7 +303,7 @@ export class MonthlyPaymentService {
               expectedAmount: amount,
               status: "PENDING",
               dueDate: dueDate,
-              notes: `Mensualidad ${period.name} - ${enrollment.danceClass.name} (Corte día ${enrollment.paymentCutoffDay || 30})`,
+              notes: `Mensualidad ${period.name} - ${enrollment.danceClass.name} (Corte día ${enrollment.paymentCutoffDay ?? 30})`,
             },
           });
 
@@ -296,7 +311,7 @@ export class MonthlyPaymentService {
         } else if (regenerate || existingPayment.expectedAmount !== amount || existingPayment.feeConfigId !== feeConfigId) {
           // Calcular nueva fecha de vencimiento basada en el día de corte de la clase
           const dueDate = this.calculateDueDate(
-            enrollment.paymentCutoffDay || 30, 
+            enrollment.paymentCutoffDay ?? 30, 
             { year: period.year, month: period.month }
           );
 
@@ -310,7 +325,7 @@ export class MonthlyPaymentService {
               expectedAmount: amount,
               feeConfigId: feeConfigId,
               dueDate: dueDate,
-              notes: `Mensualidad ${period.name} - ${enrollment.danceClass.name} (Corte día ${enrollment.paymentCutoffDay || 30})`,
+              notes: `Mensualidad ${period.name} - ${enrollment.danceClass.name} (Corte día ${enrollment.paymentCutoffDay ?? 30})`,
               // Solo cambiar estado a PENDING si el pago no ha sido pagado
               status: existingPayment.status === "PAID" || existingPayment.status === "PARTIAL_PAID" 
                 ? existingPayment.status 
@@ -689,6 +704,20 @@ export class MonthlyPaymentService {
     const receivedAmount = data.receivedAmount || effectiveExpectedAmount;
     const isPartialPayment = receivedAmount < effectiveExpectedAmount;
     const newStatus: "PAID" | "PARTIAL_PAID" = isPartialPayment ? "PARTIAL_PAID" : "PAID";
+
+    // Invariante de conciliación (pago parcial): received + additionalDebt + discount == expected.
+    // Se valida del lado del servidor ANTES de la transacción para rechazar de forma atómica
+    // (sin cambio de estado, sin recibo, sin restante) cualquier conciliación inconsistente.
+    const additionalDebt = data.additionalDebt ?? 0;
+    if (isPartialPayment) {
+      const reconciliationDelta = Math.abs((receivedAmount + additionalDebt + discountAmount) - baseAmount);
+      if (reconciliationDelta > 0.01) {
+        throw new Error(
+          `PARTIAL_AMOUNT_MISMATCH: la conciliación del pago parcial no cuadra ` +
+          `(recibido ${receivedAmount} + adeudo ${additionalDebt} + descuento ${discountAmount} != esperado ${baseAmount}).`
+        );
+      }
+    }
     logStep({
       correlationId,
       scope: "monthlyPaymentService.markPaymentAsReceived",
@@ -745,6 +774,14 @@ export class MonthlyPaymentService {
     if (isPartialPayment && danceClassForRemaining) {
       const remainingAmount = effectiveExpectedAmount - receivedAmount;
 
+      // Doble verificación: el restante calculado debe coincidir con additionalDebt.
+      // El restante persistido debe ser igual a additionalDebt Y a effectiveExpectedAmount - receivedAmount.
+      if (Math.abs(remainingAmount - additionalDebt) > 0.01) {
+        throw new Error(
+          `PARTIAL_AMOUNT_MISMATCH: el restante calculado (${remainingAmount}) no coincide con el adeudo ingresado (${additionalDebt}).`
+        );
+      }
+
       const feeTimer = withTimer();
       const feeConfig = await prisma.monthlyFeeConfig.findFirst({
         where: { 
@@ -771,13 +808,7 @@ export class MonthlyPaymentService {
       }
 
       const enrollmentTimer = withTimer();
-      const enrollment = await prisma.classEnrollment.findFirst({
-        where: {
-          studentId: payment.studentId,
-          classId: danceClassForRemaining.id,
-          isActive: true
-        }
-      });
+      const cutoffDay = await resolveCutoffDay(payment.studentId, danceClassForRemaining.id);
       logStep({
         correlationId,
         scope: "monthlyPaymentService.markPaymentAsReceived",
@@ -787,14 +818,13 @@ export class MonthlyPaymentService {
           paymentId,
           classId: danceClassForRemaining.id,
           studentId: payment.studentId,
-          found: Boolean(enrollment),
-          cutoffDay: enrollment?.paymentCutoffDay || 30,
+          cutoffDay,
           ms: enrollmentTimer.ms(),
         },
       });
 
       const dueDate = this.calculateDueDate(
-        enrollment?.paymentCutoffDay || 30, 
+        cutoffDay, 
         { year: payment.period.year, month: payment.period.month }
       );
 
@@ -802,7 +832,7 @@ export class MonthlyPaymentService {
         remainingAmount,
         feeConfigId: feeConfig.id,
         dueDate,
-        cutoffDay: enrollment?.paymentCutoffDay || 30,
+        cutoffDay,
       };
 
       // noisy console logs removed; structured logs cover remainingPayment.prepared
@@ -852,11 +882,7 @@ export class MonthlyPaymentService {
       if (isPartialPayment && remainingPaymentData) {
         enrollmentCutoffDay = remainingPaymentData.cutoffDay;
       } else {
-        const cutoffEnrollment = await prisma.classEnrollment.findFirst({
-          where: { studentId: payment.studentId, classId: payment.classId, isActive: true },
-          select: { paymentCutoffDay: true },
-        });
-        enrollmentCutoffDay = cutoffEnrollment?.paymentCutoffDay || 30;
+        enrollmentCutoffDay = await resolveCutoffDay(payment.studentId, payment.classId);
       }
     }
 
@@ -1211,26 +1237,27 @@ export class MonthlyPaymentService {
 
     // Obtener días de corte para pagos que no tienen dueDate
     const paymentsWithoutDueDate = payments.filter(p => !p.dueDate);
-    const cutoffDaysMap = new Map<number, number>();
-    
+    const cutoffDaysMap = new Map<string, number>();
+
     if (paymentsWithoutDueDate.length > 0) {
       const classIds = [...new Set(paymentsWithoutDueDate.map(p => p.classId).filter((id): id is number => id !== null))];
-      
+      const studentIds = [...new Set(paymentsWithoutDueDate.map(p => p.studentId))];
+
       if (classIds.length > 0) {
         const enrollments = await prisma.classEnrollment.findMany({
           where: {
             classId: { in: classIds },
+            studentId: { in: studentIds },
             isActive: true
           },
-          select: { 
-            classId: true, 
-            paymentCutoffDay: true 
+          select: {
+            studentId: true,
+            classId: true,
+            paymentCutoffDay: true
           }
         });
-        
-        enrollments.forEach(enrollment => {
-          cutoffDaysMap.set(enrollment.classId, enrollment.paymentCutoffDay || 30);
-        });
+
+        buildCutoffDaysMap(enrollments).forEach((value, key) => cutoffDaysMap.set(key, value));
       }
     }
 
@@ -1239,7 +1266,7 @@ export class MonthlyPaymentService {
         // Calcular fecha de vencimiento si no existe
         let dueDate = payment.dueDate;
         if (!dueDate) {
-          const cutoffDay = cutoffDaysMap.get(payment.classId || 0) || 30;
+          const cutoffDay = cutoffDaysMap.get(cutoffMapKey(payment.studentId, payment.classId)) ?? 30;
           
           // Calcular fecha de vencimiento basada en el período
           dueDate = this.calculateDueDate(cutoffDay, {
@@ -2071,17 +2098,11 @@ export class MonthlyPaymentService {
       }
 
       // Obtener el día de corte de la clase (necesitamos buscar la inscripción)
-      const enrollment = await prisma.classEnrollment.findFirst({
-        where: {
-          studentId: student.id,
-          classId: danceClass.id,
-          isActive: true
-        }
-      });
+      const cutoffDay = await resolveCutoffDay(student.id, danceClass.id);
 
       // Calcular fecha de vencimiento basada en el día de corte de la clase
       const dueDate = this.calculateDueDate(
-        enrollment?.paymentCutoffDay || 30, 
+        cutoffDay, 
         { year: period.year, month: period.month }
       );
 
@@ -2094,7 +2115,7 @@ export class MonthlyPaymentService {
           expectedAmount: remainingAmount,
           status: "PENDING",
           dueDate: dueDate,
-          notes: `Saldo restante de pago parcial - ${period.name} - ${danceClass.name} (Corte día ${enrollment?.paymentCutoffDay || 30})`,
+          notes: `Saldo restante de pago parcial - ${period.name} - ${danceClass.name} (Corte día ${cutoffDay})`,
         },
       });
 
@@ -2201,15 +2222,7 @@ export class MonthlyPaymentService {
       // Calcular fecha del próximo pago con día de corte de la clase específica (15 o 30)
       let cutoffDay = 30; // Default
       if (payment.classId) {
-        const enrollment = await prisma.classEnrollment.findFirst({
-          where: {
-            studentId: student.id,
-            classId: payment.classId,
-            isActive: true
-          },
-          select: { paymentCutoffDay: true }
-        });
-        cutoffDay = enrollment?.paymentCutoffDay || 30;
+        cutoffDay = await resolveCutoffDay(student.id, payment.classId);
       }
       
       console.log(`🔍 Debug para notificación de pago recibido:`);
@@ -2399,15 +2412,7 @@ export class MonthlyPaymentService {
       // Obtener el día de corte de la clase
       let cutoffDay = 30; // Default
       if (monthlyPayment.classId) {
-        const enrollment = await prisma.classEnrollment.findFirst({
-          where: {
-            studentId: monthlyPayment.studentId,
-            classId: monthlyPayment.classId,
-            isActive: true
-          },
-          select: { paymentCutoffDay: true }
-        });
-        cutoffDay = enrollment?.paymentCutoffDay || 30;
+        cutoffDay = await resolveCutoffDay(monthlyPayment.studentId, monthlyPayment.classId);
       }
       
       // Calcular el período correcto para el concepto basado en el día de corte

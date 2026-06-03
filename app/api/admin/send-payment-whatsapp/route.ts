@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { whatsappService } from '@/lib/whatsapp-service';
 import { monthlyPaymentService } from '@/lib/monthly-payment-service';
 import { calculatePaymentPeriodForConcept } from '@/lib/period-calculator';
-import { prisma } from '@/lib/prisma';
+import { resolveCutoffDay } from '@/lib/payment-utils';
 
 // POST /api/admin/send-payment-whatsapp - Enviar enlaces de pago por WhatsApp
 export async function POST(request: NextRequest) {
@@ -59,18 +59,7 @@ export async function POST(request: NextRequest) {
         const paymentLink = `${baseUrl}/payment/${form.id}`;
         
         // Obtener el día de corte de la clase específica del formulario
-        let cutoffDay = 30; // Default
-        if (form.monthlyPayment?.classId) {
-          const enrollment = await prisma.classEnrollment.findFirst({
-            where: {
-              studentId: form.studentId,
-              classId: form.monthlyPayment.classId,
-              isActive: true
-            },
-            select: { paymentCutoffDay: true }
-          });
-          cutoffDay = enrollment?.paymentCutoffDay || 30;
-        }
+        const cutoffDay = await resolveCutoffDay(form.studentId, form.monthlyPayment?.classId ?? null);
         
         // Calcular el período correcto para el concepto basado en el día de corte
         const periodInfo = calculatePaymentPeriodForConcept(

@@ -4,6 +4,7 @@ import { whatsappService } from '@/lib/whatsapp-service';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/nextauth';
 import { calculatePaymentPeriodForConcept } from '@/lib/period-calculator';
+import { resolveCutoffDay } from '@/lib/payment-utils';
 
 export async function POST(request: NextRequest) {
   try {
@@ -96,23 +97,11 @@ export async function POST(request: NextRequest) {
       
       try {
         // Obtener el día de corte de la clase específica
-        let enrollment = null;
-        if (payment.classId !== null) {
-          enrollment = await prisma.classEnrollment.findFirst({
-            where: {
-              studentId: payment.studentId,
-              classId: payment.classId as number,
-              isActive: true
-            }
-          });
-        }
-
-        const cutoffDay = enrollment?.paymentCutoffDay || 30;
+        const cutoffDay = await resolveCutoffDay(payment.studentId, payment.classId);
         
         console.log(`🔍 Debug para pago ${payment.id}:`);
         console.log(`   - StudentId: ${payment.studentId}`);
         console.log(`   - ClassId: ${payment.classId}`);
-        console.log(`   - Enrollment encontrado:`, enrollment);
         console.log(`   - CutoffDay calculado: ${cutoffDay}`);
         
         // Calcular el período correcto para el concepto basado en el día de corte

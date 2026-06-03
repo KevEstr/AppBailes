@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { calculatePaymentPeriodForConcept } from '@/lib/period-calculator';
 import { logStep, withTimer } from '@/lib/ops-logger';
+import { resolveCutoffDay } from '@/lib/payment-utils';
 
 export interface ReceiptData {
   id: number;
@@ -144,15 +145,7 @@ export class DigitalReceiptService {
       let cutoffDay = 30; // Default
       if (monthlyPayment.classId) {
         const cutoffTimer = withTimer();
-        const enrollment = await prisma.classEnrollment.findFirst({
-          where: {
-            studentId: monthlyPayment.studentId,
-            classId: monthlyPayment.classId,
-            isActive: true
-          },
-          select: { paymentCutoffDay: true }
-        });
-        cutoffDay = enrollment?.paymentCutoffDay || 30;
+        cutoffDay = await resolveCutoffDay(monthlyPayment.studentId, monthlyPayment.classId);
         logStep({
           correlationId,
           scope: 'DigitalReceiptService.createReceiptFromMonthlyPayment',

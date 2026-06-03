@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/nextauth';
+import { resolveCutoffDay } from '@/lib/payment-utils';
 
 export async function GET(request: NextRequest) {
   try {
@@ -63,18 +64,7 @@ export async function GET(request: NextRequest) {
     // Filtrar pagos por día de corte
     const filteredPayments = [];
     for (const payment of payments) {
-      let paymentCutoffDay = 30; // Default
-      
-      if (payment.classId) {
-        const enrollment = payment.student.classEnrollments.find(
-          ce => ce.classId === payment.classId && ce.isActive
-        );
-        paymentCutoffDay = enrollment?.paymentCutoffDay || 30;
-      } else {
-        // Si no hay classId, usar el primer enrollment activo
-        const firstEnrollment = payment.student.classEnrollments.find(ce => ce.isActive);
-        paymentCutoffDay = firstEnrollment?.paymentCutoffDay || 30;
-      }
+      const paymentCutoffDay = await resolveCutoffDay(payment.studentId, payment.classId);
 
       if (paymentCutoffDay === targetCutoffDay) {
         filteredPayments.push({

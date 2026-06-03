@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { toZonedTime } from 'date-fns-tz';
+import { resolveCutoffDay } from '@/lib/payment-utils';
 
 export async function GET(
   request: NextRequest,
@@ -82,18 +83,10 @@ export async function GET(
     }
 
     // Obtener el día de corte de la clase específica
-    let cutoff = 30; // Default
-    if (receipt.monthlyPayment?.classId) {
-      const enrollment = await prisma.classEnrollment.findFirst({
-        where: {
-          studentId: receipt.studentId,
-          classId: receipt.monthlyPayment.classId,
-          isActive: true
-        },
-        select: { paymentCutoffDay: true }
-      });
-      cutoff = enrollment?.paymentCutoffDay || 30;
-    }
+    const cutoff = await resolveCutoffDay(
+      receipt.studentId,
+      receipt.monthlyPayment?.classId ?? null
+    );
     
     console.log(`🔍 Debug para recibo ${receiptId}:`);
     console.log(`   - StudentId: ${receipt.studentId}`);

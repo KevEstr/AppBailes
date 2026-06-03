@@ -145,7 +145,7 @@ export async function POST(request: NextRequest) {
       })
 
       // Heredar configuración de pago de la inscripción origen
-      const inheritedCutoffDay = currentEnrollment.paymentCutoffDay ?? 30
+      const inheritedCutoffDay = currentEnrollment.paymentCutoffDay
       const inheritedMonthlyFee = currentEnrollment.monthlyFee
 
       // Crear nueva inscripción o reactivar existente
@@ -263,6 +263,16 @@ export async function POST(request: NextRequest) {
 
       return { newEnrollment, transfer }
     })
+
+    if (result.newEnrollment.paymentCutoffDay !== currentEnrollment.paymentCutoffDay) {
+      console.warn('[transfer-cutoff-invariant] destino no coincide con origen', {
+        studentId: validatedData.studentId,
+        fromClassId: validatedData.fromClassId,
+        toClassId: validatedData.toClassId,
+        origen: currentEnrollment.paymentCutoffDay,
+        destino: result.newEnrollment.paymentCutoffDay
+      })
+    }
 
     return NextResponse.json({ 
       success: true, 
