@@ -146,6 +146,38 @@ export class MonthlyPaymentService {
     const deletedPayments = [] as any[];
 
     for (const student of activeStudents) {
+      // Clases activas del estudiante. Se hoistea aquí porque lo usan tanto la rama de
+      // cobertura por cadena (dentro del bucle de inscripciones activas) como la limpieza
+      // de huérfanos al final del bucle del estudiante.
+      const activeClassIds = student.classEnrollments.map(e => e.danceClass.id);
+
+      // Cadena dirigida de transferencias del estudiante. NO se filtra por transferredAt:
+      // la cadena modela la relación fromClassId -> toClassId, no una ventana temporal.
+      // Determinismo: transferredAt asc, id asc (mismo convenio que receipt-cutoff-from-transfer-destination).
+      const studentTransfers = await prisma.studentTransfer.findMany({
+        where: { studentId: student.id },
+        orderBy: [{ transferredAt: 'asc' }, { id: 'asc' }],
+      });
+
+      const chainMap = new Map<number, Array<{ toClassId: number; transferredAt: Date; id: number }>>();
+      for (const t of studentTransfers) {
+        const edges = chainMap.get(t.fromClassId) ?? [];
+        edges.push({ toClassId: t.toClassId, transferredAt: t.transferredAt, id: t.id });
+        chainMap.set(t.fromClassId, edges);
+      }
+
+      // Pagos PAID/PARTIAL_PAID del estudiante en el período cuyo classId NO está entre
+      // las inscripciones activas. Se carga una sola vez por estudiante; la rama de cobertura
+      // por cadena (dentro del else del bucle) la consulta para cada inscripción activa.
+      const allPaidInactivePaymentsForPeriod = await prisma.monthlyPayment.findMany({
+        where: {
+          studentId: student.id,
+          periodId: period.id,
+          status: { in: ['PAID', 'PARTIAL_PAID'] },
+          classId: { notIn: activeClassIds },
+        },
+      });
+
       // Procesar cada clase inscrita del estudiante
       for (const enrollment of student.classEnrollments) {
         // Selección idempotente del pago existente para la terna (studentId, classId, periodId).
@@ -256,27 +288,19 @@ export class MonthlyPaymentService {
           }
           // Si no hay pago PENDING en la clase vieja, continuar con el flujo normal
         } else {
-          // NO hay transferencia dentro del período
-          // Verificar si hay un pago PAID/PARTIAL_PAID en una clase donde el estudiante ya no está inscrito
-          // (esto maneja el caso donde se transfirió después del período pero ya pagó en el período)
-          const allPaymentsForPeriod = await prisma.monthlyPayment.findMany({
-            where: {
-              studentId: student.id,
-              periodId: period.id,
-              status: { in: ['PAID', 'PARTIAL_PAID'] }
-            }
-          });
-
-          // Verificar si alguno de estos pagos es de una clase donde el estudiante ya no está inscrito
-          const activeClassIds = student.classEnrollments.map(e => e.danceClass.id);
-          const paidPaymentFromInactiveClass = allPaymentsForPeriod.find(
-            p => p.classId && !activeClassIds.includes(p.classId)
+          // NO hay transferencia dentro del período.
+          // Determinar si la inscripción activa A es destino de una cadena dirigida de
+          // student_transfers que parte de algún classId con PAID/PARTIAL_PAID en el
+          // período (clase inactiva del estudiante). Solo en ese caso el pago en la
+          // clase origen cuenta como cobertura del principal de A.
+          const coveredByChain = allPaidInactivePaymentsForPeriod.some(paid =>
+            this.coversEnrollmentByTransferChain(paid.classId as number, enrollment.danceClass.id, chainMap)
           );
 
-          if (paidPaymentFromInactiveClass) {
-            // Hay un pago PAID en una clase inactiva para este período
-            // El estudiante ya pagó la mensualidad del período, no crear nuevo pago
-            // Si existe un pago PENDING para la clase nueva, eliminarlo (es duplicado)
+          if (coveredByChain) {
+            // A es destino de cadena: el principal vive en la clase inactiva. No crear
+            // nuevo pago para A; eliminar el PENDING/OVERDUE de A si existe (duplicado).
+            // Nunca eliminar PAID/PARTIAL_PAID.
             if (existingPayment && (existingPayment.status === 'PENDING' || existingPayment.status === 'OVERDUE')) {
               await prisma.monthlyPayment.delete({
                 where: { id: existingPayment.id }
@@ -284,6 +308,8 @@ export class MonthlyPaymentService {
             }
             continue;
           }
+          // A NO está cubierta por cadena: NO eliminar PENDING/OVERDUE existente; caer
+          // al flujo normal de creación/actualización para garantizar la cobranza.
         }
 
         if (!existingPayment) {
@@ -319,17 +345,25 @@ export class MonthlyPaymentService {
           // 1. Se solicita regeneración explícita (regenerate = true)
           // 2. El monto esperado cambió
           // 3. La configuración de tarifa cambió
+          const isLockedStatus = existingPayment.status === "PAID" || existingPayment.status === "PARTIAL_PAID";
+
           const updatedPayment = await prisma.monthlyPayment.update({
             where: { id: existingPayment.id },
             data: {
               expectedAmount: amount,
               feeConfigId: feeConfigId,
               dueDate: dueDate,
-              notes: `Mensualidad ${period.name} - ${enrollment.danceClass.name} (Corte día ${enrollment.paymentCutoffDay ?? 30})`,
+              // Preservar las notas humanas (p. ej. "Pago parcial: $X de $Y. Saldo
+              // restante: $Z") cuando el pago ya está en PAID/PARTIAL_PAID. Solo se
+              // reescribe con la nota canónica de mensualidad cuando el pago aún
+              // está pendiente o vencido y por tanto no tiene traza de parcial.
+              ...(isLockedStatus
+                ? {}
+                : {
+                    notes: `Mensualidad ${period.name} - ${enrollment.danceClass.name} (Corte día ${enrollment.paymentCutoffDay ?? 30})`,
+                  }),
               // Solo cambiar estado a PENDING si el pago no ha sido pagado
-              status: existingPayment.status === "PAID" || existingPayment.status === "PARTIAL_PAID" 
-                ? existingPayment.status 
-                : "PENDING",
+              status: isLockedStatus ? existingPayment.status : "PENDING",
             },
           });
 
@@ -346,10 +380,8 @@ export class MonthlyPaymentService {
         },
       });
 
-      // Obtener IDs de clases activas del estudiante
-      const activeClassIds = student.classEnrollments.map(e => e.danceClass.id);
-
       // Eliminar pagos de clases donde el estudiante ya no está inscrito
+      // (activeClassIds está hoisteado al inicio del bucle del estudiante)
       for (const payment of allStudentPayments) {
         if (payment.classId && !activeClassIds.includes(payment.classId)) {
           // Solo eliminar si está pendiente o vencido (no pagos completados para mantener historial)
@@ -502,6 +534,46 @@ export class MonthlyPaymentService {
     }
 
     throw new Error(`No se pudo determinar la mensualidad para el estudiante ${student.name} en la clase ${enrollment.danceClass.name}. Configure las tarifas en la configuración de mensualidades.`);
+  }
+
+  /**
+   * Determina si existe una cadena dirigida de student_transfers (>= 1 salto) que parte
+   * de paidClassId y termina en enrollmentClassId.
+   *
+   * Helper puro: no consulta la base de datos. DFS acotado a MAX_HOPS=10 con un set
+   * `visited` para garantizar terminación en presencia de ciclos (A -> B -> A).
+   *
+   * Devuelve false cuando paidClassId === enrollmentClassId (mismo classId no constituye
+   * cadena de >= 1 salto).
+   */
+  private coversEnrollmentByTransferChain(
+    paidClassId: number,
+    enrollmentClassId: number,
+    chainMap: Map<number, Array<{ toClassId: number; transferredAt: Date; id: number }>>
+  ): boolean {
+    const MAX_HOPS = 10;
+
+    if (paidClassId === enrollmentClassId) return false;
+
+    const visited = new Set<number>();
+    const stack: Array<{ node: number; depth: number }> = [{ node: paidClassId, depth: 0 }];
+
+    while (stack.length > 0) {
+      const current = stack.pop()!;
+      if (current.depth >= MAX_HOPS) continue;
+      if (visited.has(current.node)) continue;
+      visited.add(current.node);
+
+      const edges = chainMap.get(current.node) ?? [];
+      for (const e of edges) {
+        if (e.toClassId === enrollmentClassId) return true;
+        if (!visited.has(e.toClassId)) {
+          stack.push({ node: e.toClassId, depth: current.depth + 1 });
+        }
+      }
+    }
+
+    return false;
   }
 
   /**

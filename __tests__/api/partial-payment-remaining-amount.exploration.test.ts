@@ -194,6 +194,7 @@ jest.mock('@/lib/prisma', () => {
 		},
 		studentTransfer: {
 			findFirst: jest.fn(async () => null),
+			findMany: jest.fn(async () => []),
 		},
 		debt: {
 			count: jest.fn(async () => 0),

@@ -13,18 +13,130 @@ const DEFAULT_CUTOFF_DAY = 15;
 const SAFETY_NET_CUTOFF_DAY = 30;
 
 /**
+ * Maximum number of hops allowed when traversing a student's `student_transfers`
+ * chain. Mirrors the convention used in sibling specs (e.g.
+ * `regenerate-deletes-active-class-payment-after-transfer`) to bound the search and
+ * provide a deterministic upper limit on traversal cost.
+ */
+const MAX_TRANSFER_CHAIN_HOPS = 10;
+
+/**
+ * Walks the student's `student_transfers` chain starting at `startClassId` and returns
+ * the `paymentCutoffDay` of the first reachable active enrollment.
+ *
+ * Traversal is deterministic (`transferredAt asc, id asc`), cycle-safe via a visited
+ * set, and bounded by `MAX_TRANSFER_CHAIN_HOPS`. The helper internally applies the
+ * `null -> DEFAULT_CUTOFF_DAY` convention so the caller never has to disambiguate
+ * "active destination found with null cutoff" from "no active destination": a numeric
+ * return always means an active destination was reached.
+ *
+ * @param studentId - Identifier of the student.
+ * @param startClassId - `classId` whose enrollment is inactive and whose outbound chain
+ *   must be followed.
+ * @returns The active destination's `paymentCutoffDay` (or `DEFAULT_CUTOFF_DAY` when
+ *   that destination has `null` cutoff). Returns `null` only when no active destination
+ *   is reachable, when a cycle is detected, or when the hop limit is exhausted.
+ */
+async function findActiveDestinationCutoff(
+	studentId: string,
+	startClassId: number,
+): Promise<number | null> {
+	const transfers = await prisma.studentTransfer.findMany({
+		where: { studentId },
+		orderBy: [{ transferredAt: 'asc' }, { id: 'asc' }],
+		select: { fromClassId: true, toClassId: true, transferredAt: true, id: true },
+	});
+
+	const chainMap = new Map<number, Array<{ toClassId: number; transferredAt: Date; id: number }>>();
+	transfers.forEach((t) => {
+		const edges = chainMap.get(t.fromClassId) ?? [];
+		edges.push({ toClassId: t.toClassId, transferredAt: t.transferredAt, id: t.id });
+		chainMap.set(t.fromClassId, edges);
+	});
+
+	const reachable = new Set<number>();
+	const visited = new Set<number>([startClassId]);
+	const stack: Array<{ node: number; depth: number }> = [{ node: startClassId, depth: 0 }];
+
+	while (stack.length > 0) {
+		const current = stack.pop() as { node: number; depth: number };
+		if (current.depth >= MAX_TRANSFER_CHAIN_HOPS) {
+			console.warn('[resolveCutoffDay] hop exhaustion', {
+				studentId,
+				startClassId,
+				MAX_HOPS: MAX_TRANSFER_CHAIN_HOPS,
+			});
+			continue;
+		}
+		const edges = chainMap.get(current.node) ?? [];
+		for (const e of edges) {
+			if (visited.has(e.toClassId)) {
+				console.warn('[resolveCutoffDay] cycle detected', {
+					studentId,
+					startClassId,
+					node: e.toClassId,
+				});
+				continue;
+			}
+			visited.add(e.toClassId);
+			reachable.add(e.toClassId);
+			stack.push({ node: e.toClassId, depth: current.depth + 1 });
+		}
+	}
+
+	if (reachable.size === 0) return null;
+
+	const activeRows = await prisma.classEnrollment.findMany({
+		where: {
+			studentId,
+			classId: { in: Array.from(reachable) },
+			isActive: true,
+		},
+		select: { classId: true, paymentCutoffDay: true },
+	});
+
+	if (activeRows.length === 0) return null;
+
+	const activeMap = new Map<number, number | null>(activeRows.map((r) => [r.classId, r.paymentCutoffDay]));
+
+	const visited2 = new Set<number>([startClassId]);
+	const queue: number[] = [startClassId];
+
+	while (queue.length > 0) {
+		const node = queue.shift() as number;
+		const edges = chainMap.get(node) ?? [];
+		for (const e of edges) {
+			if (visited2.has(e.toClassId)) continue;
+			visited2.add(e.toClassId);
+			if (activeMap.has(e.toClassId)) {
+				return activeMap.get(e.toClassId) ?? DEFAULT_CUTOFF_DAY;
+			}
+			queue.push(e.toClassId);
+		}
+	}
+
+	return null;
+}
+
+/**
  * Resolves the payment cutoff day for a student's active enrollment in a given class.
  *
  * Centralizes the lookup of `paymentCutoffDay` so every payment-related read uses the
- * enrollment that matches the payment's `(studentId, classId)` pair.
+ * enrollment that matches the payment's `(studentId, classId)` pair. When the
+ * enrollment for `(studentId, classId)` exists but is inactive, the helper follows the
+ * student's `student_transfers` chain (deterministic, cycle-safe, bounded) and returns
+ * the cutoff of the active destination instead of degrading to the safety-net value.
  *
  * @param studentId - Identifier of the student.
  * @param classId - Identifier of the class. When `null`, the function falls back to the
  *   student's first active enrollment and emits a warn-log, since the cutoff cannot be
  *   scoped to a specific class.
  * @returns The active enrollment's `paymentCutoffDay`. When an active enrollment exists
- *   but its stored cutoff is `null`, returns the standard cutoff (`15`). Returns `30` only
- *   as a genuine safety net when no active enrollment is resolvable.
+ *   but its stored cutoff is `null`, returns the standard cutoff (`15`). When the
+ *   enrollment for `(studentId, classId)` is inactive but the transfer chain reaches an
+ *   active destination, returns that destination's cutoff (or `15` when its cutoff is
+ *   `null`). Returns `30` only as a genuine safety net when no enrollment exists for the
+ *   tuple, or when the chain has no reachable active destination.
  */
 export async function resolveCutoffDay(studentId: string, classId: number | null): Promise<number> {
 	if (classId == null) {
@@ -42,9 +154,23 @@ export async function resolveCutoffDay(studentId: string, classId: number | null
 		where: { studentId, classId, isActive: true },
 		select: { paymentCutoffDay: true },
 	});
-	// 30 solo cuando no hay inscripción activa resoluble; si existe pero el corte es nulo, usar 15.
-	if (!enrollment) return SAFETY_NET_CUTOFF_DAY;
-	return enrollment.paymentCutoffDay ?? DEFAULT_CUTOFF_DAY;
+	if (enrollment) {
+		return enrollment.paymentCutoffDay ?? DEFAULT_CUTOFF_DAY;
+	}
+
+	// Rama (c): el lookup activo no acertó. Distinguir "no hay inscripción" de
+	// "inscripción inactiva por transferencia" antes de caer a la red de seguridad.
+	const inactive = await prisma.classEnrollment.findFirst({
+		where: { studentId, classId },
+		select: { id: true },
+	});
+	if (!inactive) return SAFETY_NET_CUTOFF_DAY;
+
+	const destinationCutoff = await findActiveDestinationCutoff(studentId, classId);
+	if (destinationCutoff !== null) return destinationCutoff;
+
+	console.warn('[resolveCutoffDay] inactive enrollment without active destination', { studentId, classId });
+	return SAFETY_NET_CUTOFF_DAY;
 }
 
 /**
