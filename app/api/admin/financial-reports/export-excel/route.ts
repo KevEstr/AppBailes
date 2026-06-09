@@ -96,6 +96,49 @@ export async function GET(request: NextRequest) {
       updated_at: t.updated_at
     }))
 
+    const inventoryPurchaseTxIds = Array.from(
+      new Set(
+        transactions
+          .filter(t => t.source_table === 'FINANCIAL_TRANSACTION' && t.related_type === 'INVENTORY_PURCHASE')
+          .map(t => Number(t.transaction_id))
+          .filter(id => Number.isInteger(id))
+      )
+    )
+
+    const bridgeRows = inventoryPurchaseTxIds.length > 0
+      ? await prisma.financialTransactionInventoryMovement.findMany({
+          where: { financialTransactionId: { in: inventoryPurchaseTxIds } },
+          include: {
+            inventoryMovement: {
+              include: { product: true }
+            }
+          },
+          orderBy: { inventoryMovementId: 'asc' }
+        })
+      : []
+
+    const inventoryLinksByTx = new Map<number, typeof bridgeRows>()
+    for (const link of bridgeRows) {
+      const list = inventoryLinksByTx.get(link.financialTransactionId) ?? []
+      list.push(link)
+      inventoryLinksByTx.set(link.financialTransactionId, list)
+    }
+
+    for (const t of transactions) {
+      if (t.source_table !== 'FINANCIAL_TRANSACTION' || t.related_type !== 'INVENTORY_PURCHASE') continue
+      const txId = Number(t.transaction_id)
+      if (!Number.isInteger(txId)) continue
+      const links = inventoryLinksByTx.get(txId)
+      if (!links || links.length === 0) continue
+      const sumLinks = links.reduce((s, l) => s + Number(l.inventoryMovement.price ?? 0), 0)
+      if (Math.abs(Number(t.amount) - sumLinks) > 0.01) {
+        return NextResponse.json(
+          { success: false, error: `Inconsistencia entre el monto de la transacción ${txId} y la suma de movimientos enlazados` },
+          { status: 500 }
+        )
+      }
+    }
+
     // Prepare Excel data
     const getSourceLabel = (s: string) => {
       const map: Record<string, string> = {
@@ -124,17 +167,70 @@ export async function GET(request: NextRequest) {
     } as Record<string,string>)[t] || t
     const getPaymentLabel = (p?: string|null) => ({ CASH: 'Efectivo', TRANSFER: 'Transferencia', CARD: 'Tarjeta' } as Record<string,string>)[p || ''] || (p || '-')
 
-    const excelTransactions = transactions.map(t => ({
-      'Origen': getSourceLabel(t.source_table),
-      'Descripción': t.description,
-      'Tipo': getTypeLabel(t.transaction_type),
-      'Categoría': getSourceLabel(t.category),
-      'Monto': t.amount,
-      'Método de Pago': getPaymentLabel(t.payment_method),
-      'Fecha': formatDate(t.transaction_date),
-      'Usuario': t.user_name || '-',
-      'ID Transacción': t.transaction_id
-    }))
+    const excelTransactions = transactions.flatMap((t: any) => {
+      const parentRow: Record<string, any> = {
+        'Origen': getSourceLabel(t.source_table),
+        'Descripción': t.description ?? '',
+        'Tipo': getTypeLabel(t.transaction_type),
+        'Categoría': getSourceLabel(t.category),
+        'Monto': t.amount,
+        'Método de Pago': getPaymentLabel(t.payment_method),
+        'Fecha': formatDate(t.transaction_date),
+        'Usuario': t.user_name || '-',
+        'ID Transacción': t.transaction_id,
+        'producto': '',
+        'cantidad': '',
+        'precio': '',
+        'referencia': '',
+        'notas': ''
+      }
+
+      const isInventoryPurchase =
+        t.source_table === 'FINANCIAL_TRANSACTION' && t.related_type === 'INVENTORY_PURCHASE'
+
+      if (!isInventoryPurchase) return [parentRow]
+
+      const txId = Number(t.transaction_id)
+      const links = Number.isInteger(txId) ? inventoryLinksByTx.get(txId) ?? [] : []
+
+      if (links.length === 0) return [parentRow]
+
+      const detailRows = links.map(link => ({
+        'Origen': '',
+        'Descripción': '',
+        'Tipo': '',
+        'Categoría': '',
+        'Monto': '',
+        'Método de Pago': '',
+        'Fecha': '',
+        'Usuario': '',
+        'ID Transacción': '',
+        'producto': link.inventoryMovement.product?.name ?? '',
+        'cantidad': link.inventoryMovement.quantity,
+        'precio': link.inventoryMovement.price ?? '',
+        'referencia': link.inventoryMovement.reference ?? '',
+        'notas': link.inventoryMovement.notes ?? ''
+      }))
+
+      return [parentRow, ...detailRows]
+    })
+
+    const excelHeader = [
+      'Origen',
+      'Descripción',
+      'Tipo',
+      'Categoría',
+      'Monto',
+      'Método de Pago',
+      'Fecha',
+      'Usuario',
+      'ID Transacción',
+      'producto',
+      'cantidad',
+      'precio',
+      'referencia',
+      'notas'
+    ]
 
     const workbook = XLSX.utils.book_new()
 
@@ -168,7 +264,7 @@ export async function GET(request: NextRequest) {
     XLSX.utils.book_append_sheet(workbook, summarySheet, 'Resumen')
 
     // Transactions sheet
-    const txSheet = XLSX.utils.json_to_sheet(excelTransactions)
+    const txSheet = XLSX.utils.json_to_sheet(excelTransactions, { header: excelHeader })
     XLSX.utils.book_append_sheet(workbook, txSheet, 'Transacciones')
 
     const buffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'buffer' })

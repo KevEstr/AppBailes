@@ -318,11 +318,18 @@ export async function PUT(request: NextRequest) {
       console.log("🔍 API: Updated monthlyFee in database:", updatedEnrollmentData?.monthlyFee);
     }
 
-    // Si el estado activo/inactivo cambió, actualizar todas las inscripciones del estudiante
-    if (body.isActive !== undefined && body.isActive !== existingStudent.isActive) {
+    // Si el estudiante se está desactivando, desactivar todas sus inscripciones.
+    // Si se está reactivando, NO reactivar inscripciones automáticamente: una
+    // inscripción inactiva puede serlo por transferencia, cancelación o eliminación
+    // de clase, y reactivarlas en bloque corrompe el estado.
+    if (
+      body.isActive !== undefined &&
+      body.isActive !== existingStudent.isActive &&
+      body.isActive === false
+    ) {
       await prisma.classEnrollment.updateMany({
-        where: { studentId: existingStudent.id },
-        data: { isActive: body.isActive }
+        where: { studentId: existingStudent.id, isActive: true },
+        data: { isActive: false }
       })
     }
 

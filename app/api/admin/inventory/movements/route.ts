@@ -152,13 +152,11 @@ export async function POST(request: NextRequest) {
     // Crear movimientos y actualizar stock en transacción
     const result = await prisma.$transaction(async (tx) => {
       const createdMovements = []
-      let totalPurchaseAmount = 0
-      let hasPurchase = false
-      
+      const qualifyingMovements: { id: number; price: number }[] = []
+
       for (const movement of movements) {
         const { productId, movementType, quantity, price, reason, reference, notes } = movement
-        
-        // Crear movimiento
+
         const createdMovement = await tx.inventoryMovement.create({
           data: {
             productId: parseInt(productId),
@@ -172,13 +170,11 @@ export async function POST(request: NextRequest) {
           }
         })
 
-        // Actualizar stock del producto
         const product = products.find(p => p.id === parseInt(productId))
         if (product) {
           const currentStock = product.stock || 0
           const newStock = currentStock + parseFloat(quantity)
-          
-          // Verificar si se permite stock negativo
+
           if (newStock < 0 && !product.allowNegativeStock) {
             throw new Error(`No se permite stock negativo para el producto: ${product.name}`)
           }
@@ -189,18 +185,17 @@ export async function POST(request: NextRequest) {
           })
         }
 
-        // Si es una entrada con motivo PURCHASE y tiene precio, acumular para el egreso
-        if (movementType === "PURCHASE" && price !== undefined && price > 0) {
-          totalPurchaseAmount += parseFloat(price)
-          hasPurchase = true
+        if (movementType === "PURCHASE" && price !== undefined && price !== null && parseFloat(price) > 0) {
+          qualifyingMovements.push({ id: createdMovement.id, price: parseFloat(price) })
         }
 
         createdMovements.push(createdMovement)
       }
 
-      // Si hay compras y se proporcionó método de pago, crear egreso financiero
-      if (hasPurchase && totalPurchaseAmount > 0 && paymentMethod) {
-        // Obtener o crear el período financiero actual
+      const totalPurchaseAmount = qualifyingMovements.reduce((sum, q) => sum + q.price, 0)
+      const allowedPaymentMethods = ["CASH", "TRANSFER", "CARD"]
+
+      if (qualifyingMovements.length > 0 && allowedPaymentMethods.includes(paymentMethod)) {
         const now = new Date()
         const currentYear = now.getFullYear()
         const currentMonth = now.getMonth() + 1
@@ -217,7 +212,7 @@ export async function POST(request: NextRequest) {
         if (!period) {
           const startDate = new Date(currentYear, currentMonth - 1, 1)
           const endDate = new Date(currentYear, currentMonth, 0)
-          
+
           period = await tx.financialPeriod.create({
             data: {
               year: currentYear,
@@ -228,12 +223,11 @@ export async function POST(request: NextRequest) {
           })
         }
 
-        // Crear la transacción financiera de egreso
-        await tx.financialTransaction.create({
+        const financialTransaction = await tx.financialTransaction.create({
           data: {
             periodId: period.id,
             type: "EXPENSE",
-            category: "PURCHASES", // Categoría para compras de inventario (temporal hasta migración)
+            category: "PURCHASES",
             amount: totalPurchaseAmount,
             description: `Compra de inventario - ${movements.length} producto(s)`,
             reference: movements[0]?.reference || null,
@@ -244,6 +238,23 @@ export async function POST(request: NextRequest) {
             relatedType: "INVENTORY_PURCHASE",
           },
         })
+
+        const bridgeData = qualifyingMovements.map(q => ({
+          financialTransactionId: financialTransaction.id,
+          inventoryMovementId: q.id,
+        }))
+
+        const bridgeResult = await tx.financialTransactionInventoryMovement.createMany({
+          data: bridgeData,
+        })
+
+        if (bridgeResult.count !== qualifyingMovements.length) {
+          throw new Error("BRIDGE_COUNT_MISMATCH")
+        }
+
+        if (Math.abs(financialTransaction.amount - totalPurchaseAmount) > 0.01) {
+          throw new Error("AMOUNT_MISMATCH")
+        }
       }
 
       return createdMovements

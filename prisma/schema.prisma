@@ -867,6 +867,7 @@ model FinancialTransaction {
   // Relaciones
   period FinancialPeriod @relation(fields: [periodId], references: [id], onDelete: Cascade)
   student Student? @relation(fields: [studentId], references: [id], onDelete: SetNull)
+  inventoryLinks FinancialTransactionInventoryMovement[]
 
   @@map("financial_transactions")
 }
@@ -891,6 +892,21 @@ model FinancialReport {
 
   @@unique([periodId, reportType])
   @@map("financial_reports")
+}
+
+model FinancialTransactionInventoryMovement {
+  id                     Int      @id @default(autoincrement())
+  financialTransactionId Int
+  inventoryMovementId    Int
+  createdAt              DateTime @default(now()) @db.Timestamptz
+
+  financialTransaction FinancialTransaction @relation(fields: [financialTransactionId], references: [id], onDelete: Cascade)
+  inventoryMovement    InventoryMovement    @relation(fields: [inventoryMovementId], references: [id], onDelete: Cascade)
+
+  @@unique([financialTransactionId, inventoryMovementId])
+  @@index([financialTransactionId])
+  @@index([inventoryMovementId])
+  @@map("financial_transaction_inventory_movements")
 }
 
 // ===== NUEVOS ENUMS =====
@@ -1011,6 +1027,7 @@ model InventoryMovement {
   // Relaciones
   product       Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
   user          User      @relation(fields: [processedBy], references: [id])
+  financialLinks FinancialTransactionInventoryMovement[]
   
   @@index([productId])
   @@index([movementType])
