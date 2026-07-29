@@ -277,7 +277,7 @@ export class MonthlyPaymentService {
                 feeConfigId: feeConfigId,
                 expectedAmount: amount,
                 dueDate: dueDate,
-                notes: `Mensualidad ${period.name} - ${enrollment.danceClass.name} (Corte día ${enrollment.paymentCutoffDay ?? 30})`,
+                notes: `Mensualidad ${period.name} - ${enrollment.danceClass.name} (${enrollment.danceClass.sport === 'DANCE' ? 'Baile' : 'Voleibol'}) (Corte día ${enrollment.paymentCutoffDay ?? 30})`,
                 // Mantener el estado (PENDING o OVERDUE)
                 status: pendingPaymentFromPreviousClass.status,
               },
@@ -329,7 +329,7 @@ export class MonthlyPaymentService {
               expectedAmount: amount,
               status: "PENDING",
               dueDate: dueDate,
-              notes: `Mensualidad ${period.name} - ${enrollment.danceClass.name} (Corte día ${enrollment.paymentCutoffDay ?? 30})`,
+              notes: `Mensualidad ${period.name} - ${enrollment.danceClass.name} (${enrollment.danceClass.sport === 'DANCE' ? 'Baile' : 'Voleibol'}) (Corte día ${enrollment.paymentCutoffDay ?? 30})`,
             },
           });
 
@@ -360,7 +360,7 @@ export class MonthlyPaymentService {
               ...(isLockedStatus
                 ? {}
                 : {
-                    notes: `Mensualidad ${period.name} - ${enrollment.danceClass.name} (Corte día ${enrollment.paymentCutoffDay ?? 30})`,
+                    notes: `Mensualidad ${period.name} - ${enrollment.danceClass.name} (${enrollment.danceClass.sport === 'DANCE' ? 'Baile' : 'Voleibol'}) (Corte día ${enrollment.paymentCutoffDay ?? 30})`,
                   }),
               // Solo cambiar estado a PENDING si el pago no ha sido pagado
               status: isLockedStatus ? existingPayment.status : "PENDING",
@@ -386,6 +386,13 @@ export class MonthlyPaymentService {
         if (payment.classId && !activeClassIds.includes(payment.classId)) {
           // Solo eliminar si está pendiente o vencido (no pagos completados para mantener historial)
           if (payment.status === 'PENDING' || payment.status === 'OVERDUE') {
+            // Proteger restantes de pagos parciales: si la misma terna (studentId, classId, periodId)
+            // tiene un PARTIAL_PAID, este PENDING es el saldo restante y NO debe eliminarse.
+            const hasPartialInSameTriple = allStudentPayments.some(
+              (p) => p.classId === payment.classId && p.status === 'PARTIAL_PAID' && p.id !== payment.id
+            );
+            if (hasPartialInSameTriple) continue;
+
             const deletedPayment = await prisma.monthlyPayment.delete({
               where: { id: payment.id }
             });
@@ -923,7 +930,11 @@ export class MonthlyPaymentService {
     }
 
     // Pre-calcular notas del pago
-    const notes = this.generatePaymentNotes(data, receivedAmount, effectiveExpectedAmount, baseAmount, isPartialPayment);
+    const paymentNotesText = this.generatePaymentNotes(data, receivedAmount, effectiveExpectedAmount, baseAmount, isPartialPayment);
+    const originalNotes = payment.notes || '';
+    const notes = originalNotes
+      ? `${originalNotes} | ${paymentNotesText}`
+      : paymentNotesText;
     logStep({
       correlationId,
       scope: "monthlyPaymentService.markPaymentAsReceived",
@@ -1013,7 +1024,7 @@ export class MonthlyPaymentService {
             expectedAmount: remainingPaymentData.remainingAmount,
             status: "PENDING",
             dueDate: remainingPaymentData.dueDate,
-            notes: `Saldo restante de pago parcial - ${payment.period.name} - ${danceClassForRemaining.name} (Corte día ${remainingPaymentData.cutoffDay})`,
+            notes: `Saldo restante de pago parcial - ${payment.period.name} - ${danceClassForRemaining.name} (${danceClassForRemaining.sport === 'DANCE' ? 'Baile' : 'Voleibol'}) (Corte día ${remainingPaymentData.cutoffDay})`,
           },
         });
         remainingPaymentId = remainingPayment.id;
@@ -2105,6 +2116,17 @@ export class MonthlyPaymentService {
     reviewedBy: string
   ) {
     const isPartialPayment = paymentStatus === "PARTIAL_PAID";
+    const existing = await prisma.monthlyPayment.findUnique({
+      where: { id: monthlyPaymentId },
+      select: { notes: true },
+    });
+    const originalNotes = existing?.notes || '';
+    const paymentNotes = isPartialPayment
+      ? `Pago parcial: $${paidAmount.toLocaleString()} de $${(paidAmount + remainingAmount).toLocaleString()}. Pendiente: $${remainingAmount.toLocaleString()}`
+      : `Pago completo: $${paidAmount.toLocaleString()}`;
+    const notes = originalNotes
+      ? `${originalNotes} | ${paymentNotes}`
+      : paymentNotes;
     
     await prisma.monthlyPayment.update({
       where: { id: monthlyPaymentId },
@@ -2113,9 +2135,7 @@ export class MonthlyPaymentService {
         paidAmount: paidAmount,
         paymentDate: new Date(),
         approvedBy: reviewedBy,
-        notes: isPartialPayment
-          ? `Pago parcial: $${paidAmount.toLocaleString()} de $${(paidAmount + remainingAmount).toLocaleString()}. Pendiente: $${remainingAmount.toLocaleString()}`
-          : `Pago completo: $${paidAmount.toLocaleString()}`,
+        notes,
       },
     });
   }
@@ -2187,7 +2207,7 @@ export class MonthlyPaymentService {
           expectedAmount: remainingAmount,
           status: "PENDING",
           dueDate: dueDate,
-          notes: `Saldo restante de pago parcial - ${period.name} - ${danceClass.name} (Corte día ${cutoffDay})`,
+          notes: `Saldo restante de pago parcial - ${period.name} - ${danceClass.name} (${danceClass.sport === 'DANCE' ? 'Baile' : 'Voleibol'}) (Corte día ${cutoffDay})`,
         },
       });
 
