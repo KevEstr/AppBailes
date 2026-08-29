@@ -235,8 +235,8 @@ export function EventRegistrationModal({
       return;
     }
 
-    // Crear la fecha del evento
-    const selectedDate = new Date(eventDate);
+    // Crear la fecha del evento en hora local de Colombia (UTC-5)
+    const selectedDate = new Date(eventDate + 'T00:00:00-05:00');
 
     // Validar que todos los estudiantes tengan un estado de asistencia seleccionado
     const studentsWithoutAttendance = classStudents.filter(student => 

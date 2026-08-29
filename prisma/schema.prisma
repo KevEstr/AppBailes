@@ -1,5 +1,5 @@
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
   previewFeatures = ["postgresqlExtensions"]
 }
 
@@ -14,32 +14,32 @@ datasource db {
 
 model Student {
   id        String   @id // Cédula colombiana (sin autoincrement)
-  name                    String
-  phone                   String
-  avatar                  String?
-  hasDebt                 Boolean                   @default(false)
-  isActive                Boolean                   @default(true)
-  userId                  Int?                      @unique  // Nueva relación con User
-  createdAt               DateTime                  @default(now()) @db.Timestamptz
-  updatedAt               DateTime                  @updatedAt @db.Timestamptz
+  name      String
+  phone     String
+  avatar    String?
+  hasDebt   Boolean  @default(false)
+  isActive  Boolean  @default(true)
+  userId    Int?     @unique // Nueva relación con User
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @updatedAt @db.Timestamptz
 
   // Relations
-  user                    User?                     @relation(fields: [userId], references: [id], onDelete: SetNull)
-  enrollmentData   StudentEnrollmentData?
-  attendances             Attendance[]
-  classEnrollments        ClassEnrollment[]
-  debts                   Debt[]
-  monthlyPayments         MonthlyPayment[]
-  paymentForms            PaymentForm[]
-  receipts                Receipt[]
-  messagesSent            MassiveMessage[]          @relation("MessageRecipients")
-  scheduledWhatsAppSends  ScheduledWhatsAppSend[]
-  serviceOrders           ServiceOrder[]
-  financialTransactions   FinancialTransaction[]
-  schedulerRecipients     SchedulerRecipient[]
+  user                   User?                   @relation(fields: [userId], references: [id], onDelete: SetNull)
+  enrollmentData         StudentEnrollmentData?
+  attendances            Attendance[]
+  classEnrollments       ClassEnrollment[]
+  debts                  Debt[]
+  monthlyPayments        MonthlyPayment[]
+  paymentForms           PaymentForm[]
+  receipts               Receipt[]
+  messagesSent           MassiveMessage[]        @relation("MessageRecipients")
+  scheduledWhatsAppSends ScheduledWhatsAppSend[]
+  serviceOrders          ServiceOrder[]
+  financialTransactions  FinancialTransaction[]
+  schedulerRecipients    SchedulerRecipient[]
   studentTransfers       StudentTransfer[]
-  enrollmentPayments      EnrollmentPayment[]
-  enrollmentPaymentForms  EnrollmentPaymentForm[]
+  enrollmentPayments     EnrollmentPayment[]
+  enrollmentPaymentForms EnrollmentPaymentForm[]
   matchAttendances       MatchAttendance[]
 
   @@index([name])
@@ -50,42 +50,42 @@ model Student {
 }
 
 model StudentEnrollmentData {
-  id                Int      @id @default(autoincrement())
-  studentId         String   @unique
-  
+  id        Int    @id @default(autoincrement())
+  studentId String @unique
+
   // Información Personal Completa
-  documentType      String?
-  birthDate         String?
-  address           String?
-  addressLatitude   Float?   // Coordenadas del mapa
-  addressLongitude  Float?   // Coordenadas del mapa
-  neighborhood      String?
-  city              String?   @default("Itagüí")
-  hasSisben         Boolean   @default(false)
-  eps               String?
-  bloodType         String?
-  hasRestrictions   Boolean   @default(false)
+  documentType            String?
+  birthDate               String?
+  address                 String?
+  addressLatitude         Float? // Coordenadas del mapa
+  addressLongitude        Float? // Coordenadas del mapa
+  neighborhood            String?
+  city                    String? @default("Itagüí")
+  hasSisben               Boolean @default(false)
+  eps                     String?
+  bloodType               String?
+  hasRestrictions         Boolean @default(false)
   restrictionsDescription String?
-  medicalConditions String?
-  isAdult           Boolean   @default(true)
-  
+  medicalConditions       String?
+  isAdult                 Boolean @default(true)
+
   // Contacto de Emergencia
   emergencyContactName     String?
   emergencyContactRelation String?
   emergencyContactPhone    String?
-  
+
   // Configuración de pagos
-  paymentCutoffDay   Int?    @default(30) // Día de corte: 15 o 30
-  
+  paymentCutoffDay Int? @default(30) // Día de corte: 15 o 30
+
   // Información de Pago
-  monthlyFee        Float?
-  
+  monthlyFee Float?
+
   // Información Deportiva
-  jerseyNumber      Int?     // Número de camiseta del estudiante
-  
+  jerseyNumber Int? // Número de camiseta del estudiante
+
   // Timestamps
-  createdAt         DateTime @default(now()) @db.Timestamptz
-  updatedAt         DateTime @updatedAt @db.Timestamptz
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @updatedAt @db.Timestamptz
 
   // Relations
   student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
@@ -95,45 +95,45 @@ model StudentEnrollmentData {
 
 model DanceClass {
   name        String
-  isActive    Boolean           @default(true)
-  createdAt   DateTime          @default(now()) @db.Timestamptz
-  updatedAt   DateTime          @updatedAt @db.Timestamptz
-  capacity    Int               @default(20)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now()) @db.Timestamptz
+  updatedAt   DateTime @updatedAt @db.Timestamptz
+  capacity    Int      @default(20)
   description String?
   price       Float?
-  locationId  Int?      // Para deportes, referencia a SportLocation
+  locationId  Int? // Para deportes, referencia a SportLocation
 
   // Relations
-  location    SportLocation?    @relation(fields: [locationId], references: [id])
-  
-  sport       SportType         @default(DANCE)
-  modality    String?
-  level       ClassLevel        @default(BEGINNER)
-  id          Int               @id @default(autoincrement())
-  trainerId   Int
-  enrollments ClassEnrollment[]
-  schedules   ClassSchedule[]
-  sessions    ClassSession[]
-  trainer     Trainer           @relation(fields: [trainerId], references: [id])
-  studentTransfersFrom StudentTransfer[] @relation("TransferFrom")
-  studentTransfersTo StudentTransfer[] @relation("TransferTo")
-  trainerAttendances TrainerAttendance[]
-  matches Match[]
-  monthlyPayments MonthlyPayment[] // Nueva relación con pagos mensuales
+  location SportLocation? @relation(fields: [locationId], references: [id])
+
+  sport                SportType           @default(DANCE)
+  modality             String?
+  level                ClassLevel          @default(BEGINNER)
+  id                   Int                 @id @default(autoincrement())
+  trainerId            Int
+  enrollments          ClassEnrollment[]
+  schedules            ClassSchedule[]
+  sessions             ClassSession[]
+  trainer              Trainer             @relation(fields: [trainerId], references: [id])
+  studentTransfersFrom StudentTransfer[]   @relation("TransferFrom")
+  studentTransfersTo   StudentTransfer[]   @relation("TransferTo")
+  trainerAttendances   TrainerAttendance[]
+  matches              Match[]
+  monthlyPayments      MonthlyPayment[] // Nueva relación con pagos mensuales
 
   @@map("classes")
 }
 
 model SportLocation {
-  id        Int          @id @default(autoincrement())
-  name      String       @unique
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
   address   String?
-  isActive  Boolean      @default(true)
-  createdAt DateTime     @default(now()) @db.Timestamptz
-  updatedAt DateTime     @updatedAt @db.Timestamptz
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @updatedAt @db.Timestamptz
 
   // Relations
-  classes   DanceClass[]
+  classes DanceClass[]
 
   @@map("sport_locations")
 }
@@ -172,18 +172,22 @@ model ClassSession {
 }
 
 model ClassEnrollment {
-  id         Int        @id @default(autoincrement())
-  studentId  String
-  classId    Int
-  enrolledAt DateTime   @default(now()) @db.Timestamptz
-  isActive   Boolean    @default(true)
+  id               Int        @id @default(autoincrement())
+  studentId        String
+  classId          Int
+  enrolledAt       DateTime   @default(now()) @db.Timestamptz
+  isActive         Boolean    @default(true)
+  // Fecha en la que el estudiante dejó la clase (baja). Se llena cuando isActive
+  // pasa a false y se limpia al reactivar. Permite reconstruir cuándo salió sin
+  // depender de updatedAt (que se pisa con cualquier cambio).
+  deactivatedAt    DateTime?  @db.Timestamptz
   // Configuración de pagos por clase
-  paymentCutoffDay   Int?    @default(30) // Día de corte: 15 o 30
-  monthlyFee         Float?  // Mensualidad específica para esta clase (opcional)
-  createdAt  DateTime   @default(now()) @db.Timestamptz
-  updatedAt  DateTime   @updatedAt @db.Timestamptz
-  danceClass DanceClass @relation(fields: [classId], references: [id], onDelete: Cascade)
-  student    Student    @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  paymentCutoffDay Int?       @default(30) // Día de corte: 15 o 30
+  monthlyFee       Float? // Mensualidad específica para esta clase (opcional)
+  createdAt        DateTime   @default(now()) @db.Timestamptz
+  updatedAt        DateTime   @updatedAt @db.Timestamptz
+  danceClass       DanceClass @relation(fields: [classId], references: [id], onDelete: Cascade)
+  student          Student    @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
   @@unique([studentId, classId])
   @@index([isActive])
@@ -194,27 +198,37 @@ model ClassEnrollment {
   @@map("class_enrollments")
 }
 
-// Nuevo modelo para historial de transferencias
+// Historial de transferencias y movimientos de clases por estudiante.
+// Centraliza tanto las transferencias entre clases (fromClassId → toClassId) como
+// las bajas generadas por el sistema: borrado manual de la clase o desactivación
+// del estudiante (que desactiva sus clases), donde NO hay clase de destino.
 model StudentTransfer {
-  id              Int       @id @default(autoincrement())
-  studentId       String
-  fromClassId     Int
-  toClassId       Int
-  transferredBy   Int       // ID del usuario que realizó la transferencia
-  reason          String?   // Motivo de la transferencia
-  transferredAt   DateTime  @default(now()) @db.Timestamptz
-  
+  id            Int                 @id @default(autoincrement())
+  studentId     String
+  fromClassId   Int
+  toClassId     Int? // null en bajas (no hay clase de destino)
+  type          StudentTransferType @default(TRANSFER)
+  transferredBy Int? // null en movimientos generados por el sistema
+  reason        String? // Motivo de la transferencia o de la baja
+  transferredAt DateTime            @default(now()) @db.Timestamptz
+
   // Relations
-  student         Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  fromClass       DanceClass @relation("TransferFrom", fields: [fromClassId], references: [id])
-  toClass         DanceClass @relation("TransferTo", fields: [toClassId], references: [id])
-  user            User      @relation(fields: [transferredBy], references: [id])
+  student   Student     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  fromClass DanceClass  @relation("TransferFrom", fields: [fromClassId], references: [id])
+  toClass   DanceClass? @relation("TransferTo", fields: [toClassId], references: [id])
+  user      User?       @relation(fields: [transferredBy], references: [id], onDelete: SetNull)
 
   @@index([studentId])
   @@index([fromClassId])
   @@index([toClassId])
+  @@index([type])
   @@index([transferredAt])
   @@map("student_transfers")
+}
+
+enum StudentTransferType {
+  TRANSFER // Cambio de una clase a otra (fromClassId → toClassId)
+  WITHDRAWAL // Baja de la clase (borrado manual o desactivación del estudiante)
 }
 
 model Attendance {
@@ -233,20 +247,20 @@ model Attendance {
 }
 
 model Receipt {
-  amount        Float
-  concept       String
-  paymentMethod PaymentMethod
-  promotion     String?
-  notes         String?
-  whatsappSent  Boolean       @default(false)
-  sentAt        DateTime?     @db.Timestamptz
-  createdAt     DateTime      @default(now()) @db.Timestamptz
-  updatedAt     DateTime      @updatedAt @db.Timestamptz
-  id            Int           @id @default(autoincrement())
-  studentId     String
-  student       Student       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  amount           Float
+  concept          String
+  paymentMethod    PaymentMethod
+  promotion        String?
+  notes            String?
+  whatsappSent     Boolean         @default(false)
+  sentAt           DateTime?       @db.Timestamptz
+  createdAt        DateTime        @default(now()) @db.Timestamptz
+  updatedAt        DateTime        @updatedAt @db.Timestamptz
+  id               Int             @id @default(autoincrement())
+  studentId        String
+  student          Student         @relation(fields: [studentId], references: [id], onDelete: Cascade)
   monthlyPaymentId Int?
-  monthlyPayment MonthlyPayment? @relation(fields: [monthlyPaymentId], references: [id], onDelete: SetNull)
+  monthlyPayment   MonthlyPayment? @relation(fields: [monthlyPaymentId], references: [id], onDelete: SetNull)
 
   @@map("receipts")
 }
@@ -254,7 +268,7 @@ model Receipt {
 model Debt {
   amount       Float
   concept      String
-  dueDate      DateTime      @db.Timestamptz
+  dueDate      DateTime  @db.Timestamptz
   isPaid       Boolean   @default(false)
   paidAt       DateTime? @db.Timestamptz
   lastReminder DateTime? @db.Timestamptz
@@ -281,15 +295,15 @@ model MassiveMessage {
 }
 
 model Trainer {
-  name        String
-  phone       String              @unique
-  isActive    Boolean             @default(true)
-  createdAt   DateTime            @default(now()) @db.Timestamptz
-  updatedAt   DateTime            @updatedAt @db.Timestamptz
-  id          Int                 @id @default(autoincrement())
-  classes     DanceClass[]
-  userId      Int?                @unique
-  user        User?               @relation(fields: [userId], references: [id], onDelete: SetNull)
+  name      String
+  phone     String       @unique
+  isActive  Boolean      @default(true)
+  createdAt DateTime     @default(now()) @db.Timestamptz
+  updatedAt DateTime     @updatedAt @db.Timestamptz
+  id        Int          @id @default(autoincrement())
+  classes   DanceClass[]
+  userId    Int?         @unique
+  user      User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@map("trainers")
 }
@@ -302,7 +316,7 @@ model TrainerAttendance {
   createdAt DateTime         @default(now()) @db.Timestamptz
   updatedAt DateTime         @updatedAt @db.Timestamptz
   id        Int              @id @default(autoincrement())
-  userId    Int              // ID del usuario que tomó la asistencia (puede ser admin o trainer)
+  userId    Int // ID del usuario que tomó la asistencia (puede ser admin o trainer)
   classId   Int
   class     DanceClass       @relation(fields: [classId], references: [id], onDelete: Cascade)
   user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -327,16 +341,16 @@ model MonthlyFeeConfig {
 }
 
 model PaymentPeriod {
-  id              Int              @id @default(autoincrement())
-  year            Int
-  month           Int
-  name            String
-  dueDate         DateTime?        @db.Timestamptz
-  isActive        Boolean          @default(true)
-  createdAt       DateTime         @default(now()) @db.Timestamptz
-  updatedAt       DateTime         @updatedAt @db.Timestamptz
-  monthlyPayments MonthlyPayment[]
-  paymentForms    PaymentForm[]
+  id                  Int                  @id @default(autoincrement())
+  year                Int
+  month               Int
+  name                String
+  dueDate             DateTime?            @db.Timestamptz
+  isActive            Boolean              @default(true)
+  createdAt           DateTime             @default(now()) @db.Timestamptz
+  updatedAt           DateTime             @updatedAt @db.Timestamptz
+  monthlyPayments     MonthlyPayment[]
+  paymentForms        PaymentForm[]
   schedulerExecutions SchedulerExecution[]
 
   @@unique([year, month])
@@ -346,7 +360,7 @@ model PaymentPeriod {
 model MonthlyPayment {
   id             Int                  @id @default(autoincrement())
   studentId      String
-  classId        Int                   // Obligatorio: todo pago debe estar asociado a una clase
+  classId        Int // Obligatorio: todo pago debe estar asociado a una clase
   periodId       Int
   feeConfigId    Int
   expectedAmount Float
@@ -356,9 +370,9 @@ model MonthlyPayment {
   approvedBy     String?
   notes          String?
   // Nuevos campos para el sistema de pagos pendientes
-  paymentMethod  PaymentMethod?       // Método de pago cuando se marca como recibido
+  paymentMethod  PaymentMethod? // Método de pago cuando se marca como recibido
   receivedAt     DateTime?            @db.Timestamptz // Fecha cuando se recibió el pago
-  markedAsPaidBy String?              // Usuario que marcó el pago como recibido
+  markedAsPaidBy String? // Usuario que marcó el pago como recibido
   // Fecha de vencimiento individual basada en el día de corte de la clase
   dueDate        DateTime?            @db.Timestamptz
   // Campos para tracking de mensajes WhatsApp
@@ -384,21 +398,21 @@ model MonthlyPayment {
 }
 
 model PaymentForm {
-  id               String            @id @default(cuid())
-  studentId        String
-  periodId         Int
-  monthlyPaymentId Int
-  studentName      String
-  amount           Float
-  status           PaymentFormStatus @default(ACTIVE)
-  expiresAt        DateTime?         @db.Timestamptz
-  usedAt           DateTime?         @db.Timestamptz
-  createdAt        DateTime          @default(now()) @db.Timestamptz
-  updatedAt        DateTime          @updatedAt @db.Timestamptz
-  monthlyPayment   MonthlyPayment    @relation(fields: [monthlyPaymentId], references: [id], onDelete: Cascade)
-  period           PaymentPeriod     @relation(fields: [periodId], references: [id], onDelete: Cascade)
-  student          Student           @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  paymentProofs    PaymentProof[]
+  id                      String                   @id @default(cuid())
+  studentId               String
+  periodId                Int
+  monthlyPaymentId        Int
+  studentName             String
+  amount                  Float
+  status                  PaymentFormStatus        @default(ACTIVE)
+  expiresAt               DateTime?                @db.Timestamptz
+  usedAt                  DateTime?                @db.Timestamptz
+  createdAt               DateTime                 @default(now()) @db.Timestamptz
+  updatedAt               DateTime                 @updatedAt @db.Timestamptz
+  monthlyPayment          MonthlyPayment           @relation(fields: [monthlyPaymentId], references: [id], onDelete: Cascade)
+  period                  PaymentPeriod            @relation(fields: [periodId], references: [id], onDelete: Cascade)
+  student                 Student                  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  paymentProofs           PaymentProof[]
   enrollmentPaymentProofs EnrollmentPaymentProof[]
 
   @@map("payment_forms")
@@ -428,42 +442,42 @@ model PaymentProof {
 // ===== MODELOS DE INSCRIPCIÓN =====
 
 model EnrollmentPayment {
-  id              Int                     @id @default(autoincrement())
-  studentId       String
-  sport           SportType
-  expectedAmount  Float
-  status          EnrollmentPaymentStatus @default(PENDING)
-  paidAt          DateTime?               @db.Timestamptz
-  paymentMethod   PaymentMethod?          // Método de pago cuando se marca como recibido
-  createdAt       DateTime                @default(now()) @db.Timestamptz
-  updatedAt       DateTime                @updatedAt @db.Timestamptz
-  
+  id             Int                     @id @default(autoincrement())
+  studentId      String
+  sport          SportType
+  expectedAmount Float
+  status         EnrollmentPaymentStatus @default(PENDING)
+  paidAt         DateTime?               @db.Timestamptz
+  paymentMethod  PaymentMethod? // Método de pago cuando se marca como recibido
+  createdAt      DateTime                @default(now()) @db.Timestamptz
+  updatedAt      DateTime                @updatedAt @db.Timestamptz
+
   // Relaciones
-  student         Student                 @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  paymentForms    EnrollmentPaymentForm[]
-  
+  student      Student                 @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  paymentForms EnrollmentPaymentForm[]
+
   @@index([studentId, sport])
   @@map("enrollment_payments")
 }
 
 model EnrollmentPaymentForm {
-  id                    String                      @id @default(cuid())
-  studentId             String
-  enrollmentPaymentId   Int
-  studentName           String
-  sport                 SportType
-  amount                Float
-  status                EnrollmentPaymentFormStatus  @default(ACTIVE)
-  expiresAt             DateTime?                    @db.Timestamptz
-  usedAt                DateTime?                    @db.Timestamptz
-  createdAt             DateTime                    @default(now()) @db.Timestamptz
-  updatedAt             DateTime                    @updatedAt @db.Timestamptz
-  
+  id                  String                      @id @default(cuid())
+  studentId           String
+  enrollmentPaymentId Int
+  studentName         String
+  sport               SportType
+  amount              Float
+  status              EnrollmentPaymentFormStatus @default(ACTIVE)
+  expiresAt           DateTime?                   @db.Timestamptz
+  usedAt              DateTime?                   @db.Timestamptz
+  createdAt           DateTime                    @default(now()) @db.Timestamptz
+  updatedAt           DateTime                    @updatedAt @db.Timestamptz
+
   // Relaciones
-  student               Student                     @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  enrollmentPayment     EnrollmentPayment           @relation(fields: [enrollmentPaymentId], references: [id], onDelete: Cascade)
-  paymentProofs         EnrollmentPaymentProof[]
-  
+  student           Student                  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  enrollmentPayment EnrollmentPayment        @relation(fields: [enrollmentPaymentId], references: [id], onDelete: Cascade)
+  paymentProofs     EnrollmentPaymentProof[]
+
   @@map("enrollment_payment_forms")
 }
 
@@ -483,16 +497,16 @@ model EnrollmentPaymentProof {
   reviewNotes   String?
   createdAt     DateTime           @default(now()) @db.Timestamptz
   updatedAt     DateTime           @updatedAt @db.Timestamptz
-  
+
   // Campos para identificar el tipo de pago
-  paymentType   String?            @default("MONTHLY") // "MONTHLY" o "ENROLLMENT"
-  concept       String?            // Concepto del pago (ej: "Inscripción Baile")
-  
+  paymentType String? @default("MONTHLY") // "MONTHLY" o "ENROLLMENT"
+  concept     String? // Concepto del pago (ej: "Inscripción Baile")
+
   // Relaciones
-  paymentForm   PaymentForm?       @relation(fields: [formId], references: [id], onDelete: Cascade)
-  enrollmentPaymentForm EnrollmentPaymentForm? @relation(fields: [enrollmentPaymentFormId], references: [id], onDelete: Cascade)
+  paymentForm             PaymentForm?           @relation(fields: [formId], references: [id], onDelete: Cascade)
+  enrollmentPaymentForm   EnrollmentPaymentForm? @relation(fields: [enrollmentPaymentFormId], references: [id], onDelete: Cascade)
   enrollmentPaymentFormId String?
-  
+
   @@map("enrollment_payment_proofs")
 }
 
@@ -563,135 +577,135 @@ enum PaymentProofStatus {
 }
 
 model ScheduledWhatsAppSend {
-  id              Int                     @id @default(autoincrement())
-  studentId       String
-  message         String
-  scheduledFor    DateTime                @db.Timestamptz
-  scheduledDate   DateTime?               @db.Timestamptz // Campo adicional para compatibilidad
-  name            String?                 // Campo para identificar el envío
-  status          ScheduledMessageStatus  @default(PENDING)
-  sentAt          DateTime?               @db.Timestamptz
-  errorMessage    String?
-  retryCount      Int                     @default(0)
-  maxRetries      Int                     @default(3)
-  messageType     String?
-  priority        Int                     @default(0)
-  createdAt       DateTime                @default(now()) @db.Timestamptz
-  updatedAt       DateTime                @updatedAt @db.Timestamptz
-  student         Student                 @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  id            Int                    @id @default(autoincrement())
+  studentId     String
+  message       String
+  scheduledFor  DateTime               @db.Timestamptz
+  scheduledDate DateTime?              @db.Timestamptz // Campo adicional para compatibilidad
+  name          String? // Campo para identificar el envío
+  status        ScheduledMessageStatus @default(PENDING)
+  sentAt        DateTime?              @db.Timestamptz
+  errorMessage  String?
+  retryCount    Int                    @default(0)
+  maxRetries    Int                    @default(3)
+  messageType   String?
+  priority      Int                    @default(0)
+  createdAt     DateTime               @default(now()) @db.Timestamptz
+  updatedAt     DateTime               @updatedAt @db.Timestamptz
+  student       Student                @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
   @@map("scheduled_whatsapp_sends")
 }
 
 // Tipos de scheduler para diferentes recordatorios
 enum SchedulerType {
-  MONTHLY_PAYMENT      // Recordatorio de mensualidad
-  DEBT_REMINDER        // Recordatorio de deudas pendientes
-  OVERDUE_WARNING      // Advertencia de pagos vencidos
-  PARTIAL_PAYMENT      // Recordatorio de pagos parciales
-  CUSTOM_MESSAGE       // Mensaje personalizado
+  MONTHLY_PAYMENT // Recordatorio de mensualidad
+  DEBT_REMINDER // Recordatorio de deudas pendientes
+  OVERDUE_WARNING // Advertencia de pagos vencidos
+  PARTIAL_PAYMENT // Recordatorio de pagos parciales
+  CUSTOM_MESSAGE // Mensaje personalizado
 }
 
 // Filtros de destinatarios
 enum TargetFilter {
-  ALL_ACTIVE           // Todos los estudiantes activos
-  WITH_DEBT            // Solo estudiantes con deuda
-  OVERDUE_PAYMENTS     // Pagos vencidos
-  PARTIAL_PAYMENTS     // Pagos parciales
-  SPECIFIC_STUDENTS    // Estudiantes específicos
-  CUSTOM_FILTER        // Filtro personalizado
+  ALL_ACTIVE // Todos los estudiantes activos
+  WITH_DEBT // Solo estudiantes con deuda
+  OVERDUE_PAYMENTS // Pagos vencidos
+  PARTIAL_PAYMENTS // Pagos parciales
+  SPECIFIC_STUDENTS // Estudiantes específicos
+  CUSTOM_FILTER // Filtro personalizado
 }
 
 // Scheduler PROFESIONAL - Con selección de destinatarios y recomendaciones
 model PaymentScheduler {
-  id              Int                     @id @default(autoincrement())
-  name            String                  // Nombre descriptivo
-  description     String?                 // Descripción opcional
-  
+  id          Int     @id @default(autoincrement())
+  name        String // Nombre descriptivo
+  description String? // Descripción opcional
+
   // Configuración de programación
-  isActive        Boolean                 @default(true)
-  dayOfMonth      Int                     @default(1)     // Día del mes para enviar (1-31)
-  hour            Int                     @default(9)     // Hora (0-23)
-  minute          Int                     @default(0)     // Minuto (0-59)
-  
+  isActive   Boolean @default(true)
+  dayOfMonth Int     @default(1) // Día del mes para enviar (1-31)
+  hour       Int     @default(9) // Hora (0-23)
+  minute     Int     @default(0) // Minuto (0-59)
+
   // Tipo de scheduler y filtros
-  schedulerType   SchedulerType           @default(MONTHLY_PAYMENT)  // Tipo de recordatorio
-  targetFilter    TargetFilter            @default(ALL_ACTIVE)       // Filtro de destinatarios
-  customFilter    String?                 // Filtro personalizado (JSON)
-  
+  schedulerType SchedulerType @default(MONTHLY_PAYMENT) // Tipo de recordatorio
+  targetFilter  TargetFilter  @default(ALL_ACTIVE) // Filtro de destinatarios
+  customFilter  String? // Filtro personalizado (JSON)
+
   // Control de ejecución
-  lastExecuted    DateTime?               @db.Timestamptz // Última vez que se ejecutó
-  nextExecution   DateTime?               @db.Timestamptz // Próxima ejecución calculada
-  totalExecutions Int                     @default(0)     // Contador de ejecuciones
-  
+  lastExecuted    DateTime? @db.Timestamptz // Última vez que se ejecutó
+  nextExecution   DateTime? @db.Timestamptz // Próxima ejecución calculada
+  totalExecutions Int       @default(0) // Contador de ejecuciones
+
   // Estadísticas
-  totalSent       Int                     @default(0)     // Total de mensajes enviados
-  totalFailed     Int                     @default(0)     // Total de mensajes fallidos
-  
+  totalSent   Int @default(0) // Total de mensajes enviados
+  totalFailed Int @default(0) // Total de mensajes fallidos
+
   // Metadatos
-  createdBy       String?                 // Usuario que lo creó
-  createdAt       DateTime                @default(now()) @db.Timestamptz
-  updatedAt       DateTime                @updatedAt @db.Timestamptz
-  
+  createdBy String? // Usuario que lo creó
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @updatedAt @db.Timestamptz
+
   // Relaciones PROFESIONALES
-  executions      SchedulerExecution[]    // Historial de ejecuciones
-  recipients      SchedulerRecipient[]    // Destinatarios específicos
-  
+  executions SchedulerExecution[] // Historial de ejecuciones
+  recipients SchedulerRecipient[] // Destinatarios específicos
+
   @@map("payment_schedulers")
 }
 
 // Destinatarios específicos de cada scheduler
 model SchedulerRecipient {
-  id              Int                     @id @default(autoincrement())
-  schedulerId     Int                     // Scheduler al que pertenece
-  studentId       String                  // Estudiante destinatario
-  
+  id          Int    @id @default(autoincrement())
+  schedulerId Int // Scheduler al que pertenece
+  studentId   String // Estudiante destinatario
+
   // Estado del destinatario
-  isActive        Boolean                 @default(true)  // Si está activo para este scheduler
-  lastSent        DateTime?               @db.Timestamptz // Último mensaje enviado
-  totalSent       Int                     @default(0)     // Total de mensajes enviados a este estudiante
-  
+  isActive  Boolean   @default(true) // Si está activo para este scheduler
+  lastSent  DateTime? @db.Timestamptz // Último mensaje enviado
+  totalSent Int       @default(0) // Total de mensajes enviados a este estudiante
+
   // Metadatos
-  addedAt         DateTime                @default(now()) @db.Timestamptz
-  addedBy         String?                 // Quién lo agregó
-  notes           String?                 // Notas adicionales
-  
+  addedAt DateTime @default(now()) @db.Timestamptz
+  addedBy String? // Quién lo agregó
+  notes   String? // Notas adicionales
+
   // Relaciones
-  scheduler       PaymentScheduler        @relation(fields: [schedulerId], references: [id], onDelete: Cascade)
-  student         Student                 @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  
-  @@unique([schedulerId, studentId])      // Un estudiante por scheduler
+  scheduler PaymentScheduler @relation(fields: [schedulerId], references: [id], onDelete: Cascade)
+  student   Student          @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([schedulerId, studentId]) // Un estudiante por scheduler
   @@map("scheduler_recipients")
 }
 
 // Historial de ejecuciones del scheduler - PROFESIONAL
 model SchedulerExecution {
-  id              Int                     @id @default(autoincrement())
-  schedulerId     Int
-  
+  id          Int @id @default(autoincrement())
+  schedulerId Int
+
   // Estado de la ejecución
-  status          SchedulerExecutionStatus @default(PENDING)
-  startedAt       DateTime?               @db.Timestamptz
-  completedAt     DateTime?               @db.Timestamptz
-  
+  status      SchedulerExecutionStatus @default(PENDING)
+  startedAt   DateTime?                @db.Timestamptz
+  completedAt DateTime?                @db.Timestamptz
+
   // Resultados
-  totalMessages   Int                     @default(0)
-  sentMessages    Int                     @default(0)
-  failedMessages  Int                     @default(0)
-  
+  totalMessages  Int @default(0)
+  sentMessages   Int @default(0)
+  failedMessages Int @default(0)
+
   // Detalles
-  periodId        Int?                    // Período que se procesó
-  errorMessage    String?                 // Error si falló
-  executionLogs   String?                 // Logs detallados de la ejecución (JSON)
-  
+  periodId      Int? // Período que se procesó
+  errorMessage  String? // Error si falló
+  executionLogs String? // Logs detallados de la ejecución (JSON)
+
   // Metadatos
-  createdAt       DateTime                @default(now()) @db.Timestamptz
-  updatedAt       DateTime                @updatedAt @db.Timestamptz
-  
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @updatedAt @db.Timestamptz
+
   // Relaciones
-  scheduler       PaymentScheduler        @relation(fields: [schedulerId], references: [id], onDelete: Cascade)
-  period          PaymentPeriod?          @relation(fields: [periodId], references: [id], onDelete: SetNull)
-  
+  scheduler PaymentScheduler @relation(fields: [schedulerId], references: [id], onDelete: Cascade)
+  period    PaymentPeriod?   @relation(fields: [periodId], references: [id], onDelete: SetNull)
+
   @@map("scheduler_executions")
 }
 
@@ -720,15 +734,16 @@ model User {
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now()) @db.Timestamptz
   updatedAt DateTime @updatedAt @db.Timestamptz
-  
+
   // Relations
-  student   Student? // Relación con Student
-  trainer   Trainer? // Relación con Trainer
-  studentTransfers StudentTransfer[]
-  productSales ProductSale[]
-  trainerAttendances TrainerAttendance[]
+  student                 Student? // Relación con Student
+  trainer                 Trainer? // Relación con Trainer
+  studentTransfers        StudentTransfer[]
+  productSales            ProductSale[]
+  trainerAttendances      TrainerAttendance[]
   matchTrainerAttendances MatchTrainerAttendance[]
-  inventoryMovements InventoryMovement[]
+  inventoryMovements      InventoryMovement[]
+
   @@map("users")
 }
 
@@ -752,34 +767,34 @@ enum ClassLevel {
 // ===== NUEVOS MODELOS PARA SERVICIOS ADICIONALES =====
 
 model Service {
-  id          Int       @id @default(autoincrement())
+  id          Int             @id @default(autoincrement())
   name        String
   description String?
   basePrice   Float
   category    ServiceCategory
-  isActive    Boolean   @default(true)
-  createdAt   DateTime  @default(now()) @db.Timestamptz
-  updatedAt   DateTime  @updatedAt @db.Timestamptz
-  
+  isActive    Boolean         @default(true)
+  createdAt   DateTime        @default(now()) @db.Timestamptz
+  updatedAt   DateTime        @updatedAt @db.Timestamptz
+
   // Relaciones
-  serviceRates ServiceRate[]
+  serviceRates  ServiceRate[]
   serviceOrders ServiceOrder[]
 
   @@map("services")
 }
 
 model ServiceRate {
-  id        Int       @id @default(autoincrement())
-  serviceId Int
-  level     ClassLevel?
-  sportType SportType?
-  price     Float
-  isDefault Boolean   @default(false)
-  validFrom DateTime  @default(now()) @db.Timestamptz
-  validUntil DateTime? @db.Timestamptz
-  createdAt DateTime  @default(now()) @db.Timestamptz
-  updatedAt DateTime  @updatedAt @db.Timestamptz
-  
+  id         Int         @id @default(autoincrement())
+  serviceId  Int
+  level      ClassLevel?
+  sportType  SportType?
+  price      Float
+  isDefault  Boolean     @default(false)
+  validFrom  DateTime    @default(now()) @db.Timestamptz
+  validUntil DateTime?   @db.Timestamptz
+  createdAt  DateTime    @default(now()) @db.Timestamptz
+  updatedAt  DateTime    @updatedAt @db.Timestamptz
+
   // Relaciones
   service Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
 
@@ -787,22 +802,22 @@ model ServiceRate {
 }
 
 model ServiceOrder {
-  id            Int               @id @default(autoincrement())
+  id            Int                @id @default(autoincrement())
   studentId     String
   serviceId     Int
-  quantity      Int               @default(1)
+  quantity      Int                @default(1)
   unitPrice     Float
   totalAmount   Float
   status        ServiceOrderStatus @default(PENDING)
-  scheduledDate DateTime?         @db.Timestamptz
-  completedDate DateTime?         @db.Timestamptz
+  scheduledDate DateTime?          @db.Timestamptz
+  completedDate DateTime?          @db.Timestamptz
   notes         String?
-  createdAt     DateTime          @default(now()) @db.Timestamptz
-  updatedAt     DateTime          @updatedAt @db.Timestamptz
-  
+  createdAt     DateTime           @default(now()) @db.Timestamptz
+  updatedAt     DateTime           @updatedAt @db.Timestamptz
+
   // Relaciones
-  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  service Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  student  Student          @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  service  Service          @relation(fields: [serviceId], references: [id], onDelete: Cascade)
   payments ServicePayment[]
 
   @@map("service_orders")
@@ -819,7 +834,7 @@ model ServicePayment {
   notes         String?
   createdAt     DateTime      @default(now()) @db.Timestamptz
   updatedAt     DateTime      @updatedAt @db.Timestamptz
-  
+
   // Relaciones  
   order ServiceOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
@@ -839,7 +854,7 @@ model FinancialPeriod {
   closedBy  String?
   createdAt DateTime  @default(now()) @db.Timestamptz
   updatedAt DateTime  @updatedAt @db.Timestamptz
-  
+
   // Relaciones
   transactions FinancialTransaction[]
   reports      FinancialReport[]
@@ -849,44 +864,44 @@ model FinancialPeriod {
 }
 
 model FinancialTransaction {
-  id          Int                   @id @default(autoincrement())
-  periodId    Int
-  type        TransactionType
-  category    TransactionCategory
-  amount      Float
-  description String
-  reference   String?
-  paymentMethod PaymentMethod?      // Método de pago usado
-  date        DateTime              @default(now()) @db.Timestamptz
-  studentId   String?
-  relatedId   Int?                  // ID relacionado (receipt, service_payment, etc)
-  relatedType String?               // Tipo de registro relacionado
-  createdAt   DateTime              @default(now()) @db.Timestamptz
-  updatedAt   DateTime              @updatedAt @db.Timestamptz
-  
+  id            Int                 @id @default(autoincrement())
+  periodId      Int
+  type          TransactionType
+  category      TransactionCategory
+  amount        Float
+  description   String
+  reference     String?
+  paymentMethod PaymentMethod? // Método de pago usado
+  date          DateTime            @default(now()) @db.Timestamptz
+  studentId     String?
+  relatedId     Int? // ID relacionado (receipt, service_payment, etc)
+  relatedType   String? // Tipo de registro relacionado
+  createdAt     DateTime            @default(now()) @db.Timestamptz
+  updatedAt     DateTime            @updatedAt @db.Timestamptz
+
   // Relaciones
-  period FinancialPeriod @relation(fields: [periodId], references: [id], onDelete: Cascade)
-  student Student? @relation(fields: [studentId], references: [id], onDelete: SetNull)
+  period         FinancialPeriod                         @relation(fields: [periodId], references: [id], onDelete: Cascade)
+  student        Student?                                @relation(fields: [studentId], references: [id], onDelete: SetNull)
   inventoryLinks FinancialTransactionInventoryMovement[]
 
   @@map("financial_transactions")
 }
 
 model FinancialReport {
-  id                Int             @id @default(autoincrement())
+  id                Int        @id @default(autoincrement())
   periodId          Int?
   reportType        ReportType
-  totalIncome       Float           @default(0)
-  totalExpenses     Float           @default(0)
-  netProfit         Float           @default(0)
-  monthlyPayments   Float           @default(0)
-  servicePayments   Float           @default(0)
-  otherIncome       Float           @default(0)
-  operatingExpenses Float           @default(0)
+  totalIncome       Float      @default(0)
+  totalExpenses     Float      @default(0)
+  netProfit         Float      @default(0)
+  monthlyPayments   Float      @default(0)
+  servicePayments   Float      @default(0)
+  otherIncome       Float      @default(0)
+  operatingExpenses Float      @default(0)
   summary           Json?
-  generatedAt       DateTime        @default(now()) @db.Timestamptz
+  generatedAt       DateTime   @default(now()) @db.Timestamptz
   generatedBy       String?
-  
+
   // Relaciones
   period FinancialPeriod? @relation(fields: [periodId], references: [id], onDelete: Cascade)
 
@@ -912,12 +927,12 @@ model FinancialTransactionInventoryMovement {
 // ===== NUEVOS ENUMS =====
 
 enum ServiceCategory {
-  TRAINING          // Entrenamiento físico
-  PRIVATE_CLASS     // Clases particulares  
-  WORKSHOP          // Talleres especiales
-  EVENT             // Eventos y presentaciones
-  EQUIPMENT         // Alquiler de equipos
-  OTHER             // Otros servicios
+  TRAINING // Entrenamiento físico
+  PRIVATE_CLASS // Clases particulares  
+  WORKSHOP // Talleres especiales
+  EVENT // Eventos y presentaciones
+  EQUIPMENT // Alquiler de equipos
+  OTHER // Otros servicios
 }
 
 enum ServiceOrderStatus {
@@ -965,22 +980,22 @@ enum ReportType {
 // ===== MODELOS PARA PRODUCTOS =====
 
 model Product {
-  id          Int       @id @default(autoincrement())
-  name        String
-  description String?
-  price       Float
-  stock       Float?    // NULL para productos compuestos, valor para productos simples
-  imageUrl    String?
-  category    ProductCategory
-  productType ProductType @default(SIMPLE)  // SIMPLE o COMPOSITE
-  isActive    Boolean   @default(true)
-  allowNegativeStock Boolean @default(true)  // Solo aplica a productos simples
-  createdAt   DateTime  @default(now()) @db.Timestamptz
-  updatedAt   DateTime  @updatedAt @db.Timestamptz
-  
+  id                 Int             @id @default(autoincrement())
+  name               String
+  description        String?
+  price              Float
+  stock              Float? // NULL para productos compuestos, valor para productos simples
+  imageUrl           String?
+  category           ProductCategory
+  productType        ProductType     @default(SIMPLE) // SIMPLE o COMPOSITE
+  isActive           Boolean         @default(true)
+  allowNegativeStock Boolean         @default(true) // Solo aplica a productos simples
+  createdAt          DateTime        @default(now()) @db.Timestamptz
+  updatedAt          DateTime        @updatedAt @db.Timestamptz
+
   // Relaciones
-  sales       ProductSale[]
-  inventoryMovements InventoryMovement[]
+  sales                ProductSale[]
+  inventoryMovements   InventoryMovement[]
   compositeIngredients ProductIngredient[] @relation("CompositeProduct")
   ingredientInProducts ProductIngredient[] @relation("IngredientProduct")
 
@@ -993,18 +1008,18 @@ model Product {
 
 // Modelo para ingredientes de productos compuestos
 model ProductIngredient {
-  id            Int       @id @default(autoincrement())
-  compositeProductId Int   // Producto compuesto
-  ingredientId  Int       // Ingrediente (producto simple)
-  quantity      Float     // Cantidad requerida del ingrediente
-  unit          String?   // Unidad de medida (opcional)
-  createdAt     DateTime  @default(now()) @db.Timestamptz
-  updatedAt     DateTime  @updatedAt @db.Timestamptz
-  
+  id                 Int      @id @default(autoincrement())
+  compositeProductId Int // Producto compuesto
+  ingredientId       Int // Ingrediente (producto simple)
+  quantity           Float // Cantidad requerida del ingrediente
+  unit               String? // Unidad de medida (opcional)
+  createdAt          DateTime @default(now()) @db.Timestamptz
+  updatedAt          DateTime @updatedAt @db.Timestamptz
+
   // Relaciones
   compositeProduct Product @relation("CompositeProduct", fields: [compositeProductId], references: [id], onDelete: Cascade)
   ingredient       Product @relation("IngredientProduct", fields: [ingredientId], references: [id], onDelete: Cascade)
-  
+
   @@unique([compositeProductId, ingredientId])
   @@index([compositeProductId])
   @@index([ingredientId])
@@ -1013,22 +1028,22 @@ model ProductIngredient {
 
 // Modelo para movimientos de inventario
 model InventoryMovement {
-  id            Int       @id @default(autoincrement())
-  productId     Int
-  movementType  InventoryMovementType
-  quantity      Float     // Cantidad (positiva para entradas, negativa para salidas)
-  price         Float?    // Precio de compra (solo para entradas, para registro de egresos)
-  reason        String?   // Motivo del movimiento
-  reference     String?   // Referencia externa (factura, orden, etc.)
-  notes         String?
-  processedBy   Int       // Usuario que procesó el movimiento
-  createdAt     DateTime  @default(now()) @db.Timestamptz
-  
+  id           Int                   @id @default(autoincrement())
+  productId    Int
+  movementType InventoryMovementType
+  quantity     Float // Cantidad (positiva para entradas, negativa para salidas)
+  price        Float? // Precio de compra (solo para entradas, para registro de egresos)
+  reason       String? // Motivo del movimiento
+  reference    String? // Referencia externa (factura, orden, etc.)
+  notes        String?
+  processedBy  Int // Usuario que procesó el movimiento
+  createdAt    DateTime              @default(now()) @db.Timestamptz
+
   // Relaciones
-  product       Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
-  user          User      @relation(fields: [processedBy], references: [id])
+  product        Product                                 @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user           User                                    @relation(fields: [processedBy], references: [id])
   financialLinks FinancialTransactionInventoryMovement[]
-  
+
   @@index([productId])
   @@index([movementType])
   @@index([processedBy])
@@ -1037,21 +1052,21 @@ model InventoryMovement {
 }
 
 model ProductSale {
-  id            Int       @id @default(autoincrement())
+  id            Int      @id @default(autoincrement())
   productId     Int
-  quantity      Float     // Cambiado a Float para permitir decimales
+  quantity      Float // Cambiado a Float para permitir decimales
   unitPrice     Float
   totalAmount   Float
-  paymentMethod String?   // CASH, TRANSFER
-  soldAt        DateTime  @default(now()) @db.Timestamptz
+  paymentMethod String? // CASH, TRANSFER
+  soldAt        DateTime @default(now()) @db.Timestamptz
   notes         String?
-  createdAt     DateTime  @default(now()) @db.Timestamptz
-  updatedAt     DateTime  @updatedAt @db.Timestamptz
+  createdAt     DateTime @default(now()) @db.Timestamptz
+  updatedAt     DateTime @updatedAt @db.Timestamptz
   processedBy   Int
-  
+
   // Relaciones
-  product       Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
-  user          User      @relation(fields: [processedBy], references: [id])
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [processedBy], references: [id])
 
   @@index([productId])
   @@index([processedBy])
@@ -1060,46 +1075,46 @@ model ProductSale {
 }
 
 enum ProductCategory {
-  JUICES      // Jugos naturales
-  SNACKS      // Snacks
-  BEVERAGES   // Bebidas
-  FOOD        // Comida
-  UNIFORMS    // Uniformes deportivos
+  JUICES // Jugos naturales
+  SNACKS // Snacks
+  BEVERAGES // Bebidas
+  FOOD // Comida
+  UNIFORMS // Uniformes deportivos
   ACCESSORIES // Accesorios y complementos
-  ADDITIONS   // Adiciones y complementos
-  OTHER       // Otros
+  ADDITIONS // Adiciones y complementos
+  OTHER // Otros
 }
 
 enum ProductType {
-  SIMPLE      // Producto simple con inventario directo
-  COMPOSITE   // Producto compuesto por ingredientes
+  SIMPLE // Producto simple con inventario directo
+  COMPOSITE // Producto compuesto por ingredientes
 }
 
 enum InventoryMovementType {
-  PURCHASE    // Compra/entrada de inventario
-  SALE        // Venta/salida por venta
-  ADJUSTMENT  // Ajuste manual de inventario
-  WASTE       // Pérdida/desperdicio
-  TRANSFER    // Transferencia entre ubicaciones
-  RETURN      // Devolución
+  PURCHASE // Compra/entrada de inventario
+  SALE // Venta/salida por venta
+  ADJUSTMENT // Ajuste manual de inventario
+  WASTE // Pérdida/desperdicio
+  TRANSFER // Transferencia entre ubicaciones
+  RETURN // Devolución
 }
 
 // ===== MODELOS PARA PARTIDOS =====
 
 model Match {
-  id          Int       @id @default(autoincrement())
-  classId     Int
-  matchDate   DateTime  @db.Timestamptz
-  notes       String?
-  status      MatchStatus @default(SCHEDULED)
-  createdAt   DateTime  @default(now()) @db.Timestamptz
-  updatedAt   DateTime  @updatedAt @db.Timestamptz
-  
+  id        Int         @id @default(autoincrement())
+  classId   Int
+  matchDate DateTime    @db.Timestamptz
+  notes     String?
+  status    MatchStatus @default(SCHEDULED)
+  createdAt DateTime    @default(now()) @db.Timestamptz
+  updatedAt DateTime    @updatedAt @db.Timestamptz
+
   // Relaciones
-  danceClass  DanceClass @relation(fields: [classId], references: [id], onDelete: Cascade)
-  attendances MatchAttendance[]
+  danceClass         DanceClass               @relation(fields: [classId], references: [id], onDelete: Cascade)
+  attendances        MatchAttendance[]
   trainerAttendances MatchTrainerAttendance[]
-  
+
   @@index([classId])
   @@index([matchDate])
   @@index([status])
@@ -1114,11 +1129,11 @@ model MatchAttendance {
   notes     String?
   createdAt DateTime         @default(now()) @db.Timestamptz
   updatedAt DateTime         @updatedAt @db.Timestamptz
-  
+
   // Relaciones
-  match     Match            @relation(fields: [matchId], references: [id], onDelete: Cascade)
-  student   Student          @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  
+  match   Match   @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
   @@unique([matchId, studentId])
   @@index([matchId])
   @@index([studentId])
@@ -1133,7 +1148,7 @@ model MatchTrainerAttendance {
   createdAt DateTime         @default(now()) @db.Timestamptz
   updatedAt DateTime         @updatedAt @db.Timestamptz
   id        Int              @id @default(autoincrement())
-  userId    Int              // ID del usuario que tomó la asistencia (puede ser admin o trainer)
+  userId    Int // ID del usuario que tomó la asistencia (puede ser admin o trainer)
   matchId   Int
   match     Match            @relation(fields: [matchId], references: [id], onDelete: Cascade)
   user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)

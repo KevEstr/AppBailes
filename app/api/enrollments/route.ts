@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/nextauth'
 
 const createEnrollmentSchema = z.object({
   studentId: z.string().min(1, 'ID de estudiante es requerido'),
@@ -517,6 +519,24 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Detectar inscripción previa inactiva del mismo deporte para heredar el día de
+    // corte y la tarifa, y para registrar una transferencia que preserve la cadena
+    // de cobros (evita el doble cobro al reinscribir tras un retiro).
+    const previousInactiveEnrollment = await prisma.classEnrollment.findFirst({
+      where: {
+        studentId: validatedData.studentId,
+        isActive: false,
+        classId: { not: validatedData.classId },
+        danceClass: { sport: danceClass.sport }
+      },
+      orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }]
+    })
+
+    const inheritedCutoffDay = previousInactiveEnrollment?.paymentCutoffDay ?? undefined
+    const inheritedMonthlyFee = previousInactiveEnrollment?.monthlyFee ?? undefined
+
+    const session = await getServerSession(authOptions)
+
     let enrollment
     if (existingEnrollment && !existingEnrollment.isActive) {
       // Reactivar inscripción existente
@@ -524,7 +544,10 @@ export async function POST(request: NextRequest) {
         where: { id: existingEnrollment.id },
         data: { 
           isActive: true,
-          enrolledAt: new Date()
+          deactivatedAt: null,
+          enrolledAt: new Date(),
+          ...(inheritedCutoffDay !== undefined ? { paymentCutoffDay: inheritedCutoffDay } : {}),
+          ...(inheritedMonthlyFee !== undefined ? { monthlyFee: inheritedMonthlyFee } : {})
         },
         include: {
           student: {
@@ -552,7 +575,9 @@ export async function POST(request: NextRequest) {
       enrollment = await prisma.classEnrollment.create({
         data: {
           studentId: validatedData.studentId,
-          classId: validatedData.classId
+          classId: validatedData.classId,
+          ...(inheritedCutoffDay !== undefined ? { paymentCutoffDay: inheritedCutoffDay } : {}),
+          ...(inheritedMonthlyFee !== undefined ? { monthlyFee: inheritedMonthlyFee } : {})
         },
         include: {
           student: {
@@ -574,6 +599,28 @@ export async function POST(request: NextRequest) {
             }
           }
         }
+      })
+    }
+
+    // Registrar transferencia implícita cuando el estudiante viene de otra clase del
+    // mismo deporte, para que generateMonthlyPayments detecte que un pago ya realizado
+    // en la clase anterior cubre la mensualidad de la nueva clase.
+    if (previousInactiveEnrollment && session?.user?.id) {
+      await prisma.studentTransfer.create({
+        data: {
+          studentId: validatedData.studentId,
+          fromClassId: previousInactiveEnrollment.classId,
+          toClassId: validatedData.classId,
+          type: 'TRANSFER',
+          transferredBy: parseInt(session.user.id),
+          reason: 'Reinscripción: corte y tarifa heredados de la clase anterior'
+        }
+      })
+    } else if (previousInactiveEnrollment && !session?.user?.id) {
+      console.warn('[enrollments] reinscripción sin sesión: no se registró transferencia', {
+        studentId: validatedData.studentId,
+        fromClassId: previousInactiveEnrollment.classId,
+        toClassId: validatedData.classId
       })
     }
 
@@ -664,7 +711,8 @@ export async function PUT(request: NextRequest) {
   }
 }
 
-// DELETE - Cancelar inscripción
+// DELETE - Retirar inscripción (soft delete: se desactiva, no se elimina físicamente,
+// para preservar el historial y la cadena de transferencias/cobros)
 export async function DELETE(request: NextRequest) {
   try {
     const { id } = await request.json()
@@ -676,13 +724,41 @@ export async function DELETE(request: NextRequest) {
       )
     }
 
-         await prisma.classEnrollment.delete({
-       where: { id }
-     })
+    const session = await getServerSession(authOptions)
+
+    const enrollment = await prisma.classEnrollment.findUnique({
+      where: { id }
+    })
+
+    if (!enrollment) {
+      return NextResponse.json(
+        { success: false, error: 'Inscripción no encontrada' },
+        { status: 404 }
+      )
+    }
+
+    // Soft-delete + registro de la baja en la línea temporal de clases del estudiante.
+    await prisma.$transaction(async (tx) => {
+      await tx.classEnrollment.update({
+        where: { id },
+        data: { isActive: false, deactivatedAt: new Date() }
+      })
+
+      await tx.studentTransfer.create({
+        data: {
+          studentId: enrollment.studentId,
+          fromClassId: enrollment.classId,
+          toClassId: null,
+          type: 'WITHDRAWAL',
+          transferredBy: session?.user?.id ? parseInt(session.user.id) : null,
+          reason: 'Retiro manual de la clase'
+        }
+      })
+    })
 
     return NextResponse.json({
       success: true,
-      message: 'Inscripción eliminada correctamente'
+      message: 'Estudiante retirado de la clase correctamente'
     })
   } catch (error) {
     console.error('Error deleting enrollment:', error)

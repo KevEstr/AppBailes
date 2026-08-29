@@ -49,6 +49,7 @@ async function findActiveDestinationCutoff(
 
 	const chainMap = new Map<number, Array<{ toClassId: number; transferredAt: Date; id: number }>>();
 	transfers.forEach((t) => {
+		if (t.toClassId == null) return; // baja (WITHDRAWAL), no es parte de la cadena
 		const edges = chainMap.get(t.fromClassId) ?? [];
 		edges.push({ toClassId: t.toClassId, transferredAt: t.transferredAt, id: t.id });
 		chainMap.set(t.fromClassId, edges);

@@ -113,6 +113,11 @@ export async function GET(request: NextRequest) {
                     name: true,
                     avatar: true,
                     hasDebt: true,
+                    enrollmentData: {
+                      select: {
+                        birthDate: true,
+                      },
+                    },
                   },
                 },
               },

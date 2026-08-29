@@ -161,6 +161,7 @@ export class MonthlyPaymentService {
 
       const chainMap = new Map<number, Array<{ toClassId: number; transferredAt: Date; id: number }>>();
       for (const t of studentTransfers) {
+        if (t.toClassId == null) continue; // baja (WITHDRAWAL), no forma parte de la cadena
         const edges = chainMap.get(t.fromClassId) ?? [];
         edges.push({ toClassId: t.toClassId, transferredAt: t.transferredAt, id: t.id });
         chainMap.set(t.fromClassId, edges);

@@ -186,6 +186,8 @@ export async function GET(request: Request) {
       // Si tiene 3 o más faltas consecutivas en esta clase, agregarlo a la lista
       if (maxConsecutive >= 3) {
         const student = absences[0].student
+        // Solo estudiantes activos
+        if (!student.isActive) continue
         const lastAbsence = absences.at(-1)
         
         if (student && lastAbsence.class) {

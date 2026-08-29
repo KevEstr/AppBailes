@@ -42,6 +42,7 @@ interface Student {
   name: string;
   avatar: string;
   hasDebt: boolean;
+  birthYear?: string;
   status?: "present" | "late" | "absent" | "change_request";
 }
 
@@ -71,6 +72,9 @@ interface DanceClass {
       name: string;
       avatar: string;
       hasDebt: boolean;
+      enrollmentData?: {
+        birthDate?: string;
+      };
     };
   }[];
 }
@@ -661,6 +665,9 @@ export default function ClassAttendanceTikTok() {
               name: enrollment.student.name,
               avatar: enrollment.student.avatar || "/placeholder.svg",
               hasDebt: enrollment.student.hasDebt,
+              birthYear: enrollment.student.enrollmentData?.birthDate
+                ? (enrollment.student.enrollmentData.birthDate.match(/^\d{4}/)?.[0] ?? undefined)
+                : undefined,
               status,
             } as Student;
           }
@@ -2231,6 +2238,11 @@ export default function ClassAttendanceTikTok() {
                 <div className="flex items-center justify-center">
                   <h2 className="text-2xl md:text-3xl font-bold text-white text-center">
                     {currentStudent.name}
+                    {currentStudent.birthYear && (
+                      <span className="text-lg md:text-xl font-normal text-gray-400 ml-2">
+                         {currentStudent.birthYear}
+                      </span>
+                    )}
                   </h2>
                 </div>
                 {currentStudent.hasDebt && (

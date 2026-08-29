@@ -327,9 +327,28 @@ export async function PUT(request: NextRequest) {
       body.isActive !== existingStudent.isActive &&
       body.isActive === false
     ) {
-      await prisma.classEnrollment.updateMany({
-        where: { studentId: existingStudent.id, isActive: true },
-        data: { isActive: false }
+      const activeEnrollments = existingStudent.classEnrollments.filter(e => e.isActive)
+      const now = new Date()
+
+      await prisma.$transaction(async (tx) => {
+        await tx.classEnrollment.updateMany({
+          where: { studentId: existingStudent.id, isActive: true },
+          data: { isActive: false, deactivatedAt: now }
+        })
+
+        // Registrar una baja por cada clase activa para mantener la línea temporal.
+        if (activeEnrollments.length > 0) {
+          await tx.studentTransfer.createMany({
+            data: activeEnrollments.map((e) => ({
+              studentId: existingStudent.id,
+              fromClassId: e.classId,
+              toClassId: null,
+              type: 'WITHDRAWAL',
+              transferredBy: parseInt(userId),
+              reason: 'Desactivación del estudiante'
+            }))
+          })
+        }
       })
     }
 

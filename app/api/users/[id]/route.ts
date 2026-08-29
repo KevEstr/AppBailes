@@ -283,6 +283,31 @@ export async function DELETE(
           where: { userId: userId },
           data: { isActive: false }
         });
+
+        // Desactivar sus clases activas y registrar una baja por cada una.
+        const activeEnrollments = await tx.classEnrollment.findMany({
+          where: { studentId: existingUser.student.id, isActive: true },
+          select: { classId: true }
+        });
+
+        if (activeEnrollments.length > 0) {
+          await tx.classEnrollment.updateMany({
+            where: { studentId: existingUser.student.id, isActive: true },
+            data: { isActive: false, deactivatedAt: new Date() }
+          });
+
+          await tx.studentTransfer.createMany({
+            data: activeEnrollments.map((e) => ({
+              studentId: existingUser.student.id,
+              fromClassId: e.classId,
+              toClassId: null,
+              type: 'WITHDRAWAL',
+              transferredBy: parseInt(session.user.id),
+              reason: 'Desactivación del estudiante'
+            }))
+          });
+        }
+
         console.log(`✅ Estudiante ${existingUser.student.name} marcado como inactivo`);
       }
 

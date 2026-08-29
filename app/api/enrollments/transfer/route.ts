@@ -141,7 +141,7 @@ export async function POST(request: NextRequest) {
       // Desactivar inscripción actual
       await tx.classEnrollment.update({
         where: { id: currentEnrollment.id },
-        data: { isActive: false }
+        data: { isActive: false, deactivatedAt: new Date() }
       })
 
       // Heredar configuración de pago de la inscripción origen
@@ -155,6 +155,7 @@ export async function POST(request: NextRequest) {
           where: { id: existingEnrollment.id },
           data: { 
             isActive: true,
+            deactivatedAt: null,
             enrolledAt: new Date(),
             paymentCutoffDay: inheritedCutoffDay,
             monthlyFee: inheritedMonthlyFee,
@@ -217,6 +218,7 @@ export async function POST(request: NextRequest) {
           studentId: validatedData.studentId,
           fromClassId: validatedData.fromClassId,
           toClassId: validatedData.toClassId,
+          type: 'TRANSFER',
           transferredBy: parseInt(session.user.id),
           reason: validatedData.reason
         }

@@ -1,0 +1,397 @@
+[
+  {
+    "studentId": "1038872592",
+    "studentName": "Camila Cardona Quintero",
+    "studentPhone": "573114355904",
+    "periodId": 25,
+    "periodName": "Abril 2026",
+    "paidPayments": [
+      {
+        "id": 6171,
+        "classId": 61,
+        "className": "Lunes, martes y jueves 7:00 PM a 8:30 PM - Antonia Contreras",
+        "sport": "VOLLEYBALL",
+        "status": "PAID",
+        "expectedAmount": 75000
+      }
+    ],
+    "uncoveredPending": [
+      {
+        "id": 6380,
+        "classId": 24,
+        "className": "Martes, jueves 4:00 PM a 5:30 PM y sábado 8:00 AM a 9:30 AM - Andrés Arroyave",
+        "sport": "VOLLEYBALL",
+        "status": "PENDING",
+        "expectedAmount": 75000,
+        "createdAt": "2026-05-09T23:54:18.887Z",
+        "dueDate": "2026-04-21T04:59:59.000Z"
+      }
+    ],
+    "transfers": [
+      {
+        "id": 116,
+        "from": 24,
+        "to": 61,
+        "date": "2026-03-10T21:19:21.177Z"
+      }
+    ]
+  },
+  {
+    "studentId": "1032022232",
+    "studentName": "Stephanie Gallo García",
+    "studentPhone": "573024585479",
+    "periodId": 27,
+    "periodName": "Junio 2026",
+    "paidPayments": [
+      {
+        "id": 7042,
+        "classId": 26,
+        "className": "Martes, jueves 4:00 PM a 5:30 PM y sábado 8:00 AM a 9:30 AM - Angelica López ",
+        "sport": "VOLLEYBALL",
+        "status": "PAID",
+        "expectedAmount": 75000
+      }
+    ],
+    "uncoveredPending": [
+      {
+        "id": 8905,
+        "classId": 16,
+        "className": "Martes, jueves 2:30 PM a 4:00 PM y sábado 8:00 AM a 9:30 AM - Andrés Vera",
+        "sport": "VOLLEYBALL",
+        "status": "PENDING",
+        "expectedAmount": 75000,
+        "createdAt": "2026-08-08T20:09:18.072Z",
+        "dueDate": "2026-07-06T04:59:59.000Z"
+      }
+    ],
+    "transfers": [
+      {
+        "id": 89,
+        "from": 27,
+        "to": 26,
+        "date": "2026-02-12T22:46:37.341Z"
+      }
+    ]
+  },
+  {
+    "studentId": "1022160715",
+    "studentName": "Maria Ángel Pineda Agudelo",
+    "studentPhone": "573206581884",
+    "periodId": 27,
+    "periodName": "Junio 2026",
+    "paidPayments": [
+      {
+        "id": 7087,
+        "classId": 53,
+        "className": "Lunes, martes y jueves 7:00 PM a 8:30 PM - Sergio Zamudio",
+        "sport": "VOLLEYBALL",
+        "status": "PAID",
+        "expectedAmount": 75000
+      }
+    ],
+    "uncoveredPending": [
+      {
+        "id": 8998,
+        "classId": 66,
+        "className": "Lunes, martes, jueves 7:00 PM a 8:30 PM - Andres Vera",
+        "sport": "VOLLEYBALL",
+        "status": "PENDING",
+        "expectedAmount": 75000,
+        "createdAt": "2026-08-17T02:05:40.443Z",
+        "dueDate": "2026-07-06T04:59:59.000Z"
+      }
+    ],
+    "transfers": []
+  },
+  {
+    "studentId": "1023545786",
+    "studentName": "Helen Dahiana Céspedes Silva",
+    "studentPhone": "573108377326",
+    "periodId": 27,
+    "periodName": "Junio 2026",
+    "paidPayments": [
+      {
+        "id": 7172,
+        "classId": 38,
+        "className": "Sábados y domingos 10:30 AM a 12:00 PM  - Karen (Baile Urbano)",
+        "sport": "DANCE",
+        "status": "PAID",
+        "expectedAmount": 70000
+      }
+    ],
+    "uncoveredPending": [
+      {
+        "id": 8914,
+        "classId": 36,
+        "className": "Martes y jueves 6:30 PM a 8:00 PM - Karen (Baile Urbano)",
+        "sport": "DANCE",
+        "status": "PENDING",
+        "expectedAmount": 70000,
+        "createdAt": "2026-08-08T20:09:22.242Z",
+        "dueDate": "2026-07-06T04:59:59.000Z"
+      }
+    ],
+    "transfers": []
+  },
+  {
+    "studentId": "1022155981",
+    "studentName": "Valery Garzon Quiroz",
+    "studentPhone": "573192325513",
+    "periodId": 27,
+    "periodName": "Junio 2026",
+    "paidPayments": [
+      {
+        "id": 7215,
+        "classId": 32,
+        "className": "Lunes, martes y jueves 7:00 PM a 8:30 PM - Carlos Davila",
+        "sport": "VOLLEYBALL",
+        "status": "PAID",
+        "expectedAmount": 75000
+      }
+    ],
+    "uncoveredPending": [
+      {
+        "id": 8915,
+        "classId": 61,
+        "className": "Lunes, martes y jueves 7:00 PM a 8:30 PM - Antonia Contreras",
+        "sport": "VOLLEYBALL",
+        "status": "PENDING",
+        "expectedAmount": 75000,
+        "createdAt": "2026-08-08T20:09:23.229Z",
+        "dueDate": "2026-07-06T04:59:59.000Z"
+      }
+    ],
+    "transfers": [
+      {
+        "id": 129,
+        "from": 53,
+        "to": 32,
+        "date": "2026-04-07T00:37:16.841Z"
+      }
+    ]
+  },
+  {
+    "studentId": "1022160274",
+    "studentName": "Maria Celeste Pardo Cardona",
+    "studentPhone": "573208536255",
+    "periodId": 27,
+    "periodName": "Junio 2026",
+    "paidPayments": [
+      {
+        "id": 7285,
+        "classId": 32,
+        "className": "Lunes, martes y jueves 7:00 PM a 8:30 PM - Carlos Davila",
+        "sport": "VOLLEYBALL",
+        "status": "PAID",
+        "expectedAmount": 75000
+      }
+    ],
+    "uncoveredPending": [
+      {
+        "id": 8919,
+        "classId": 61,
+        "className": "Lunes, martes y jueves 7:00 PM a 8:30 PM - Antonia Contreras",
+        "sport": "VOLLEYBALL",
+        "status": "PENDING",
+        "expectedAmount": 75000,
+        "createdAt": "2026-08-08T20:09:28.484Z",
+        "dueDate": "2026-06-21T04:59:59.000Z"
+      }
+    ],
+    "transfers": []
+  },
+  {
+    "studentId": "4702663",
+    "studentName": "Danieilys Adriainys Gonzáles Altuve",
+    "studentPhone": "573505472583",
+    "periodId": 27,
+    "periodName": "Junio 2026",
+    "paidPayments": [
+      {
+        "id": 8237,
+        "classId": 18,
+        "className": "Lunes, miércoles y viernes 3:00 PM a 4:30 PM - Andrés Arroyave",
+        "sport": "VOLLEYBALL",
+        "status": "PAID",
+        "expectedAmount": 75000
+      }
+    ],
+    "uncoveredPending": [
+      {
+        "id": 8359,
+        "classId": 14,
+        "className": "Lunes, miércoles y viernes 4:00 PM a 5:30 PM - Antonia Contreras",
+        "sport": "VOLLEYBALL",
+        "status": "PENDING",
+        "expectedAmount": 75000,
+        "createdAt": "2026-07-08T22:40:24.432Z",
+        "dueDate": "2026-07-06T04:59:59.000Z"
+      }
+    ],
+    "transfers": []
+  },
+  {
+    "studentId": "1033500921",
+    "studentName": "Yoselyn Cano Castrillon",
+    "studentPhone": "573016998574",
+    "periodId": 27,
+    "periodName": "Junio 2026",
+    "paidPayments": [
+      {
+        "id": 8241,
+        "classId": 73,
+        "className": "Miércoles y viernes 5:00 PM a 6:30 PM - Karen Melissa (Baile Urbano)",
+        "sport": "DANCE",
+        "status": "PAID",
+        "expectedAmount": 70000
+      }
+    ],
+    "uncoveredPending": [
+      {
+        "id": 8999,
+        "classId": 37,
+        "className": "Miércoles y viernes 6:30 PM a 8:00 PM - Karen (Baile Urbano)",
+        "sport": "DANCE",
+        "status": "PENDING",
+        "expectedAmount": 70000,
+        "createdAt": "2026-08-17T02:05:43.220Z",
+        "dueDate": "2026-07-06T04:59:59.000Z"
+      }
+    ],
+    "transfers": []
+  },
+  {
+    "studentId": "1032022232",
+    "studentName": "Stephanie Gallo García",
+    "studentPhone": "573024585479",
+    "periodId": 28,
+    "periodName": "Julio 2026",
+    "paidPayments": [
+      {
+        "id": 7518,
+        "classId": 26,
+        "className": "Martes, jueves 4:00 PM a 5:30 PM y sábado 8:00 AM a 9:30 AM - Angelica López ",
+        "sport": "VOLLEYBALL",
+        "status": "PAID",
+        "expectedAmount": 75000
+      }
+    ],
+    "uncoveredPending": [
+      {
+        "id": 8877,
+        "classId": 16,
+        "className": "Martes, jueves 2:30 PM a 4:00 PM y sábado 8:00 AM a 9:30 AM - Andrés Vera",
+        "sport": "VOLLEYBALL",
+        "status": "PENDING",
+        "expectedAmount": 75000,
+        "createdAt": "2026-07-24T21:18:21.520Z",
+        "dueDate": "2026-08-06T04:59:59.000Z"
+      }
+    ],
+    "transfers": [
+      {
+        "id": 89,
+        "from": 27,
+        "to": 26,
+        "date": "2026-02-12T22:46:37.341Z"
+      }
+    ]
+  },
+  {
+    "studentId": "1023545786",
+    "studentName": "Helen Dahiana Céspedes Silva",
+    "studentPhone": "573108377326",
+    "periodId": 28,
+    "periodName": "Julio 2026",
+    "paidPayments": [
+      {
+        "id": 7648,
+        "classId": 38,
+        "className": "Sábados y domingos 10:30 AM a 12:00 PM  - Karen (Baile Urbano)",
+        "sport": "DANCE",
+        "status": "PAID",
+        "expectedAmount": 70000
+      }
+    ],
+    "uncoveredPending": [
+      {
+        "id": 8893,
+        "classId": 36,
+        "className": "Martes y jueves 6:30 PM a 8:00 PM - Karen (Baile Urbano)",
+        "sport": "DANCE",
+        "status": "PENDING",
+        "expectedAmount": 70000,
+        "createdAt": "2026-08-04T15:22:59.519Z",
+        "dueDate": "2026-08-06T04:59:59.000Z"
+      }
+    ],
+    "transfers": []
+  },
+  {
+    "studentId": "1022155981",
+    "studentName": "Valery Garzon Quiroz",
+    "studentPhone": "573192325513",
+    "periodId": 28,
+    "periodName": "Julio 2026",
+    "paidPayments": [
+      {
+        "id": 7691,
+        "classId": 32,
+        "className": "Lunes, martes y jueves 7:00 PM a 8:30 PM - Carlos Davila",
+        "sport": "VOLLEYBALL",
+        "status": "PAID",
+        "expectedAmount": 75000
+      }
+    ],
+    "uncoveredPending": [
+      {
+        "id": 9047,
+        "classId": 61,
+        "className": "Lunes, martes y jueves 7:00 PM a 8:30 PM - Antonia Contreras",
+        "sport": "VOLLEYBALL",
+        "status": "PENDING",
+        "expectedAmount": 75000,
+        "createdAt": "2026-08-23T22:51:49.044Z",
+        "dueDate": "2026-07-21T04:59:59.000Z"
+      }
+    ],
+    "transfers": [
+      {
+        "id": 129,
+        "from": 53,
+        "to": 32,
+        "date": "2026-04-07T00:37:16.841Z"
+      }
+    ]
+  },
+  {
+    "studentId": "1035975483",
+    "studentName": "María Celeste Rodas Gomez",
+    "studentPhone": "573205149062",
+    "periodId": 28,
+    "periodName": "Julio 2026",
+    "paidPayments": [
+      {
+        "id": 7696,
+        "classId": 23,
+        "className": "Lunes, martes y jueves 8:30 PM a 10:00 PM - Andres Vera",
+        "sport": "VOLLEYBALL",
+        "status": "PAID",
+        "expectedAmount": 75000
+      }
+    ],
+    "uncoveredPending": [
+      {
+        "id": 8897,
+        "classId": 72,
+        "className": "Lunes, martes, jueves 3:30 PM a 5:00 PM - Alicia González ",
+        "sport": "VOLLEYBALL",
+        "status": "PENDING",
+        "expectedAmount": 75000,
+        "createdAt": "2026-08-08T15:42:44.126Z",
+        "dueDate": "2026-07-21T04:59:59.000Z"
+      }
+    ],
+    "transfers": []
+  }
+]
