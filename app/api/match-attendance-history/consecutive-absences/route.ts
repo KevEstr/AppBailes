@@ -11,7 +11,7 @@ export async function GET(request: Request) {
     const startDate = new Date()
     startDate.setMonth(startDate.getMonth() - 1)
 
-    // Construir filtro base para asistencias de eventos
+    // Filtro base: asistencias de eventos en el período
     const whereClause: any = {
       match: {
         matchDate: {
@@ -19,10 +19,8 @@ export async function GET(request: Request) {
           lte: endDate,
         },
       },
-      status: 'ABSENT', // Solo faltas
     }
 
-    // Filtro por evento específico
     if (matchIdParam !== "all") {
       const matchId = parseInt(matchIdParam)
       if (matchId) {
@@ -30,101 +28,97 @@ export async function GET(request: Request) {
       }
     }
 
-    // Obtener todas las asistencias ausentes en el último mes
-    const absentAttendances = await prisma.matchAttendance.findMany({
+    // 1. Obtener TODAS las asistencias del período (todos los estados)
+    const allAttendances = await prisma.matchAttendance.findMany({
       where: whereClause,
       include: {
         student: true,
         match: {
           include: {
-            danceClass: true
-          }
-        }
+            danceClass: {
+              select: { id: true, name: true, sport: true },
+            },
+          },
+        },
       },
       orderBy: {
         match: {
-          matchDate: 'asc'
-        }
-      }
+          matchDate: 'asc',
+        },
+      },
     })
 
-    // Agrupar por estudiante y encontrar faltas consecutivas
-    const studentAbsencesMap: { [key: string]: any[] } = {}
-    
-    absentAttendances.forEach((attendance: any) => {
-      const studentId = attendance.studentId
-      if (!studentAbsencesMap[studentId]) {
-        studentAbsencesMap[studentId] = []
-      }
-      studentAbsencesMap[studentId].push({
-        date: new Date(attendance.match.matchDate),
-        class: attendance.match.danceClass
+    // 2. Agrupar por (studentId + classId del match), ordenando por matchDate
+    const studentClassMap = new Map<string, Array<{
+      matchDate: Date
+      status: string
+      student: any
+      danceClass: any
+    }>>()
+
+    for (const a of allAttendances) {
+      const classId = a.match?.danceClass?.id ?? 'unknown'
+      const key = `${a.studentId}|${classId}`
+      if (!studentClassMap.has(key)) studentClassMap.set(key, [])
+      studentClassMap.get(key)!.push({
+        matchDate: new Date(a.match.matchDate),
+        status: a.status,
+        student: a.student,
+        danceClass: a.match?.danceClass,
       })
-    })
+    }
 
-    // Encontrar estudiantes con 3 o más faltas consecutivas
-    const studentsWithConsecutiveAbsences: any[] = []
+    // 3. Para cada (estudiante, clase): si los últimos 3 registros de asistencia
+    //    son AUSENTE y el estudiante está activo, mostrarlo.
+    const results: any[] = []
 
-    Object.keys(studentAbsencesMap).forEach((studentId) => {
-      const absences = studentAbsencesMap[studentId]
-      if (absences.length < 3) return
+    for (const [, records] of studentClassMap) {
+      // Ordenar por fecha ascendente
+      records.sort((a, b) => a.matchDate.getTime() - b.matchDate.getTime())
 
-      // Ordenar por fecha
-      absences.sort((a, b) => a.date.getTime() - b.date.getTime())
+      // Solo estudiantes activos
+      if (!records[0].student.isActive) continue
 
-      // Buscar secuencias consecutivas
-      let maxConsecutive = 1
-      let currentConsecutive = 1 // Empezamos con 1 porque ya tenemos la primera falta
+      // Necesita al menos 3 registros de asistencia
+      if (records.length < 3) continue
 
-      for (let i = 1; i < absences.length; i++) {
-        const currentDate = absences[i].date
-        const previousDate = absences[i - 1].date
-        const daysDiff = Math.floor((currentDate.getTime() - previousDate.getTime()) / (1000 * 60 * 60 * 24))
+      // Tomar los últimos 3 registros
+      const last3 = records.slice(-3)
 
-        // Si la diferencia es 1 día o menos (mismo día o día siguiente), es consecutivo
-        if (daysDiff <= 1) {
-          currentConsecutive++
-        } else {
-          // Si encontramos una secuencia de 3 o más, actualizar maxConsecutive
-          if (currentConsecutive >= 3 && currentConsecutive > maxConsecutive) {
-            maxConsecutive = currentConsecutive
-          }
-          currentConsecutive = 1
-        }
+      // Si al menos 1 de los últimos 3 NO es AUSENTE, no aplica
+      if (last3.some(r => r.status !== 'ABSENT')) continue
+
+      // Contar la racha de ausencias desde la más reciente hacia atrás
+      let streak = 0
+      for (let i = records.length - 1; i >= 0; i--) {
+        if (records[i].status === 'ABSENT') streak++
+        else break
       }
 
-      // Verificar la última secuencia
-      if (currentConsecutive >= 3 && currentConsecutive > maxConsecutive) {
-        maxConsecutive = currentConsecutive
-      }
+      const student = records[0].student
+      const dc = records[0].danceClass
 
-      // Si tiene 3 o más faltas consecutivas, agregarlo a la lista
-      if (maxConsecutive >= 3) {
-        const student = absentAttendances.find((att: any) => att.studentId === studentId)?.student
-        const lastAbsence = absences[absences.length - 1]
-        
-        if (student) {
-          studentsWithConsecutiveAbsences.push({
-            id: student.id,
-            name: student.name,
-            avatar: student.avatar || "",
-            consecutiveAbsences: maxConsecutive,
-            lastAbsenceDate: lastAbsence.date,
-            class: lastAbsence.class ? {
-              id: lastAbsence.class.id,
-              name: lastAbsence.class.name,
-              sport: lastAbsence.class.sport
-            } : undefined
-          })
-        }
-      }
-    })
+      results.push({
+        id: student.id,
+        name: student.name,
+        avatar: student.avatar || "",
+        consecutiveAbsences: streak,
+        lastAbsenceDate: records[records.length - 1].matchDate,
+        class: dc
+          ? {
+              id: dc.id,
+              name: dc.name,
+              sport: dc.sport,
+            }
+          : undefined,
+      })
+    }
 
     // Ordenar por número de faltas consecutivas (mayor a menor)
-    studentsWithConsecutiveAbsences.sort((a, b) => b.consecutiveAbsences - a.consecutiveAbsences)
+    results.sort((a, b) => b.consecutiveAbsences - a.consecutiveAbsences)
 
     return NextResponse.json({
-      students: studentsWithConsecutiveAbsences
+      students: results,
     })
   } catch (error) {
     console.error("Error fetching match consecutive absences:", error)
@@ -134,4 +128,3 @@ export async function GET(request: Request) {
     )
   }
 }
-

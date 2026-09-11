@@ -11,207 +11,109 @@ export async function GET(request: Request) {
     const startDate = new Date()
     startDate.setMonth(startDate.getMonth() - 1)
 
-    // Construir filtro base para asistencias
+    // Construir filtro base
     const whereClause: any = {
       date: {
         gte: startDate,
         lte: endDate,
       },
-      status: 'ABSENT', // Solo faltas
     }
 
-    // Filtro por clase específica
     if (classIdParam !== "all") {
       const classId = Number.parseInt(classIdParam, 10)
       if (classId) {
         whereClause.session = {
-          classId: classId
+          classId: classId,
         }
       }
     }
 
-    // Obtener todas las asistencias ausentes en el último mes
-    const absentAttendances = await prisma.attendance.findMany({
+    // 1. Obtener TODAS las asistencias del período (todos los estados)
+    const allAttendances = await prisma.attendance.findMany({
       where: whereClause,
       include: {
         student: true,
         session: {
           include: {
-            danceClass: true
-          }
-        }
-      },
-      orderBy: {
-        date: 'asc'
-      }
-    })
-
-    // Agrupar por estudiante Y clase para calcular faltas consecutivas por clase
-    // Usamos una clave compuesta: studentId-classId
-    const studentClassAbsencesMap: { [key: string]: any[] } = {}
-    
-    absentAttendances.forEach((attendance: any) => {
-      const studentId = attendance.studentId
-      const classId = attendance.session?.danceClass?.id || 'unknown'
-      const key = `${studentId}-${classId}`
-      
-      if (!studentClassAbsencesMap[key]) {
-        studentClassAbsencesMap[key] = []
-      }
-      studentClassAbsencesMap[key].push({
-        date: new Date(attendance.date),
-        sessionDate: attendance.session?.date ? new Date(attendance.session.date) : new Date(attendance.date),
-        class: attendance.session?.danceClass,
-        student: attendance.student
-      })
-    })
-
-    // Obtener todas las clases únicas que tienen faltas para optimizar consultas
-    const uniqueClassIds = Array.from(new Set(
-      Object.values(studentClassAbsencesMap)
-        .flat()
-        .map((a: any) => a.class?.id)
-        .filter((id): id is number => id !== undefined && id !== 'unknown')
-    ))
-
-    // Obtener todas las sesiones de todas las clases de una vez para optimizar
-    const allClassSessionsMap = new Map<number, Array<{ id: number; date: Date }>>()
-    
-    if (uniqueClassIds.length > 0) {
-      const allSessions = await prisma.classSession.findMany({
-        where: {
-          classId: {
-            in: uniqueClassIds
+            danceClass: {
+              select: { id: true, name: true, sport: true },
+            },
           },
-          date: {
-            gte: startDate,
-            lte: endDate
-          }
         },
-        orderBy: {
-          date: 'asc'
-        },
-        select: {
-          id: true,
-          date: true,
-          classId: true
-        }
+      },
+    })
+
+    // 2. Agrupar por (studentId + classId), ordenando por fecha de sesión
+    const studentClassMap = new Map<string, Array<{
+      sessionDate: Date
+      status: string
+      student: any
+      danceClass: any
+    }>>()
+
+    for (const a of allAttendances) {
+      const classId = a.session?.danceClass?.id ?? a.session?.classId ?? 'unknown'
+      const key = `${a.studentId}|${classId}`
+      if (!studentClassMap.has(key)) studentClassMap.set(key, [])
+      studentClassMap.get(key)!.push({
+        sessionDate: a.session?.date ? new Date(a.session.date) : new Date(a.date),
+        status: a.status,
+        student: a.student,
+        danceClass: a.session?.danceClass,
       })
-
-      // Agrupar sesiones por clase
-      for (const session of allSessions) {
-        if (!allClassSessionsMap.has(session.classId)) {
-          allClassSessionsMap.set(session.classId, [])
-        }
-        allClassSessionsMap.get(session.classId)!.push({
-          id: session.id,
-          date: session.date
-        })
-      }
     }
 
-    // Normalizar fechas a solo fecha (sin hora) para comparación
-    const normalizeDate = (date: Date) => {
-      const d = new Date(date)
-      d.setHours(0, 0, 0, 0)
-      return d.getTime()
-    }
+    // 3. Para cada (estudiante, clase): si los últimos 3 registros de asistencia
+    //    son AUSENTE y el estudiante está activo, mostrarlo.
+    const results: any[] = []
 
-    // Encontrar estudiantes con 3 o más faltas consecutivas por clase
-    const studentsWithConsecutiveAbsences: any[] = []
+    for (const [, records] of studentClassMap) {
+      // Ordenar por fecha de sesión ascendente
+      records.sort((a, b) => a.sessionDate.getTime() - b.sessionDate.getTime())
 
-    for (const key of Object.keys(studentClassAbsencesMap)) {
-      const absences = studentClassAbsencesMap[key]
-      if (absences.length < 3) continue
+      // Solo estudiantes activos
+      if (!records[0].student.isActive) continue
 
-      // Ordenar por fecha de sesión (no fecha de registro)
-      absences.sort((a, b) => a.sessionDate.getTime() - b.sessionDate.getTime())
+      // Necesita al menos 3 registros de asistencia
+      if (records.length < 3) continue
 
-      // Obtener todas las sesiones de esta clase en el período para determinar frecuencia
-      // Esto nos ayuda a entender si las faltas son en sesiones consecutivas
-      const classId = absences[0].class?.id
-      if (!classId || typeof classId !== 'number') continue
+      // Tomar los últimos 3 registros
+      const last3 = records.slice(-3)
 
-      // Obtener sesiones de esta clase desde el mapa
-      const allClassSessions = allClassSessionsMap.get(classId) || []
+      // Si al menos 1 de los últimos 3 NO es AUSENTE, no aplica
+      if (last3.some(r => r.status !== 'ABSENT')) continue
 
-      // Buscar secuencias consecutivas considerando sesiones de clase
-      // Para clases con días específicos (ej: miércoles y viernes), necesitamos
-      // verificar si las faltas son en sesiones consecutivas de la clase
-      let maxConsecutive = 1
-      let currentConsecutive = 1
-
-      // Crear lista de fechas de sesiones normalizadas y ordenadas
-      const sessionDates = allClassSessions
-        .map(s => normalizeDate(s.date))
-        .sort((a, b) => a - b)
-
-      for (let i = 1; i < absences.length; i++) {
-        const currentSessionDate = absences[i].sessionDate
-        const previousSessionDate = absences[i - 1].sessionDate
-        const daysDiff = Math.floor((currentSessionDate.getTime() - previousSessionDate.getTime()) / (1000 * 60 * 60 * 24))
-
-        // Normalizar fechas para comparación
-        const currentDateNormalized = normalizeDate(currentSessionDate)
-        const previousDateNormalized = normalizeDate(previousSessionDate)
-
-        // Verificar si son sesiones consecutivas de la clase
-        const currentSessionIndex = sessionDates.findIndex(d => d === currentDateNormalized)
-        const previousSessionIndex = sessionDates.findIndex(d => d === previousDateNormalized)
-        
-        const isConsecutiveSession = currentSessionIndex !== -1 && 
-                                     previousSessionIndex !== -1 && 
-                                     currentSessionIndex === previousSessionIndex + 1
-
-        // Criterio para considerar consecutivo:
-        // 1. Si son sesiones consecutivas de la clase (índices adyacentes en la lista de sesiones)
-        // 2. O si la diferencia es <= 3 días (para clases que se dan varios días por semana)
-        // 3. O si la diferencia es <= 7 días (para clases semanales)
-        if (isConsecutiveSession || daysDiff <= 7) {
-          currentConsecutive++
-        } else {
-          // Si encontramos una secuencia de 3 o más, actualizar maxConsecutive
-          if (currentConsecutive >= 3 && currentConsecutive > maxConsecutive) {
-            maxConsecutive = currentConsecutive
-          }
-          currentConsecutive = 1
-        }
+      // Contar la racha de ausencias desde la más reciente hacia atrás
+      let streak = 0
+      for (let i = records.length - 1; i >= 0; i--) {
+        if (records[i].status === 'ABSENT') streak++
+        else break
       }
 
-      // Verificar la última secuencia
-      if (currentConsecutive >= 3 && currentConsecutive > maxConsecutive) {
-        maxConsecutive = currentConsecutive
-      }
+      const student = records[0].student
+      const dc = records[0].danceClass
 
-      // Si tiene 3 o más faltas consecutivas en esta clase, agregarlo a la lista
-      if (maxConsecutive >= 3) {
-        const student = absences[0].student
-        // Solo estudiantes activos
-        if (!student.isActive) continue
-        const lastAbsence = absences.at(-1)
-        
-        if (student && lastAbsence.class) {
-          studentsWithConsecutiveAbsences.push({
-            id: student.id,
-            name: student.name,
-            avatar: student.avatar || "",
-            consecutiveAbsences: maxConsecutive,
-            lastAbsenceDate: lastAbsence.sessionDate,
-            class: {
-              id: lastAbsence.class.id,
-              name: lastAbsence.class.name,
-              sport: lastAbsence.class.sport
+      results.push({
+        id: student.id,
+        name: student.name,
+        avatar: student.avatar || "",
+        consecutiveAbsences: streak,
+        lastAbsenceDate: records[records.length - 1].sessionDate,
+        class: dc
+          ? {
+              id: dc.id,
+              name: dc.name,
+              sport: dc.sport,
             }
-          })
-        }
-      }
+          : undefined,
+      })
     }
 
     // Ordenar por número de faltas consecutivas (mayor a menor)
-    studentsWithConsecutiveAbsences.sort((a, b) => b.consecutiveAbsences - a.consecutiveAbsences)
+    results.sort((a, b) => b.consecutiveAbsences - a.consecutiveAbsences)
 
     return NextResponse.json({
-      students: studentsWithConsecutiveAbsences
+      students: results,
     })
   } catch (error) {
     console.error("Error fetching consecutive absences:", error)
@@ -221,4 +123,3 @@ export async function GET(request: Request) {
     )
   }
 }
-

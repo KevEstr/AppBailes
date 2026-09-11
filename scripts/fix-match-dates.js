@@ -1,12 +1,14 @@
 /**
- * Corrige la fecha de partidos (matches) que se almacenaron con el bug de zona horaria.
+ * Corrige la fecha y hora de partidos (matches) que se almacenaron con el bug de zona horaria.
  *
- * Bug: new Date("2026-08-01") crea medianoche UTC, que al guardarse en PostgreSQL
- * con zona horaria Colombia (UTC-5) se almacena como 2026-07-31 19:00:00-05.
- * El día se desplaza un día atrás.
+ * Bug 1: new Date("2026-08-01") crea medianoche UTC, que en BD se almacena como
+ *        2026-07-31 19:00:00-05 (un día atrás).
+ * Bug 2: la hora siempre quedaba en 00:00 porque el frontend solo enviaba fecha.
  *
- * Fix: matchDate + 5 horas → pasa de medianoche UTC (7pm Colombia del día anterior)
- * a medianoche Colombia (0:00-05) del día correcto.
+ * Fix:
+ *   - Suma 5 horas para corregir el día (medianoche UTC → medianoche Colombia).
+ *   - Reemplaza la hora (00:00:00) con la hora del createdAt, para conservar
+ *     cuándo ocurrió realmente el evento.
  *
  * Uso:
  *   node scripts/fix-match-dates.js            → dry-run
@@ -38,22 +40,38 @@ async function main() {
   console.log(`\nTotal partidos: ${matches.length}`);
 
   const toFix = [];
+
   for (const m of matches) {
     const matchDate = new Date(m.matchDate);
     const createdAt = new Date(m.createdAt);
 
-    // Solo corregir si la hora UTC es medianoche (00:00:00 UTC), que es el
-    // patrón del bug: el frontend enviaba "2026-08-01T00:00:00.000Z".
-    const isMidnightUTC =
-      matchDate.getUTCHours() === 0 &&
-      matchDate.getUTCMinutes() === 0 &&
-      matchDate.getUTCSeconds() === 0;
+    // matchDate actual en Colombia: si está a medianoche (00:00:00 COT) es porque
+    // el frontend nunca envió hora. Corregimos día (si corresponde) y ponemos la
+    // hora del createdAt.
+    const isMidnightColombia =
+      matchDate.getHours() === 0 &&
+      matchDate.getMinutes() === 0 &&
+      matchDate.getSeconds() === 0;
 
-    if (!isMidnightUTC) continue;
+    if (!isMidnightColombia) continue;
 
-    // matchDate actual: medianoche UTC → 7pm Colombia del día anterior.
-    // Sumar 5 horas → medianoche Colombia del día correcto.
-    const corrected = new Date(matchDate.getTime() + 5 * 60 * 60 * 1000);
+    // Corregir día: sumar 5 horas por si aún está con el bug original
+    // (medianoche UTC → 19:00 COT día anterior). Si ya está corregido
+    // (medianoche Colombia), sumar 0.
+    const isOldBug = matchDate.getUTCHours() === 0;
+    const dayShift = isOldBug ? 5 * 60 * 60 * 1000 : 0;
+
+    const dateBase = new Date(matchDate.getTime() + dayShift);
+
+    // Combinar: fecha corregida + hora del createdAt
+    const corrected = new Date(
+      dateBase.getFullYear(),
+      dateBase.getMonth(),
+      dateBase.getDate(),
+      createdAt.getHours(),
+      createdAt.getMinutes(),
+      createdAt.getSeconds(),
+    );
 
     toFix.push({
       id: m.id,
@@ -66,15 +84,15 @@ async function main() {
   }
 
   console.log(`\n📋 Partidos a corregir: ${toFix.length}`);
-  console.log('   ' + '-'.repeat(90));
+  console.log('   ' + '-'.repeat(100));
   console.log('   ID    | Clase  | Actual                     | Corregido                  | Creado');
-  console.log('   ' + '-'.repeat(90));
+  console.log('   ' + '-'.repeat(100));
   for (const item of toFix) {
     console.log(
       `   ${String(item.id).padEnd(6)} | ${String(item.classId).padEnd(6)} | ${item.current.padEnd(27)} | ${item.correctedStr.padEnd(27)} | ${item.createdAt}`
     );
   }
-  console.log('   ' + '-'.repeat(90));
+  console.log('   ' + '-'.repeat(100));
 
   if (APPLY) {
     console.log('\n⚙️  Aplicando correcciones...');
