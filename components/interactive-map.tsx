@@ -122,22 +122,23 @@ export function InteractiveMap({
     if (!map) return;
     
     try {
-      const service = new google.maps.places.PlacesService(map);
-      service.getDetails(
-        {
-          placeId: prediction.place_id,
-          fields: ['geometry', 'formatted_address']
-        },
-        (place, status) => {
-          if (status === google.maps.places.PlacesServiceStatus.OK && place && place.geometry?.location) {
-            const lat = place.geometry.location.lat();
-            const lng = place.geometry.location.lng();
+      // Geocoding en lugar de Place Details: solo devuelve coordenadas y dirección
+      // sin Atmosphere Data (calificaciones, reseñas, precios) ni Contact Data
+      // (teléfonos, horarios, web), evitando los costos adicionales de Places API.
+      const geocoder = new google.maps.Geocoder();
+      geocoder.geocode(
+        { address: prediction.description, region: "CO" },
+        (results, status) => {
+          if (status === "OK" && results && results[0]) {
+            const location = results[0].geometry.location;
+            const lat = location.lat();
+            const lng = location.lng();
             
             setMarker({ lat, lng });
             map.panTo({ lat, lng });
             map.setZoom(16);
             
-            const address = place.formatted_address || prediction.description;
+            const address = results[0].formatted_address || prediction.description;
             setSearchAddress(address);
             onAddressChange(address);
             onCoordinatesChange(lat, lng);
