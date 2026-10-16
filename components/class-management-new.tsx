@@ -1413,14 +1413,14 @@ export function ClassManagementNew() {
     
     return (
       <div className="overflow-x-auto">
-        <Table>
+        <Table className="table-fixed w-full">
           <TableHeader>
             <TableRow className="border-gray-600">
-              <TableHead className="text-gray-300">Estudiante</TableHead>
-              <TableHead className="text-gray-300">Clase de Origen</TableHead>
-              <TableHead className="text-gray-300">Clase de Destino</TableHead>
-              <TableHead className="text-gray-300">Transferido por</TableHead>
-              <TableHead className="text-gray-300">Motivo</TableHead>
+              <TableHead className="text-gray-300 w-[22%]">Estudiante</TableHead>
+              <TableHead className="text-gray-300 w-[23%]">Clase de Origen</TableHead>
+              <TableHead className="text-gray-300 w-[23%]">Clase de Destino</TableHead>
+              <TableHead className="text-gray-300 w-[17%]">Transferido por</TableHead>
+              <TableHead className="text-gray-300 w-[15%]">Motivo</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -1432,11 +1432,11 @@ export function ClassManagementNew() {
                     <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center flex-shrink-0">
                       <User className="h-5 w-5 text-white" />
                     </div>
-                    <div className="min-w-0">
-                      <p className="text-white font-medium truncate">
+                    <div className="min-w-0 overflow-hidden">
+                      <p className="text-white font-medium truncate" title={transfer.student.name}>
                         {transfer.student.name}
                       </p>
-                      <p className="text-xs text-gray-400 truncate">
+                      <p className="text-xs text-gray-400 truncate" title={transfer.student.phone}>
                         {transfer.student.phone}
                       </p>
                     </div>
@@ -1445,43 +1445,47 @@ export function ClassManagementNew() {
 
                 {/* Clase de Origen */}
                 <TableCell>
-                  <div className="space-y-1">
+                  <div className="space-y-1 overflow-hidden">
                     <Badge className={`${getSportBadgeColor(transfer.fromClass.sport)} text-white text-xs`}>
                       {getSportLabel(transfer.fromClass.sport)}
                     </Badge>
-                    <p className="text-sm font-medium text-white truncate">
-                      {transfer.fromClass.name}
+                    <p className="text-sm font-medium text-white truncate" title={transfer.fromClass.name}>
+                      {transfer.fromClass.name.split(' - ')[0]}
                     </p>
-                    <p className="text-xs text-gray-400 truncate">
-                      {transfer.fromClass.trainer.name}
-                    </p>
-                  </div>
-                </TableCell>
-
-                {/* Clase de Destino */}
-                <TableCell>
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <Badge className={`${getSportBadgeColor(transfer.toClass.sport)} text-white text-xs`}>
-                        {getSportLabel(transfer.toClass.sport)}
-                      </Badge>
+<p className="text-xs text-gray-400 truncate" title={transfer.fromClass.trainer.name}>
+                        {transfer.fromClass.trainer.name}
+                      </p>
                     </div>
-                    <p className="text-sm font-medium text-white truncate">
-                      {transfer.toClass.name.split(' - ')[0]}
-                    </p>
-                    <p className="text-xs text-gray-400 truncate">
-                      {transfer.toClass.trainer.name}
-                    </p>
-                  </div>
+                  </TableCell>
+
+                  {/* Clase de Destino */}
+                  <TableCell>
+                    {transfer.type === 'WITHDRAWAL' ? (
+                      <Badge className="bg-red-600/80 text-white text-xs">Retirado</Badge>
+                  ) : (
+                    <div className="space-y-1 overflow-hidden">
+                      <div className="flex items-center gap-2">
+                        <Badge className={`${getSportBadgeColor(transfer.toClass!.sport)} text-white text-xs`}>
+                          {getSportLabel(transfer.toClass!.sport)}
+                        </Badge>
+                      </div>
+                      <p className="text-sm font-medium text-white truncate" title={transfer.toClass!.name}>
+                        {transfer.toClass!.name.split(' - ')[0]}
+                      </p>
+                      <p className="text-xs text-gray-400 truncate" title={transfer.toClass!.trainer.name}>
+                        {transfer.toClass!.trainer.name}
+                      </p>
+                    </div>
+                  )}
                 </TableCell>
 
                 {/* Transferido por */}
                 <TableCell>
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium text-white truncate">
+                  <div className="space-y-1 overflow-hidden">
+                    <p className="text-sm font-medium text-white truncate" title={getUserDisplayName(transfer.user)}>
                       {getUserDisplayName(transfer.user)}
                     </p>
-                    <p className="text-xs text-gray-400">
+                    <p className="text-xs text-gray-400 truncate" title={formatDate(transfer.transferredAt)}>
                       {formatDate(transfer.transferredAt)}
                     </p>
                   </div>
@@ -1490,11 +1494,11 @@ export function ClassManagementNew() {
 
                 {/* Motivo */}
                 <TableCell>
-                  <div className="text-sm text-gray-400">
+                  <div className="text-sm text-gray-400 truncate overflow-hidden" title={transfer.reason || ''}>
                     {transfer.reason ? (
-                      <span className="italic">"{transfer.reason}"</span>
+                      <span className="italic truncate">"{transfer.reason}"</span>
                     ) : (
-                      <span className="text-gray-500">Sin motivo</span>
+                      <span className="text-gray-500 truncate">Sin motivo</span>
                     )}
                   </div>
                 </TableCell>
