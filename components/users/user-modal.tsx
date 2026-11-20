@@ -18,6 +18,7 @@ interface User {
     id: number
     name: string
     phone?: string
+    birthDate?: string
   }
   student?: {
     name: string
@@ -28,6 +29,8 @@ interface Trainer {
   id: number
   name: string
   email: string
+  phone?: string
+  birthDate?: string
 }
 
 interface UserModalProps {
@@ -46,6 +49,7 @@ export function UserModal({ isOpen, onClose, onSave, user, trainers, isLoading }
     password: "",
     name: "",
     phone: "",
+    birthDate: "",
     role: "STUDENT",
     isActive: true
   })
@@ -54,7 +58,8 @@ export function UserModal({ isOpen, onClose, onSave, user, trainers, isLoading }
     name: "",
     email: "",
     password: "",
-    phone: ""
+    phone: "",
+    birthDate: ""
   })
 
   const isEditing = !!user
@@ -76,6 +81,7 @@ export function UserModal({ isOpen, onClose, onSave, user, trainers, isLoading }
         password: "",
         name: user.trainer?.name || user.student?.name || user.name || "",
         phone: phoneNumber,
+        birthDate: user.trainer?.birthDate || "",
         role: user.role || "STUDENT",
         isActive: user.isActive ?? true
       });
@@ -85,6 +91,7 @@ export function UserModal({ isOpen, onClose, onSave, user, trainers, isLoading }
         password: "",
         name: "",
         phone: "",
+        birthDate: "",
         role: "STUDENT",
         isActive: true
       });
@@ -95,7 +102,8 @@ export function UserModal({ isOpen, onClose, onSave, user, trainers, isLoading }
       name: "",
       email: "",
       password: "",
-      phone: ""
+      phone: "",
+      birthDate: ""
     });
   }, [user]);
 
@@ -155,6 +163,7 @@ export function UserModal({ isOpen, onClose, onSave, user, trainers, isLoading }
       password: "",
       name: "",
       phone: "",
+      birthDate: "",
       role: "STUDENT",
       isActive: true
     });
@@ -162,7 +171,8 @@ export function UserModal({ isOpen, onClose, onSave, user, trainers, isLoading }
       name: "",
       email: "",
       password: "",
-      phone: ""
+      phone: "",
+      birthDate: ""
     });
     setShowPassword(false)
     onClose()
@@ -294,12 +304,28 @@ export function UserModal({ isOpen, onClose, onSave, user, trainers, isLoading }
                   errors.phone ? 'border-red-500' : ''
                 }`}
               />
-              {errors.phone && (
-                <p className="text-xs text-red-400">{errors.phone}</p>
-              )}
-              <p className="text-xs text-gray-400">Ingresa solo números (ej: 3001234567)</p>
-            </div>
+{errors.phone && (
+            <p className="text-xs text-red-400">{errors.phone}</p>
           )}
+          <p className="text-xs text-gray-400">Ingresa solo números (ej: 3001234567)</p>
+        </div>
+      )}
+
+      {formData.role === "TEACHER" && (
+        <div className="space-y-2">
+          <Label htmlFor="birthDate" className="text-white">Fecha de Nacimiento</Label>
+          <Input
+            id="birthDate"
+            type="date"
+            value={formData.birthDate}
+            onChange={(e) => {
+              setFormData({...formData, birthDate: e.target.value});
+            }}
+            className="bg-gray-700 border-gray-600 text-white"
+          />
+          <p className="text-xs text-gray-400">Fecha de nacimiento del profesor</p>
+        </div>
+      )}
 
           {isEditing && (
             <div className="flex items-center space-x-2">

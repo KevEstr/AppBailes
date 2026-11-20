@@ -4,7 +4,8 @@ import {
   Receipt, 
   MessageSquare, 
   BarChart3, 
-  AlertTriangle 
+  AlertTriangle,
+  CalendarDays
 } from "lucide-react"
 
 export interface RouteConfig {
@@ -18,6 +19,15 @@ export interface RouteConfig {
 }
 
 export const routes: RouteConfig[] = [
+  {
+    id: "calendar",
+    href: "/calendar",
+    label: "Calendario de Cumpleaños",
+    icon: CalendarDays,
+    description: "Cumpleaños de deportistas y profesores",
+    color: "from-blue-500 to-cyan-600",
+    keywords: ["calendario", "cumpleaños", "deportistas", "profesores", "fechas"]
+  },
   {
     id: "classes",
     href: "/classes",
@@ -83,6 +93,7 @@ export const getRouteById = (id: string): RouteConfig | undefined => {
 }
 
 export const segmentNames: Record<string, string> = {
+  'calendar': 'Calendario de Cumpleaños',
   'classes': 'Gestión de Clases',
   'attendance': 'Asistencia',
   'receipts': 'Recibos', 

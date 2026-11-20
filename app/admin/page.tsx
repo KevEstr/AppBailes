@@ -16,7 +16,8 @@ import {
   UserCheck,
   ArrowRight,
   Package,
-  ShoppingCart
+  ShoppingCart,
+  CalendarDays
 } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
@@ -51,6 +52,14 @@ function AdminContent() {
   }
 
   const adminMenuItems = [
+    {
+      id: "calendar",
+      href: "/calendar",
+      label: "Calendario de Cumpleaños",
+      icon: CalendarDays,
+      description: "Cumpleaños de deportistas y profesores",
+      color: "from-blue-500 to-cyan-600",
+    },
     {
       id: "users",
       href: "/admin/users",

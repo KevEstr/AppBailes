@@ -17,6 +17,7 @@ import {
   GraduationCap,
   User,
   Camera,
+  Download,
   Trophy,
 } from "lucide-react";
 import { ProfilePhotoModal } from "@/components/profile/ProfilePhotoModal";
@@ -473,6 +474,28 @@ export function StudentDetailModal({ enrollment, student }: StudentDetailModalPr
                   </button>
                 }
               />
+
+              {detailData.student.avatar && detailData.student.avatar.trim() !== '' && (
+                <button
+                  onClick={async (e) => {
+                    e.stopPropagation();
+                    try {
+                      const res = await fetch(detailData.student.avatar);
+                      const blob = await res.blob();
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement("a");
+                      a.href = url;
+                      a.download = `foto-${detailData.student.name.replace(/\s+/g, "-").toLowerCase()}.jpg`;
+                      a.click();
+                      URL.revokeObjectURL(url);
+                    } catch {}
+                  }}
+                  className="absolute -bottom-1 -left-1 w-6 h-6 bg-gray-600 hover:bg-gray-500 rounded-full flex items-center justify-center text-white shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                  title="Descargar foto de perfil"
+                >
+                  <Download className="w-3 h-3" />
+                </button>
+              )}
             </div>
             <div className="flex-1 min-w-0">
               <h2 className="text-xl sm:text-2xl font-bold text-white truncate">

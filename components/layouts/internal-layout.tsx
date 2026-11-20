@@ -17,6 +17,7 @@ export const InternalLayout = memo(function InternalLayout({ children, title, de
   const pathname = usePathname()
 
   const segmentNames: Record<string, string> = useMemo(() => ({
+    'calendar': 'Calendario de Cumpleaños',
     'attendance': 'Asistencia',
     'receipts': 'Recibos',
     'messages': 'Notificaciones',

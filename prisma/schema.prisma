@@ -297,6 +297,7 @@ model MassiveMessage {
 model Trainer {
   name      String
   phone     String       @unique
+  birthDate String?
   isActive  Boolean      @default(true)
   createdAt DateTime     @default(now()) @db.Timestamptz
   updatedAt DateTime     @updatedAt @db.Timestamptz

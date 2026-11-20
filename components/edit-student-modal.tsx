@@ -843,7 +843,7 @@ export default function EditStudentModal({
             </Card>
 
             {/* Configuración de Pagos por Clase */}
-            <Card className="bg-gray-700/50 border-gray-600 backdrop-blur-sm">
+            {isAdmin && (<Card className="bg-gray-700/50 border-gray-600 backdrop-blur-sm">
               <CardHeader className="pb-3 sm:pb-6">
                 <CardTitle className="flex items-center gap-2 text-base sm:text-lg text-white">
                   <div className="rounded-lg bg-gradient-to-r from-yellow-500 to-orange-500 p-1.5">
@@ -924,6 +924,7 @@ export default function EditStudentModal({
                 )}
               </CardContent>
             </Card>
+            )}
 
             {/* Estado Legal */}
             <Card className="bg-gray-700/50 border-gray-600 backdrop-blur-sm">

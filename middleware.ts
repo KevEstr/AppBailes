@@ -2,7 +2,7 @@ import { withAuth } from "next-auth/middleware"
 import { NextResponse } from "next/server"
 
 // ⚡ RUTAS DE LA APLICACIÓN
-const ADMIN_ROUTES = ["/admin", "/receipts", "/messages", "/debts", "/history"]
+const ADMIN_ROUTES = ["/admin", "/calendar", "/receipts", "/messages", "/debts", "/history"]
 const SHARED_ROUTES = ["/classes", "/attendance"]
 const TEACHER_ROUTES = ["/teacher"]
 const STUDENT_ROUTES = ["/student"]

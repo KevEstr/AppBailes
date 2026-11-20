@@ -60,9 +60,9 @@ export async function PUT(
       return NextResponse.json({ error: "Invalid user ID" }, { status: 400 })
     }
 
-    const { email, password, role, isActive, name, phone } = await request.json()
+    const { email, password, role, isActive, name, phone, birthDate } = await request.json()
 
-    console.log("📝 Updating user:", { userId, email, role, isActive, name, phone })
+    console.log("📝 Updating user:", { userId, email, role, isActive, name, phone, birthDate })
 
     if (!email || !role) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
@@ -199,7 +199,8 @@ export async function PUT(
           where: { id: existingUser.trainer.id },
           data: {
             name: name.trim(),
-            phone: phoneWithCountryCode
+            phone: phoneWithCountryCode,
+            ...(birthDate !== undefined ? { birthDate: birthDate || null } : {})
           }
         });
 

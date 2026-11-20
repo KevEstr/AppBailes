@@ -6,6 +6,9 @@ import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { 
   GraduationCap, 
   Clock, 
@@ -17,7 +20,12 @@ import {
   XCircle,
   ArrowRight,
   User,
-  ShoppingCart
+  ShoppingCart,
+  UserRound,
+  Phone,
+  Cake,
+  Save,
+  X
 } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
@@ -55,6 +63,18 @@ function TeacherContent() {
   const [classes, setClasses] = useState<DanceClass[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [userSession, setUserSession] = useState<any>(null)
+  const [trainerProfile, setTrainerProfile] = useState<any>(null)
+  const [profileModalOpen, setProfileModalOpen] = useState(false)
+  const [savingProfile, setSavingProfile] = useState(false)
+  const [profileForm, setProfileForm] = useState({
+    name: "",
+    phone: "",
+    birthDate: "",
+    email: "",
+    password: "",
+    passwordConfirm: "",
+  })
+  const [profileError, setProfileError] = useState("")
 
   useEffect(() => {
     const loadData = async () => {
@@ -63,6 +83,24 @@ function TeacherContent() {
         const sessionResponse = await fetch("/api/auth/session")
         const session = await sessionResponse.json()
         setUserSession(session)
+
+        // Cargar perfil del profesor
+        if (session?.user?.role === "TEACHER") {
+          const profileRes = await fetch("/api/teacher/profile")
+          const profileData = await profileRes.json()
+          if (profileData.success) {
+            setTrainerProfile(profileData.trainer)
+            const phone = (profileData.trainer.phone || "").replace(/^57/, "")
+            setProfileForm({
+              name: profileData.trainer.name || "",
+              phone,
+              birthDate: profileData.trainer.birthDate || "",
+              email: profileData.trainer.user?.email || "",
+              password: "",
+              passwordConfirm: "",
+            })
+          }
+        }
 
         // Cargar clases del profesor
         if (session?.user?.trainerId) {
@@ -109,6 +147,57 @@ function TeacherContent() {
 
   const handleSignOut = () => {
     signOut({ callbackUrl: "/login" })
+  }
+
+  const saveProfile = async () => {
+    if (profileForm.password !== profileForm.passwordConfirm) {
+      setProfileError("Las contraseñas no coinciden")
+      return
+    }
+    if (profileForm.password && profileForm.password.length > 0 && profileForm.password.length < 6) {
+      setProfileError("La contraseña debe tener al menos 6 caracteres")
+      return
+    }
+
+    setSavingProfile(true)
+    setProfileError("")
+    try {
+      const body: any = {
+        name: profileForm.name,
+        phone: profileForm.phone,
+        birthDate: profileForm.birthDate || null,
+        email: profileForm.email,
+      }
+      if (profileForm.password) {
+        body.password = profileForm.password
+      }
+
+      const res = await fetch("/api/teacher/profile", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      })
+      const data = await res.json()
+      if (data.success) {
+        setTrainerProfile(data.trainer)
+        const phone = (data.trainer.phone || "").replace(/^57/, "")
+        setProfileForm({
+          name: data.trainer.name || "",
+          phone,
+          birthDate: data.trainer.birthDate || "",
+          email: data.trainer.user?.email || "",
+          password: "",
+          passwordConfirm: "",
+        })
+        setProfileModalOpen(false)
+      } else {
+        setProfileError(data.error || "Error al guardar")
+      }
+    } catch (e) {
+      setProfileError("Error de conexión")
+    } finally {
+      setSavingProfile(false)
+    }
   }
 
   const getDayName = (dayNumber: number) => {
@@ -180,6 +269,58 @@ function TeacherContent() {
               </div>
             </div>
           </div>
+
+          {/* Perfil del Profesor */}
+          {trainerProfile && (
+            <Card className="border-0 bg-gradient-to-r from-blue-800/90 to-blue-700/90 shadow-xl">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between flex-wrap gap-4">
+                  <div className="flex items-center gap-4">
+                    <div className="flex-shrink-0 w-14 h-14 rounded-full bg-gray-700 flex items-center justify-center border-2 border-blue-400">
+                      <UserRound className="h-7 w-7 text-blue-300" />
+                    </div>
+                    <div>
+                      <h3 className="text-base font-semibold text-white">{trainerProfile.name}</h3>
+                      <div className="flex items-center gap-3 text-xs text-gray-300 mt-1">
+                        <span className="flex items-center gap-1">
+                          <Phone className="w-3 h-3 text-gray-400" />
+                          {trainerProfile.phone?.replace(/^57/, "") || "—"}
+                        </span>
+                        {trainerProfile.user?.email && (
+                          <span>{trainerProfile.user.email}</span>
+                        )}
+                        {trainerProfile.birthDate && (
+                          <span className="flex items-center gap-1">
+                            <Cake className="w-3 h-3 text-gray-400" />
+                            {trainerProfile.birthDate}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      const phone = (trainerProfile.phone || "").replace(/^57/, "")
+                      setProfileForm({
+                        name: trainerProfile.name || "",
+                        phone,
+                        birthDate: trainerProfile.birthDate || "",
+                        email: trainerProfile.user?.email || "",
+                        password: "",
+                        passwordConfirm: "",
+                      })
+                      setProfileError("")
+                      setProfileModalOpen(true)
+                    }}
+                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                  >
+                    Editar Perfil
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Estadísticas rápidas */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -340,6 +481,115 @@ function TeacherContent() {
           </Card>
         </div>
       </div>
+
+      {/* Modal Editar Perfil */}
+      <Dialog open={profileModalOpen} onOpenChange={setProfileModalOpen}>
+        <DialogContent className="sm:max-w-md bg-gray-800 border-gray-600">
+          <DialogHeader>
+            <DialogTitle className="text-white text-lg font-bold flex items-center gap-2">
+              <UserRound className="h-5 w-5 text-blue-400" />
+              Editar Perfil
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="pName" className="text-white">Nombre Completo</Label>
+              <Input
+                id="pName"
+                value={profileForm.name}
+                onChange={(e) => setProfileForm({...profileForm, name: e.target.value})}
+                className="bg-gray-700 border-gray-600 text-white"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="pPhone" className="text-white">Teléfono</Label>
+              <Input
+                id="pPhone"
+                type="tel"
+                value={profileForm.phone}
+                onChange={(e) => {
+                  const clean = e.target.value.replace(/[^0-9]/g, "")
+                  setProfileForm({...profileForm, phone: clean})
+                }}
+                className="bg-gray-700 border-gray-600 text-white"
+              />
+              <p className="text-xs text-gray-400">10 dígitos (ej: 3001234567)</p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="pBirthDate" className="text-white">Fecha de Nacimiento</Label>
+              <Input
+                id="pBirthDate"
+                type="date"
+                value={profileForm.birthDate}
+                onChange={(e) => setProfileForm({...profileForm, birthDate: e.target.value})}
+                className="bg-gray-700 border-gray-600 text-white"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="pEmail" className="text-white">Correo Electrónico</Label>
+              <Input
+                id="pEmail"
+                type="email"
+                value={profileForm.email}
+                onChange={(e) => setProfileForm({...profileForm, email: e.target.value})}
+                className="bg-gray-700 border-gray-600 text-white"
+              />
+            </div>
+
+            <hr className="border-gray-700 my-2" />
+
+            <div className="space-y-2">
+              <Label htmlFor="pPassword" className="text-white">Nueva Contraseña</Label>
+              <Input
+                id="pPassword"
+                type="password"
+                placeholder="Dejar vacío para mantener actual"
+                value={profileForm.password}
+                onChange={(e) => setProfileForm({...profileForm, password: e.target.value})}
+                className="bg-gray-700 border-gray-600 text-white"
+              />
+              <p className="text-xs text-gray-400">Mínimo 6 caracteres</p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="pPasswordConfirm" className="text-white">Confirmar Contraseña</Label>
+              <Input
+                id="pPasswordConfirm"
+                type="password"
+                placeholder="Repite la nueva contraseña"
+                value={profileForm.passwordConfirm}
+                onChange={(e) => setProfileForm({...profileForm, passwordConfirm: e.target.value})}
+                className="bg-gray-700 border-gray-600 text-white"
+              />
+            </div>
+
+            {profileError && (
+              <p className="text-xs text-red-400">{profileError}</p>
+            )}
+
+            <div className="flex space-x-4 pt-2">
+              <Button
+                disabled={savingProfile}
+                onClick={saveProfile}
+                className="bg-gradient-to-r from-blue-500 to-cyan-600 text-white"
+              >
+                {savingProfile ? "Guardando..." : "Guardar Cambios"}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setProfileModalOpen(false)}
+                className="border-gray-600 text-gray-300 hover:bg-gray-700"
+                disabled={savingProfile}
+              >
+                Cancelar
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

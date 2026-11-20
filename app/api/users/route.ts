@@ -87,7 +87,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { email, password, role, phone, name } = await request.json()
+    const { email, password, role, phone, name, birthDate } = await request.json()
 
     // Limpiar email y contraseña antes de procesar
     const cleanEmail = email?.trim();
@@ -159,6 +159,7 @@ export async function POST(request: NextRequest) {
           data: {
             name,
             phone: phoneWithCountryCode,
+            birthDate: birthDate || undefined,
             userId: newUser.id
           }
         })
